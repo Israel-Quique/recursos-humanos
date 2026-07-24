@@ -1,0 +1,19 @@
+{
+  "name": "recursos-humanos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx tailwindcss -i resources/css/app.css -o public/css/app.css --watch",
+    "build": "npx tailwindcss -i resources/css/app.css -o public/css/app.css --minify"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "@trase/trase-atlas": "^1.1.1",
+    "d3": "^7.9.0",
+    "topojson-client": "^3.1.0"
+  }
+}

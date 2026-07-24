@@ -1,0 +1,1321 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --color-offwhite: #f7f8f4;
+}
+
+body{
+  background:
+    radial-gradient(circle at 22% 14%, rgba(255, 212, 0, 0.42), transparent 22%),
+    radial-gradient(circle at 56% 72%, rgba(142, 230, 225, 0.18), transparent 28%),
+    linear-gradient(180deg, #f4f6f2 0%, #f9faf6 55%, #f4f7f3 100%);
+  min-height: 100vh;
+}
+
+.guest-body{
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 210, 27, 0.45), transparent 30%),
+    radial-gradient(circle at 82% 10%, rgba(15, 76, 129, 0.14), transparent 24%),
+    linear-gradient(135deg, #ffd400 0%, #ffe77a 26%, #fff5c7 55%, #eef6ff 100%);
+}
+
+.font-serif{
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+}
+
+.app-shell{
+  @apply min-h-screen lg:grid lg:grid-cols-[300px,1fr] xl:grid-cols-[312px,1fr];
+}
+
+.app-sidebar{
+  @apply relative p-0 lg:p-0;
+}
+
+.app-sidebar-panel{
+  @apply sticky top-0 flex min-h-screen flex-col overflow-hidden px-6 py-7 text-white shadow-[0_30px_90px_rgba(8,58,112,0.26)];
+  background:
+    radial-gradient(circle at top left, rgba(255, 212, 0, 0.72), rgba(255, 212, 0, 0) 28%),
+    radial-gradient(circle at center left, rgba(255, 255, 255, 0.10), rgba(255,255,255,0) 36%),
+    linear-gradient(180deg, #274a57 0%, #163f7d 24%, #173f79 68%, #163462 100%);
+}
+
+.app-sidebar-brandmark{
+  @apply overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/5 p-3 shadow-[0_16px_36px_rgba(0,0,0,0.14)];
+}
+
+.app-sidebar-brandmark-image{
+  @apply block h-auto max-h-[86px] w-full rounded-[1.15rem] bg-[#f7c931] object-contain;
+}
+
+.app-sidebar-nav{
+  @apply mt-7 flex flex-1 flex-col gap-3;
+}
+
+.app-sidebar-link{
+  @apply flex items-center gap-4 rounded-[1.2rem] px-4 py-3 text-[1.02rem] font-semibold text-white/90 transition duration-200 hover:bg-white/10;
+}
+
+.app-sidebar-link-active{
+  @apply bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)];
+}
+
+.app-sidebar-link-dot{
+  @apply h-2.5 w-2.5 rounded-full bg-[#ffd400];
+  box-shadow: 0 0 0 4px rgba(255, 212, 0, 0.12);
+}
+
+.app-sidebar-logout{
+  @apply mt-8;
+}
+
+.app-sidebar-logout-button{
+  @apply flex w-full items-center justify-center gap-3 rounded-[1.1rem] bg-[#ffa31a] px-4 py-3 text-sm font-bold text-white shadow-[0_18px_32px_rgba(255,163,26,0.30)] transition hover:-translate-y-0.5 hover:bg-[#f19200];
+}
+
+.app-main{
+  @apply relative min-w-0 px-3 pb-8 pt-7 md:px-6 lg:px-7 xl:px-8;
+}
+
+.app-main-header{
+  @apply mb-6 rounded-[2rem] border border-white/80 bg-white/90 px-6 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur;
+}
+
+.app-main-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.32em] text-[#0f67c0];
+}
+
+.app-main-title{
+  @apply mt-2 font-serif text-3xl text-slate-900 md:text-[2.7rem];
+}
+
+.app-session-chip{
+  @apply inline-flex items-center gap-3 self-start rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-600 shadow-sm;
+}
+
+.app-session-icon{
+  @apply h-4 w-4 rounded-full bg-[#0f67c0];
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,0.95);
+}
+
+.app-toast{
+  @apply fixed right-5 top-5 z-30 hidden items-start gap-4 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-4 text-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition duration-500 xl:flex;
+}
+
+.app-toast-icon{
+  @apply mt-1 h-5 w-5 rounded-full bg-[#0f67c0];
+  box-shadow: inset 0 0 0 5px rgba(255,255,255,0.96);
+}
+
+.app-toast-title{
+  @apply text-xl font-semibold text-slate-800;
+}
+
+.app-toast-copy{
+  @apply mt-1 text-sm text-slate-500;
+}
+
+.app-toast-hidden{
+  @apply pointer-events-none translate-y-3 opacity-0;
+}
+
+.app-footer{
+  @apply mt-10 flex flex-col gap-3 border-t border-white/80 px-1 pt-8 text-sm text-slate-400 md:flex-row md:items-center md:justify-between;
+}
+
+.page-stack{
+  @apply mx-auto max-w-[1680px] space-y-8;
+}
+
+.page-stack-calendar{
+  @apply max-w-none space-y-6;
+}
+
+.surface-card{
+  @apply rounded-[2rem] border border-white/80 bg-white/90 p-6 xl:p-7 shadow-[0_20px_52px_rgba(15,23,42,0.06)] backdrop-blur;
+}
+
+.surface-card-calendar{
+  @apply p-5 xl:p-6;
+}
+
+.surface-card-map{
+  @apply overflow-hidden;
+}
+
+.surface-card-large{
+  @apply min-h-[24rem];
+}
+
+.surface-card-side{
+  @apply min-h-[24rem];
+}
+
+.section-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-[#0f67c0];
+}
+
+.section-kicker-soft{
+  @apply text-slate-400;
+}
+
+.section-title{
+  @apply font-serif text-3xl text-slate-900 md:text-[2.6rem];
+}
+
+.section-title-xl{
+  @apply mt-4 max-w-5xl text-[2.75rem] leading-tight md:text-[4rem];
+}
+
+.section-copy{
+  @apply mt-5 max-w-4xl text-[15px] leading-8 text-slate-600;
+}
+
+.section-copy-sm{
+  @apply mt-2 text-sm leading-7 text-slate-500;
+}
+
+.section-head-row{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.section-action-button{
+  @apply inline-flex items-center justify-center self-start rounded-[1rem] bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(15,103,192,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0d58a4];
+}
+
+.app-modal-backdrop{
+  @apply fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm;
+}
+
+.app-modal-card{
+  @apply relative z-50 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-8 shadow-[0_30px_90px_rgba(15,23,42,0.22)];
+}
+
+.app-modal-card-detail{
+  @apply max-w-[82rem] p-10 xl:p-12;
+}
+
+.app-modal-head{
+  @apply flex flex-col gap-4 border-b border-slate-100 pb-6 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.app-modal-title{
+  @apply md:text-[2.3rem];
+}
+
+.app-modal-close{
+  @apply inline-flex h-11 w-11 items-center justify-center self-start rounded-full border border-slate-200 bg-slate-50 text-lg font-semibold leading-none text-slate-600 transition hover:bg-slate-100;
+}
+
+.app-modal-close-corner{
+  @apply absolute right-5 top-5 z-10 self-auto;
+}
+
+.app-modal-actions{
+  @apply flex flex-col-reverse gap-3 pt-2 md:flex-row md:justify-end;
+}
+
+.app-modal-secondary{
+  @apply inline-flex items-center justify-center rounded-[0.95rem] border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50;
+}
+
+.app-modal-submit{
+  @apply md:w-auto md:min-w-[220px];
+}
+
+.dashboard-grid{
+  @apply grid gap-6 2xl:grid-cols-[minmax(0,1.55fr),480px];
+}
+
+.bolivia-map-card{
+  @apply mt-6 grid items-stretch gap-6 xl:grid-cols-[minmax(0,1.25fr),300px];
+}
+
+.bolivia-map-shell{
+  @apply overflow-hidden rounded-[1.8rem] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f6fbff_100%)] p-4 shadow-inner;
+}
+
+.bolivia-map-svg{
+  @apply h-auto w-full;
+}
+
+.bolivia-map-canvas{
+  @apply flex min-h-[22rem] w-full items-center justify-center;
+}
+
+.bolivia-map-layer{
+  isolation: isolate;
+}
+
+.bolivia-map-region{
+  cursor: pointer;
+  stroke: #5f6771;
+  stroke-width: 1.35;
+  outline: none;
+  transition: fill 0.22s ease, filter 0.22s ease, transform 0.22s ease;
+}
+
+.bolivia-map-region:hover,
+.bolivia-map-region:focus-visible,
+.bolivia-map-region.is-active{
+  filter: brightness(0.98);
+  stroke: #21466f;
+  stroke-width: 2.4;
+}
+
+.bolivia-map-label{
+  fill: #5b5f66;
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.map-fallback-copy{
+  @apply flex min-h-[22rem] items-center justify-center text-center text-sm text-slate-400;
+}
+
+.department-bubble{
+  @apply flex min-h-[22rem] flex-col rounded-[1.7rem] border border-slate-200 bg-white p-6 shadow-[0_18px_38px_rgba(15,23,42,0.07)];
+}
+
+.department-bubble-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.24em] text-[#0f67c0];
+}
+
+.department-bubble-title{
+  @apply mt-3 font-serif text-[2.35rem] leading-tight text-slate-900;
+}
+
+.department-bubble-copy{
+  @apply mt-2 text-sm leading-6 text-slate-500;
+}
+
+.department-bubble-grid{
+  @apply mt-6 space-y-3;
+}
+
+.department-bubble-stat{
+  @apply flex items-center justify-between rounded-[1.1rem] bg-slate-50 px-4 py-3 text-sm text-slate-600;
+}
+
+.department-bubble-stat strong{
+  @apply text-xl font-bold text-slate-900;
+}
+
+.department-bubble-stat-alert{
+  @apply bg-amber-50 text-amber-800;
+}
+
+.hero-status-row{
+  @apply mt-12 flex flex-wrap gap-4 border-t border-slate-100 pt-6;
+}
+
+.hero-status-pill{
+  @apply inline-flex items-center gap-3 text-sm text-slate-600;
+}
+
+.hero-status-icon{
+  @apply h-5 w-5 rounded-full bg-emerald-100;
+  box-shadow: inset 0 0 0 6px #16a34a;
+}
+
+.hero-status-icon-lock{
+  @apply bg-blue-100;
+  box-shadow: inset 0 0 0 6px #0f67c0;
+}
+
+.summary-list{
+  @apply space-y-6;
+}
+
+.summary-item{
+  @apply flex items-center justify-between gap-4 border-b border-slate-100 pb-6 text-[15px] text-slate-600;
+}
+
+.summary-value{
+  @apply rounded-xl bg-slate-100 px-3 py-1 text-base font-bold text-[#0f4c81];
+}
+
+.sync-box{
+  @apply mt-8 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-5 text-center;
+}
+
+.sync-box-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.25em] text-[#0f67c0];
+}
+
+.sync-box-copy{
+  @apply mt-2 text-sm text-slate-400;
+}
+
+.metric-grid{
+  @apply grid gap-5 xl:grid-cols-4;
+}
+
+.metric-grid-3{
+  @apply xl:grid-cols-3;
+}
+
+.metric-card{
+  @apply rounded-[1.6rem] border border-white/80 bg-white/90 px-6 py-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)];
+}
+
+.metric-card-centered{
+  @apply text-center;
+}
+
+.metric-icon{
+  @apply mx-auto block h-10 w-10 rounded-full;
+}
+
+.metric-icon-emerald{
+  @apply bg-emerald-100;
+  box-shadow: inset 0 0 0 9px #059669;
+}
+
+.metric-icon-amber{
+  @apply bg-amber-100;
+  box-shadow: inset 0 0 0 9px #d97706;
+}
+
+.metric-icon-rose{
+  @apply bg-rose-100;
+  box-shadow: inset 0 0 0 9px #e11d48;
+}
+
+.metric-label{
+  @apply text-[12px] font-bold uppercase tracking-[0.24em] text-slate-400;
+}
+
+.metric-value{
+  @apply mt-3 block font-serif text-4xl text-slate-900 md:text-[3.2rem];
+}
+
+.metric-card-detail{
+  @apply min-h-[14rem] px-7 py-7;
+}
+
+.metric-value-detail{
+  @apply text-[3rem] leading-[1.05] md:text-[3.35rem];
+  overflow-wrap: anywhere;
+}
+
+.detail-info-card{
+  @apply rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-5;
+}
+
+.detail-info-value{
+  @apply mt-3 text-[1.15rem] font-semibold text-slate-900;
+}
+
+.pdf-export-sheet{
+  @apply rounded-[1.8rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)];
+}
+
+.pdf-export-header{
+  @apply flex flex-col gap-5 border-b border-slate-200 pb-6 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.pdf-export-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-[#0f67c0];
+}
+
+.pdf-export-title{
+  @apply mt-2 font-serif text-[2.2rem] leading-tight text-slate-900 md:text-[2.8rem];
+}
+
+.pdf-export-copy{
+  @apply mt-3 max-w-3xl text-sm leading-7 text-slate-500;
+}
+
+.pdf-export-badge{
+  @apply self-start rounded-[1.2rem] border border-slate-200 bg-white px-5 py-4 shadow-sm;
+}
+
+.pdf-export-badge-label{
+  @apply block text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400;
+}
+
+.pdf-export-badge-value{
+  @apply mt-2 block text-lg font-semibold text-slate-900;
+}
+
+.pdf-export-grid{
+  @apply grid gap-4;
+}
+
+.pdf-export-grid-primary{
+  @apply md:grid-cols-2 xl:grid-cols-4;
+}
+
+.pdf-export-grid-secondary{
+  @apply md:grid-cols-2 xl:grid-cols-3;
+}
+
+.pdf-export-card{
+  @apply rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_12px_28px_rgba(15,23,42,0.05)];
+}
+
+.pdf-export-card-highlight{
+  background: linear-gradient(135deg, #eef6ff 0%, #ffffff 100%);
+}
+
+.pdf-export-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400;
+}
+
+.pdf-export-value{
+  @apply mt-3 block text-[1.35rem] font-bold leading-tight text-slate-900;
+}
+
+.pdf-export-value-sm{
+  @apply mt-3 text-[1.05rem] font-semibold leading-7 text-slate-900;
+}
+
+.pdf-export-table-shell{
+  @apply mt-0 border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.05)];
+}
+
+.pdf-export-section-head{
+  @apply mb-4;
+}
+
+.metric-copy{
+  @apply mt-2 text-sm leading-6 text-slate-400;
+}
+
+.dual-grid{
+  @apply grid gap-6 2xl:grid-cols-2;
+}
+
+.module-grid{
+  @apply mt-6 grid gap-5 lg:grid-cols-2;
+}
+
+.module-card-refined{
+  @apply rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(15,103,192,0.10)];
+}
+
+.list-stack{
+  @apply mt-6 space-y-4;
+}
+
+.list-card{
+  @apply rounded-[1.2rem] border border-slate-200 bg-white px-4 py-4;
+}
+
+.list-row{
+  @apply flex items-center justify-between gap-4;
+}
+
+.status-badge{
+  @apply inline-flex rounded-full px-3 py-1 text-xs font-bold;
+}
+
+.status-available{
+  @apply bg-emerald-100 text-emerald-700;
+}
+
+.status-warning{
+  @apply bg-amber-100 text-amber-700;
+}
+
+.status-danger{
+  @apply bg-rose-100 text-rose-700;
+}
+
+.status-info{
+  @apply bg-blue-100 text-blue-700;
+}
+
+.diagnostic-grid{
+  @apply grid gap-5 xl:grid-cols-2;
+}
+
+.diagnostic-card{
+  @apply rounded-[1.5rem] border border-slate-200 bg-white p-5;
+}
+
+.report-priority{
+  @apply inline-flex rounded-full px-3 py-1 text-xs font-bold;
+}
+
+.upload-dropzone{
+  @apply relative mt-10 flex min-h-[18rem] flex-col items-center justify-center rounded-[1.8rem] border-2 border-dashed border-[#a9bfdc] bg-[linear-gradient(180deg,rgba(248,250,252,0.98)_0%,rgba(241,245,249,0.82)_100%)] px-6 py-10 text-center transition duration-200 hover:border-[#0f67c0] hover:bg-white;
+}
+
+.upload-dropzone-input{
+  @apply absolute inset-0 z-10 cursor-pointer opacity-0;
+}
+
+.upload-badge{
+  @apply mb-6 flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-white text-[#0f67c0] shadow-[0_16px_36px_rgba(15,103,192,0.14)];
+}
+
+.upload-badge-icon{
+  width: 42px;
+  height: 42px;
+}
+
+.upload-title{
+  @apply max-w-2xl text-[1.9rem] font-semibold leading-tight text-[#18386c];
+}
+
+.upload-copy{
+  @apply mt-3 max-w-2xl text-sm leading-7 text-slate-500;
+}
+
+.upload-actions{
+  @apply mt-6 flex flex-col items-center gap-3;
+}
+
+.upload-action-button{
+  @apply inline-flex items-center rounded-full bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,103,192,0.20)];
+}
+
+.upload-hint{
+  @apply text-sm text-slate-400;
+}
+
+.upload-format{
+  @apply mt-6 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs text-slate-500;
+}
+
+.upload-loading{
+  @apply mt-4 text-sm font-semibold text-[#0f67c0];
+}
+
+.loading-overlay{
+  @apply absolute inset-0 z-20 flex items-center justify-center rounded-[1.5rem] bg-slate-950/40 backdrop-blur-sm;
+}
+
+.loading-spinner{
+  @apply inline-flex flex-col items-center gap-3 rounded-[1.5rem] bg-white/95 px-5 py-6 text-slate-700 shadow-[0_30px_60px_rgba(15,23,42,0.16)];
+}
+
+.loading-spinner-icon{
+  width: 3rem;
+  height: 3rem;
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner-circle{
+  stroke: #0f67c0;
+  stroke-linecap: round;
+  stroke-dasharray: 110;
+  stroke-dashoffset: 75;
+}
+
+.loading-spinner-text{
+  @apply text-sm font-semibold;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.history-header{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.history-pill{
+  @apply inline-flex items-center gap-3 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-500;
+}
+
+.history-table-shell{
+  @apply mt-8 overflow-x-auto rounded-[1.5rem] border border-slate-100;
+}
+
+.history-table-shell-personal{
+  @apply overflow-x-auto;
+}
+
+.history-table{
+  @apply w-full border-collapse text-left text-sm text-slate-600;
+}
+
+.history-table thead{
+  @apply bg-white;
+}
+
+.history-table th{
+  @apply px-6 py-4 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-400;
+}
+
+.history-table td{
+  @apply border-t border-slate-100 px-6 py-4;
+}
+
+.history-table-shell-personal .history-table{
+  min-width: 860px;
+}
+
+.history-table-shell-personal .history-table th,
+.history-table-shell-personal .history-table td{
+  white-space: nowrap;
+}
+
+.audit-detail-cell{
+  min-width: 26rem;
+  max-width: 36rem;
+  white-space: normal !important;
+  vertical-align: top;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.audit-detail-block + .audit-detail-block{
+  margin-top: 0.5rem;
+}
+
+.audit-detail-block strong{
+  display: block;
+  margin-bottom: 0.35rem;
+  color: rgb(15 23 42);
+}
+
+.audit-detail-block pre{
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.audit-control-cell{
+  white-space: normal !important;
+  vertical-align: top;
+}
+
+.table-actions-cell{
+  @apply min-w-[260px];
+}
+
+.table-actions-group{
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.table-action-button{
+  @apply inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#0f67c0] hover:text-[#0f67c0];
+}
+
+.table-action-button-danger{
+  @apply border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-500 hover:text-rose-700;
+}
+
+.table-action-icon{
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.table-pagination-shell{
+  @apply mt-6 overflow-x-auto;
+}
+
+.table-pagination-bar{
+  @apply flex min-w-max flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.table-pagination-copy{
+  @apply text-sm text-slate-500;
+}
+
+.table-pagination-actions{
+  @apply flex items-center gap-2 self-start xl:self-auto;
+}
+
+.table-pagination-button{
+  @apply inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm;
+}
+
+.table-pagination-button-active{
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white;
+}
+
+.table-pagination-button-disabled{
+  @apply cursor-not-allowed opacity-50;
+}
+
+.device-grid{
+  @apply mt-8 grid gap-4 xl:grid-cols-2;
+}
+
+.device-card{
+  @apply rounded-[1.4rem] border p-5;
+}
+
+.device-card-online{
+  @apply border-emerald-200 bg-emerald-50/60;
+}
+
+.device-card-offline{
+  @apply border-rose-200 bg-rose-50/60;
+}
+
+.device-card-head{
+  @apply flex items-start justify-between gap-4;
+}
+
+.device-card-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500;
+}
+
+.device-card-title{
+  @apply mt-2 font-serif text-2xl text-slate-900;
+}
+
+.device-card-meta{
+  @apply mt-4 flex flex-col gap-2 text-sm text-slate-600;
+}
+
+.device-alert-box{
+  @apply mt-6 rounded-[1.4rem] border border-amber-200 bg-amber-50 px-5 py-5;
+}
+
+.device-alert-title{
+  @apply text-sm font-bold text-amber-900;
+}
+
+.device-alert-list{
+  @apply mt-4 flex flex-wrap gap-3;
+}
+
+.device-alert-pill{
+  @apply rounded-full bg-white px-4 py-2 text-sm font-semibold text-amber-800;
+}
+
+.timeline-stack{
+  @apply mt-6 space-y-4;
+}
+
+.timeline-item{
+  @apply flex gap-4 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-4;
+}
+
+.timeline-index{
+  @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0] text-sm font-bold text-white;
+}
+
+.calendar-header{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.calendar-controls{
+  @apply flex items-center gap-3 self-start;
+}
+
+.calendar-chip{
+  @apply rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600;
+}
+
+.calendar-month-box{
+  @apply inline-flex items-center gap-4 rounded-[1rem] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#18386c];
+}
+
+.calendar-arrow{
+  @apply text-2xl leading-none text-[#18386c] transition hover:text-[#0f67c0];
+}
+
+.calendar-shell{
+  @apply mt-4 overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white;
+}
+
+.calendar-layout{
+  @apply mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),320px] 2xl:grid-cols-[minmax(0,1fr),340px];
+}
+
+.calendar-grid-main{
+  min-width: 0;
+}
+
+.calendar-legend{
+  @apply mt-6 flex flex-wrap items-center gap-4;
+}
+
+.calendar-legend-item{
+  @apply inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700;
+}
+
+.calendar-weekdays{
+  @apply grid min-w-[760px] grid-cols-7 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500;
+}
+
+.calendar-weekdays div{
+  @apply border-r border-slate-200 px-3 py-4 last:border-r-0;
+}
+
+.calendar-weeks{
+  @apply bg-white;
+}
+
+.calendar-week-row{
+  @apply grid min-w-[760px] grid-cols-7;
+}
+
+.calendar-day-card{
+  @apply flex min-h-[5.8rem] flex-col border-r border-t border-slate-200 px-2 py-2 last:border-r-0;
+}
+
+.calendar-day-card-interactive{
+  @apply cursor-pointer transition hover:bg-slate-50;
+}
+
+.calendar-day-card-muted{
+  @apply bg-slate-50 text-slate-300;
+}
+
+.calendar-day-card-today{
+  @apply bg-amber-50/60;
+}
+
+.calendar-day-card-selected{
+  @apply bg-[#eef6ff] ring-2 ring-inset ring-[#0f67c0];
+}
+
+.calendar-day-top{
+  @apply flex items-start justify-end;
+}
+
+.calendar-day-number{
+  @apply text-[15px] font-semibold text-slate-700;
+}
+
+.calendar-day-events{
+  @apply mt-auto flex flex-wrap items-center gap-2 overflow-hidden;
+}
+
+.calendar-day-counter{
+  @apply inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700;
+}
+
+.calendar-day-counter-dark{
+  @apply border-slate-300 bg-slate-100 text-slate-900;
+}
+
+.calendar-event-dot{
+  @apply mt-1 h-3 w-3 shrink-0 rounded-full;
+}
+
+.calendar-event-copy{
+  @apply flex min-w-0 flex-col;
+}
+
+.calendar-event-name{
+  @apply truncate text-xs font-semibold text-slate-800;
+}
+
+.calendar-event-detail{
+  @apply text-[11px] text-slate-500;
+}
+
+.calendar-event-red{
+  @apply border-rose-200 bg-rose-50/80;
+}
+
+.calendar-event-black{
+  @apply border-slate-900/20 bg-slate-200/70;
+}
+
+.calendar-event-dot-red{
+  @apply bg-rose-500;
+}
+
+.calendar-event-dot-black{
+  @apply bg-slate-900;
+}
+
+.calendar-side-panel{
+  @apply rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)] xl:sticky xl:top-4 xl:self-start;
+  max-height: calc(100vh - 7rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-side-head{
+  @apply flex items-start justify-between gap-3 border-b border-slate-200 pb-4;
+  flex-shrink: 0;
+}
+
+.calendar-side-body{
+  @apply min-h-0 overflow-y-auto pr-1;
+}
+
+.calendar-side-day-title{
+  @apply text-[1.95rem] leading-none md:text-[2.2rem];
+}
+
+.calendar-side-badge{
+  @apply inline-flex items-center rounded-full bg-[#0f67c0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white;
+}
+
+.calendar-side-metrics{
+  @apply mt-4 grid gap-2.5 sm:grid-cols-2;
+}
+
+.calendar-side-metric{
+  @apply rounded-[1rem] border border-slate-200 bg-white px-3.5 py-3.5;
+}
+
+.calendar-side-metric-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400;
+}
+
+.calendar-side-metric-value{
+  @apply mt-2 block text-[1.7rem] leading-tight font-semibold text-slate-900;
+}
+
+.calendar-side-note{
+  @apply mt-4 rounded-[1rem] border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-800;
+}
+
+.calendar-side-block{
+  @apply mt-4 rounded-[1.1rem] border border-slate-200 bg-white px-3.5 py-3.5;
+}
+
+.calendar-side-toggle{
+  @apply block w-full text-left;
+}
+
+.calendar-side-block-head{
+  @apply flex items-center justify-between gap-4 border-b border-slate-100 pb-3;
+}
+
+.calendar-side-block-head-static{
+  @apply border-b-0 pb-0;
+}
+
+.calendar-side-block-title{
+  @apply text-base font-semibold text-slate-900;
+}
+
+.calendar-side-block-count{
+  @apply inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full bg-slate-100 px-2 text-sm font-semibold text-slate-700;
+}
+
+.calendar-side-toggle-meta{
+  @apply flex items-center gap-2;
+}
+
+.calendar-side-toggle-icon{
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-lg font-semibold leading-none text-slate-700;
+}
+
+.calendar-side-list{
+  @apply mt-4 space-y-3 overflow-y-auto pr-1;
+  max-height: 18.5rem;
+}
+
+.calendar-side-item{
+  @apply flex items-start gap-3 rounded-[1rem] border border-rose-100 bg-rose-50/55 px-3 py-3;
+}
+
+.calendar-side-item-neutral{
+  @apply border-slate-200 bg-slate-50;
+}
+
+.calendar-side-item-copy{
+  @apply flex min-w-0 flex-col;
+}
+
+.calendar-side-item-copy strong{
+  @apply truncate text-sm text-slate-900;
+}
+
+.calendar-side-item-copy span{
+  @apply text-xs leading-5 text-slate-500;
+}
+
+.calendar-side-empty{
+  @apply rounded-[1rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500;
+}
+
+.report-scroll-list{
+  @apply overflow-y-auto pr-1;
+  max-height: 31rem;
+}
+
+.attendance-chart{
+  @apply mt-8 grid min-h-[20rem] grid-cols-2 items-end gap-4 md:grid-cols-3 xl:grid-cols-6;
+}
+
+.attendance-bar-group{
+  @apply flex h-full flex-col items-center justify-end;
+}
+
+.attendance-bar{
+  @apply w-full rounded-t-2xl bg-slate-200;
+}
+
+.attendance-bar-active{
+  @apply bg-[#0f4f97];
+}
+
+.attendance-bar-label{
+  @apply mt-4 text-sm text-slate-500;
+}
+
+.attendance-bar-label-active{
+  @apply font-semibold text-[#0f4f97];
+}
+
+.org-chart{
+  @apply mx-auto mt-10 flex max-w-4xl flex-col items-center;
+}
+
+.org-node{
+  @apply w-full max-w-[23rem] rounded-[1.2rem] border border-slate-200 bg-white px-6 py-6 text-center shadow-sm;
+}
+
+.org-node-main{
+  @apply max-w-[28rem];
+}
+
+.org-node-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.25em] text-amber-500;
+}
+
+.org-node-title{
+  @apply mt-3 font-serif text-3xl text-slate-900;
+}
+
+.org-node-copy{
+  @apply mt-2 text-sm leading-6 text-slate-400;
+}
+
+.org-connector{
+  @apply my-4 h-8 w-px bg-slate-200;
+}
+
+.org-branches{
+  @apply grid w-full gap-5 xl:grid-cols-2;
+}
+
+.login-stage{
+  @apply flex min-h-screen items-center justify-center px-6 py-10;
+}
+
+.login-shell{
+  @apply grid w-full max-w-6xl overflow-hidden rounded-[2.5rem] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] lg:grid-cols-[1.08fr,0.92fr];
+}
+
+.login-welcome{
+  @apply relative overflow-hidden px-8 py-10 text-white lg:px-12 lg:py-14;
+  background: linear-gradient(145deg, #0f67c0 0%, #0b4d93 45%, #083a70 100%);
+}
+
+.login-welcome-bubble{
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 212, 0, 0.95) 0%, rgba(255, 187, 0, 0.92) 58%, rgba(255, 187, 0, 0) 100%);
+  opacity: 0.95;
+}
+
+.login-welcome-bubble-top{
+  width: 320px;
+  height: 320px;
+  top: -170px;
+  right: -120px;
+}
+
+.login-welcome-bubble-bottom{
+  width: 260px;
+  height: 260px;
+  bottom: -150px;
+  left: -90px;
+  opacity: 0.55;
+}
+
+.login-welcome-content{
+  @apply relative z-10 mx-auto max-w-md;
+}
+
+.login-welcome-brand{
+  @apply flex items-center gap-4;
+}
+
+.login-brand{
+  @apply flex items-center gap-4;
+}
+
+.login-brand-badge{
+  @apply flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-white font-serif text-2xl font-bold text-[#0f4c81] shadow-[0_16px_30px_rgba(0,0,0,0.16)];
+}
+
+.login-brand-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-amber-200;
+}
+
+.login-brand-title{
+  @apply mt-1 font-serif text-5xl text-white;
+}
+
+.login-welcome-copy{
+  @apply mt-8 text-sm leading-7 text-blue-50;
+  color: rgba(239, 246, 255, 0.9);
+}
+
+.login-status-ok{
+  @apply mt-6 rounded-2xl border border-emerald-200/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+}
+
+.login-input-shell{
+  @apply relative;
+}
+
+.form-label{
+  @apply mb-2 block pt-1 text-sm font-semibold leading-normal text-slate-700;
+}
+
+.form-input{
+  @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100;
+}
+
+.form-error{
+  @apply mt-2 text-sm text-rose-600;
+}
+
+.login-input{
+  @apply rounded-[0.95rem] border-white/70 bg-white pl-12 pr-12 text-slate-900 shadow-[0_10px_20px_rgba(5,40,73,0.08)] focus:border-amber-300 focus:ring-amber-200/60;
+}
+
+.login-input-icon{
+  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500;
+}
+
+.login-input-icon svg,
+.login-eye svg{
+  width: 18px;
+  height: 18px;
+}
+
+.login-eye{
+  @apply absolute inset-y-0 right-0 flex items-center pr-4 text-xs font-bold uppercase tracking-[0.18em] text-[#0f4c81];
+}
+
+.login-link-hint{
+  @apply text-xs font-semibold text-amber-200;
+}
+
+.login-submit{
+  @apply inline-flex w-full items-center justify-center rounded-[0.95rem] bg-[#ff9f1a] px-4 py-3.5 text-lg font-semibold text-white shadow-[0_16px_30px_rgba(255,159,26,0.35)] transition hover:-translate-y-0.5 hover:bg-[#f18b00];
+}
+
+.login-form-label{
+  @apply text-white;
+}
+
+.login-forgot-copy{
+  @apply text-center text-xs text-blue-100;
+  color: rgba(219, 234, 254, 0.8);
+}
+
+.login-sidecard{
+  @apply relative flex items-center justify-center overflow-hidden bg-white px-8 py-10 lg:px-12 lg:py-14;
+}
+
+.login-sidecard::before{
+  content: "";
+  position: absolute;
+  top: -90px;
+  right: -80px;
+  width: 240px;
+  height: 240px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255,212,0,0.95) 0%, rgba(255,212,0,0.42) 55%, rgba(255,212,0,0) 100%);
+}
+
+.login-sidecard::after{
+  content: "";
+  position: absolute;
+  bottom: -80px;
+  left: -70px;
+  width: 210px;
+  height: 210px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(15,103,192,0.18) 0%, rgba(15,103,192,0.05) 58%, rgba(15,103,192,0) 100%);
+}
+
+.login-sidecard-content{
+  @apply relative z-10 mx-auto max-w-sm text-center;
+}
+
+.login-sidecard-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.28em] text-[#0f4c81];
+}
+
+.login-sidecard-title{
+  @apply mt-4 font-serif text-4xl leading-tight text-slate-900;
+}
+
+.login-sidecard-copy{
+  @apply mt-5 text-sm leading-7 text-slate-600;
+}
+
+.login-sidecard-badge{
+  @apply mx-auto mt-8 inline-flex items-center gap-2 rounded-full bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,103,192,0.22)];
+}
+
+.login-sidecard-badge-dot{
+  @apply h-2.5 w-2.5 rounded-full bg-[#ffd400];
+}
+
+@media (max-width: 1023px) {
+  .app-sidebar-panel{
+    @apply static min-h-0 rounded-b-[2rem] rounded-t-none px-5 py-6;
+  }
+
+  .app-toast{
+    @apply hidden;
+  }
+
+  .surface-card{
+    @apply p-6;
+  }
+
+  .section-title-xl{
+    @apply text-[2.35rem];
+  }
+
+  .login-shell{
+    @apply max-w-xl;
+  }
+
+  .login-sidecard{
+    @apply min-h-[300px];
+  }
+
+  .login-brand-title{
+    @apply text-4xl;
+  }
+}
+
+@media (max-width: 1400px) {
+  .bolivia-map-card{
+    @apply xl:grid-cols-[minmax(0,1.2fr),280px];
+  }
+}
+
+@media (max-width: 1279px) {
+  .bolivia-map-card{
+    @apply grid-cols-1;
+  }
+
+  .bolivia-map-canvas{
+    @apply min-h-[22rem];
+  }
+
+  .map-fallback-copy{
+    @apply min-h-[22rem];
+  }
+
+  .department-bubble{
+    @apply min-h-0;
+  }
+}
