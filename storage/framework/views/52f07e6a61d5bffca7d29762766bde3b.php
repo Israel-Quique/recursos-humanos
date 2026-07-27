@@ -243,22 +243,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <p class="section-kicker">Ficha del personal</p>
             <h3 class="section-title app-modal-title"><?php echo e($detailEmpleado['nombre_completo'] ?? 'Detalle del personal'); ?></h3>
             <p class="section-copy-sm">Resumen del perfil, horario regional asignado y detalle mensual de marcaciones.</p>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                wire:click="setDetailMarkingFilter('entrada')"
-                class="table-action-button <?php echo e($detailMarkingFilter === 'entrada' ? 'table-pagination-button-active' : ''); ?>"
-              >
-                Entrada
-              </button>
-              <button
-                type="button"
-                wire:click="setDetailMarkingFilter('salida')"
-                class="table-action-button <?php echo e($detailMarkingFilter === 'salida' ? 'table-pagination-button-active' : ''); ?>"
-              >
-                Salida
-              </button>
-            </div>
           </div>
           <div class="flex flex-col gap-3 md:items-end">
             <div class="w-full min-w-[16rem] md:w-auto">
@@ -331,11 +315,28 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
         </div>
 
+        <div class="detail-marking-filter-row">
+          <button
+            type="button"
+            wire:click="setDetailMarkingFilter('salida')"
+            class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : ''); ?>"
+          >
+            Salida
+          </button>
+          <button
+            type="button"
+            wire:click="setDetailMarkingFilter('entrada')"
+            class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : ''); ?>"
+          >
+            Entrada
+          </button>
+        </div>
+
         <div class="mt-8">
           <div class="section-head-row">
             <div>
               <p class="section-kicker">Marcaciones del mes</p>
-              <h4 class="section-title text-2xl">Detalle de entradas y salidas</h4>
+              <h4 class="section-title text-2xl">Detalle de Marcados</h4>
             </div>
           </div>
 
@@ -547,13 +548,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       <div class="history-table-shell history-table-shell-personal">
         <div class="mb-6 grid gap-4 px-6 pt-5 md:grid-cols-2">
           <div class="space-y-2">
-            <label for="personal-search" class="form-label">Buscar por nombre</label>
+            <label for="personal-search" class="form-label">Buscar por codigo o nombre</label>
             <input
               id="personal-search"
               type="text"
               wire:model.live.debounce.300ms="search"
               class="form-input"
-              placeholder="Escribe un nombre o apellido"
+              placeholder="Escribe un codigo, nombre o apellido"
               autocomplete="off"
             >
           </div>
@@ -708,7 +709,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       <div class="history-table-shell">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Filtrando historial por nombre:
+            Filtrando historial por codigo o nombre:
             <strong class="text-slate-900"><?php echo e(filled($search) ? $search : 'todos'); ?></strong>
           </div>
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -721,6 +722,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           <thead>
             <tr>
               <th>Empleado</th>
+              <th>Sucursal</th>
               <th>Fecha</th>
               <th>Dia</th>
               <th>Entrada</th>
@@ -733,6 +735,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $registros; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $registro): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
               <tr>
                 <td><?php echo e($registro->empleado?->nombre_completo ?? 'Sin empleado'); ?></td>
+                <td><?php echo e($registro->empleado?->sucursal ?? 'Sin sucursal'); ?></td>
                 <td><?php echo e($registro->fecha_formateada ?? 'Sin fecha'); ?></td>
                 <td><?php echo e(ucfirst($registro->dia ?? 'Sin dia')); ?></td>
                 <td><?php echo e($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--'); ?></td>
@@ -800,7 +803,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               </tr>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
               <tr>
-                <td colspan="7" class="text-center text-slate-400">No hay marcaciones recientes para mostrar.</td>
+                <td colspan="8" class="text-center text-slate-400">No hay marcaciones recientes para mostrar.</td>
               </tr>
             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           </tbody>
@@ -861,7 +864,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       <div class="history-table-shell history-table-shell-personal">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Control mensual por nombre:
+            Control mensual por codigo o nombre:
             <strong class="text-slate-900"><?php echo e(filled($search) ? $search : 'todos'); ?></strong>
           </div>
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">

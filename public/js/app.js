@@ -70,6 +70,10 @@ function initBoliviaMap() {
   const bubbleWorking = root.querySelector('[data-department-working]');
   const bubbleEmployees = root.querySelector('[data-department-employees]');
   const bubbleMissing = root.querySelector('[data-department-missing]');
+  const bubbleUpdatedAt = root.querySelector('[data-department-updated-at]');
+  const bubbleSyncLabel = root.querySelector('[data-department-sync-label]');
+  const bubblePresenceTotal = root.querySelector('[data-department-presence-total]');
+  const bubblePresenceList = root.querySelector('[data-department-presence-list]');
 
   if (!canvas || !dataScript) {
     return;
@@ -120,6 +124,44 @@ function initBoliviaMap() {
       bubbleEmployees.textContent = payload.employees ?? 0;
     }
     bubbleMissing.textContent = payload.missing;
+    if (bubbleUpdatedAt) {
+      bubbleUpdatedAt.textContent = payload.updated_at || '--:--';
+    }
+    if (bubbleSyncLabel) {
+      bubbleSyncLabel.textContent = payload.sync_label || 'Sin sincronizacion automatica registrada';
+    }
+    if (bubblePresenceTotal) {
+      bubblePresenceTotal.textContent = payload.people_in_agency_total ?? 0;
+    }
+    if (bubblePresenceList) {
+      const people = Array.isArray(payload.people_in_agency) ? payload.people_in_agency : [];
+
+      bubblePresenceList.innerHTML = '';
+
+      if (!people.length) {
+        const empty = document.createElement('p');
+        empty.className = 'department-presence-empty';
+        empty.textContent = 'No hay personal dentro de la agencia en este momento.';
+        bubblePresenceList.appendChild(empty);
+
+        return;
+      }
+
+      people.forEach((person) => {
+        const item = document.createElement('article');
+        item.className = 'department-presence-item';
+
+        const name = document.createElement('strong');
+        name.textContent = person.name || 'Sin nombre';
+
+        const detail = document.createElement('span');
+        detail.textContent = `${person.area || 'Sin area'} | ${person.status || 'Dentro de agencia'}`;
+
+        item.appendChild(name);
+        item.appendChild(detail);
+        bubblePresenceList.appendChild(item);
+      });
+    }
   };
 
   const renderToken = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -326,4 +368,12 @@ document.addEventListener('DOMContentLoaded', initHumanResourcesUi);
 document.addEventListener('livewire:navigated', initHumanResourcesUi);
 document.addEventListener('livewire:init', () => {
   Livewire.on('print-empleado-pdf', printEmployeePdfFromModal);
+
+  if (typeof Livewire.hook === 'function') {
+    Livewire.hook('morph.updated', ({ el }) => {
+      if (el?.querySelector?.('[data-bolivia-map-root]') || el?.matches?.('[data-bolivia-map-root]')) {
+        initBoliviaMap();
+      }
+    });
+  }
 });

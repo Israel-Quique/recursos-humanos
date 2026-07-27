@@ -1,4 +1,139 @@
 <div class="page-stack">
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(session('status')): ?>
+    <div class="rounded-[1.4rem] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+      <?php echo e(session('status')); ?>
+
+    </div>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showBiometricoModal): ?>
+    <div class="app-modal-backdrop" wire:click="closeBiometricoModal">
+      <div class="app-modal-card" x-on:click.stop>
+        <button type="button" wire:click="closeBiometricoModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
+        <div class="app-modal-head">
+          <div>
+            <p class="section-kicker">Registro de equipos</p>
+            <h3 class="section-title app-modal-title"><?php echo e($editingBiometricoId ? 'Editar biometrico' : 'Agregar biometrico'); ?></h3>
+            <p class="section-copy-sm">
+              <?php echo e($editingBiometricoId ? 'Actualiza la IP, puerto o modo de conexion del biometrico seleccionado.' : 'Registra las IPs, puertos y modo de conexion de La Paz y de los demas departamentos.'); ?>
+
+            </p>
+          </div>
+        </div>
+
+        <form wire:submit="saveBiometrico" class="mt-8 grid gap-5 md:grid-cols-2">
+          <div>
+            <label class="form-label">Departamento</label>
+            <input type="text" wire:model="deviceDepartment" class="form-input" placeholder="Ej. La Paz">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['deviceDepartment'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div>
+            <label class="form-label">Sucursal o biometrico</label>
+            <input type="text" wire:model="deviceBranch" class="form-input" placeholder="Ej. Oficina Central La Paz">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['deviceBranch'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div>
+            <label class="form-label">IP</label>
+            <input type="text" wire:model="deviceIp" class="form-input" placeholder="Ej. 172.65.14.108">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['deviceIp'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div>
+            <label class="form-label">Puerto</label>
+            <input type="number" wire:model="devicePort" class="form-input" min="1" max="65535" placeholder="4370">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['devicePort'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div>
+            <label class="form-label">Modo de conexion</label>
+            <select wire:model="deviceConnectionMode" class="form-input">
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $connectionModes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $connectionMode): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($connectionMode); ?>"><?php echo e($connectionMode); ?></option>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </select>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['deviceConnectionMode'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div>
+            <label class="form-label">Contrasena de comunicacion</label>
+            <input type="text" wire:model="deviceCommunicationPassword" class="form-input" placeholder="Opcional">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['deviceCommunicationPassword'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
+          <div class="md:col-span-2 app-modal-actions">
+            <button type="button" wire:click="closeBiometricoModal" class="app-modal-secondary">Cancelar</button>
+            <button type="submit" class="login-submit app-modal-submit">
+              <?php echo e($editingBiometricoId ? 'Guardar cambios' : 'Guardar biometrico'); ?>
+
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showDeleteModal): ?>
+    <div class="app-modal-backdrop" wire:click="closeDeleteModal">
+      <div class="app-modal-card" x-on:click.stop>
+        <button type="button" wire:click="closeDeleteModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
+        <div class="app-modal-head">
+          <div>
+            <p class="section-kicker">Confirmacion</p>
+            <h3 class="section-title app-modal-title">Eliminar importacion</h3>
+            <p class="section-copy-sm">Seguro que quieres eliminar esta importacion y todos sus registros asociados?</p>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-[1.2rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
+          <strong><?php echo e($pendingDeleteImportacionNombre); ?></strong>
+        </div>
+
+        <div class="mt-6 app-modal-actions">
+          <button type="button" wire:click="closeDeleteModal" class="app-modal-secondary">Cancelar</button>
+          <button type="button" wire:click="deleteImportacion" class="table-action-button table-action-button-danger">Si, eliminar</button>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
   <section class="surface-card relative">
     <div wire:loading wire:target="importFile" class="loading-overlay">
       <div class="loading-spinner" role="status" aria-live="polite" aria-label="Importando archivo">
@@ -110,16 +245,47 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
     <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
   </section>
 
-  <section class="surface-card">
+  <section class="surface-card" wire:poll.30s>
     <div class="history-header">
       <div>
         <p class="section-kicker">Monitoreo por IP</p>
         <h3 class="section-title">Estado de conexion de biometricos</h3>
         <p class="section-copy-sm">Cuando un biometrico este conectado, sus asistencias podran registrarse directo en el sistema.</p>
       </div>
-      <div class="history-pill">
-        <span class="hero-status-icon"></span>
-        <span><?php echo e(collect($connections)->where('connected', true)->count()); ?> equipos conectados</span>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" wire:click="openBiometricoModal" class="table-action-button">
+          Agregar biometrico
+        </button>
+        <div class="history-pill">
+          <span class="hero-status-icon"></span>
+          <span><?php echo e(collect($connections)->where('connected', true)->count()); ?> equipos conectados</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label for="export-year" class="form-label">Filtrar por anio</label>
+        <select id="export-year" wire:model.live="exportYear" class="form-input">
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $exportYearOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $year): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <option value="<?php echo e($year); ?>"><?php echo e($year); ?></option>
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </select>
+      </div>
+      <div>
+        <label for="export-month" class="form-label">Filtrar por mes</label>
+        <select id="export-month" wire:model.live="exportMonth" class="form-input">
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $exportMonthOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $monthOption): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <option value="<?php echo e($monthOption['value']); ?>"><?php echo e($monthOption['label']); ?></option>
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </select>
+      </div>
+      <div class="md:col-span-2 xl:col-span-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        Periodo de extraccion:
+        <strong class="text-slate-900">
+          <?php echo e(collect($exportMonthOptions)->firstWhere('value', $exportMonth)['label'] ?? $exportMonth); ?>/<?php echo e($exportYear); ?>
+
+        </strong>
       </div>
     </div>
 
@@ -138,20 +304,62 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
           <div class="device-card-meta">
             <span>IP: <strong><?php echo e($device['ip']); ?></strong></span>
+            <span>Puerto: <strong><?php echo e($device['port'] ?? 4370); ?></strong></span>
+            <span>Modo: <strong><?php echo e($device['connection_mode'] ?? 'TCP/IP'); ?></strong></span>
             <span><?php echo e($device['last_sync']); ?></span>
+          </div>
+          <div class="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              wire:click="probarConexion(<?php echo e($loop->index); ?>)"
+              wire:loading.attr="disabled"
+              wire:target="probarConexion(<?php echo e($loop->index); ?>)"
+              class="table-action-button"
+            >
+              <span wire:loading.remove wire:target="probarConexion(<?php echo e($loop->index); ?>)">Probar conexion</span>
+              <span wire:loading wire:target="probarConexion(<?php echo e($loop->index); ?>)">Probando...</span>
+            </button>
+            <button
+              type="button"
+              wire:click="extraerExcel(<?php echo e($loop->index); ?>)"
+              wire:loading.attr="disabled"
+              wire:target="extraerExcel(<?php echo e($loop->index); ?>)"
+              class="table-action-button"
+            >
+              <span wire:loading.remove wire:target="extraerExcel(<?php echo e($loop->index); ?>)">Extraer Excel</span>
+              <span wire:loading wire:target="extraerExcel(<?php echo e($loop->index); ?>)">Extrayendo...</span>
+            </button>
+            <button
+              type="button"
+              wire:click="<?php echo e(! empty($device['id']) ? 'openEditBiometricoModal('.$device['id'].')' : 'openEditBiometricoModalByIndex('.$loop->index.')'); ?>"
+              class="table-action-button"
+            >
+              Editar
+            </button>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(! empty($device['id'])): ?>
+              <button
+                type="button"
+                wire:click="deleteBiometrico(<?php echo e($device['id']); ?>)"
+                class="table-action-button table-action-button-danger"
+              >
+                Eliminar
+              </button>
+            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           </div>
         </article>
       <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
     </div>
 
-    <div class="device-alert-box">
-      <p class="device-alert-title">Sucursales sin conexion directa</p>
-      <div class="device-alert-list">
-        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = collect($connections)->where('connected', false); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $device): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-          <span class="device-alert-pill"><?php echo e($device['branch']); ?> - <?php echo e($device['department']); ?></span>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(collect($connections)->where('connected', false)->isNotEmpty()): ?>
+      <div class="device-alert-box">
+        <p class="device-alert-title">Sucursales sin conexion directa</p>
+        <div class="device-alert-list">
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = collect($connections)->where('connected', false); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $device): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <span class="device-alert-pill"><?php echo e($device['branch']); ?> - <?php echo e($device['department']); ?></span>
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </div>
       </div>
-    </div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
   </section>
 
   <section class="surface-card">
@@ -187,8 +395,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <td>
                 <button
                   type="button"
-                  wire:click="deleteImportacion(<?php echo e($row['id']); ?>)"
-                  onclick="return confirm('Eliminar esta importacion y todos sus registros asociados?')"
+                  wire:click="openDeleteModal(<?php echo e($row['id']); ?>, '<?php echo e(addslashes($row['file'])); ?>')"
                   class="table-action-button table-action-button-danger"
                 >
                   Eliminar

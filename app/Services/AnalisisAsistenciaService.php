@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Empleado;
 use App\Models\Importacion;
+use App\Models\BiometricoDispositivo;
 use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
 use Carbon\Carbon;
@@ -594,37 +595,77 @@ class AnalisisAsistenciaService
             ->with('empleado')
             ->whereDate('fecha', $today)
             ->get();
+        $deviceStatuses = BiometricoDispositivo::query()
+            ->where('is_active', true)
+            ->get()
+            ->groupBy(fn (BiometricoDispositivo $device) => $this->departamentoDesdeTexto($device->department.' '.$device->branch) ?? '__unknown__');
 
-        return $base->map(function (array $department, string $key) use ($employees, $attendances) {
+        return $base->map(function (array $department, string $key) use ($employees, $attendances, $deviceStatuses) {
             $departmentEmployees = $employees->filter(fn (Empleado $empleado) => $this->departamentoDesdeTexto($empleado->sucursal) === $key);
             $departmentAttendance = $attendances->filter(fn (RegistroAsistencia $registro) => $this->departamentoDesdeTexto($registro->empleado?->sucursal) === $key);
+            $departmentDevices = $deviceStatuses->get($key, collect());
+            $latestAttendanceByEmployee = $departmentAttendance
+                ->filter(fn (RegistroAsistencia $registro) => $registro->empleado_id)
+                ->groupBy('empleado_id')
+                ->map(function (Collection $rows) {
+                    return $rows->sortByDesc(function (RegistroAsistencia $registro) {
+                        return implode('|', [
+                            $registro->hora_salida ?? '',
+                            $registro->hora_entrada ?? '',
+                            optional($registro->updated_at)->timestamp ?? 0,
+                            $registro->id ?? 0,
+                        ]);
+                    })->first();
+                });
+            $insideEmployees = $latestAttendanceByEmployee
+                ->filter(fn (RegistroAsistencia $registro) => $this->estaDentroDeAgencia($registro))
+                ->map(function (RegistroAsistencia $registro) {
+                    $empleado = $registro->empleado;
+                    $departmentKey = $this->departamentoDesdeTexto($empleado?->sucursal);
+
+                    return [
+                        'name' => $empleado?->nombre_completo ?? 'Sin personal',
+                        'branch' => $this->etiquetaSucursalDepartamento($departmentKey, $empleado?->sucursal),
+                        'area' => $empleado?->area ?: 'Sin area',
+                        'status' => $registro->estado_marcacion ?: 'Dentro de agencia',
+                    ];
+                })
+                ->sortBy('name')
+                ->values();
 
             $marked = $departmentAttendance->pluck('empleado_id')->unique()->count();
-            $working = $departmentAttendance->filter(fn (RegistroAsistencia $registro) => filled($registro->hora_entrada))->count();
+            $working = $insideEmployees->count();
             $missing = max($departmentEmployees->count() - $marked, 0);
+            $latestSync = $departmentDevices
+                ->flatMap(function (BiometricoDispositivo $device) {
+                    return collect([$device->last_synced_mark_at, $device->last_seen_at])->filter();
+                })
+                ->sortByDesc(fn (Carbon $date) => $date->timestamp)
+                ->first();
+            $hasConnectedDevice = $departmentDevices->contains(function (BiometricoDispositivo $device) {
+                return $device->last_seen_at !== null || $device->last_synced_mark_at !== null;
+            });
 
             return [
                 'name' => $department['name'],
-                'branch' => $departmentEmployees->isNotEmpty()
-                    ? $departmentEmployees->pluck('sucursal')->filter()->unique()->join(', ')
-                    : $department['branch'],
+                'branch' => $this->etiquetaSucursalDepartamento($key, $departmentEmployees->pluck('sucursal')->filter()->first()),
                 'marked' => $marked,
                 'working' => $working,
                 'missing' => $missing,
                 'employees' => $departmentEmployees->count(),
+                'people_in_agency' => $insideEmployees->take(18)->all(),
+                'people_in_agency_total' => $insideEmployees->count(),
+                'updated_at' => $latestSync?->format('H:i') ?? 'Sin sync',
+                'sync_label' => $hasConnectedDevice && $latestSync
+                    ? 'Ultima sincronizacion '.strtolower($latestSync->translatedFormat('d/m/Y H:i'))
+                    : 'Sin sincronizacion automatica registrada',
             ];
         })->all();
     }
 
     public function estadoBiometricos(): array
     {
-        return [
-            ['department' => 'La Paz', 'branch' => 'Oficina Central', 'ip' => '10.14.1.15', 'connected' => true, 'last_sync' => 'Hace 12 segundos'],
-            ['department' => 'Santa Cruz', 'branch' => 'Regional Santa Cruz', 'ip' => '10.14.4.21', 'connected' => true, 'last_sync' => 'Hace 21 segundos'],
-            ['department' => 'Cochabamba', 'branch' => 'Regional Cochabamba', 'ip' => '10.14.3.18', 'connected' => true, 'last_sync' => 'Hace 18 segundos'],
-            ['department' => 'Tarija', 'branch' => 'Sucursal Tarija', 'ip' => '10.14.7.11', 'connected' => false, 'last_sync' => 'Sin conexion desde las 07:42'],
-            ['department' => 'Beni', 'branch' => 'Sucursal Trinidad', 'ip' => '10.14.8.16', 'connected' => false, 'last_sync' => 'Sin conexion desde las 08:03'],
-        ];
+        return app(ConexionBiometricoService::class)->estadoDispositivos();
     }
 
     public function incidenciasDelDia(): array
@@ -913,6 +954,52 @@ class AnalisisAsistenciaService
         return $this->programacionLaboral->esDiaNoLaborable($fecha, $sucursal);
     }
 
+    private function estaDentroDeAgencia(RegistroAsistencia $registro): bool
+    {
+        $estado = $this->normalizarTextoDepartamento((string) ($registro->estado_marcacion ?? ''));
+        $entrada = $this->normalizarHoraSimple($registro->hora_entrada);
+        $salida = $this->normalizarHoraSimple($registro->hora_salida);
+
+        if ($entrada !== null && $salida !== null && $entrada === $salida) {
+            return true;
+        }
+
+        if ($estado !== '') {
+            if (str_contains($estado, 'retorno') || str_contains($estado, 'entrada')) {
+                return true;
+            }
+
+            if (str_contains($estado, 'salida')) {
+                return false;
+            }
+        }
+
+        return filled($registro->hora_entrada) && blank($registro->hora_salida);
+    }
+
+    private function normalizarTextoDepartamento(string $texto): string
+    {
+        return str($texto)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', ' ')
+            ->trim()
+            ->toString();
+    }
+
+    private function normalizarHoraSimple(?string $hora): ?string
+    {
+        if (blank($hora)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($hora)->format('H:i:s');
+        } catch (\Throwable) {
+            return trim((string) $hora) !== '' ? trim((string) $hora) : null;
+        }
+    }
+
     private function formatearMinutosEtiqueta(int $minutos): string
     {
         if ($minutos <= 0) {
@@ -943,23 +1030,44 @@ class AnalisisAsistenciaService
 
     private function departamentoDesdeTexto(?string $texto): ?string
     {
-        $normalized = strtolower((string) str($texto)->ascii()->replaceMatches('/[^a-z0-9]+/', ' ')->trim());
+        $normalized = str($texto)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', ' ')
+            ->trim()
+            ->toString();
 
         if ($normalized === '') {
             return null;
         }
 
         return match (true) {
-            str_contains($normalized, 'la paz') => 'la-paz',
+            str_contains($normalized, 'la paz'), str_contains($normalized, 'lapaz') => 'la-paz',
             str_contains($normalized, 'oruro') => 'oruro',
             str_contains($normalized, 'potosi') => 'potosi',
             str_contains($normalized, 'cochabamba') => 'cochabamba',
             str_contains($normalized, 'chuquisaca'), str_contains($normalized, 'sucre') => 'chuquisaca',
             str_contains($normalized, 'tarija') => 'tarija',
-            str_contains($normalized, 'santa cruz') => 'santa-cruz',
+            str_contains($normalized, 'santa cruz'), str_contains($normalized, 'santacruz') => 'santa-cruz',
             str_contains($normalized, 'beni'), str_contains($normalized, 'trinidad') => 'beni',
             str_contains($normalized, 'pando'), str_contains($normalized, 'cobija') => 'pando',
             default => null,
+        };
+    }
+
+    private function etiquetaSucursalDepartamento(?string $departmentKey, ?string $branch): string
+    {
+        return match ($departmentKey) {
+            'la-paz' => 'Oficina Central La Paz',
+            'oruro' => 'Sucursal Oruro',
+            'potosi' => 'Sucursal Potosi',
+            'cochabamba' => 'Sucursal Cochabamba',
+            'chuquisaca' => 'Sucursal Sucre',
+            'tarija' => 'Sucursal Tarija',
+            'santa-cruz' => 'Sucursal Santa Cruz',
+            'beni' => 'Sucursal Beni',
+            'pando' => 'Sucursal Cobija',
+            default => trim((string) $branch) !== '' ? trim((string) $branch) : 'Sin sucursal',
         };
     }
 }

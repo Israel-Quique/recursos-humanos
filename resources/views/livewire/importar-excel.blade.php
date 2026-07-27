@@ -1,4 +1,70 @@
 <div class="page-stack">
+  @if (session('status'))
+    <div class="rounded-[1.4rem] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+      {{ session('status') }}
+    </div>
+  @endif
+
+  @if ($showBiometricoModal)
+    <div class="app-modal-backdrop" wire:click="closeBiometricoModal">
+      <div class="app-modal-card" x-on:click.stop>
+        <button type="button" wire:click="closeBiometricoModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
+        <div class="app-modal-head">
+          <div>
+            <p class="section-kicker">Registro de equipos</p>
+            <h3 class="section-title app-modal-title">{{ $editingBiometricoId ? 'Editar biometrico' : 'Agregar biometrico' }}</h3>
+            <p class="section-copy-sm">
+              {{ $editingBiometricoId ? 'Actualiza la IP, puerto o modo de conexion del biometrico seleccionado.' : 'Registra las IPs, puertos y modo de conexion de La Paz y de los demas departamentos.' }}
+            </p>
+          </div>
+        </div>
+
+        <form wire:submit="saveBiometrico" class="mt-8 grid gap-5 md:grid-cols-2">
+          <div>
+            <label class="form-label">Departamento</label>
+            <input type="text" wire:model="deviceDepartment" class="form-input" placeholder="Ej. La Paz">
+            @error('deviceDepartment') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">Sucursal o biometrico</label>
+            <input type="text" wire:model="deviceBranch" class="form-input" placeholder="Ej. Oficina Central La Paz">
+            @error('deviceBranch') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">IP</label>
+            <input type="text" wire:model="deviceIp" class="form-input" placeholder="Ej. 172.65.14.108">
+            @error('deviceIp') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">Puerto</label>
+            <input type="number" wire:model="devicePort" class="form-input" min="1" max="65535" placeholder="4370">
+            @error('devicePort') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">Modo de conexion</label>
+            <select wire:model="deviceConnectionMode" class="form-input">
+              @foreach ($connectionModes as $connectionMode)
+                <option value="{{ $connectionMode }}">{{ $connectionMode }}</option>
+              @endforeach
+            </select>
+            @error('deviceConnectionMode') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">Contrasena de comunicacion</label>
+            <input type="text" wire:model="deviceCommunicationPassword" class="form-input" placeholder="Opcional">
+            @error('deviceCommunicationPassword') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div class="md:col-span-2 app-modal-actions">
+            <button type="button" wire:click="closeBiometricoModal" class="app-modal-secondary">Cancelar</button>
+            <button type="submit" class="login-submit app-modal-submit">
+              {{ $editingBiometricoId ? 'Guardar cambios' : 'Guardar biometrico' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  @endif
+
   @if ($showDeleteModal)
     <div class="app-modal-backdrop" wire:click="closeDeleteModal">
       <div class="app-modal-card" x-on:click.stop>
@@ -126,16 +192,46 @@
     @endif
   </section>
 
-  <section class="surface-card">
+  <section class="surface-card" wire:poll.30s>
     <div class="history-header">
       <div>
         <p class="section-kicker">Monitoreo por IP</p>
         <h3 class="section-title">Estado de conexion de biometricos</h3>
         <p class="section-copy-sm">Cuando un biometrico este conectado, sus asistencias podran registrarse directo en el sistema.</p>
       </div>
-      <div class="history-pill">
-        <span class="hero-status-icon"></span>
-        <span>{{ collect($connections)->where('connected', true)->count() }} equipos conectados</span>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" wire:click="openBiometricoModal" class="table-action-button">
+          Agregar biometrico
+        </button>
+        <div class="history-pill">
+          <span class="hero-status-icon"></span>
+          <span>{{ collect($connections)->where('connected', true)->count() }} equipos conectados</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label for="export-year" class="form-label">Filtrar por anio</label>
+        <select id="export-year" wire:model.live="exportYear" class="form-input">
+          @foreach ($exportYearOptions as $year)
+            <option value="{{ $year }}">{{ $year }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div>
+        <label for="export-month" class="form-label">Filtrar por mes</label>
+        <select id="export-month" wire:model.live="exportMonth" class="form-input">
+          @foreach ($exportMonthOptions as $monthOption)
+            <option value="{{ $monthOption['value'] }}">{{ $monthOption['label'] }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="md:col-span-2 xl:col-span-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        Periodo de extraccion:
+        <strong class="text-slate-900">
+          {{ collect($exportMonthOptions)->firstWhere('value', $exportMonth)['label'] ?? $exportMonth }}/{{ $exportYear }}
+        </strong>
       </div>
     </div>
 
@@ -153,20 +249,62 @@
           </div>
           <div class="device-card-meta">
             <span>IP: <strong>{{ $device['ip'] }}</strong></span>
+            <span>Puerto: <strong>{{ $device['port'] ?? 4370 }}</strong></span>
+            <span>Modo: <strong>{{ $device['connection_mode'] ?? 'TCP/IP' }}</strong></span>
             <span>{{ $device['last_sync'] }}</span>
+          </div>
+          <div class="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              wire:click="probarConexion({{ $loop->index }})"
+              wire:loading.attr="disabled"
+              wire:target="probarConexion({{ $loop->index }})"
+              class="table-action-button"
+            >
+              <span wire:loading.remove wire:target="probarConexion({{ $loop->index }})">Probar conexion</span>
+              <span wire:loading wire:target="probarConexion({{ $loop->index }})">Probando...</span>
+            </button>
+            <button
+              type="button"
+              wire:click="extraerExcel({{ $loop->index }})"
+              wire:loading.attr="disabled"
+              wire:target="extraerExcel({{ $loop->index }})"
+              class="table-action-button"
+            >
+              <span wire:loading.remove wire:target="extraerExcel({{ $loop->index }})">Extraer Excel</span>
+              <span wire:loading wire:target="extraerExcel({{ $loop->index }})">Extrayendo...</span>
+            </button>
+            <button
+              type="button"
+              wire:click="{{ ! empty($device['id']) ? 'openEditBiometricoModal('.$device['id'].')' : 'openEditBiometricoModalByIndex('.$loop->index.')' }}"
+              class="table-action-button"
+            >
+              Editar
+            </button>
+            @if (! empty($device['id']))
+              <button
+                type="button"
+                wire:click="deleteBiometrico({{ $device['id'] }})"
+                class="table-action-button table-action-button-danger"
+              >
+                Eliminar
+              </button>
+            @endif
           </div>
         </article>
       @endforeach
     </div>
 
-    <div class="device-alert-box">
-      <p class="device-alert-title">Sucursales sin conexion directa</p>
-      <div class="device-alert-list">
-        @foreach(collect($connections)->where('connected', false) as $device)
-          <span class="device-alert-pill">{{ $device['branch'] }} - {{ $device['department'] }}</span>
-        @endforeach
+    @if (collect($connections)->where('connected', false)->isNotEmpty())
+      <div class="device-alert-box">
+        <p class="device-alert-title">Sucursales sin conexion directa</p>
+        <div class="device-alert-list">
+          @foreach(collect($connections)->where('connected', false) as $device)
+            <span class="device-alert-pill">{{ $device['branch'] }} - {{ $device['department'] }}</span>
+          @endforeach
+        </div>
       </div>
-    </div>
+    @endif
   </section>
 
   <section class="surface-card">

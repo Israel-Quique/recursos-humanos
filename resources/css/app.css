@@ -308,6 +308,62 @@ body{
   @apply bg-amber-50 text-amber-800;
 }
 
+.department-presence-box{
+  @apply mt-6 rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4;
+}
+
+.department-presence-head{
+  @apply flex items-start justify-between gap-3;
+}
+
+.department-presence-kicker{
+  @apply text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700;
+}
+
+.department-presence-title{
+  @apply mt-1 text-base font-bold text-emerald-950;
+}
+
+.department-presence-total{
+  @apply inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-emerald-800;
+}
+
+.department-presence-list{
+  @apply mt-4 space-y-3;
+}
+
+.department-presence-item{
+  @apply rounded-[1rem] bg-white px-4 py-3 shadow-sm;
+}
+
+.department-presence-item strong{
+  @apply block text-sm font-bold text-slate-900;
+}
+
+.department-presence-item span{
+  @apply mt-1 block text-xs leading-5 text-slate-500;
+}
+
+.department-presence-empty{
+  @apply text-sm leading-6 text-emerald-900;
+}
+
+.detail-marking-filter-row{
+  @apply mt-6 grid gap-4 border-t border-slate-100 pt-6 md:grid-cols-2;
+}
+
+.detail-marking-filter-button{
+  @apply inline-flex min-h-[4rem] w-full items-center justify-center rounded-[1.15rem] border border-slate-200 bg-white px-8 py-4 text-lg font-semibold text-slate-700 shadow-sm transition;
+}
+
+.detail-marking-filter-button:hover{
+  @apply border-[#0f67c0] text-[#0f67c0];
+}
+
+.detail-marking-filter-button-active{
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white shadow-[0_18px_40px_rgba(15,103,192,0.22)];
+}
+
 .hero-status-row{
   @apply mt-12 flex flex-wrap gap-4 border-t border-slate-100 pt-6;
 }

@@ -159,22 +159,6 @@
             <p class="section-kicker">Ficha del personal</p>
             <h3 class="section-title app-modal-title">{{ $detailEmpleado['nombre_completo'] ?? 'Detalle del personal' }}</h3>
             <p class="section-copy-sm">Resumen del perfil, horario regional asignado y detalle mensual de marcaciones.</p>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                wire:click="setDetailMarkingFilter('entrada')"
-                class="table-action-button {{ $detailMarkingFilter === 'entrada' ? 'table-pagination-button-active' : '' }}"
-              >
-                Entrada
-              </button>
-              <button
-                type="button"
-                wire:click="setDetailMarkingFilter('salida')"
-                class="table-action-button {{ $detailMarkingFilter === 'salida' ? 'table-pagination-button-active' : '' }}"
-              >
-                Salida
-              </button>
-            </div>
           </div>
           <div class="flex flex-col gap-3 md:items-end">
             <div class="w-full min-w-[16rem] md:w-auto">
@@ -247,11 +231,28 @@
           </div>
         </div>
 
+        <div class="detail-marking-filter-row">
+          <button
+            type="button"
+            wire:click="setDetailMarkingFilter('salida')"
+            class="detail-marking-filter-button {{ $detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : '' }}"
+          >
+            Salida
+          </button>
+          <button
+            type="button"
+            wire:click="setDetailMarkingFilter('entrada')"
+            class="detail-marking-filter-button {{ $detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : '' }}"
+          >
+            Entrada
+          </button>
+        </div>
+
         <div class="mt-8">
           <div class="section-head-row">
             <div>
               <p class="section-kicker">Marcaciones del mes</p>
-              <h4 class="section-title text-2xl">Detalle de entradas y salidas</h4>
+              <h4 class="section-title text-2xl">Detalle de Marcados</h4>
             </div>
           </div>
 
@@ -463,13 +464,13 @@
       <div class="history-table-shell history-table-shell-personal">
         <div class="mb-6 grid gap-4 px-6 pt-5 md:grid-cols-2">
           <div class="space-y-2">
-            <label for="personal-search" class="form-label">Buscar por nombre</label>
+            <label for="personal-search" class="form-label">Buscar por codigo o nombre</label>
             <input
               id="personal-search"
               type="text"
               wire:model.live.debounce.300ms="search"
               class="form-input"
-              placeholder="Escribe un nombre o apellido"
+              placeholder="Escribe un codigo, nombre o apellido"
               autocomplete="off"
             >
           </div>
@@ -623,7 +624,7 @@
       <div class="history-table-shell">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Filtrando historial por nombre:
+            Filtrando historial por codigo o nombre:
             <strong class="text-slate-900">{{ filled($search) ? $search : 'todos' }}</strong>
           </div>
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -636,6 +637,7 @@
           <thead>
             <tr>
               <th>Empleado</th>
+              <th>Sucursal</th>
               <th>Fecha</th>
               <th>Dia</th>
               <th>Entrada</th>
@@ -648,6 +650,7 @@
             @forelse ($registros as $registro)
               <tr>
                 <td>{{ $registro->empleado?->nombre_completo ?? 'Sin empleado' }}</td>
+                <td>{{ $registro->empleado?->sucursal ?? 'Sin sucursal' }}</td>
                 <td>{{ $registro->fecha_formateada ?? 'Sin fecha' }}</td>
                 <td>{{ ucfirst($registro->dia ?? 'Sin dia') }}</td>
                 <td>{{ $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--' }}</td>
@@ -715,7 +718,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="7" class="text-center text-slate-400">No hay marcaciones recientes para mostrar.</td>
+                <td colspan="8" class="text-center text-slate-400">No hay marcaciones recientes para mostrar.</td>
               </tr>
             @endforelse
           </tbody>
@@ -775,7 +778,7 @@
       <div class="history-table-shell history-table-shell-personal">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Control mensual por nombre:
+            Control mensual por codigo o nombre:
             <strong class="text-slate-900">{{ filled($search) ? $search : 'todos' }}</strong>
           </div>
           <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">

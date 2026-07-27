@@ -375,7 +375,8 @@ class PersonalPage extends Component
 
         if (filled($this->search)) {
             $empleadosQuery->where(function ($query) {
-                $query->where('nombre', 'ilike', "%{$this->search}%")
+                $query->where('codigo_biometrico', 'ilike', "%{$this->search}%")
+                    ->orWhere('nombre', 'ilike', "%{$this->search}%")
                     ->orWhere('apellido', 'ilike', "%{$this->search}%");
             });
         }
@@ -420,8 +421,11 @@ class PersonalPage extends Component
             ->where($this->excludeSaturdayRecords())
             ->when(filled($this->search), function ($query) {
                 $query->whereHas('empleado', function ($empleadoQuery) {
-                    $empleadoQuery->where('nombre', 'ilike', "%{$this->search}%")
-                        ->orWhere('apellido', 'ilike', "%{$this->search}%");
+                    $empleadoQuery->where(function ($nestedQuery) {
+                        $nestedQuery->where('codigo_biometrico', 'ilike', "%{$this->search}%")
+                            ->orWhere('nombre', 'ilike', "%{$this->search}%")
+                            ->orWhere('apellido', 'ilike', "%{$this->search}%");
+                    });
                 });
             })
             ->when(filled($this->sucursalFiltro), function ($query) {
@@ -476,9 +480,11 @@ class PersonalPage extends Component
                 $registroHoy = $asistencia;
             }
 
-            $minutosTrabajados += $this->calcularMinutosTrabajados($asistencia->hora_entrada, $asistencia->hora_salida);
+            $horaSalidaReal = $this->horaSalidaReal($asistencia);
 
-            if (blank($asistencia->hora_entrada) || blank($asistencia->hora_salida)) {
+            $minutosTrabajados += $this->calcularMinutosTrabajados($asistencia->hora_entrada, $horaSalidaReal);
+
+            if (blank($asistencia->hora_entrada) || blank($horaSalidaReal)) {
                 $olvidosMarcacion++;
             }
 
@@ -491,9 +497,13 @@ class PersonalPage extends Component
 
         return [
             'entrada_hoy' => $registroHoy?->hora_entrada ? substr($registroHoy->hora_entrada, 0, 5) : '--:--',
-            'salida_hoy' => $registroHoy?->hora_salida ? substr($registroHoy->hora_salida, 0, 5) : '--:--',
+            'salida_hoy' => $registroHoy && ($horaSalidaHoy = $this->horaSalidaReal($registroHoy))
+                ? substr($horaSalidaHoy, 0, 5)
+                : '--:--',
             'verificacion_hoy' => $registroHoy?->tipo_verificacion ?: 'Sin registro',
-            'estado_hoy' => $registroHoy?->estado_marcacion ?: 'Sin registro',
+            'estado_hoy' => $registroHoy
+                ? ($this->tieneSoloEntradaMarcada($registroHoy) ? 'En su puesto' : ($registroHoy->estado_marcacion ?: 'Sin registro'))
+                : 'Sin registro',
             'evento_hoy' => $registroHoy?->evento_biometrico ?: 'Sin evento',
             'horas_mes' => $this->formatearMinutos($minutosTrabajados),
             'minutos_mes' => $minutosTrabajados,
@@ -553,12 +563,16 @@ class PersonalPage extends Component
                 $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
                 $minutosRetraso = $this->calcularMinutosRetraso($registro->hora_entrada, $horario['hora_entrada']);
                 $olvidoEntrada = blank($registro->hora_entrada);
-                $olvidoSalida = blank($registro->hora_salida);
+                $soloEntrada = $this->tieneSoloEntradaMarcada($registro);
+                $horaSalidaReal = $this->horaSalidaReal($registro);
+                $olvidoSalida = blank($horaSalidaReal);
 
                 if ($olvidoEntrada && $olvidoSalida) {
                     $estadoRegistro = 'Sin entrada ni salida';
                 } elseif ($olvidoEntrada) {
                     $estadoRegistro = 'Olvido de entrada';
+                } elseif ($soloEntrada) {
+                    $estadoRegistro = 'En su puesto';
                 } elseif ($olvidoSalida) {
                     $estadoRegistro = 'Olvido de salida';
                 } elseif ($minutosRetraso > 0) {
@@ -571,10 +585,10 @@ class PersonalPage extends Component
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'dia' => ucfirst($registro->fecha?->locale('es')->isoFormat('dddd') ?? 'Sin dia'),
                     'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
-                    'salida' => $registro->hora_salida ? substr($registro->hora_salida, 0, 5) : '--:--',
+                    'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'retraso' => $this->formatearMinutosEtiqueta($minutosRetraso),
                     'estado' => $estadoRegistro,
-                    'estado_biometrico' => $registro->estado_marcacion ?: 'Sin registro',
+                    'estado_biometrico' => $soloEntrada ? 'En su puesto' : ($registro->estado_marcacion ?: 'Sin registro'),
                 ];
             })
             ->filter(function (array $registro) {
@@ -670,6 +684,39 @@ class PersonalPage extends Component
         }
 
         return $entrada->diffInMinutes($salida);
+    }
+
+    private function tieneSoloEntradaMarcada(RegistroAsistencia $registro): bool
+    {
+        if (blank($registro->hora_entrada)) {
+            return false;
+        }
+
+        if (blank($registro->hora_salida)) {
+            return true;
+        }
+
+        return $this->normalizarHoraComparable($registro->hora_entrada) === $this->normalizarHoraComparable($registro->hora_salida);
+    }
+
+    private function horaSalidaReal(RegistroAsistencia $registro): ?string
+    {
+        if ($this->tieneSoloEntradaMarcada($registro)) {
+            return null;
+        }
+
+        return blank($registro->hora_salida) ? null : $registro->hora_salida;
+    }
+
+    private function normalizarHoraComparable(?string $hora): ?string
+    {
+        if (blank($hora)) {
+            return null;
+        }
+
+        $parsed = $this->parseTimeToCarbon($hora);
+
+        return $parsed?->format('H:i:s') ?: trim((string) $hora);
     }
 
     private function calcularMinutosRetraso(?string $horaEntrada, ?string $horaProgramada): int

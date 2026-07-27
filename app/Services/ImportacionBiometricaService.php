@@ -14,6 +14,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ImportacionBiometricaService
 {
+    private const BIOMETRICO_CHUNK_SIZE = 500;
+
     public function importarArchivo(string $rutaArchivo, string $nombreArchivo, ?User $usuario = null, ?string $rutaRelativa = null): Importacion
     {
         $resultado = $this->procesarPython($rutaArchivo);
@@ -54,6 +56,167 @@ class ImportacionBiometricaService
         }
 
         return $importacion->fresh();
+    }
+
+    public function importarMarcacionesBiometrico(array $device, array $rows, ?User $usuario = null): Importacion
+    {
+        $this->asegurarMemoriaImportacion();
+
+        $nombreArchivo = 'sync_biometrico_'.preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['branch'] ?? 'equipo')).'_'.now()->format('Ymd_His').'.json';
+
+        $importacion = Importacion::query()->create([
+            'nombre_archivo' => $nombreArchivo,
+            'ruta_archivo' => 'sync://'.trim((string) ($device['ip'] ?? 'sin-ip')),
+            'fecha_operativa' => now()->toDateString(),
+            'registros_total' => 0,
+            'empleados_detectados' => 0,
+            'estado' => 'procesando',
+            'created_by' => $usuario?->id,
+        ]);
+
+        $resumenGlobal = [
+            'registros_generados' => 0,
+            'registros_actualizados' => 0,
+            'empleados_detectados_ids' => [],
+            'empleados_creados_ids' => [],
+            'olvidos_marcacion' => 0,
+            'marcas_omitidas' => 0,
+            'empleados_no_registrados' => [],
+        ];
+        $procesados = 0;
+        $registrosTotales = 0;
+        $uniqueCodes = [];
+        $chunkRows = [];
+
+        try {
+            foreach ($rows as $row) {
+                if (! is_array($row) || ! filled($row['fecha_hora'] ?? null)) {
+                    continue;
+                }
+
+                $registrosTotales++;
+                $codigo = trim((string) ($row['codigo'] ?? ''));
+
+                if ($codigo !== '') {
+                    $uniqueCodes[$codigo] = true;
+                }
+
+                $chunkRows[] = $row;
+
+                if (count($chunkRows) >= self::BIOMETRICO_CHUNK_SIZE) {
+                    $procesados += $this->procesarChunkBiometrico($importacion, $device, $chunkRows, $usuario, $resumenGlobal, $registrosTotales, count($uniqueCodes));
+                    $chunkRows = [];
+                    gc_collect_cycles();
+                }
+            }
+
+            if ($chunkRows !== []) {
+                $procesados += $this->procesarChunkBiometrico($importacion, $device, $chunkRows, $usuario, $resumenGlobal, $registrosTotales, count($uniqueCodes));
+                $chunkRows = [];
+                gc_collect_cycles();
+            }
+        } catch (\Throwable $exception) {
+            $importacion->update([
+                'estado' => 'error',
+                'mensaje_error' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+
+        $resumenFinal = [
+            'registros_generados' => $resumenGlobal['registros_generados'],
+            'registros_actualizados' => $resumenGlobal['registros_actualizados'],
+            'empleados_detectados' => count($resumenGlobal['empleados_detectados_ids']),
+            'empleados_creados' => count($resumenGlobal['empleados_creados_ids']),
+            'olvidos_marcacion' => $resumenGlobal['olvidos_marcacion'],
+            'marcas_omitidas' => $resumenGlobal['marcas_omitidas'],
+            'empleados_no_registrados' => array_slice($resumenGlobal['empleados_no_registrados'], 0, 10),
+            'sync_device_ip' => $device['ip'] ?? null,
+            'sync_device_branch' => $device['branch'] ?? null,
+            'sync_mode' => 'automatico',
+            'chunk_size' => self::BIOMETRICO_CHUNK_SIZE,
+        ];
+
+        $importacion->update([
+            'registros_total' => $registrosTotales,
+            'registros_generados' => $resumenFinal['registros_generados'],
+            'empleados_detectados' => $resumenFinal['empleados_detectados'],
+            'mensaje_error' => null,
+            'estado' => 'completado',
+            'resumen_json' => $resumenFinal,
+        ]);
+
+        return $importacion->fresh();
+    }
+
+    private function procesarChunkBiometrico(
+        Importacion $importacion,
+        array $device,
+        array $chunkRows,
+        ?User $usuario,
+        array &$resumenGlobal,
+        int $registrosTotales,
+        int $empleadosTotales
+    ): int {
+        $marks = collect($chunkRows)
+            ->map(fn (array $row) => $this->normalizarMarcaDesdeBiometrico($device, $row))
+            ->values();
+
+        DB::beginTransaction();
+
+        try {
+            $resumenChunk = $this->persistirMarcas($importacion, $marks, $usuario);
+            DB::commit();
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+
+        $procesadosChunk = $marks->count();
+        $resumenGlobal['registros_generados'] += (int) ($resumenChunk['registros_generados'] ?? 0);
+        $resumenGlobal['registros_actualizados'] += (int) ($resumenChunk['registros_actualizados'] ?? 0);
+        $resumenGlobal['olvidos_marcacion'] += (int) ($resumenChunk['olvidos_marcacion'] ?? 0);
+        $resumenGlobal['marcas_omitidas'] += (int) ($resumenChunk['marcas_omitidas'] ?? 0);
+        $resumenGlobal['empleados_detectados_ids'] = array_values(array_unique([
+            ...$resumenGlobal['empleados_detectados_ids'],
+            ...($resumenChunk['empleados_detectados_ids'] ?? []),
+        ]));
+        $resumenGlobal['empleados_creados_ids'] = array_values(array_unique([
+            ...$resumenGlobal['empleados_creados_ids'],
+            ...($resumenChunk['empleados_creados_ids'] ?? []),
+        ]));
+        $resumenGlobal['empleados_no_registrados'] = array_values(array_unique([
+            ...$resumenGlobal['empleados_no_registrados'],
+            ...($resumenChunk['empleados_no_registrados'] ?? []),
+        ]));
+
+        $importacion->update([
+            'registros_total' => $registrosTotales,
+            'registros_generados' => $resumenGlobal['registros_generados'],
+            'empleados_detectados' => max($empleadosTotales, count($resumenGlobal['empleados_detectados_ids'])),
+            'mensaje_error' => null,
+            'estado' => 'procesando',
+            'resumen_json' => [
+                'procesados' => min($registrosTotales, $procesadosChunk + $resumenGlobal['registros_actualizados'] + $resumenGlobal['registros_generados']),
+                'pendientes' => 0,
+                'registros_generados' => $resumenGlobal['registros_generados'],
+                'registros_actualizados' => $resumenGlobal['registros_actualizados'],
+                'empleados_detectados' => count($resumenGlobal['empleados_detectados_ids']),
+                'empleados_creados' => count($resumenGlobal['empleados_creados_ids']),
+                'olvidos_marcacion' => $resumenGlobal['olvidos_marcacion'],
+                'marcas_omitidas' => $resumenGlobal['marcas_omitidas'],
+                'empleados_no_registrados' => array_slice($resumenGlobal['empleados_no_registrados'], 0, 10),
+                'sync_device_ip' => $device['ip'] ?? null,
+                'sync_device_branch' => $device['branch'] ?? null,
+                'sync_mode' => 'automatico',
+                'chunk_size' => self::BIOMETRICO_CHUNK_SIZE,
+            ],
+        ]);
+
+        unset($marks);
+
+        return $procesadosChunk;
     }
 
     public function procesarPython(string $rutaArchivo): array
@@ -162,6 +325,8 @@ class ImportacionBiometricaService
             'registros_actualizados' => $registrosActualizados,
             'empleados_detectados' => $empleadosDetectados->unique()->count(),
             'empleados_creados' => $empleadosCreados->unique()->count(),
+            'empleados_detectados_ids' => $empleadosDetectados->unique()->values()->all(),
+            'empleados_creados_ids' => $empleadosCreados->unique()->values()->all(),
             'olvidos_marcacion' => $olvidosMarcacion,
             'marcas_omitidas' => $marcasOmitidas,
             'empleados_no_registrados' => $empleadosNoRegistrados->filter()->unique()->values()->take(10)->all(),
@@ -605,5 +770,114 @@ class ImportacionBiometricaService
         }
 
         return null;
+    }
+
+    private function normalizarMarcaDesdeBiometrico(array $device, array $row): array
+    {
+        $fechaHora = Carbon::parse((string) $row['fecha_hora']);
+        $codigo = trim((string) ($row['codigo'] ?? ''));
+        $estadoHumano = $this->traducirEstadoHumano((string) ($row['estado'] ?? ''));
+        $eventoHumano = $this->traducirEventoHumano((string) ($row['punch'] ?? ''));
+        $verificacionHumana = $this->traducirVerificacionHumana((string) ($row['verificacion'] ?? ''));
+
+        return [
+            'codigo' => $codigo,
+            'fecha_hora' => $fechaHora->toIso8601String(),
+            'tipo' => $estadoHumano,
+            'metodo_verificacion' => $verificacionHumana,
+            'datos_originales' => [
+                'Tiempo' => $fechaHora->format('d/m/Y H:i'),
+                'ID de Usuario' => $codigo,
+                'Dispositivo' => $device['department'] ?? '',
+                'Punto del evento' => $device['branch'] ?? '',
+                'Verificacion' => $verificacionHumana,
+                'Estado' => $estadoHumano,
+                'Evento' => $eventoHumano,
+                'Notas' => 'Sincronizacion automatica desde biometrico ZKTeco',
+                'Archivo' => 'sync://'.trim((string) ($device['ip'] ?? 'sin-ip')),
+            ],
+        ];
+    }
+
+    private function traducirEstadoHumano(string $status): string
+    {
+        return match ($status) {
+            '0' => 'Entrada',
+            '1' => 'Salida',
+            '2' => 'Salida a descanso',
+            '3' => 'Retorno de descanso',
+            '4' => 'Entrada extra',
+            '5' => 'Salida extra',
+            default => $status !== '' ? 'Estado '.$status : 'Sin estado',
+        };
+    }
+
+    private function traducirEventoHumano(string $punch): string
+    {
+        return match ($punch) {
+            '0' => 'Registro biometrico',
+            '1' => 'Apertura con tarjeta de proximidad',
+            '2' => 'Apertura remota',
+            '3' => 'Boton de salida',
+            '4' => 'Alarma',
+            default => $punch !== '' ? 'Evento '.$punch : 'Sin evento',
+        };
+    }
+
+    private function traducirVerificacionHumana(string $verification): string
+    {
+        return match ($verification) {
+            '0' => 'Contrasena',
+            '1' => 'Huella',
+            '2' => 'Tarjeta',
+            '3' => 'Huella + contrasena',
+            '4' => 'Huella + tarjeta',
+            '5' => 'Tarjeta + contrasena',
+            '6' => 'Tarjeta + huella + contrasena',
+            '7' => 'Rostro',
+            '8' => 'Rostro + huella',
+            '9' => 'Rostro + tarjeta',
+            '10' => 'Rostro + contrasena',
+            '11' => 'Rostro + tarjeta + huella',
+            '12' => 'Rostro + huella + contrasena',
+            '13' => 'Rostro + tarjeta + contrasena',
+            '14' => 'Solo rostro',
+            '15' => 'Tarjeta de proximidad',
+            default => $verification !== '' ? 'Metodo '.$verification : 'No disponible',
+        };
+    }
+
+    private function asegurarMemoriaImportacion(): void
+    {
+        $memoryLimit = trim((string) ini_get('memory_limit'));
+
+        if ($memoryLimit === '' || $memoryLimit === '-1') {
+            return;
+        }
+
+        $limitBytes = $this->memoryLimitToBytes($memoryLimit);
+
+        if ($limitBytes !== null && $limitBytes < 512 * 1024 * 1024) {
+            @ini_set('memory_limit', '512M');
+        }
+    }
+
+    private function memoryLimitToBytes(string $value): ?int
+    {
+        $value = trim($value);
+
+        if ($value === '' || ! preg_match('/^\s*(\d+)\s*([KMG]?)\s*$/i', $value, $matches)) {
+            return null;
+        }
+
+        $bytes = (int) $matches[1];
+        $unit = strtoupper($matches[2] ?? '');
+
+        return match ($unit) {
+            'G' => $bytes * 1024 * 1024 * 1024,
+            'M' => $bytes * 1024 * 1024,
+            'K' => $bytes * 1024,
+            default => $bytes,
+        };
     }
 }
