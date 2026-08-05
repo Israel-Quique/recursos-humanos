@@ -52,7 +52,7 @@ class ConexionBiometricoService
             ]];
         }
 
-        return array_map(fn (array $device) => $this->probeDevice($device), $devices);
+        return array_map(fn (array $device) => $this->snapshotDeviceStatus($device), $devices);
     }
 
     public function probarConexion(int $index): array
@@ -63,7 +63,10 @@ class ConexionBiometricoService
             throw new \RuntimeException('No se encontro el biometrico seleccionado para probar la conexion.');
         }
 
-        return $this->probeDevice($devices[$index]);
+        $probe = $this->probeDevice($devices[$index]);
+        $this->persistProbeResult($devices[$index], $probe);
+
+        return $probe;
     }
 
     private function nextSteps(string $driver): array
@@ -93,6 +96,8 @@ class ConexionBiometricoService
 
     private function configuredDevices(): array
     {
+        $configuredDevices = $this->devicesFromEnvironment();
+
         if (Schema::hasTable('biometrico_dispositivos')) {
             $storedDevices = BiometricoDispositivo::query()
                 ->where('is_active', true)
@@ -107,16 +112,45 @@ class ConexionBiometricoService
                     'port' => (int) ($device->port ?: config('biometrico.port', 4370)),
                     'connection_mode' => trim((string) $device->connection_mode) ?: 'TCP/IP',
                     'communication_password' => trim((string) ($device->communication_password ?? '')),
+                    'last_synced_mark_at' => $device->last_synced_mark_at,
+                    'last_seen_at' => $device->last_seen_at,
+                    'last_error' => $device->last_error,
                 ])
                 ->filter(fn (array $device) => $device['ip'] !== '')
                 ->values()
                 ->all();
 
             if ($storedDevices !== []) {
-                return $storedDevices;
+                return $this->mergeDevices($storedDevices, $configuredDevices);
             }
         }
 
+        if ($configuredDevices !== []) {
+            return $configuredDevices;
+        }
+
+        $legacyHost = trim((string) config('biometrico.host'));
+
+        if ($legacyHost === '') {
+            return [];
+        }
+
+        return [[
+            'id' => null,
+            'department' => 'General',
+            'branch' => 'Biometrico principal',
+            'ip' => $legacyHost,
+            'port' => (int) config('biometrico.port', 4370),
+            'connection_mode' => 'TCP/IP',
+            'communication_password' => trim((string) config('biometrico.password', '')),
+            'last_synced_mark_at' => null,
+            'last_seen_at' => null,
+            'last_error' => null,
+        ]];
+    }
+
+    private function devicesFromEnvironment(): array
+    {
         $devices = config('biometrico.devices', []);
 
         if (is_array($devices) && $devices !== []) {
@@ -138,25 +172,66 @@ class ConexionBiometricoService
                     'port' => (int) ($device['port'] ?? config('biometrico.port', 4370) ?? 4370),
                     'connection_mode' => trim((string) ($device['connection_mode'] ?? 'TCP/IP')) ?: 'TCP/IP',
                     'communication_password' => trim((string) ($device['communication_password'] ?? '')),
+                    'last_synced_mark_at' => $device['last_synced_mark_at'] ?? null,
+                    'last_seen_at' => $device['last_seen_at'] ?? null,
+                    'last_error' => $device['last_error'] ?? null,
                 ];
             }, $devices)));
         }
 
-        $legacyHost = trim((string) config('biometrico.host'));
+        return [];
+    }
 
-        if ($legacyHost === '') {
-            return [];
+    private function mergeDevices(array $storedDevices, array $configuredDevices): array
+    {
+        return collect($storedDevices)
+            ->concat($configuredDevices)
+            ->unique(fn (array $device) => trim((string) ($device['ip'] ?? '')))
+            ->values()
+            ->all();
+    }
+
+    private function snapshotDeviceStatus(array $device): array
+    {
+        $liveProbe = $this->probeDevice($device, $this->statusProbeTimeout());
+
+        if ($liveProbe['connected']) {
+            return $liveProbe;
         }
 
-        return [[
-            'id' => null,
-            'department' => 'General',
-            'branch' => 'Biometrico principal',
-            'ip' => $legacyHost,
-            'port' => (int) config('biometrico.port', 4370),
-            'connection_mode' => 'TCP/IP',
-            'communication_password' => trim((string) config('biometrico.password', '')),
-        ]];
+        $lastSeenAt = $device['last_seen_at'] ?? null;
+        $lastSyncedAt = $device['last_synced_mark_at'] ?? null;
+        $lastError = trim((string) ($device['last_error'] ?? ''));
+        $hasPositiveActivity = (bool) ($lastSeenAt || $lastSyncedAt);
+
+        if (str_contains(strtolower($lastError), 'fecha futura')) {
+            $lastError = '';
+        }
+
+        if ($lastError !== '') {
+            $connected = false;
+            $label = 'Desconectado | '.$lastError;
+        } elseif ($lastSeenAt) {
+            $connected = true;
+            $label = 'Ultima verificacion '.Carbon::parse($lastSeenAt)->format('d/m/Y H:i');
+        } elseif ($lastSyncedAt) {
+            $connected = true;
+            $label = 'Ultima sincronizacion '.Carbon::parse($lastSyncedAt)->format('d/m/Y H:i');
+        } else {
+            $connected = false;
+            $label = $hasPositiveActivity ? 'Sin estado disponible' : 'Pendiente de prueba de conexion';
+        }
+
+        return [
+            'id' => $device['id'] ?? null,
+            'department' => $device['department'],
+            'branch' => $device['branch'],
+            'ip' => $device['ip'],
+            'port' => (int) ($device['port'] ?? 4370),
+            'connection_mode' => $device['connection_mode'] ?? 'TCP/IP',
+            'connected' => $connected,
+            'last_sync' => $label,
+        ];
     }
 
     private function probeDevice(array $device): array
@@ -164,6 +239,11 @@ class ConexionBiometricoService
         $ip = $device['ip'];
         $port = max(1, (int) ($device['port'] ?? 4370));
         $timeout = max(1, (float) config('biometrico.timeout', 2));
+        return $this->probeDeviceTcp($device, $ip, $port, $timeout);
+    }
+
+    private function probeDeviceTcp(array $device, string $ip, int $port, float $timeout): array
+    {
         $start = microtime(true);
         $socket = @fsockopen($ip, $port, $errorNumber, $errorMessage, $timeout);
         $latencyMs = (int) round((microtime(true) - $start) * 1000);
@@ -197,5 +277,33 @@ class ConexionBiometricoService
                 ? 'Desconectado | '.$reason
                 : 'Desconectado | Sin respuesta en '.Carbon::now()->format('H:i:s'),
         ];
+    }
+
+    private function statusProbeTimeout(): float
+    {
+        return max(0.5, (float) config('biometrico.status_timeout', 1));
+    }
+
+    private function persistProbeResult(array $device, array $probe): void
+    {
+        $deviceId = $device['id'] ?? null;
+        $ip = trim((string) ($device['ip'] ?? ''));
+
+        if (! $deviceId && $ip === '') {
+            return;
+        }
+
+        $storedDevice = $deviceId
+            ? BiometricoDispositivo::query()->find($deviceId)
+            : BiometricoDispositivo::query()->where('ip', $ip)->first();
+
+        if (! $storedDevice) {
+            return;
+        }
+
+        $storedDevice->forceFill([
+            'last_seen_at' => $probe['connected'] ? now() : null,
+            'last_error' => $probe['connected'] ? null : ($probe['last_sync'] ?? 'No fue posible conectar'),
+        ])->save();
     }
 }

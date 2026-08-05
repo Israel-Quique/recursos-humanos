@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Empleado;
 use App\Models\User;
 use App\Services\AuditoriaService;
 use Illuminate\Support\Facades\DB;
@@ -21,12 +22,14 @@ class GestionAccesosPage extends Component
     public string $password = '';
     public string $password_confirmation = '';
     public string $newUserRole = 'visor';
+    public string $newEmpleadoId = '';
     public ?int $editingUserId = null;
     public string $editName = '';
     public string $editEmail = '';
     public string $editPassword = '';
     public string $editPassword_confirmation = '';
     public string $editRole = 'visor';
+    public string $editEmpleadoId = '';
 
     public function mount(): void
     {
@@ -68,7 +71,7 @@ class GestionAccesosPage extends Component
     public function openCreateModal(): void
     {
         $this->resetValidation();
-        $this->reset(['name', 'email', 'password', 'password_confirmation']);
+        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId']);
         $this->newUserRole = 'visor';
         $this->showCreateModal = true;
     }
@@ -90,6 +93,7 @@ class GestionAccesosPage extends Component
         $this->editPassword = '';
         $this->editPassword_confirmation = '';
         $this->editRole = $user->getRoleNames()->first() ?? 'visor';
+        $this->editEmpleadoId = (string) ($user->empleado_id ?? '');
         $this->showEditModal = true;
     }
 
@@ -97,7 +101,7 @@ class GestionAccesosPage extends Component
     {
         $this->showEditModal = false;
         $this->resetValidation();
-        $this->reset(['editingUserId', 'editName', 'editEmail', 'editPassword', 'editPassword_confirmation']);
+        $this->reset(['editingUserId', 'editName', 'editEmail', 'editPassword', 'editPassword_confirmation', 'editEmpleadoId']);
         $this->editRole = 'visor';
     }
 
@@ -108,6 +112,7 @@ class GestionAccesosPage extends Component
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'newUserRole' => ['required', 'string', 'in:administrador,gestor,visor'],
+            'newEmpleadoId' => ['nullable', 'integer', 'exists:empleados,id'],
         ], [
             'name.required' => 'Ingresa el nombre del usuario.',
             'name.unique' => 'Ese nombre de usuario ya existe.',
@@ -118,12 +123,14 @@ class GestionAccesosPage extends Component
             'password.min' => 'La contrasena debe tener al menos 8 caracteres.',
             'password.confirmed' => 'La confirmacion de contrasena no coincide.',
             'newUserRole.required' => 'Selecciona un rol para el usuario.',
+            'newEmpleadoId.exists' => 'Selecciona un trabajador valido.',
         ]);
 
         $user = User::query()->create([
             'name' => trim($data['name']),
             'email' => trim(mb_strtolower($data['email'])),
             'password' => Hash::make($data['password']),
+            'empleado_id' => filled($data['newEmpleadoId'] ?? null) ? (int) $data['newEmpleadoId'] : null,
         ]);
 
         $user->syncRoles([$data['newUserRole']]);
@@ -139,7 +146,7 @@ class GestionAccesosPage extends Component
 
         $this->selectedUserId = $user->id;
         $this->selectedRole = $data['newUserRole'];
-        $this->reset(['name', 'email', 'password', 'password_confirmation']);
+        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId']);
         $this->newUserRole = 'visor';
         $this->resetValidation();
         $this->showCreateModal = false;
@@ -155,6 +162,7 @@ class GestionAccesosPage extends Component
             'editEmail' => ['required', 'email', 'max:255'],
             'editPassword' => ['nullable', 'string', 'min:8', 'confirmed'],
             'editRole' => ['required', 'string', 'in:administrador,gestor,visor'],
+            'editEmpleadoId' => ['nullable', 'integer', 'exists:empleados,id'],
         ], [
             'editingUserId.required' => 'Selecciona un usuario valido.',
             'editName.required' => 'Ingresa el nombre del usuario.',
@@ -163,6 +171,7 @@ class GestionAccesosPage extends Component
             'editPassword.min' => 'La contrasena debe tener al menos 8 caracteres.',
             'editPassword.confirmed' => 'La confirmacion de contrasena no coincide.',
             'editRole.required' => 'Selecciona un rol para el usuario.',
+            'editEmpleadoId.exists' => 'Selecciona un trabajador valido.',
         ]);
 
         $user = User::query()->findOrFail($data['editingUserId']);
@@ -181,6 +190,7 @@ class GestionAccesosPage extends Component
 
         $user->name = $validated['editName'];
         $user->email = $validated['editEmail'];
+        $user->empleado_id = filled($data['editEmpleadoId'] ?? null) ? (int) $data['editEmpleadoId'] : null;
 
         if ($data['editPassword'] !== '') {
             $user->password = Hash::make($data['editPassword']);
@@ -207,7 +217,11 @@ class GestionAccesosPage extends Component
 
     public function render()
     {
-        $users = User::query()->orderBy('name')->get();
+        $users = User::query()->with('empleado')->orderBy('name')->get();
+        $empleados = Empleado::query()
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->get();
         $roles = Role::query()
             ->whereIn('name', ['administrador', 'gestor', 'visor'])
             ->get()
@@ -223,6 +237,7 @@ class GestionAccesosPage extends Component
 
         return view('livewire.gestion-accesos', [
             'users' => $users,
+            'empleados' => $empleados,
             'roles' => $roles,
             'permissions' => $permissions,
             'legacyAssignments' => $legacyAssignments,
@@ -236,6 +251,8 @@ class GestionAccesosPage extends Component
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'empleado_id' => $user->empleado_id,
+            'empleado' => $user->empleado?->nombre_completo,
             'rol' => $user->getRoleNames()->first() ?? 'sin rol',
         ];
     }

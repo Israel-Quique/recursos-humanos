@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Empleado;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class ExtraccionBiometricoZkService
@@ -48,54 +50,76 @@ class ExtraccionBiometricoZkService
 
         $outputPath = storage_path('app/biometrico_extract_'.uniqid().'.json');
         $password = trim((string) config('biometrico.password', ''));
+        $timeout = $probeOnly
+            ? 20
+            : max(60, (int) config('biometrico.export_timeout', 180));
+        $lockKey = 'biometrico:extract:'.preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['ip'] ?? 'sin-ip'));
+        $lock = Cache::lock($lockKey, $timeout + 30);
 
-        $process = new Process([
-            $this->pythonBinary(),
-            $script,
-            '--ip', (string) ($device['ip'] ?? ''),
-            '--port', (string) ($device['port'] ?? 4370),
-            '--output', $outputPath,
-            '--timeout', (string) max((int) config('biometrico.timeout', 8), 8),
-            '--password', $password !== '' ? $password : '0',
-            ...($probeOnly ? ['--probe-only'] : []),
-        ], base_path(), $this->pythonProcessEnvironment());
-
-        $process->setTimeout($probeOnly ? 20 : 60);
-        $process->run();
-
-        Log::info('Extraccion biometrico Python process ejecutado', [
-            'probe_only' => $probeOnly,
-            'python' => $this->pythonBinary(),
-            'device_ip' => $device['ip'] ?? null,
-            'device_port' => $device['port'] ?? null,
-            'successful' => $process->isSuccessful(),
-            'exit_code' => $process->getExitCode(),
-            'output' => trim($process->getOutput()),
-            'error_output' => trim($process->getErrorOutput()),
-        ]);
-
-        if (! $process->isSuccessful()) {
-            $error = trim($process->getErrorOutput().' '.$process->getOutput());
+        if (! $lock->get()) {
             @unlink($outputPath);
-            throw new \RuntimeException($error !== '' ? $error : 'No se pudo extraer marcaciones desde el biometrico.');
+            throw new \RuntimeException('El biometrico esta siendo leido por otra sincronizacion. Intenta nuevamente en unos segundos.');
         }
 
-        if (! file_exists($outputPath)) {
-            throw new \RuntimeException('La extraccion no genero un archivo temporal con marcaciones.');
+        try {
+            $process = new Process([
+                $this->pythonBinary(),
+                $script,
+                '--ip', (string) ($device['ip'] ?? ''),
+                '--port', (string) ($device['port'] ?? 4370),
+                '--output', $outputPath,
+                '--timeout', (string) $timeout,
+                '--password', $password !== '' ? $password : '0',
+                ...($probeOnly ? ['--probe-only'] : []),
+            ], base_path(), $this->pythonProcessEnvironment());
+
+            $process->setTimeout($timeout + 15);
+            try {
+                $process->run();
+            } catch (ProcessTimedOutException) {
+                @unlink($outputPath);
+                throw new \RuntimeException(
+                    'El puerto del biometrico responde, pero la sesion ZKTeco no se abrio dentro del tiempo limite. Puede estar ocupado por otra sincronizacion o requerir reinicio/liberacion de sesion.'
+                );
+            }
+
+            Log::info('Extraccion biometrico Python process ejecutado', [
+                'probe_only' => $probeOnly,
+                'python' => $this->pythonBinary(),
+                'device_ip' => $device['ip'] ?? null,
+                'device_port' => $device['port'] ?? null,
+                'successful' => $process->isSuccessful(),
+                'exit_code' => $process->getExitCode(),
+                'output' => trim($process->getOutput()),
+                'error_output' => trim($process->getErrorOutput()),
+            ]);
+
+            if (! $process->isSuccessful()) {
+                $error = trim($process->getErrorOutput().' '.$process->getOutput());
+                @unlink($outputPath);
+                throw new \RuntimeException($error !== '' ? $error : 'No se pudo extraer marcaciones desde el biometrico.');
+            }
+
+            if (! file_exists($outputPath)) {
+                throw new \RuntimeException('La extraccion no genero un archivo temporal con marcaciones.');
+            }
+
+            $payload = json_decode((string) file_get_contents($outputPath), true);
+            @unlink($outputPath);
+
+            if (! is_array($payload)) {
+                throw new \RuntimeException('La respuesta del extractor ZKTeco no es valida.');
+            }
+
+            if (($payload['ok'] ?? false) !== true) {
+                throw new \RuntimeException((string) ($payload['message'] ?? 'El biometrico rechazo la extraccion.'));
+            }
+
+            return $payload;
+        } finally {
+            optional($lock)->release();
+            @unlink($outputPath);
         }
-
-        $payload = json_decode((string) file_get_contents($outputPath), true);
-        @unlink($outputPath);
-
-        if (! is_array($payload)) {
-            throw new \RuntimeException('La respuesta del extractor ZKTeco no es valida.');
-        }
-
-        if (($payload['ok'] ?? false) !== true) {
-            throw new \RuntimeException((string) ($payload['message'] ?? 'El biometrico rechazo la extraccion.'));
-        }
-
-        return $payload;
     }
 
     private function pythonBinary(): string

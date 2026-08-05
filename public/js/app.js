@@ -364,10 +364,100 @@ function printEmployeePdfFromModal() {
   }, 300);
 }
 
+function printReportesPdf() {
+  const source = document.getElementById('reportes-pdf-content');
+  if (!source) {
+    return;
+  }
+
+  const printWindow = window.open('', '_blank', 'width=1024,height=768');
+  if (!printWindow) {
+    return;
+  }
+
+  const styles = `
+    <style>
+      body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 24px; background: #f8fafc; }
+      h1, h2, h3, h4, p { margin: 0; }
+      .pdf-shell { display: grid; gap: 24px; }
+      .history-table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
+      .history-table th, .history-table td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+      .history-table th { background: #f8fafc; color: #64748b; text-transform: uppercase; letter-spacing: 0.16em; font-size: 10px; }
+      .history-table tr:last-child td { border-bottom: none; }
+      .text-slate-400 { color: #94a3b8; }
+    </style>
+  `;
+
+  printWindow.document.write(`
+    <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Reporte mensual</title>
+        ${styles}
+        <link rel="stylesheet" href="${window.location.origin}/css/app.css">
+      </head>
+      <body>
+        <div class="pdf-shell">${source.innerHTML}</div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 300);
+}
+
+function printReporteDetalleEmpleadoPdf() {
+  const source = document.getElementById('reportes-detalle-empleado-pdf-content');
+  if (!source) {
+    return;
+  }
+
+  const printWindow = window.open('', '_blank', 'width=1024,height=768');
+  if (!printWindow) {
+    return;
+  }
+
+  const styles = `
+    <style>
+      body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 24px; background: #f8fafc; }
+      h1, h2, h3, h4, p { margin: 0; }
+      .pdf-shell { display: grid; gap: 24px; }
+      .history-table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
+      .history-table th, .history-table td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+      .history-table th { background: #f8fafc; color: #64748b; text-transform: uppercase; letter-spacing: 0.16em; font-size: 10px; }
+      .history-table tr:last-child td { border-bottom: none; }
+      .text-slate-400 { color: #94a3b8; }
+    </style>
+  `;
+
+  printWindow.document.write(`
+    <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Detalle mensual del personal</title>
+        ${styles}
+        <link rel="stylesheet" href="${window.location.origin}/css/app.css">
+      </head>
+      <body>
+        <div class="pdf-shell">${source.innerHTML}</div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 300);
+}
+
 document.addEventListener('DOMContentLoaded', initHumanResourcesUi);
 document.addEventListener('livewire:navigated', initHumanResourcesUi);
 document.addEventListener('livewire:init', () => {
   Livewire.on('print-empleado-pdf', printEmployeePdfFromModal);
+  Livewire.on('print-reportes-pdf', printReportesPdf);
+  Livewire.on('print-reporte-detalle-empleado-pdf', printReporteDetalleEmpleadoPdf);
 
   if (typeof Livewire.hook === 'function') {
     Livewire.hook('morph.updated', ({ el }) => {

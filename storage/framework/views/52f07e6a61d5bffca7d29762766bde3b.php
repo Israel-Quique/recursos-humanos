@@ -290,14 +290,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <p class="detail-info-value"><?php echo e($detailEmpleado['fecha_nacimiento'] ?? 'Sin fecha'); ?></p>
           </div>
           <div class="detail-info-card">
-            <p class="metric-label">Contratacion</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['fecha_contratacion'] ?? 'Sin fecha'); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Despido</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['fecha_despido'] ?? 'Activo'); ?></p>
-          </div>
-          <div class="detail-info-card">
             <p class="metric-label">Horas del mes</p>
             <p class="detail-info-value"><?php echo e($detailEmpleado['horas_mes'] ?? '00:00'); ?></p>
           </div>
@@ -386,16 +378,26 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <h3 class="section-title app-modal-title">Ficha lista para PDF</h3>
             <p class="section-copy-sm">Revisa la informacion consolidada del personal y usa el boton de PDF para guardarla o imprimirla.</p>
           </div>
-          <div class="app-modal-actions">
-            <button type="button" wire:click="descargarPdfEmpleado" class="table-action-button">
-              <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
-              </svg>
-              <span>PDF</span>
-            </button>
-            <button type="button" wire:click="closePdfModal" class="app-modal-close" aria-label="Cerrar modal">X</button>
+          <div class="flex flex-col gap-3 md:items-end">
+            <div class="w-full min-w-[16rem] md:w-auto">
+              <label for="pdf-reference-month" class="form-label">Seleccionar mes</label>
+              <select id="pdf-reference-month" wire:model.live="pdfReferenceMonth" class="form-input min-w-[16rem]">
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $pdfMonthOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $option): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                  <option value="<?php echo e($option['value']); ?>"><?php echo e($option['label']); ?></option>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+              </select>
+            </div>
+            <div class="app-modal-actions">
+              <button type="button" wire:click="descargarPdfEmpleado" class="table-action-button">
+                <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
+                </svg>
+                <span>PDF</span>
+              </button>
+              <button type="button" wire:click="closePdfModal" class="app-modal-close" aria-label="Cerrar modal">X</button>
+            </div>
           </div>
         </div>
 
@@ -534,6 +536,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
     </div>
   <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'personal'): ?>
   <section>
     <article class="surface-card">
       <div class="section-head-row">
@@ -585,7 +588,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                 <td><?php echo e($empleado->sucursal); ?></td>
                 <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group">
+                  <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
                     <button
                       type="button"
                       wire:click="openDetailModal(<?php echo e($empleado->id); ?>)"
@@ -625,6 +628,20 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
                       </svg>
                       <span>PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      x-on:click="copyLink('<?php echo e(URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false)); ?>')"
+                      class="table-action-button"
+                      aria-label="Copiar enlace del perfil de horas"
+                      title="Copiar enlace"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="10" height="10" rx="2"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      <span x-show="!copied">Copiar</span>
+                      <span x-show="copied" x-cloak>Copiado</span>
                     </button>
                     <button
                       type="button"
@@ -695,7 +712,9 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
     </article>
   </section>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'marcaciones'): ?>
   <section>
     <article class="surface-card">
       <div class="section-head-row">
@@ -708,13 +727,24 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
       <div class="history-table-shell">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
-          <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Filtrando historial por codigo o nombre:
-            <strong class="text-slate-900"><?php echo e(filled($search) ? $search : 'todos'); ?></strong>
+          <div>
+            <label for="marcaciones-search" class="form-label">Buscar por codigo o nombre</label>
+            <input
+              id="marcaciones-search"
+              type="search"
+              wire:model.live.debounce.300ms="search"
+              class="form-input"
+              placeholder="Ej. 10909669 o ABEL ROJAS"
+            >
           </div>
-          <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Sucursal aplicada:
-            <strong class="text-slate-900"><?php echo e(filled($sucursalFiltro) ? $sucursalFiltro : 'todas'); ?></strong>
+          <div>
+            <label for="marcaciones-sucursal" class="form-label">Filtrar por sucursal</label>
+            <select id="marcaciones-sucursal" wire:model.live="sucursalFiltro" class="form-input">
+              <option value="">Todas las sucursales</option>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sucursales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sucursal): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($sucursal); ?>"><?php echo e($sucursal); ?></option>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </select>
           </div>
         </div>
 
@@ -743,7 +773,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                 <td><?php echo e($registro->estado_marcacion ?? 'Sin registro'); ?></td>
                 <td class="table-actions-cell">
                   <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($registro->empleado): ?>
-                    <div class="table-actions-group">
+                    <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
                       <button
                         type="button"
                         wire:click="openDetailModal(<?php echo e($registro->empleado->id); ?>)"
@@ -783,6 +813,19 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                       </button>
                       <button
                         type="button"
+                        x-on:click="copyLink('<?php echo e(URL::signedRoute('perfil-horas', ['empleado' => $registro->empleado->id], absolute: false)); ?>')"
+                        class="table-action-button"
+                        title="Copiar enlace del perfil"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="9" y="9" width="10" height="10" rx="2"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        <span x-show="!copied">Copiar</span>
+                        <span x-show="copied" x-cloak>Copiado</span>
+                      </button>
+                      <button
+                        type="button"
                         wire:click="openDeleteRegistroModal(<?php echo e($registro->id); ?>)"
                         class="table-action-button table-action-button-danger"
                         title="Eliminar marcacion"
@@ -812,7 +855,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
     </article>
   </section>
 
-  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($registros->hasPages()): ?>
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($registros->hasPages()): ?>
     <div class="table-pagination-shell mt-4">
       <div class="table-pagination-bar">
         <p class="table-pagination-copy">
@@ -851,8 +894,10 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
         </div>
       </div>
     </div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
   <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'control'): ?>
   <section>
     <article class="surface-card">
       <p class="section-kicker">Control mensual</p>
@@ -863,13 +908,24 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
       <div class="history-table-shell history-table-shell-personal">
         <div class="mb-6 grid gap-4 md:grid-cols-2">
-          <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Control mensual por codigo o nombre:
-            <strong class="text-slate-900"><?php echo e(filled($search) ? $search : 'todos'); ?></strong>
+          <div>
+            <label for="control-search" class="form-label">Buscar por codigo o nombre</label>
+            <input
+              id="control-search"
+              type="search"
+              wire:model.live.debounce.300ms="search"
+              class="form-input"
+              placeholder="Ej. 10909669 o ABEL ROJAS"
+            >
           </div>
-          <div class="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Sucursal aplicada:
-            <strong class="text-slate-900"><?php echo e(filled($sucursalFiltro) ? $sucursalFiltro : 'todas'); ?></strong>
+          <div>
+            <label for="control-sucursal" class="form-label">Filtrar por sucursal</label>
+            <select id="control-sucursal" wire:model.live="sucursalFiltro" class="form-input">
+              <option value="">Todas las sucursales</option>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sucursales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sucursal): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($sucursal); ?>"><?php echo e($sucursal); ?></option>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </select>
           </div>
         </div>
 
@@ -878,8 +934,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <tr>
               <th>Personal</th>
               <th>Sucursal</th>
-              <th>Entrada hoy</th>
-              <th>Salida hoy</th>
               <th>Verificacion</th>
               <th>Estado</th>
               <th>Horas acumuladas</th>
@@ -894,8 +948,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <tr>
                 <td><?php echo e($empleado->nombre_completo); ?></td>
                 <td><?php echo e($empleado->sucursal); ?></td>
-                <td><?php echo e($empleado->resumen_asistencia['entrada_hoy']); ?></td>
-                <td><?php echo e($empleado->resumen_asistencia['salida_hoy']); ?></td>
+
                 <td><?php echo e($empleado->resumen_asistencia['verificacion_hoy']); ?></td>
                 <td><?php echo e($empleado->resumen_asistencia['estado_hoy']); ?></td>
                 <td><?php echo e($empleado->resumen_asistencia['horas_mes']); ?></td>
@@ -908,7 +961,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                   </span>
                 </td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group">
+                  <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
                     <button
                       type="button"
                       wire:click="openDetailModal(<?php echo e($empleado->id); ?>)"
@@ -948,6 +1001,19 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                     </button>
                     <button
                       type="button"
+                      x-on:click="copyLink('<?php echo e(URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false)); ?>')"
+                      class="table-action-button"
+                      title="Copiar enlace del perfil"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="10" height="10" rx="2"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      <span x-show="!copied">Copiar</span>
+                      <span x-show="copied" x-cloak>Copiado</span>
+                    </button>
+                    <button
+                      type="button"
                       wire:click="openDeleteModal(<?php echo e($empleado->id); ?>)"
                       class="table-action-button table-action-button-danger"
                       title="Eliminar personal"
@@ -973,5 +1039,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       </div>
     </article>
   </section>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 </div>
 <?php /**PATH C:\Users\israe\OneDrive\Desktop\Pasantia\Proyectos\recursos-humanos\resources\views/livewire/personal.blade.php ENDPATH**/ ?>

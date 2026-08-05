@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -18,6 +19,8 @@ class PersonalPage extends Component
 {
     use WithPagination;
 
+    #[Url(as: 'vista')]
+    public string $vista = 'personal';
     public string $search = '';
     public string $sucursalFiltro = '';
     public int $registrosPage = 1;
@@ -50,16 +53,33 @@ class PersonalPage extends Component
     public string $editFechaContratacion = '';
     public string $editFechaDespido = '';
     public string $detailReferenceMonth = '';
+    public string $pdfReferenceMonth = '';
     public string $detailMarkingFilter = 'todas';
     public array $detailEmpleado = [];
     public array $detailMonthOptions = [];
+    public ?int $pdfEmpleadoId = null;
+    public array $pdfMonthOptions = [];
     public array $pdfEmpleado = [];
 
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
+        if (! in_array($this->vista, ['personal', 'marcaciones', 'control'], true)) {
+            $this->vista = 'personal';
+        }
+
         $this->detailReferenceMonth = $this->referenceMonth()->format('Y-m');
+        $this->pdfReferenceMonth = $this->referenceMonth()->format('Y-m');
+    }
+
+    public function setVista(string $vista): void
+    {
+        if (! in_array($vista, ['personal', 'marcaciones', 'control'], true)) {
+            return;
+        }
+
+        $this->vista = $vista;
     }
 
     public function openCreateModal(): void
@@ -167,13 +187,21 @@ class PersonalPage extends Component
 
     public function openPdfModal(int $empleadoId): void
     {
-        $this->pdfEmpleado = $this->armarFichaEmpleado($empleadoId);
+        $empleado = Empleado::query()->findOrFail($empleadoId);
+
+        $this->pdfEmpleadoId = $empleado->id;
+        $this->pdfMonthOptions = $this->monthOptionsForEmpleado($empleado);
+        $this->pdfReferenceMonth = $this->resolveInitialMonthReference($empleado, $this->pdfMonthOptions);
+        $this->pdfEmpleado = $this->armarFichaEmpleado($empleadoId, $this->pdfMonthCarbon());
         $this->showPdfModal = true;
     }
 
     public function closePdfModal(): void
     {
         $this->showPdfModal = false;
+        $this->pdfEmpleadoId = null;
+        $this->pdfReferenceMonth = $this->referenceMonth()->format('Y-m');
+        $this->pdfMonthOptions = [];
         $this->pdfEmpleado = [];
     }
 
@@ -223,6 +251,11 @@ class PersonalPage extends Component
         $this->refreshDetailEmpleado();
     }
 
+    public function updatedPdfReferenceMonth(): void
+    {
+        $this->refreshPdfEmpleado();
+    }
+
     public function setDetailMarkingFilter(string $filter): void
     {
         if (! in_array($filter, ['entrada', 'salida'], true)) {
@@ -240,6 +273,15 @@ class PersonalPage extends Component
         }
 
         $this->detailEmpleado = $this->armarFichaEmpleado($this->detailEmpleadoId, $this->detailMonthCarbon());
+    }
+
+    private function refreshPdfEmpleado(): void
+    {
+        if (! $this->showPdfModal || ! $this->pdfEmpleadoId) {
+            return;
+        }
+
+        $this->pdfEmpleado = $this->armarFichaEmpleado($this->pdfEmpleadoId, $this->pdfMonthCarbon());
     }
 
     public function descargarPdfEmpleado(): void
@@ -488,7 +530,10 @@ class PersonalPage extends Component
                 $olvidosMarcacion++;
             }
 
-            $min = $this->calcularMinutosRetraso($asistencia->hora_entrada, $horario['hora_entrada']);
+            $min = $this->calcularMinutosRetraso(
+                $asistencia->hora_entrada,
+                $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
+            );
             $minutosRetraso += $min;
             if ($min > 0) {
                 $diasTarde++;
@@ -561,7 +606,10 @@ class PersonalPage extends Component
             })
             ->map(function (RegistroAsistencia $registro) use ($empleado) {
                 $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
-                $minutosRetraso = $this->calcularMinutosRetraso($registro->hora_entrada, $horario['hora_entrada']);
+                $minutosRetraso = $this->calcularMinutosRetraso(
+                    $registro->hora_entrada,
+                    $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
+                );
                 $olvidoEntrada = blank($registro->hora_entrada);
                 $soloEntrada = $this->tieneSoloEntradaMarcada($registro);
                 $horaSalidaReal = $this->horaSalidaReal($registro);
@@ -658,12 +706,24 @@ class PersonalPage extends Component
     {
         $options = $this->monthOptionsForEmpleado($empleado);
 
+        return $this->resolveInitialMonthReference($empleado, $options);
+    }
+
+    private function resolveInitialMonthReference(Empleado $empleado, ?array $options = null): string
+    {
+        $options ??= $this->monthOptionsForEmpleado($empleado);
+
         return $options[0]['value'] ?? $this->referenceMonth()->format('Y-m');
     }
 
     private function detailMonthCarbon(): Carbon
     {
         return Carbon::createFromFormat('Y-m', $this->detailReferenceMonth)->startOfMonth();
+    }
+
+    private function pdfMonthCarbon(): Carbon
+    {
+        return Carbon::createFromFormat('Y-m', $this->pdfReferenceMonth)->startOfMonth();
     }
 
     private function calcularMinutosTrabajados(?string $horaEntrada, ?string $horaSalida): int
@@ -847,7 +907,14 @@ class PersonalPage extends Component
     {
         $referenceDate = RegistroAsistencia::query()->max('fecha');
 
-        return $referenceDate ? Carbon::parse($referenceDate) : now();
+        $dt = $referenceDate ? Carbon::parse($referenceDate) : now();
+
+        // No permitir que la referencia sea una fecha futura. Limitar a "ahora".
+        if ($dt->greaterThan(Carbon::now())) {
+            $dt = Carbon::now();
+        }
+
+        return $dt;
     }
 
     private function registrosPorNombre(string $monthStart, string $monthEnd): \Illuminate\Support\Collection

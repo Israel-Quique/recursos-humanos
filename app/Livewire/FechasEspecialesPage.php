@@ -252,7 +252,7 @@ class FechasEspecialesPage extends Component
         return view('livewire.fechas-especiales', [
             'fechas' => $fechas,
             'sucursales' => $this->sucursalesDisponibles(),
-        ])->layout('layouts.app', ['title' => 'Programacion laboral']);
+        ])->layout('layouts.app', ['title' => 'Programación laboral']);
     }
 
     private function rules(): array

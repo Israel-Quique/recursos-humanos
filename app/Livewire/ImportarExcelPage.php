@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\BiometricoDispositivo;
 use App\Services\AnalisisAsistenciaService;
+use App\Services\AuditoriaService;
 use App\Services\ConexionBiometricoService;
 use App\Services\ExtraccionBiometricoZkService;
 use App\Services\ImportacionBiometricaService;
@@ -17,7 +18,7 @@ class ImportarExcelPage extends Component
 {
     use WithFileUploads;
 
-    #[Validate(['required', 'file', 'mimes:xls,xlsx,csv', 'max:10240'])]
+    #[Validate(['required', 'file', 'mimes:xls,xlsx,csv,txt', 'max:512000'])]
     public $archivo;
 
     public string $deviceDepartment = '';
@@ -28,18 +29,24 @@ class ImportarExcelPage extends Component
     public string $deviceCommunicationPassword = '';
     public string $exportYear = '';
     public string $exportMonth = '';
+    public string $historyYear = '';
+    public string $historyMonth = '';
     public ?array $lastImportSummary = null;
     public bool $showBiometricoModal = false;
     public ?int $editingBiometricoId = null;
     public bool $showDeleteModal = false;
     public ?int $pendingDeleteImportacionId = null;
     public string $pendingDeleteImportacionNombre = '';
+    public bool $reconnecting = false;
+    public array $reconnectProgress = [];
 
     public function mount(): void
     {
         $this->deviceDepartment = 'La Paz';
         $this->exportYear = now()->format('Y');
         $this->exportMonth = now()->format('m');
+        $this->historyYear = now()->format('Y');
+        $this->historyMonth = now()->format('m');
     }
 
     public function openBiometricoModal(): void
@@ -122,10 +129,29 @@ class ImportarExcelPage extends Component
 
         if ($this->editingBiometricoId) {
             $device = BiometricoDispositivo::query()->findOrFail($this->editingBiometricoId);
+            $before = $this->auditableBiometricoPayload($device);
             $device->update($payload);
+            app(AuditoriaService::class)->registrar(
+                'Biometricos',
+                'Actualizar',
+                'Se actualizo la conexion del biometrico '.$device->branch.'.',
+                $device,
+                $before,
+                $this->auditableBiometricoPayload($device->fresh()),
+                ['origen_equipo' => $this->origenEquipoModificacion()]
+            );
             $message = 'Biometrico actualizado correctamente.';
         } else {
-            BiometricoDispositivo::query()->create($payload);
+            $device = BiometricoDispositivo::query()->create($payload);
+            app(AuditoriaService::class)->registrar(
+                'Biometricos',
+                'Crear',
+                'Se registro el biometrico '.$device->branch.'.',
+                $device,
+                null,
+                $this->auditableBiometricoPayload($device),
+                ['origen_equipo' => $this->origenEquipoModificacion()]
+            );
             $message = 'Biometrico registrado correctamente.';
         }
 
@@ -139,7 +165,17 @@ class ImportarExcelPage extends Component
     public function deleteBiometrico(int $deviceId): void
     {
         $device = BiometricoDispositivo::query()->findOrFail($deviceId);
+        $before = $this->auditableBiometricoPayload($device);
         $device->delete();
+        app(AuditoriaService::class)->registrar(
+            'Biometricos',
+            'Eliminar',
+            'Se elimino el biometrico '.$before['branch'].'.',
+            null,
+            $before,
+            null,
+            ['origen_equipo' => $this->origenEquipoModificacion()]
+        );
 
         session()->flash('status', 'Biometrico eliminado correctamente.');
     }
@@ -154,20 +190,24 @@ class ImportarExcelPage extends Component
             }
 
             $device = $devices[$deviceIndex];
-            $probe = app(ExtraccionBiometricoZkService::class)->probarSesion($device);
+            $probe = app(ConexionBiometricoService::class)->probarConexion($deviceIndex);
 
             session()->flash(
                 'status',
-                'Conexion ZKTeco verificada correctamente con '.$device['branch'].'. Transporte: '.strtoupper((string) ($probe['transport'] ?? 'tcp')).'.'
+                'Conexion TCP/IP verificada correctamente con '.$device['branch'].'. '.$probe['last_sync'].'.'
             );
         } catch (\Throwable $exception) {
             report($exception);
+            $this->actualizarEstadoBiometrico($devices[$deviceIndex] ?? null, false, $exception->getMessage());
             session()->flash('status', 'Error al probar la conexion del biometrico: '.$exception->getMessage());
         }
     }
 
     public function extraerExcel(int $deviceIndex)
     {
+        $this->resetErrorBag('archivo');
+        $this->extendExtractionRuntime();
+
         try {
             $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
 
@@ -180,6 +220,7 @@ class ImportarExcelPage extends Component
                 (int) $this->exportYear,
                 (int) $this->exportMonth
             );
+            $this->actualizarEstadoBiometrico($devices[$deviceIndex], true);
 
             return response()->download($path, basename($path))->deleteFileAfterSend(true);
         } catch (\Throwable $exception) {
@@ -187,6 +228,79 @@ class ImportarExcelPage extends Component
             session()->flash('status', 'No se pudo extraer el Excel del biometrico: '.$exception->getMessage());
 
             return null;
+        }
+    }
+
+    public function extraerExcelCompleto(int $deviceIndex)
+    {
+        $this->resetErrorBag('archivo');
+        $this->extendExtractionRuntime();
+
+        try {
+            $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
+
+            if (! isset($devices[$deviceIndex])) {
+                throw new \RuntimeException('No se encontro el biometrico seleccionado para exportar.');
+            }
+
+            $path = app(ExtraccionBiometricoZkService::class)->exportarExcel($devices[$deviceIndex]);
+            $this->actualizarEstadoBiometrico($devices[$deviceIndex], true);
+
+            return response()->download($path, basename($path))->deleteFileAfterSend(true);
+        } catch (\Throwable $exception) {
+            report($exception);
+            session()->flash('status', 'No se pudo extraer todo el Excel del biometrico: '.$exception->getMessage());
+
+            return null;
+        }
+    }
+
+    private function extendExtractionRuntime(): void
+    {
+        $seconds = max(180, (int) config('biometrico.export_timeout', 180));
+
+        @ini_set('max_execution_time', (string) $seconds);
+        @set_time_limit($seconds);
+    }
+
+    public function reconectarTodos(): void
+    {
+        $this->reconnectProgress = [];
+        $this->reconnecting = true;
+
+        try {
+            $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
+            $conexion = app(ConexionBiometricoService::class);
+
+            foreach ($devices as $index => $device) {
+                $this->reconnectProgress[$index] = [
+                    'branch' => $device['branch'] ?? ($device['ip'] ?? 'Equipo'),
+                    'ip' => $device['ip'] ?? null,
+                    'status' => 'probando',
+                ];
+
+                try {
+                    $probe = $conexion->probarConexion($index);
+
+                    $this->reconnectProgress[$index]['status'] = 'ok';
+                    $this->reconnectProgress[$index]['message'] = $probe['last_sync'] ?? 'Disponible';
+                } catch (\Throwable $ex) {
+                    report($ex);
+                    $this->actualizarEstadoBiometrico($device, false, $ex->getMessage());
+                    $this->reconnectProgress[$index]['status'] = 'error';
+                    $this->reconnectProgress[$index]['message'] = $ex->getMessage();
+                }
+
+                // permitir que Livewire empuje el cambio al cliente (evento con payload pequeño)
+                $this->dispatch('reconnectProgressUpdated', $this->reconnectProgress[$index] ?? []);
+
+                // breve pausa entre intentos para no saturar la red
+                usleep(150000);
+            }
+
+            session()->flash('status', 'Reconexión completa.');
+        } finally {
+            $this->reconnecting = false;
         }
     }
 
@@ -272,8 +386,9 @@ class ImportarExcelPage extends Component
         return [
             'archivo.required' => 'Selecciona un archivo Excel o CSV antes de importar.',
             'archivo.file' => 'El archivo seleccionado no es valido.',
-            'archivo.mimes' => 'Solo se admiten archivos .xls, .xlsx o .csv.',
-            'archivo.max' => 'El archivo no debe superar los 10 MB.',
+            'archivo.uploaded' => 'No se pudo cargar el archivo. Si quieres leer desde el biometrico, usa el boton Extraer Excel o Extraer todo de la sucursal.',
+            'archivo.mimes' => 'Solo se admiten archivos .xls, .xlsx, .csv o .txt.',
+            'archivo.max' => 'El archivo no debe superar los 500 MB.',
         ];
     }
 
@@ -282,11 +397,16 @@ class ImportarExcelPage extends Component
         $analysis = app(AnalisisAsistenciaService::class);
 
         return view('livewire.importar-excel', [
-            'history' => $analysis->historialImportaciones(),
+            'history' => $analysis->historialImportaciones(
+                (int) $this->historyYear,
+                (int) $this->historyMonth
+            ),
             'connections' => array_values($analysis->estadoBiometricos()),
             'connectionModes' => $this->connectionModes(),
             'exportYearOptions' => $this->yearOptions(),
             'exportMonthOptions' => $this->monthOptions(),
+            'historyYearOptions' => $this->yearOptions(),
+            'historyMonthOptions' => $this->monthOptions(),
             'summary' => $this->lastImportSummary,
         ])->layout('layouts.app', ['title' => 'Importacion biometrica']);
     }
@@ -330,5 +450,53 @@ class ImportarExcelPage extends Component
         $this->devicePort = '4370';
         $this->deviceConnectionMode = 'TCP/IP';
         $this->deviceCommunicationPassword = '';
+    }
+
+    private function auditableBiometricoPayload(?BiometricoDispositivo $device): ?array
+    {
+        if (! $device) {
+            return null;
+        }
+
+        return $device->only([
+            'department',
+            'branch',
+            'ip',
+            'port',
+            'connection_mode',
+            'communication_password',
+            'is_active',
+        ]);
+    }
+
+    private function origenEquipoModificacion(): array
+    {
+        return [
+            'ip' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ];
+    }
+
+    private function actualizarEstadoBiometrico(?array $device, bool $connected, ?string $error = null): void
+    {
+        if (! $device) {
+            return;
+        }
+
+        $deviceId = $device['id'] ?? null;
+        $ip = trim((string) ($device['ip'] ?? ''));
+
+        $storedDevice = $deviceId
+            ? BiometricoDispositivo::query()->find($deviceId)
+            : BiometricoDispositivo::query()->where('ip', $ip)->first();
+
+        if (! $storedDevice) {
+            return;
+        }
+
+        $storedDevice->forceFill([
+            'last_seen_at' => $connected ? now() : null,
+            'last_error' => $connected ? null : ($error ?: 'No fue posible conectar con el biometrico.'),
+        ])->save();
     }
 }

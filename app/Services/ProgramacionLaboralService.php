@@ -85,16 +85,20 @@ class ProgramacionLaboralService
                 'laborable' => false,
                 'es_feriado' => in_array($fechaEspecial?->tipo, ['feriado', 'paro'], true),
                 'hora_entrada' => null,
+                'hora_entrada_tolerancia' => null,
                 'hora_salida' => null,
             ];
         }
+
+        $horaEntrada = $fechaEspecial?->hora_entrada ?: $horaEntradaBase;
 
         return [
             'fecha_especial' => $fechaEspecial,
             'horario_regional' => $horarioRegional,
             'laborable' => true,
             'es_feriado' => false,
-            'hora_entrada' => $fechaEspecial?->hora_entrada ?: $horaEntradaBase,
+            'hora_entrada' => $horaEntrada,
+            'hora_entrada_tolerancia' => $this->resolverHoraEntradaTolerancia($fecha, $horaEntrada),
             'hora_salida' => $fechaEspecial?->hora_salida ?: $horaSalidaBase,
         ];
     }
@@ -171,6 +175,40 @@ class ProgramacionLaboralService
         $value = trim((string) $sucursal);
 
         return $value === '' ? 'TODAS' : $value;
+    }
+
+    private function resolverHoraEntradaTolerancia(Carbon|string|null $fecha, ?string $horaEntrada): ?string
+    {
+        if (blank($fecha) || blank($horaEntrada)) {
+            return $horaEntrada;
+        }
+
+        $carbon = $fecha instanceof Carbon ? $fecha->copy() : Carbon::parse($fecha);
+        $diasToleranciaExtendida = collect(config('asistencia.dias_tolerancia_extendida', []))
+            ->map(fn ($day) => (int) $day)
+            ->filter(fn (int $day) => $day > 0 && $day <= 31)
+            ->all();
+
+        if (! in_array($carbon->day, $diasToleranciaExtendida, true)) {
+            return $horaEntrada;
+        }
+
+        $horaExtendida = config('asistencia.hora_entrada_tolerancia_extendida', '09:00:00');
+
+        foreach (['H:i:s', 'H:i'] as $format) {
+            try {
+                $entrada = Carbon::createFromFormat($format, $horaEntrada);
+                $extendida = Carbon::createFromFormat($format, $horaExtendida);
+
+                return $extendida->greaterThan($entrada)
+                    ? $extendida->format('H:i:s')
+                    : $entrada->format('H:i:s');
+            } catch (\Exception $exception) {
+                continue;
+            }
+        }
+
+        return $horaEntrada;
     }
 
     private function minutosEntreHoras(?string $horaInicio, ?string $horaFin): int

@@ -34,7 +34,9 @@ class IncidenciasPage extends Component
     public string $horaInicio = '';
     public string $horaFin = '';
     public string $motivo = '';
+    public string $empleadoSearch = '';
     public string $editEmpleadoId = '';
+    public string $editEmpleadoSearch = '';
     public string $editTipo = 'permiso';
     public string $editAlcance = 'dia_completo';
     public string $editEstado = 'aprobado';
@@ -118,12 +120,14 @@ class IncidenciasPage extends Component
         $this->showEditModal = true;
         $this->resetValidation();
         $this->sincronizarReglaTipo($this->editTipo, true);
+        $this->editEmpleadoSearch = $incidencia->empleado?->nombre_completo ?? '';
     }
 
     public function closeEditModal(): void
     {
         $this->showEditModal = false;
         $this->editingIncidenciaId = null;
+        $this->editEmpleadoSearch = '';
         $this->resetValidation();
     }
 
@@ -282,10 +286,14 @@ class IncidenciasPage extends Component
             ->orderBy('nombre')
             ->orderBy('apellido')
             ->get();
+        $empleadosFormulario = $this->filtrarEmpleadosFormulario($empleados, $this->empleadoSearch, $this->empleadoId);
+        $empleadosEdicion = $this->filtrarEmpleadosFormulario($empleados, $this->editEmpleadoSearch, $this->editEmpleadoId);
 
         return view('livewire.incidencias', [
             'incidencias' => $incidencias,
             'empleados' => $empleados,
+            'empleadosFormulario' => $empleadosFormulario,
+            'empleadosEdicion' => $empleadosEdicion,
             'tipos' => $this->tiposDisponibles(),
             'alcances' => $this->alcancesDisponibles(),
         ])->layout('layouts.app', ['title' => 'Incidencias laborales']);
@@ -444,6 +452,7 @@ class IncidenciasPage extends Component
     private function resetCreateForm(): void
     {
         $this->empleadoId = '';
+        $this->empleadoSearch = '';
         $this->tipo = 'permiso';
         $this->alcance = 'dia_completo';
         $this->estado = 'aprobado';
@@ -470,5 +479,30 @@ class IncidenciasPage extends Component
             'minutos_contabilizados' => $incidencia->minutos_contabilizados,
             'motivo' => $incidencia->motivo,
         ];
+    }
+
+    private function filtrarEmpleadosFormulario($empleados, string $search, string $selectedId)
+    {
+        $term = trim(mb_strtolower($search));
+
+        if ($term === '') {
+            return $empleados;
+        }
+
+        return $empleados
+            ->filter(function (Empleado $empleado) use ($term, $selectedId) {
+                if ($selectedId !== '' && (string) $empleado->id === $selectedId) {
+                    return true;
+                }
+
+                $texto = mb_strtolower(
+                    $empleado->nombre_completo.' '.
+                    ($empleado->codigo_biometrico ?? '').' '.
+                    ($empleado->sucursal ?? '')
+                );
+
+                return str_contains($texto, $term);
+            })
+            ->values();
     }
 }

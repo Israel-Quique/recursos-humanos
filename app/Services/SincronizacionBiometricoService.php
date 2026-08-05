@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BiometricoDispositivo;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class SincronizacionBiometricoService
 {
@@ -30,11 +31,11 @@ class SincronizacionBiometricoService
     public function sincronizarDispositivo(array $device, bool $force = false): array
     {
         $storedDevice = $this->resolveStoredDevice($device);
-        $lastSyncedAt = $force ? null : $storedDevice?->last_synced_mark_at;
+        $syncCutoff = $force ? null : $this->resolveSyncCutoff($storedDevice);
 
         try {
             $rows = $this->extraccionBiometricoZkService->extraerMarcaciones($device);
-            $newRows = $this->filterRowsAfter($rows, $lastSyncedAt);
+            $newRows = $this->filterRowsAfter($rows, $syncCutoff);
 
             $storedDevice?->forceFill([
                 'last_seen_at' => now(),
@@ -46,7 +47,7 @@ class SincronizacionBiometricoService
                     'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
                     'status' => 'sin-cambios',
                     'imported' => 0,
-                    'message' => 'No existen marcaciones nuevas para sincronizar.',
+                    'message' => 'No existen marcaciones nuevas y validas para sincronizar en la ventana reciente.',
                 ];
             }
 
@@ -83,7 +84,7 @@ class SincronizacionBiometricoService
         } catch (\Throwable $exception) {
             if ($storedDevice) {
                 $storedDevice->forceFill([
-                    'last_seen_at' => now(),
+                    'last_seen_at' => null,
                     'last_error' => $exception->getMessage(),
                 ])->save();
             }
@@ -120,11 +121,17 @@ class SincronizacionBiometricoService
 
     private function filterRowsAfter(array $rows, ?Carbon $lastSyncedAt): array
     {
+        $validRows = array_values(array_filter($rows, function (array $row) {
+            $timestamp = $this->parseTimestamp($row['fecha_hora'] ?? null);
+
+            return $timestamp && ! $this->isFutureTimestamp($timestamp);
+        }));
+
         if (! $lastSyncedAt) {
-            return $this->sortRowsByTimestamp($rows);
+            return $this->sortRowsByTimestamp($validRows);
         }
 
-        return $this->sortRowsByTimestamp(array_values(array_filter($rows, function (array $row) use ($lastSyncedAt) {
+        return $this->sortRowsByTimestamp(array_values(array_filter($validRows, function (array $row) use ($lastSyncedAt) {
             $timestamp = $this->parseTimestamp($row['fecha_hora'] ?? null);
 
             return $timestamp && $timestamp->greaterThan($lastSyncedAt);
@@ -152,6 +159,54 @@ class SincronizacionBiometricoService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function resolveLastSyncedAt(?BiometricoDispositivo $storedDevice): ?Carbon
+    {
+        if (! $storedDevice?->last_synced_mark_at) {
+            return null;
+        }
+
+        if (! $this->isFutureTimestamp($storedDevice->last_synced_mark_at)) {
+            return $storedDevice->last_synced_mark_at;
+        }
+
+        $storedDevice->forceFill([
+            'last_synced_mark_at' => null,
+            'last_error' => null,
+        ])->save();
+
+        Log::warning('Se reinicio last_synced_mark_at por fecha futura detectada.', [
+            'device_id' => $storedDevice->id,
+            'device_ip' => $storedDevice->ip,
+            'future_sync_at' => $storedDevice->getOriginal('last_synced_mark_at'),
+        ]);
+
+        return null;
+    }
+
+    private function resolveSyncCutoff(?BiometricoDispositivo $storedDevice): ?Carbon
+    {
+        $windowStart = now()->copy()->subDays($this->syncWindowDays());
+        $lastSyncedAt = $this->resolveLastSyncedAt($storedDevice);
+
+        if (! $lastSyncedAt) {
+            return $windowStart;
+        }
+
+        // Reprocesar una ventana reciente evita que un timestamp guardado
+        // bloquee marcas reales pendientes; la importacion fusiona sin duplicar.
+        return $lastSyncedAt->lessThan($windowStart) ? $lastSyncedAt : $windowStart;
+    }
+
+    private function syncWindowDays(): int
+    {
+        return max(1, (int) config('biometrico.sync_window_days', 2));
+    }
+
+    private function isFutureTimestamp(Carbon $timestamp): bool
+    {
+        return $timestamp->greaterThan(now()->copy()->addDay());
     }
 
     private function deviceArrayFromModel(BiometricoDispositivo $device): array

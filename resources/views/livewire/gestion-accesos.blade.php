@@ -46,6 +46,17 @@
             @error('newUserRole') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
+          <div class="md:col-span-2">
+            <label class="form-label">Trabajador vinculado</label>
+            <select wire:model="newEmpleadoId" class="form-input">
+              <option value="">Sin vincular por ahora</option>
+              @foreach ($empleados as $empleado)
+                <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->codigo_biometrico ?: 'Sin codigo' }}</option>
+              @endforeach
+            </select>
+            @error('newEmpleadoId') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+
           <div class="md:col-span-2 app-modal-actions">
             <button type="submit" class="login-submit app-modal-submit">Crear usuario</button>
           </div>
@@ -99,6 +110,17 @@
               @endforeach
             </select>
             @error('editRole') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="form-label">Trabajador vinculado</label>
+            <select wire:model="editEmpleadoId" class="form-input">
+              <option value="">Sin vincular por ahora</option>
+              @foreach ($empleados as $empleado)
+                <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->codigo_biometrico ?: 'Sin codigo' }}</option>
+              @endforeach
+            </select>
+            @error('editEmpleadoId') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2 app-modal-actions">
@@ -170,6 +192,7 @@
             <tr>
               <th>Usuario</th>
               <th>Correo</th>
+              <th>Trabajador</th>
               <th>Rol actual</th>
               <th>Acciones</th>
             </tr>
@@ -179,6 +202,7 @@
               <tr>
                 <td>{{ $user->name }}</td>
                 <td>{{ $user->email }}</td>
+                <td>{{ $user->empleado?->nombre_completo ?? 'Sin vincular' }}</td>
                 <td>
                   <span class="status-badge status-info">
                     {{ \Illuminate\Support\Str::headline($user->getRoleNames()->first() ?? 'sin rol') }}

@@ -28,6 +28,7 @@ class AuditoriaService
             'meta' => $this->limpiarPayload(($meta ?? []) + [
                 'ruta' => request()->path(),
                 'ip' => request()->ip(),
+                'user_agent' => request()->userAgent(),
             ]),
         ]);
     }

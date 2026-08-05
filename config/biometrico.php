@@ -31,6 +31,10 @@ return [
     'database' => env('BIOMETRICO_DATABASE'),
     'table' => env('BIOMETRICO_TABLE'),
     'pull_interval' => (int) env('BIOMETRICO_PULL_INTERVAL', 60),
+    'auto_sync_minutes' => (int) env('BIOMETRICO_AUTO_SYNC_MINUTES', 15),
+    'sync_window_days' => max(1, (int) env('BIOMETRICO_SYNC_WINDOW_DAYS', 2)),
     'timeout' => (float) env('BIOMETRICO_TIMEOUT', 2),
-    'devices' => is_array($devices) ? $devices : $fallbackDevices,
+    'export_timeout' => max(60, (int) env('BIOMETRICO_EXPORT_TIMEOUT', 90)),
+    'status_timeout' => (float) env('BIOMETRICO_STATUS_TIMEOUT', 1),
+    'devices' => is_array($devices) && $devices !== [] ? $devices : $fallbackDevices,
 ];

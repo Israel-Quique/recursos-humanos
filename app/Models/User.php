@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -15,6 +16,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'empleado_id',
     ];
 
     protected $hidden = [
@@ -30,5 +32,10 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function empleado(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class, 'empleado_id');
     }
 }

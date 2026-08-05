@@ -29,7 +29,7 @@
         <button type="button" wire:click="closeCreateModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
         <div class="app-modal-head">
           <div>
-            <p class="section-kicker">Programacion especial</p>
+            <p class="section-kicker">Programación especial</p>
             <h3 class="section-title app-modal-title">Registrar feriado, paro u horario especial</h3>
             <p class="section-copy-sm">Configura dias no laborables globales o por sucursal, y jornadas con entrada y salida distintas a la regla normal.</p>
           </div>

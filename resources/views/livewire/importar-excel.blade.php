@@ -90,12 +90,23 @@
   @endif
 
   <section class="surface-card relative">
-    <div wire:loading wire:target="importFile" class="loading-overlay">
+    <div wire:loading.flex wire:target="importFile" class="loading-overlay">
       <div class="loading-spinner" role="status" aria-live="polite" aria-label="Importando archivo">
-        <svg class="loading-spinner-icon" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-          <circle class="loading-spinner-circle" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-        </svg>
-        <span class="loading-spinner-text">Importando, por favor espera...</span>
+        <div class="loading-spinner-orbit">
+          <svg class="loading-spinner-icon" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle class="loading-spinner-track" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+            <circle class="loading-spinner-circle" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+          </svg>
+          <span class="loading-spinner-dot"></span>
+        </div>
+        <div class="loading-spinner-body">
+          <p class="loading-spinner-kicker">Sincronizando biometrico</p>
+          <p class="loading-spinner-text">Importando registros y preparando asistencias</p>
+          <p class="loading-spinner-copy">Esto puede tardar un momento mientras se validan las marcaciones del archivo.</p>
+        </div>
+        <div class="loading-progress" aria-hidden="true">
+          <span class="loading-progress-bar"></span>
+        </div>
       </div>
     </div>
 
@@ -112,7 +123,7 @@
           type="file"
           wire:model="archivo"
           class="upload-dropzone-input"
-          accept=".xls,.xlsx,.csv"
+          accept=".xls,.xlsx,.csv,.txt"
         >
 
         <div class="upload-badge">
@@ -203,11 +214,56 @@
         <button type="button" wire:click="openBiometricoModal" class="table-action-button">
           Agregar biometrico
         </button>
+          <button type="button" wire:click="reconectarTodos" wire:loading.attr="disabled" wire:target="reconectarTodos" class="table-action-button">
+            Reconectar todos
+          </button>
         <div class="history-pill">
           <span class="hero-status-icon"></span>
           <span>{{ collect($connections)->where('connected', true)->count() }} equipos conectados</span>
         </div>
       </div>
+      
+      @if($reconnecting)
+        <div class="loading-overlay" aria-live="polite">
+          <div class="loading-spinner">
+            <div class="loading-spinner-orbit">
+              <svg class="loading-spinner-icon" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle class="loading-spinner-track" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                <circle class="loading-spinner-circle" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+              </svg>
+            </div>
+            <div class="loading-spinner-body">
+              <p class="loading-spinner-kicker">Reconectando con las sucursales</p>
+              <p class="loading-spinner-text">Se intentará la conexión una por una. Esto puede tardar.</p>
+            </div>
+          </div>
+
+          <div class="mt-4 max-h-64 overflow-auto bg-white/80 p-4 rounded-md">
+            @if(count($reconnectProgress) === 0)
+              <p class="text-sm text-slate-600">Preparando reconexión...</p>
+            @endif
+            <ul class="space-y-2">
+              @foreach($reconnectProgress as $item)
+                <li class="flex items-center justify-between">
+                  <div>
+                    <strong class="text-sm">{{ $item['branch'] }}</strong>
+                    <div class="text-xs text-slate-500">{{ $item['ip'] ?? '' }}</div>
+                  </div>
+                  <div>
+                    @if($item['status'] === 'probando')
+                      <span class="text-sm text-amber-600">Probando…</span>
+                    @elseif($item['status'] === 'ok')
+                      <span class="text-sm text-emerald-600">Conectado</span>
+                    @else
+                      <span class="text-sm text-rose-600">Error</span>
+                    @endif
+                  </div>
+                </li>
+              @endforeach
+            </ul>
+          </div>
+        </div>
+      @endif
     </div>
 
     <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -276,6 +332,16 @@
             </button>
             <button
               type="button"
+              wire:click="extraerExcelCompleto({{ $loop->index }})"
+              wire:loading.attr="disabled"
+              wire:target="extraerExcelCompleto({{ $loop->index }})"
+              class="table-action-button"
+            >
+              <span wire:loading.remove wire:target="extraerExcelCompleto({{ $loop->index }})">Extraer todo</span>
+              <span wire:loading wire:target="extraerExcelCompleto({{ $loop->index }})">Extrayendo todo...</span>
+            </button>
+            <button
+              type="button"
               wire:click="{{ ! empty($device['id']) ? 'openEditBiometricoModal('.$device['id'].')' : 'openEditBiometricoModalByIndex('.$loop->index.')' }}"
               class="table-action-button"
             >
@@ -316,6 +382,31 @@
       <div class="history-pill">
         <span class="hero-status-icon"></span>
         <span>{{ count($history) }} archivos listos</span>
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label for="history-year" class="form-label">Historial por anio</label>
+        <select id="history-year" wire:model.live="historyYear" class="form-input">
+          @foreach ($historyYearOptions as $year)
+            <option value="{{ $year }}">{{ $year }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div>
+        <label for="history-month" class="form-label">Historial por mes</label>
+        <select id="history-month" wire:model.live="historyMonth" class="form-input">
+          @foreach ($historyMonthOptions as $monthOption)
+            <option value="{{ $monthOption['value'] }}">{{ $monthOption['label'] }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="md:col-span-2 xl:col-span-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        Historial visible:
+        <strong class="text-slate-900">
+          {{ collect($historyMonthOptions)->firstWhere('value', $historyMonth)['label'] ?? $historyMonth }}/{{ $historyYear }}
+        </strong>
       </div>
     </div>
 

@@ -1,12 +1,21 @@
 <div class="login-stage">
+  @php
+    $loginLogo = file_exists(public_path('images/menu-logo.png'))
+      ? asset('images/menu-logo.png')
+      : null;
+  @endphp
+
   <div class="login-shell">
     <section class="login-welcome">
-      <div class="login-welcome-bubble login-welcome-bubble-top"></div>
-      <div class="login-welcome-bubble login-welcome-bubble-bottom"></div>
-
       <div class="login-welcome-content">
         <div class="login-welcome-brand">
-          <div class="login-brand-badge">CB</div>
+          <div class="login-brand-badge">
+            @if ($loginLogo)
+              <img src="{{ $loginLogo }}" alt="Correos de Bolivia" class="login-brand-badge-image">
+            @else
+              <span>CB</span>
+            @endif
+          </div>
           <div>
             <p class="login-brand-kicker">Recursos Humanos</p>
             <h1 class="login-brand-title">Bienvenido</h1>
@@ -18,15 +27,23 @@
           revisar personal y administrar la operacion diaria.
         </p>
 
+        <span class="login-security-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="9" rx="2"/>
+            <path d="M8 11V8a4 4 0 1 1 8 0v3"/>
+          </svg>
+          Acceso exclusivo para personal autorizado
+        </span>
+
         @if (session('status'))
           <div class="login-status-ok">
             {{ session('status') }}
           </div>
         @endif
 
-        <form wire:submit="login" class="mt-8 space-y-5">
+        <form wire:submit="login" class="login-form">
           <div>
-            <label for="email" class="form-label login-form-label">Usuario o correo</label>
+            <label for="email" class="login-form-label">Usuario o correo</label>
             <div class="login-input-shell">
               <span class="login-input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -44,14 +61,13 @@
               >
             </div>
             @error('email')
-              <p class="form-error">{{ $message }}</p>
+              <p class="form-error form-error-dark">{{ $message }}</p>
             @enderror
           </div>
 
           <div>
-            <div class="flex items-center justify-between gap-4">
-              <label for="password" class="form-label login-form-label !mb-0">Contrasena</label>
-              <span class="login-link-hint">Acceso interno seguro</span>
+            <div class="login-field-head">
+              <label for="password" class="login-form-label !mb-0">Contrasena</label>
             </div>
             <div class="login-input-shell">
               <span class="login-input-icon">
@@ -73,33 +89,63 @@
               </button>
             </div>
             @error('password')
-              <p class="form-error">{{ $message }}</p>
+              <p class="form-error form-error-dark">{{ $message }}</p>
             @enderror
           </div>
 
           <button type="submit" class="login-submit">
             <span>Ingresar</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="login-submit-icon">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
           </button>
-
-          <p class="login-forgot-copy">Acceso exclusivo para personal autorizado.</p>
         </form>
       </div>
     </section>
 
     <aside class="login-sidecard">
       <div class="login-sidecard-content">
-        <p class="login-sidecard-kicker">Nuevo portal</p>
+        <p class="login-sidecard-kicker">Portal institucional</p>
         <h2 class="login-sidecard-title">Sistema de Recursos Humanos</h2>
         <p class="login-sidecard-copy">
           Consulta asistencia, seguimiento del personal, reportes operativos e informacion institucional
           desde una sola plataforma interna.
         </p>
 
+        <ul class="login-feature-list">
+          <li class="login-feature-item">
+            <span class="login-feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M5 13l4 4L19 7"/>
+              </svg>
+            </span>
+            <span>Control de asistencia en tiempo real</span>
+          </li>
+          <li class="login-feature-item">
+            <span class="login-feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M5 13l4 4L19 7"/>
+              </svg>
+            </span>
+            <span>Gestion centralizada de personal</span>
+          </li>
+          <li class="login-feature-item">
+            <span class="login-feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M5 13l4 4L19 7"/>
+              </svg>
+            </span>
+            <span>Reportes y auditoria operativa</span>
+          </li>
+        </ul>
+
         <div class="login-sidecard-badge">
           <span class="login-sidecard-badge-dot"></span>
           <span>Correos de Bolivia</span>
         </div>
       </div>
+
+      <p class="login-sidecard-footer">Terminal de operacion segura &middot; Seguridad AES-256</p>
     </aside>
   </div>
 </div>

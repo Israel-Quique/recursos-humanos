@@ -38,12 +38,21 @@
         <form wire:submit="saveIncidencia" class="mt-8 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Personal</label>
+            <input
+              type="search"
+              wire:model.live.debounce.300ms="empleadoSearch"
+              class="form-input mb-3"
+              placeholder="Buscar por nombre o codigo"
+            >
             <select wire:model="empleadoId" class="form-input">
               <option value="">Selecciona</option>
-              @foreach($empleados as $empleado)
+              @foreach($empleadosFormulario as $empleado)
                 <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->sucursal ?: 'Sin sucursal' }}</option>
               @endforeach
             </select>
+            @if($empleadosFormulario->isEmpty())
+              <p class="form-error">No se encontro personal con ese nombre o codigo.</p>
+            @endif
             @error('empleadoId') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
@@ -123,12 +132,21 @@
         <form wire:submit="updateIncidencia" class="mt-8 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Personal</label>
+            <input
+              type="search"
+              wire:model.live.debounce.300ms="editEmpleadoSearch"
+              class="form-input mb-3"
+              placeholder="Buscar por nombre o codigo"
+            >
             <select wire:model="editEmpleadoId" class="form-input">
               <option value="">Selecciona</option>
-              @foreach($empleados as $empleado)
+              @foreach($empleadosEdicion as $empleado)
                 <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->sucursal ?: 'Sin sucursal' }}</option>
               @endforeach
             </select>
+            @if($empleadosEdicion->isEmpty())
+              <p class="form-error">No se encontro personal con ese nombre o codigo.</p>
+            @endif
             @error('editEmpleadoId') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>

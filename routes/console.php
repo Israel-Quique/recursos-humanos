@@ -33,5 +33,5 @@ Artisan::command('biometrico:sync {--force : Reprocesa todas las marcaciones enc
 })->purpose('Sincroniza marcaciones nuevas desde biometricos ZKTeco');
 
 Schedule::command('biometrico:sync')
-    ->everyTenMinutes()
+    ->everyFifteenMinutes()
     ->withoutOverlapping();
