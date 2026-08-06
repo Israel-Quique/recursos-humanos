@@ -68,14 +68,32 @@
         </thead>
         <tbody>
           <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $personalReport['rows']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-            <tr>
-              <td><?php echo e($row['fecha']); ?></td>
-              <td><?php echo e($row['entrada']); ?></td>
-              <td><?php echo e($row['salida']); ?></td>
-              <td><?php echo e($row['horas']); ?></td>
-              <td><?php echo e($row['retraso']); ?></td>
-              <td><?php echo e($row['estado']); ?></td>
-              <td><?php echo e($row['estado_biometrico']); ?> | <?php echo e($row['evento_biometrico']); ?></td>
+            <?php
+              $rowTone = $row['row_tone'] ?? 'default';
+              $rowClass = match ($rowTone) {
+                  'warning' => 'history-row-warning',
+                  'danger' => 'history-row-danger',
+                  default => '',
+              };
+              $cellStyle = match ($rowTone) {
+                  'warning' => 'background-color: #fef3c7; color: #92400e;',
+                  'danger' => 'background-color: #fee2e2; color: #991b1b;',
+                  default => '',
+              };
+              $firstCellStyle = match ($rowTone) {
+                  'warning' => 'background-color: #fef3c7; color: #92400e; box-shadow: inset 6px 0 0 #f59e0b;',
+                  'danger' => 'background-color: #fee2e2; color: #991b1b; box-shadow: inset 6px 0 0 #dc2626;',
+                  default => '',
+              };
+            ?>
+            <tr class="<?php echo e($rowClass); ?>">
+              <td <?php if($firstCellStyle !== ''): ?> style="<?php echo e($firstCellStyle); ?>" <?php endif; ?>><?php echo e($row['fecha']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['entrada']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['salida']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['horas']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['retraso']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['estado']); ?></td>
+              <td <?php if($cellStyle !== ''): ?> style="<?php echo e($cellStyle); ?>" <?php endif; ?>><?php echo e($row['estado_biometrico']); ?> | <?php echo e($row['evento_biometrico']); ?></td>
             </tr>
           <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
             <tr>

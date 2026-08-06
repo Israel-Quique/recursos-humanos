@@ -38,9 +38,31 @@ class ReportesPage extends Component
         $this->detailEmployeeReport = [];
     }
 
-    public function descargarPdfReporte(): void
+    public function descargarPdfReporte()
     {
-        $this->dispatch('print-reportes-pdf');
+        $analysis = app(AnalisisAsistenciaService::class);
+        $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+        $rangeStart = $referenceMonth->copy()->startOfMonth();
+        $rangeEnd = $referenceMonth->copy()->endOfMonth();
+        $monthLabel = ucfirst($referenceMonth->locale('es')->translatedFormat('F Y'));
+        $report = $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch);
+        $monthlyReport = $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch);
+        $incidents = $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch);
+        $branchLabel = $this->selectedBranch !== '' ? $this->selectedBranch : 'Todas las sucursales';
+
+        $pdf = Pdf::loadView('pdf.reportes-general', [
+            'monthLabel' => $monthLabel,
+            'branchLabel' => $branchLabel,
+            'report' => $report,
+            'monthlyReport' => $monthlyReport,
+            'incidents' => $incidents,
+        ])->setPaper('a4');
+
+        $fileName = 'reporte-general-asistencia-'.Str::slug($branchLabel).'-'.$referenceMonth->format('Y-m').'.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $fileName);
     }
 
     public function descargarPdfDetalleEmpleado()

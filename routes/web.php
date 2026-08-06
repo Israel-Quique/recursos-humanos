@@ -13,7 +13,6 @@ use App\Livewire\ImportarExcelPage;
 use App\Livewire\MisHorasPage;
 use App\Livewire\PerfilHorasPage;
 use App\Livewire\PersonalPage;
-use App\Livewire\ReporteMensualNoMarcadosAtrasosPage;
 use App\Livewire\ReportesPage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -40,7 +39,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/importar', ImportarExcelPage::class)->middleware('permission:importar biometria')->name('importar');
     Route::get('/calendario', CalendarioPage::class)->middleware('permission:ver calendario')->name('calendario');
     Route::get('/reportes', ReportesPage::class)->middleware('permission:ver reportes')->name('reportes');
-    Route::get('/reportes/mensual-no-marcados-atrasos', ReporteMensualNoMarcadosAtrasosPage::class)->middleware('permission:ver reportes')->name('reportes.mensual-no-marcados-atrasos');
     Route::get('/mis-horas', MisHorasPage::class)->name('mis-horas');
     Route::get('/personal', PersonalPage::class)->middleware('permission:gestionar personal')->name('personal');
     Route::get('/horarios', HorariosPage::class)->middleware('permission:gestionar personal')->name('horarios');

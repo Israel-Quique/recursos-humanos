@@ -15,7 +15,6 @@
         'importar' => 'IMPORT',
         'calendario' => 'CALENDAR',
         'reportes' => 'REPORTS',
-        'reportes.mensual-no-marcados-atrasos' => 'MONTHLY REPORT',
         'mis-horas' => 'MY HOURS',
         'personal' => 'PERSONAL',
         'horarios' => 'SCHEDULE',
@@ -102,19 +101,12 @@
               </a>
             @endcan
             @can('ver reportes')
-              <div x-data="{ open: {{ request()->routeIs('reportes') || request()->routeIs('reportes.mensual-no-marcados-atrasos') ? 'true' : 'false' }} }">
-                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ request()->routeIs('reportes') || request()->routeIs('reportes.mensual-no-marcados-atrasos') ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
-                  <span class="app-sidebar-link-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M9 17v-3M12 17v-5.5M15 17v-2"/></svg>
-                  </span>
-                  <span class="app-sidebar-link-label">Reportes</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-sidebar-chevron" :class="{ 'app-sidebar-chevron-open': open }"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
-                  <a wire:navigate href="{{ route('reportes') }}" class="app-sidebar-sublink {{ request()->routeIs('reportes') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Resumen general</a>
-                  <a wire:navigate href="{{ route('reportes.mensual-no-marcados-atrasos') }}" class="app-sidebar-sublink {{ request()->routeIs('reportes.mensual-no-marcados-atrasos') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>No marcados y atrasos</a>
-                </div>
-              </div>
+              <a wire:navigate href="{{ route('reportes') }}" class="app-sidebar-link {{ request()->routeIs('reportes') ? 'app-sidebar-link-active' : '' }}">
+                <span class="app-sidebar-link-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M9 17v-3M12 17v-5.5M15 17v-2"/></svg>
+                </span>
+                <span class="app-sidebar-link-label">Reportes</span>
+              </a>
             @endcan
             @can('gestionar accesos')
               <a wire:navigate href="{{ route('accesos') }}" class="app-sidebar-link {{ request()->routeIs('accesos') ? 'app-sidebar-link-active' : '' }}">

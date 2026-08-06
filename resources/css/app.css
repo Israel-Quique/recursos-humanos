@@ -921,6 +921,29 @@ body{
   @apply border-t border-slate-100 px-6 py-4;
 }
 
+.history-row-warning td{
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.history-row-warning td:first-child{
+  box-shadow: inset 5px 0 0 #f59e0b;
+}
+
+.history-row-danger td{
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.history-row-danger td:first-child{
+  box-shadow: inset 5px 0 0 #dc2626;
+}
+
+.history-row-warning td strong,
+.history-row-danger td strong{
+  color: inherit;
+}
+
 .history-table-shell-personal .history-table{
   min-width: 860px;
 }

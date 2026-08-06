@@ -588,7 +588,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                 <td><?php echo e($empleado->sucursal); ?></td>
                 <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
+                  <div class="table-actions-group">
                     <button
                       type="button"
                       wire:click="openDetailModal(<?php echo e($empleado->id); ?>)"
@@ -628,20 +628,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
                       </svg>
                       <span>PDF</span>
-                    </button>
-                    <button
-                      type="button"
-                      x-on:click="copyLink('<?php echo e(URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false)); ?>')"
-                      class="table-action-button"
-                      aria-label="Copiar enlace del perfil de horas"
-                      title="Copiar enlace"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="10" height="10" rx="2"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
-                      <span x-show="!copied">Copiar</span>
-                      <span x-show="copied" x-cloak>Copiado</span>
                     </button>
                     <button
                       type="button"

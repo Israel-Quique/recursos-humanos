@@ -1,4 +1,46 @@
 <div class="page-stack">
+  @if ($showSucursalEmployeesModal)
+    <div class="app-modal-backdrop" wire:click="closeSucursalEmployeesModal">
+      <div class="app-modal-card" x-on:click.stop>
+        <button type="button" wire:click="closeSucursalEmployeesModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
+        <div class="app-modal-head">
+          <div>
+            <p class="section-kicker">Personal por sucursal</p>
+            <h3 class="section-title app-modal-title">{{ $selectedSucursal }}</h3>
+            <p class="section-copy-sm">Listado completo del personal asignado a esta sucursal.</p>
+          </div>
+        </div>
+
+        <div class="history-table-shell mt-8">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Codigo</th>
+                <th>Area</th>
+                <th>Sucursal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse ($sucursalEmployees as $empleado)
+                <tr>
+                  <td>{{ $empleado->nombre_completo }}</td>
+                  <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>
+                  <td>{{ $empleado->area ?: 'Sin area' }}</td>
+                  <td>{{ $empleado->sucursal }}</td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="4" class="text-center text-slate-400">No hay personal registrado en esta sucursal.</td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  @endif
+
   @if ($showEditModal)
     <div class="app-modal-backdrop" wire:click="closeEditModal">
       <div class="app-modal-card" x-on:click.stop>
@@ -74,7 +116,16 @@
             @forelse ($horarios as $horario)
               <tr>
                 <td>{{ $horario->sucursal }}</td>
-                <td>{{ $horario->empleados }}</td>
+                <td>
+                  <button
+                    type="button"
+                    wire:click="openSucursalEmployeesModal('{{ str_replace("'", "\\'", $horario->sucursal) }}')"
+                    class="table-action-button"
+                    title="Ver personal de la sucursal"
+                  >
+                    {{ $horario->empleados }}
+                  </button>
+                </td>
                 <td>{{ $horario->hora_entrada }}</td>
                 <td>{{ $horario->hora_salida }}</td>
                 <td>

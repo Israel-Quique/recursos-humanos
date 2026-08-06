@@ -193,7 +193,7 @@ class AnalisisAsistenciaService
             'milestones' => [
                 'Punto rojo: llego tarde en el dia',
                 'Punto negro: ese atraso hizo que exceda su tolerancia mensual',
-                'Los sabados no se consideran para el control de tardanzas',
+                'Los sabados y domingos no se consideran para el control de tardanzas',
                 'La tolerancia mensual vigente se calcula en '.$this->formatearMinutosEtiqueta((int) config('asistencia.tolerancia_mensual_min')),
             ],
         ];
@@ -722,6 +722,14 @@ class AnalisisAsistenciaService
         $lateMinutes = 0;
         $lateDays = 0;
         $rows = [];
+        $attendanceByDate = [];
+
+        foreach ($attendance as $registro) {
+            $dateKey = $registro->fecha?->toDateString();
+            if ($dateKey) {
+                $attendanceByDate[$dateKey] = true;
+            }
+        }
 
         foreach ($attendance as $registro) {
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
@@ -743,7 +751,10 @@ class AnalisisAsistenciaService
                 $lateDays++;
             }
 
+            $missingMark = blank($registro->hora_entrada) || blank($horaSalidaReal);
+
             $rows[] = [
+                'raw_date' => $registro->fecha?->toDateString(),
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                 'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
                 'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
@@ -752,8 +763,69 @@ class AnalisisAsistenciaService
                 'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
                 'estado_biometrico' => $registro->estado_marcacion ?: 'Sin estado',
                 'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
+                'row_tone' => $missingMark ? 'warning' : 'default',
             ];
         }
+
+        $permissionDays = [];
+        foreach ($incidents as $incident) {
+            if (! $incident->fecha_inicio || ! $incident->fecha_fin) {
+                continue;
+            }
+
+            $cursor = $incident->fecha_inicio->copy()->startOfDay();
+            $incidentEnd = $incident->fecha_fin->copy()->startOfDay();
+
+            while ($cursor->lte($incidentEnd)) {
+                $permissionDays[$cursor->toDateString()][] = $incident;
+                $cursor->addDay();
+            }
+        }
+
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end)) {
+            $dateKey = $cursor->toDateString();
+            $isLaborable = $this->programacionLaboral->resolverHorario($empleado, $cursor)['laborable'];
+
+            if (! $isLaborable || isset($attendanceByDate[$dateKey])) {
+                $cursor->addDay();
+                continue;
+            }
+
+            $dayIncidents = collect($permissionDays[$dateKey] ?? []);
+            $hasJustifiedPermission = $dayIncidents->contains(fn (PermisoLaboral $incident) => $incident->tipo !== 'falta');
+            $hasFaltaPermission = $dayIncidents->contains(fn (PermisoLaboral $incident) => $incident->tipo === 'falta');
+
+            if ($hasJustifiedPermission) {
+                $cursor->addDay();
+                continue;
+            }
+
+            $rows[] = [
+                'raw_date' => $dateKey,
+                'fecha' => $cursor->format('d/m/Y'),
+                'entrada' => '--:--',
+                'salida' => '--:--',
+                'horas' => '00:00',
+                'retraso' => '0 min',
+                'estado' => $hasFaltaPermission ? 'Falta registrada' : 'Falta',
+                'estado_biometrico' => 'Sin marcacion',
+                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Ausencia injustificada',
+                'row_tone' => 'danger',
+            ];
+
+            $cursor->addDay();
+        }
+
+        $rows = collect($rows)
+            ->sortBy(fn (array $row) => $row['raw_date'] ?? '9999-12-31')
+            ->values()
+            ->map(function (array $row) {
+                unset($row['raw_date']);
+
+                return $row;
+            })
+            ->all();
 
         return [
             'empleado' => [

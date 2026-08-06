@@ -15,7 +15,9 @@ class HorariosPage extends Component
 
     public string $search = '';
     public ?string $editingSucursal = null;
+    public ?string $selectedSucursal = null;
     public bool $showEditModal = false;
+    public bool $showSucursalEmployeesModal = false;
     public string $editHoraEntrada = '';
     public string $editHoraSalida = '';
 
@@ -49,6 +51,18 @@ class HorariosPage extends Component
         $this->showEditModal = false;
         $this->editingSucursal = null;
         $this->resetValidation();
+    }
+
+    public function openSucursalEmployeesModal(string $sucursal): void
+    {
+        $this->selectedSucursal = $sucursal;
+        $this->showSucursalEmployeesModal = true;
+    }
+
+    public function closeSucursalEmployeesModal(): void
+    {
+        $this->showSucursalEmployeesModal = false;
+        $this->selectedSucursal = null;
     }
 
     public function saveHorario(): void
@@ -126,6 +140,13 @@ class HorariosPage extends Component
 
         return view('livewire.horarios', [
             'horarios' => $paginated,
+            'sucursalEmployees' => $this->selectedSucursal
+                ? Empleado::query()
+                    ->where('sucursal', $this->selectedSucursal)
+                    ->orderBy('apellido')
+                    ->orderBy('nombre')
+                    ->get()
+                : collect(),
         ])->layout('layouts.app', ['title' => 'Gestion de horarios']);
     }
 

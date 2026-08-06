@@ -105,7 +105,7 @@
 
           <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedDay['is_saturday']): ?>
             <div class="calendar-side-note">
-              El dia seleccionado es sabado. Esa fecha no entra al conteo mensual de tardanzas.
+              El dia seleccionado cae en fin de semana. Esa fecha no entra al conteo mensual de tardanzas.
             </div>
           <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 

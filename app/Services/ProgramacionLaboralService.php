@@ -62,7 +62,7 @@ class ProgramacionLaboralService
 
         $carbon = $fecha instanceof Carbon ? $fecha->copy() : Carbon::parse($fecha);
 
-        if ($carbon->isSaturday()) {
+        if ($carbon->isWeekend()) {
             return true;
         }
 

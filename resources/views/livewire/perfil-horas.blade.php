@@ -68,14 +68,32 @@
         </thead>
         <tbody>
           @forelse($personalReport['rows'] as $row)
-            <tr>
-              <td>{{ $row['fecha'] }}</td>
-              <td>{{ $row['entrada'] }}</td>
-              <td>{{ $row['salida'] }}</td>
-              <td>{{ $row['horas'] }}</td>
-              <td>{{ $row['retraso'] }}</td>
-              <td>{{ $row['estado'] }}</td>
-              <td>{{ $row['estado_biometrico'] }} | {{ $row['evento_biometrico'] }}</td>
+            @php
+              $rowTone = $row['row_tone'] ?? 'default';
+              $rowClass = match ($rowTone) {
+                  'warning' => 'history-row-warning',
+                  'danger' => 'history-row-danger',
+                  default => '',
+              };
+              $cellStyle = match ($rowTone) {
+                  'warning' => 'background-color: #fef3c7; color: #92400e;',
+                  'danger' => 'background-color: #fee2e2; color: #991b1b;',
+                  default => '',
+              };
+              $firstCellStyle = match ($rowTone) {
+                  'warning' => 'background-color: #fef3c7; color: #92400e; box-shadow: inset 6px 0 0 #f59e0b;',
+                  'danger' => 'background-color: #fee2e2; color: #991b1b; box-shadow: inset 6px 0 0 #dc2626;',
+                  default => '',
+              };
+            @endphp
+            <tr class="{{ $rowClass }}">
+              <td @if($firstCellStyle !== '') style="{{ $firstCellStyle }}" @endif>{{ $row['fecha'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['entrada'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['salida'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['horas'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['retraso'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['estado'] }}</td>
+              <td @if($cellStyle !== '') style="{{ $cellStyle }}" @endif>{{ $row['estado_biometrico'] }} | {{ $row['evento_biometrico'] }}</td>
             </tr>
           @empty
             <tr>
