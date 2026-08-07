@@ -15,46 +15,39 @@
         <form wire:submit="createUser" class="mt-6 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Nombre de usuario</label>
-            <input type="text" wire:model="name" class="form-input" placeholder="Ej. gestor.oruro">
+            <input type="text" wire:model.blur="name" class="form-input" placeholder="Ej. gestor.oruro" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+" autocomplete="username" spellcheck="false">
             @error('name') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Correo</label>
-            <input type="email" wire:model="email" class="form-input" placeholder="usuario@recursoshumanos.local">
+            <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
+              <input type="text" wire:model.live="email" class="min-w-0 flex-1 border-0 bg-transparent px-5 py-4 text-slate-700 focus:outline-none focus:ring-0" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 px-4 text-sm font-semibold text-slate-500">@correos.com</span>
+            </div>
             @error('email') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Contrasena</label>
-            <input type="password" wire:model="password" class="form-input" placeholder="Minimo 8 caracteres">
+            <input type="password" wire:model.blur="password" class="form-input" placeholder="Minimo 8 caracteres" required minlength="8" maxlength="72" autocomplete="new-password">
             @error('password') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Confirmar contrasena</label>
-            <input type="password" wire:model="password_confirmation" class="form-input" placeholder="Repite la contrasena">
+            <input type="password" wire:model.blur="password_confirmation" class="form-input" placeholder="Repite la contrasena" required minlength="8" maxlength="72" autocomplete="new-password">
+            @error('password_confirmation') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2">
             <label class="form-label">Rol inicial</label>
-            <select wire:model="newUserRole" class="form-input">
+            <select wire:model="newUserRole" class="form-input" required>
               @foreach ($roles as $role)
                 <option value="{{ $role->name }}">{{ \Illuminate\Support\Str::headline($role->name) }}</option>
               @endforeach
             </select>
             @error('newUserRole') <p class="form-error">{{ $message }}</p> @enderror
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="form-label">Trabajador vinculado</label>
-            <select wire:model="newEmpleadoId" class="form-input">
-              <option value="">Sin vincular por ahora</option>
-              @foreach ($empleados as $empleado)
-                <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->codigo_biometrico ?: 'Sin codigo' }}</option>
-              @endforeach
-            </select>
-            @error('newEmpleadoId') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2 app-modal-actions">
@@ -81,46 +74,39 @@
         <form wire:submit="updateUser" class="mt-6 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Nombre de usuario</label>
-            <input type="text" wire:model="editName" class="form-input" placeholder="Ej. gestor.oruro">
+            <input type="text" wire:model.blur="editName" class="form-input" placeholder="Ej. gestor.oruro" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+" autocomplete="username" spellcheck="false">
             @error('editName') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Correo</label>
-            <input type="email" wire:model="editEmail" class="form-input" placeholder="usuario@recursoshumanos.local">
+            <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
+              <input type="text" wire:model.live="editEmail" class="min-w-0 flex-1 border-0 bg-transparent px-5 py-4 text-slate-700 focus:outline-none focus:ring-0" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 px-4 text-sm font-semibold text-slate-500">@correos.com</span>
+            </div>
             @error('editEmail') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Nueva contrasena</label>
-            <input type="password" wire:model="editPassword" class="form-input" placeholder="Solo si quieres cambiarla">
+            <input type="password" wire:model.blur="editPassword" class="form-input" placeholder="Solo si quieres cambiarla" minlength="8" maxlength="72" autocomplete="new-password">
             @error('editPassword') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div>
             <label class="form-label">Confirmar contrasena</label>
-            <input type="password" wire:model="editPassword_confirmation" class="form-input" placeholder="Repite la contrasena nueva">
+            <input type="password" wire:model.blur="editPassword_confirmation" class="form-input" placeholder="Repite la contrasena nueva" minlength="8" maxlength="72" autocomplete="new-password">
+            @error('editPassword_confirmation') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2">
             <label class="form-label">Rol</label>
-            <select wire:model="editRole" class="form-input">
+            <select wire:model="editRole" class="form-input" required>
               @foreach ($roles as $role)
                 <option value="{{ $role->name }}">{{ \Illuminate\Support\Str::headline($role->name) }}</option>
               @endforeach
             </select>
             @error('editRole') <p class="form-error">{{ $message }}</p> @enderror
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="form-label">Trabajador vinculado</label>
-            <select wire:model="editEmpleadoId" class="form-input">
-              <option value="">Sin vincular por ahora</option>
-              @foreach ($empleados as $empleado)
-                <option value="{{ $empleado->id }}">{{ $empleado->nombre_completo }} | {{ $empleado->codigo_biometrico ?: 'Sin codigo' }}</option>
-              @endforeach
-            </select>
-            @error('editEmpleadoId') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2 app-modal-actions">
@@ -131,109 +117,51 @@
     </div>
   @endif
 
-  <section class="grid gap-6 xl:grid-cols-[420px,1fr]">
-    <article class="surface-card">
-      <div class="section-head-row">
-        <div>
-          <p class="section-kicker">Control de accesos</p>
-          <h3 class="section-title">Roles de RRHH</h3>
-          <p class="section-copy-sm">Administra los perfiles `administrador`, `gestor` y `visor` para el personal autorizado de recursos humanos.</p>
-        </div>
-
-        <button type="button" wire:click="openCreateModal" class="section-action-button">Usuarios</button>
+  <section class="surface-card">
+    <div class="section-head-row gap-5">
+      <div>
+        <p class="section-kicker">Resumen operativo</p>
+        <h3 class="section-title">Usuarios con acceso al sistema</h3>
+        <p class="section-copy-sm">Revisa rapidamente quienes pueden ingresar, su correo corporativo y el rol que tienen asignado.</p>
       </div>
 
-      <form wire:submit="updateUserRole" class="mt-8 space-y-5">
-        <div>
-          <label class="form-label">Usuario del sistema</label>
-          <select wire:model="selectedUserId" class="form-input">
-            @foreach ($users as $user)
-              <option value="{{ $user->id }}">{{ $user->name }} - {{ $user->email }}</option>
-            @endforeach
-          </select>
-          @error('selectedUserId') <p class="form-error">{{ $message }}</p> @enderror
-        </div>
+      <button type="button" wire:click="openCreateModal" class="section-action-button">Crear usuario</button>
+    </div>
 
-        <div>
-          <label class="form-label">Rol asignado</label>
-          <select wire:model="selectedRole" class="form-input">
-            @foreach ($roles as $role)
-              <option value="{{ $role->name }}">{{ \Illuminate\Support\Str::headline($role->name) }}</option>
-            @endforeach
-          </select>
-          @error('selectedRole') <p class="form-error">{{ $message }}</p> @enderror
-        </div>
-
-        <button type="submit" class="login-submit">Guardar rol</button>
-      </form>
-
-      <div class="mt-8 grid gap-3">
-        @foreach ($roleProfiles as $roleName => $description)
-          <div class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4">
-            <p class="font-semibold text-slate-900">{{ \Illuminate\Support\Str::headline($roleName) }}</p>
-            <p class="mt-1 text-sm text-slate-600">{{ $description }}</p>
-          </div>
-        @endforeach
-      </div>
-
-      <div class="mt-8 rounded-[1.4rem] border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-900">
-        <p class="font-semibold">Compatibilidad detectada</p>
-        <p class="mt-2">Asignaciones heredadas en `role_user`: <strong>{{ $legacyAssignments }}</strong>. Desde ahora Spatie controlara los accesos nuevos.</p>
-      </div>
-    </article>
-
-    <article class="surface-card">
-      <p class="section-kicker">Resumen operativo</p>
-      <h3 class="section-title">Usuarios y permisos activos</h3>
-
-      <div class="mt-8 overflow-hidden rounded-[1.5rem] border border-slate-100">
-        <table class="history-table">
-          <thead>
+    <div class="mt-8 overflow-hidden rounded-[1.5rem] border border-slate-100">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Correo</th>
+            <th>Rol actual</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse ($users as $user)
             <tr>
-              <th>Usuario</th>
-              <th>Correo</th>
-              <th>Trabajador</th>
-              <th>Rol actual</th>
-              <th>Acciones</th>
+              <td>{{ $user->name }}</td>
+              <td>{{ $user->email }}</td>
+              <td>
+                <span class="status-badge status-info">
+                  {{ \Illuminate\Support\Str::headline($user->getRoleNames()->first() ?? 'sin rol') }}
+                </span>
+              </td>
+              <td class="table-actions-cell">
+                <div class="table-actions-group">
+                  <button type="button" wire:click="openEditModal({{ $user->id }})" class="table-action-button">Editar</button>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            @foreach ($users as $user)
-              <tr>
-                <td>{{ $user->name }}</td>
-                <td>{{ $user->email }}</td>
-                <td>{{ $user->empleado?->nombre_completo ?? 'Sin vincular' }}</td>
-                <td>
-                  <span class="status-badge status-info">
-                    {{ \Illuminate\Support\Str::headline($user->getRoleNames()->first() ?? 'sin rol') }}
-                  </span>
-                </td>
-                <td class="table-actions-cell">
-                  <div class="table-actions-group">
-                    <button type="button" wire:click="openEditModal({{ $user->id }})" class="table-action-button">Editar</button>
-                  </div>
-                </td>
-              </tr>
-            @endforeach
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mt-8 grid gap-5 lg:grid-cols-2">
-        @foreach ($permissions as $roleGroup => $items)
-          <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-5 py-5">
-            <p class="metric-label">{{ $roleGroup === 'sin-asignacion' ? 'Sin asignacion' : 'Rol' }}</p>
-            <h4 class="mt-2 text-lg font-semibold text-slate-900">
-              {{ $roleGroup === 'sin-asignacion' ? 'Permisos sin rol' : \Illuminate\Support\Str::headline($roleGroup) }}
-            </h4>
-            <div class="mt-4 flex flex-wrap gap-3">
-              @foreach ($items as $permission)
-                <span class="status-badge status-available">{{ $permission->name }}</span>
-              @endforeach
-            </div>
-          </div>
-        @endforeach
-      </div>
-    </article>
+          @empty
+            <tr>
+              <td colspan="4" class="text-center text-slate-400">Todavia no hay usuarios registrados para ingresar al sistema.</td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
   </section>
+
 </div>

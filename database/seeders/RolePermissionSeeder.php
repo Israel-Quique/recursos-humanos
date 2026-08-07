@@ -30,7 +30,6 @@ class RolePermissionSeeder extends Seeder
 
         $administrador = Role::findOrCreate('administrador', 'web');
         $gestor = Role::findOrCreate('gestor', 'web');
-        $visor = Role::findOrCreate('visor', 'web');
 
         $administrador->syncPermissions($permissions);
         $gestor->syncPermissions([
@@ -39,11 +38,6 @@ class RolePermissionSeeder extends Seeder
             'ver calendario',
             'ver reportes',
             'gestionar personal',
-        ]);
-        $visor->syncPermissions([
-            'ver panel',
-            'ver calendario',
-            'ver reportes',
         ]);
 
         $legacyRoleMap = [

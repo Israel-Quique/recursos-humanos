@@ -144,7 +144,7 @@ body{
 }
 
 .app-sidebar-chevron{
-  @apply h-4 w-4 shrink-0 text-white/45 transition-transform duration-200;
+  @apply h-4 w-4 shrink-0 text-white/[0.45] transition-transform duration-200;
 }
 
 .app-sidebar-chevron-open{
@@ -1633,7 +1633,7 @@ body{
 }
 
 .login-public-card{
-  @apply mt-8 rounded-[1.7rem] border border-white/18 bg-white/[0.13] p-6 shadow-[0_22px_48px_rgba(4,31,64,0.2)] backdrop-blur-md;
+  @apply mt-8 rounded-[1.7rem] border border-white/[0.18] bg-white/[0.13] p-6 shadow-[0_22px_48px_rgba(4,31,64,0.2)] backdrop-blur-md;
 }
 
 .login-public-form{
@@ -1641,7 +1641,7 @@ body{
 }
 
 .login-public-divider{
-  @apply mt-5 h-px w-full bg-white/12;
+  @apply mt-5 h-px w-full bg-white/[0.12];
 }
 
 .login-public-benefits{
@@ -1649,7 +1649,7 @@ body{
 }
 
 .login-public-benefit{
-  @apply rounded-[1rem] border border-white/12 bg-slate-950/10 px-4 py-4;
+  @apply rounded-[1rem] border border-white/[0.12] bg-slate-950/10 px-4 py-4;
 }
 
 .login-public-benefit strong{

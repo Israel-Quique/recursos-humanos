@@ -40,18 +40,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $visor = User::query()->updateOrCreate(
-            ['email' => 'visor@recursoshumanos.local'],
-            [
-                'name' => 'Visor RRHH',
-                'password' => Hash::make('CH1MU3L0'),
-            ]
-        );
-
         $adminAlias->syncRoles(['administrador']);
         $adminPrincipal->syncRoles(['administrador']);
         $usuario->syncRoles(['gestor']);
-        $visor->syncRoles(['visor']);
 
         $empleados = collect([
             ['nombre' => 'Ana', 'apellido' => 'Lopez', 'codigo' => '1045', 'area' => 'Recursos Humanos', 'sucursal' => 'La Paz'],

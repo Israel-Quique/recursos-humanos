@@ -15,7 +15,7 @@
         <form wire:submit="createUser" class="mt-6 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Nombre de usuario</label>
-            <input type="text" wire:model="name" class="form-input" placeholder="Ej. gestor.oruro">
+            <input type="text" wire:model.blur="name" class="form-input" placeholder="Ej. gestor.oruro" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+" autocomplete="username" spellcheck="false">
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['name'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -28,7 +28,10 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Correo</label>
-            <input type="email" wire:model="email" class="form-input" placeholder="usuario@recursoshumanos.local">
+            <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
+              <input type="text" wire:model.live="email" class="min-w-0 flex-1 border-0 bg-transparent px-5 py-4 text-slate-700 focus:outline-none focus:ring-0" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 px-4 text-sm font-semibold text-slate-500">@correos.com</span>
+            </div>
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['email'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -41,7 +44,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Contrasena</label>
-            <input type="password" wire:model="password" class="form-input" placeholder="Minimo 8 caracteres">
+            <input type="password" wire:model.blur="password" class="form-input" placeholder="Minimo 8 caracteres" required minlength="8" maxlength="72" autocomplete="new-password">
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['password'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -54,17 +57,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Confirmar contrasena</label>
-            <input type="password" wire:model="password_confirmation" class="form-input" placeholder="Repite la contrasena">
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="form-label">Rol inicial</label>
-            <select wire:model="newUserRole" class="form-input">
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($role->name); ?>"><?php echo e(\Illuminate\Support\Str::headline($role->name)); ?></option>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-            </select>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['newUserRole'];
+            <input type="password" wire:model.blur="password_confirmation" class="form-input" placeholder="Repite la contrasena" required minlength="8" maxlength="72" autocomplete="new-password">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['password_confirmation'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
@@ -75,14 +69,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
 
           <div class="md:col-span-2">
-            <label class="form-label">Trabajador vinculado</label>
-            <select wire:model="newEmpleadoId" class="form-input">
-              <option value="">Sin vincular por ahora</option>
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $empleados; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $empleado): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($empleado->id); ?>"><?php echo e($empleado->nombre_completo); ?> | <?php echo e($empleado->codigo_biometrico ?: 'Sin codigo'); ?></option>
+            <label class="form-label">Rol inicial</label>
+            <select wire:model="newUserRole" class="form-input" required>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($role->name); ?>"><?php echo e(\Illuminate\Support\Str::headline($role->name)); ?></option>
               <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </select>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['newEmpleadoId'];
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['newUserRole'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
@@ -116,7 +109,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
         <form wire:submit="updateUser" class="mt-6 grid gap-5 md:grid-cols-2">
           <div>
             <label class="form-label">Nombre de usuario</label>
-            <input type="text" wire:model="editName" class="form-input" placeholder="Ej. gestor.oruro">
+            <input type="text" wire:model.blur="editName" class="form-input" placeholder="Ej. gestor.oruro" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+" autocomplete="username" spellcheck="false">
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editName'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -129,7 +122,10 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Correo</label>
-            <input type="email" wire:model="editEmail" class="form-input" placeholder="usuario@recursoshumanos.local">
+            <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
+              <input type="text" wire:model.live="editEmail" class="min-w-0 flex-1 border-0 bg-transparent px-5 py-4 text-slate-700 focus:outline-none focus:ring-0" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 px-4 text-sm font-semibold text-slate-500">@correos.com</span>
+            </div>
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editEmail'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -142,7 +138,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Nueva contrasena</label>
-            <input type="password" wire:model="editPassword" class="form-input" placeholder="Solo si quieres cambiarla">
+            <input type="password" wire:model.blur="editPassword" class="form-input" placeholder="Solo si quieres cambiarla" minlength="8" maxlength="72" autocomplete="new-password">
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editPassword'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
@@ -155,17 +151,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
           <div>
             <label class="form-label">Confirmar contrasena</label>
-            <input type="password" wire:model="editPassword_confirmation" class="form-input" placeholder="Repite la contrasena nueva">
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="form-label">Rol</label>
-            <select wire:model="editRole" class="form-input">
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($role->name); ?>"><?php echo e(\Illuminate\Support\Str::headline($role->name)); ?></option>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-            </select>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editRole'];
+            <input type="password" wire:model.blur="editPassword_confirmation" class="form-input" placeholder="Repite la contrasena nueva" minlength="8" maxlength="72" autocomplete="new-password">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editPassword_confirmation'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
@@ -176,14 +163,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
 
           <div class="md:col-span-2">
-            <label class="form-label">Trabajador vinculado</label>
-            <select wire:model="editEmpleadoId" class="form-input">
-              <option value="">Sin vincular por ahora</option>
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $empleados; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $empleado): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($empleado->id); ?>"><?php echo e($empleado->nombre_completo); ?> | <?php echo e($empleado->codigo_biometrico ?: 'Sin codigo'); ?></option>
+            <label class="form-label">Rol</label>
+            <select wire:model="editRole" class="form-input" required>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($role->name); ?>"><?php echo e(\Illuminate\Support\Str::headline($role->name)); ?></option>
               <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </select>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editEmpleadoId'];
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['editRole'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
@@ -201,126 +187,53 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
     </div>
   <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
-  <section class="grid gap-6 xl:grid-cols-[420px,1fr]">
-    <article class="surface-card">
-      <div class="section-head-row">
-        <div>
-          <p class="section-kicker">Control de accesos</p>
-          <h3 class="section-title">Roles de RRHH</h3>
-          <p class="section-copy-sm">Administra los perfiles `administrador`, `gestor` y `visor` para el personal autorizado de recursos humanos.</p>
-        </div>
-
-        <button type="button" wire:click="openCreateModal" class="section-action-button">Usuarios</button>
+  <section class="surface-card">
+    <div class="section-head-row gap-5">
+      <div>
+        <p class="section-kicker">Resumen operativo</p>
+        <h3 class="section-title">Usuarios con acceso al sistema</h3>
+        <p class="section-copy-sm">Revisa rapidamente quienes pueden ingresar, su correo corporativo y el rol que tienen asignado.</p>
       </div>
 
-      <form wire:submit="updateUserRole" class="mt-8 space-y-5">
-        <div>
-          <label class="form-label">Usuario del sistema</label>
-          <select wire:model="selectedUserId" class="form-input">
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-              <option value="<?php echo e($user->id); ?>"><?php echo e($user->name); ?> - <?php echo e($user->email); ?></option>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-          </select>
-          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['selectedUserId'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-        </div>
+      <button type="button" wire:click="openCreateModal" class="section-action-button">Crear usuario</button>
+    </div>
 
-        <div>
-          <label class="form-label">Rol asignado</label>
-          <select wire:model="selectedRole" class="form-input">
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-              <option value="<?php echo e($role->name); ?>"><?php echo e(\Illuminate\Support\Str::headline($role->name)); ?></option>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-          </select>
-          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['selectedRole'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error"><?php echo e($message); ?></p> <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-        </div>
-
-        <button type="submit" class="login-submit">Guardar rol</button>
-      </form>
-
-      <div class="mt-8 grid gap-3">
-        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $roleProfiles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $roleName => $description): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-          <div class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4">
-            <p class="font-semibold text-slate-900"><?php echo e(\Illuminate\Support\Str::headline($roleName)); ?></p>
-            <p class="mt-1 text-sm text-slate-600"><?php echo e($description); ?></p>
-          </div>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-      </div>
-
-      <div class="mt-8 rounded-[1.4rem] border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-900">
-        <p class="font-semibold">Compatibilidad detectada</p>
-        <p class="mt-2">Asignaciones heredadas en `role_user`: <strong><?php echo e($legacyAssignments); ?></strong>. Desde ahora Spatie controlara los accesos nuevos.</p>
-      </div>
-    </article>
-
-    <article class="surface-card">
-      <p class="section-kicker">Resumen operativo</p>
-      <h3 class="section-title">Usuarios y permisos activos</h3>
-
-      <div class="mt-8 overflow-hidden rounded-[1.5rem] border border-slate-100">
-        <table class="history-table">
-          <thead>
+    <div class="mt-8 overflow-hidden rounded-[1.5rem] border border-slate-100">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Correo</th>
+            <th>Rol actual</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
             <tr>
-              <th>Usuario</th>
-              <th>Correo</th>
-              <th>Trabajador</th>
-              <th>Rol actual</th>
-              <th>Acciones</th>
+              <td><?php echo e($user->name); ?></td>
+              <td><?php echo e($user->email); ?></td>
+              <td>
+                <span class="status-badge status-info">
+                  <?php echo e(\Illuminate\Support\Str::headline($user->getRoleNames()->first() ?? 'sin rol')); ?>
+
+                </span>
+              </td>
+              <td class="table-actions-cell">
+                <div class="table-actions-group">
+                  <button type="button" wire:click="openEditModal(<?php echo e($user->id); ?>)" class="table-action-button">Editar</button>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-              <tr>
-                <td><?php echo e($user->name); ?></td>
-                <td><?php echo e($user->email); ?></td>
-                <td><?php echo e($user->empleado?->nombre_completo ?? 'Sin vincular'); ?></td>
-                <td>
-                  <span class="status-badge status-info">
-                    <?php echo e(\Illuminate\Support\Str::headline($user->getRoleNames()->first() ?? 'sin rol')); ?>
-
-                  </span>
-                </td>
-                <td class="table-actions-cell">
-                  <div class="table-actions-group">
-                    <button type="button" wire:click="openEditModal(<?php echo e($user->id); ?>)" class="table-action-button">Editar</button>
-                  </div>
-                </td>
-              </tr>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mt-8 grid gap-5 lg:grid-cols-2">
-        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $permissions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $roleGroup => $items): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-          <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-5 py-5">
-            <p class="metric-label"><?php echo e($roleGroup === 'sin-asignacion' ? 'Sin asignacion' : 'Rol'); ?></p>
-            <h4 class="mt-2 text-lg font-semibold text-slate-900">
-              <?php echo e($roleGroup === 'sin-asignacion' ? 'Permisos sin rol' : \Illuminate\Support\Str::headline($roleGroup)); ?>
-
-            </h4>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $items; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $permission): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <span class="status-badge status-available"><?php echo e($permission->name); ?></span>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-            </div>
-          </div>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-      </div>
-    </article>
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+            <tr>
+              <td colspan="4" class="text-center text-slate-400">Todavia no hay usuarios registrados para ingresar al sistema.</td>
+            </tr>
+          <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </tbody>
+      </table>
+    </div>
   </section>
+
 </div>
 <?php /**PATH C:\Users\israe\OneDrive\Desktop\Pasantia\Proyectos\recursos-humanos\resources\views/livewire/gestion-accesos.blade.php ENDPATH**/ ?>

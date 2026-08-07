@@ -674,7 +674,7 @@
                 <td>{{ $registro->estado_marcacion ?? 'Sin registro' }}</td>
                 <td class="table-actions-cell">
                   @if ($registro->empleado)
-                    <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
+                    <div class="table-actions-group">
                       <button
                         type="button"
                         wire:click="openDetailModal({{ $registro->empleado->id }})"
@@ -698,32 +698,6 @@
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/>
                         </svg>
                         <span>Editar</span>
-                      </button>
-                      <button
-                        type="button"
-                        wire:click="openPdfModal({{ $registro->empleado->id }})"
-                        class="table-action-button"
-                        title="Exportar ficha en PDF"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
-                        </svg>
-                        <span>PDF</span>
-                      </button>
-                      <button
-                        type="button"
-                        x-on:click="copyLink('{{ URL::signedRoute('perfil-horas', ['empleado' => $registro->empleado->id], absolute: false) }}')"
-                        class="table-action-button"
-                        title="Copiar enlace del perfil"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="9" y="9" width="10" height="10" rx="2"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                        </svg>
-                        <span x-show="!copied">Copiar</span>
-                        <span x-show="copied" x-cloak>Copiado</span>
                       </button>
                       <button
                         type="button"
@@ -834,8 +808,6 @@
             <tr>
               <th>Personal</th>
               <th>Sucursal</th>
-              <th>Verificacion</th>
-              <th>Estado</th>
               <th>Horas acumuladas</th>
               <th>Minutos usados</th>
               <th>Saldo mensual</th>
@@ -849,8 +821,6 @@
                 <td>{{ $empleado->nombre_completo }}</td>
                 <td>{{ $empleado->sucursal }}</td>
 
-                <td>{{ $empleado->resumen_asistencia['verificacion_hoy'] }}</td>
-                <td>{{ $empleado->resumen_asistencia['estado_hoy'] }}</td>
                 <td>{{ $empleado->resumen_asistencia['horas_mes'] }}</td>
                 <td>{{ $empleado->resumen_asistencia['retraso_mes_formateado'] }}</td>
                 <td>{{ $empleado->resumen_asistencia['saldo_retraso_formateado'] }}</td>
@@ -860,7 +830,7 @@
                   </span>
                 </td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group" x-data="{ copied: false, copyLink(path) { const url = new URL(path, window.location.origin).toString(); navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }">
+                  <div class="table-actions-group">
                     <button
                       type="button"
                       wire:click="openDetailModal({{ $empleado->id }})"
@@ -887,32 +857,6 @@
                     </button>
                     <button
                       type="button"
-                      wire:click="openPdfModal({{ $empleado->id }})"
-                      class="table-action-button"
-                      title="Exportar ficha en PDF"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
-                      </svg>
-                      <span>PDF</span>
-                    </button>
-                    <button
-                      type="button"
-                      x-on:click="copyLink('{{ URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false) }}')"
-                      class="table-action-button"
-                      title="Copiar enlace del perfil"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="10" height="10" rx="2"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
-                      <span x-show="!copied">Copiar</span>
-                      <span x-show="copied" x-cloak>Copiado</span>
-                    </button>
-                    <button
-                      type="button"
                       wire:click="openDeleteModal({{ $empleado->id }})"
                       class="table-action-button table-action-button-danger"
                       title="Eliminar personal"
@@ -930,7 +874,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="11" class="text-center text-slate-400">Aun no existen horas acumuladas para mostrar.</td>
+                <td colspan="7" class="text-center text-slate-400">Aun no existen horas acumuladas para mostrar.</td>
               </tr>
             @endforelse
           </tbody>
