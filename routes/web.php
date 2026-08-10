@@ -19,8 +19,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('/', LoginPage::class)->name('login');
-    Route::get('/consulta-carnet', ConsultaCarnetPage::class)->name('consulta-carnet');
 });
+
+Route::get('/consulta-carnet', ConsultaCarnetPage::class)->name('consulta-carnet');
 
 Route::post('/cerrar-sesion', function () {
     Auth::logout();

@@ -278,6 +278,19 @@ class ExtraccionBiometricoZkService
             $fechaHora = Carbon::parse((string) ($row['fecha_hora'] ?? now()->toIso8601String()));
             $codigo = trim((string) ($row['codigo'] ?? ''));
             $empleado = $employeesByCode->get($codigo);
+            $nombreBiometrico = trim((string) ($row['nombre'] ?? ''));
+            $apellidoBiometrico = trim((string) ($row['apellido'] ?? ''));
+            $nombreCompletoBiometrico = trim((string) ($row['nombre_completo'] ?? ''));
+
+            if (($nombreBiometrico === '' || $apellidoBiometrico === '') && $nombreCompletoBiometrico !== '') {
+                ['nombre' => $nombreBiometricoNormalizado, 'apellido' => $apellidoBiometricoNormalizado] = $this->splitFullName($nombreCompletoBiometrico);
+                $nombreBiometrico = $nombreBiometrico !== '' ? $nombreBiometrico : $nombreBiometricoNormalizado;
+                $apellidoBiometrico = $apellidoBiometrico !== '' ? $apellidoBiometrico : $apellidoBiometricoNormalizado;
+            }
+
+            $nombreExportado = trim((string) ($empleado?->nombre ?? '')) ?: $nombreBiometrico;
+            $apellidoExportado = trim((string) ($empleado?->apellido ?? '')) ?: $apellidoBiometrico;
+
             $estadoHumano = $this->traducirEstadoHumano($row);
             $eventoHumano = $this->traducirEventoHumano($row);
             $verificacionHumana = $this->traducirVerificacionHumana($row);
@@ -287,8 +300,8 @@ class ExtraccionBiometricoZkService
             fputcsv($handle, [
                 $fechaHora->format('d/m/Y H:i'),
                 $codigo,
-                $empleado?->nombre ?? '',
-                $empleado?->apellido ?? '',
+                $nombreExportado,
+                $apellidoExportado,
                 $row['numero_tarjeta'] ?? '',
                 $dispositivo,
                 $puntoEvento,
@@ -302,5 +315,32 @@ class ExtraccionBiometricoZkService
         fclose($handle);
 
         return $filePath;
+    }
+
+    private function splitFullName(string $fullName): array
+    {
+        $value = trim($fullName);
+
+        if ($value === '') {
+            return ['nombre' => '', 'apellido' => ''];
+        }
+
+        $parts = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if (count($parts) <= 1) {
+            return ['nombre' => $parts[0] ?? '', 'apellido' => ''];
+        }
+
+        if (count($parts) >= 3) {
+            return [
+                'nombre' => implode(' ', array_slice($parts, 0, -2)),
+                'apellido' => implode(' ', array_slice($parts, -2)),
+            ];
+        }
+
+        return [
+            'nombre' => $parts[0],
+            'apellido' => $parts[1],
+        ];
     }
 }

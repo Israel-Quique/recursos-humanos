@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Empleado;
 use App\Models\HorarioRegional;
 use App\Services\AuditoriaService;
+use App\Support\SucursalNormalizer;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -33,7 +34,11 @@ class HorariosPage extends Component
 
     public function openEditModal(string $sucursal): void
     {
-        $horario = HorarioRegional::query()->where('sucursal', $sucursal)->first();
+        $horario = HorarioRegional::query()
+            ->where(function ($query) use ($sucursal) {
+                SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+            })
+            ->first();
 
         $this->editingSucursal = $sucursal;
         $this->editHoraEntrada = $horario?->hora_entrada
@@ -77,9 +82,13 @@ class HorariosPage extends Component
             'editHoraSalida.date_format' => 'La hora de salida debe tener formato HH:MM.',
         ]);
 
-        $horario = HorarioRegional::query()->firstOrNew([
-            'sucursal' => $data['editingSucursal'],
-        ]);
+        $horario = HorarioRegional::query()
+            ->where(function ($query) use ($data) {
+                SucursalNormalizer::applyFilter($query, 'sucursal', $data['editingSucursal']);
+            })
+            ->first() ?? new HorarioRegional([
+                'sucursal' => $data['editingSucursal'],
+            ]);
         $antes = $horario->exists ? $this->snapshotHorario($horario) : null;
 
         $horario->fill([
@@ -112,14 +121,24 @@ class HorariosPage extends Component
             ->orderBy('sucursal')
             ->pluck('sucursal');
 
+        $sucursales = collect(SucursalNormalizer::optionsFromValues($sucursales));
+
         if (filled($this->search)) {
             $sucursales = $sucursales->filter(fn (string $sucursal) => str_contains(mb_strtolower($sucursal), mb_strtolower($this->search)));
         }
 
         $horarios = $sucursales
             ->map(function (string $sucursal) {
-                $horario = HorarioRegional::query()->where('sucursal', $sucursal)->first();
-                $cantidad = Empleado::query()->where('sucursal', $sucursal)->count();
+                $horario = HorarioRegional::query()
+                    ->where(function ($query) use ($sucursal) {
+                        SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+                    })
+                    ->first();
+                $cantidad = Empleado::query()
+                    ->where(function ($query) use ($sucursal) {
+                        SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+                    })
+                    ->count();
 
                 return (object) [
                     'sucursal' => $sucursal,
@@ -142,7 +161,9 @@ class HorariosPage extends Component
             'horarios' => $paginated,
             'sucursalEmployees' => $this->selectedSucursal
                 ? Empleado::query()
-                    ->where('sucursal', $this->selectedSucursal)
+                    ->where(function ($query) {
+                        SucursalNormalizer::applyFilter($query, 'sucursal', $this->selectedSucursal);
+                    })
                     ->orderBy('apellido')
                     ->orderBy('nombre')
                     ->get()

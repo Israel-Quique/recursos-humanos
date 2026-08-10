@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\FechaEspecialLaboral;
 use App\Models\HorarioRegional;
+use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -26,9 +27,12 @@ class ProgramacionLaboralService
             return $this->cacheFechas[$key];
         }
 
+        $aliases = SucursalNormalizer::aliasesFor($scope);
+        $candidateScopes = array_values(array_unique([...$aliases, 'TODAS']));
+
         return $this->cacheFechas[$key] = FechaEspecialLaboral::query()
             ->whereDate('fecha', $this->normalizarFecha($fecha))
-            ->whereIn('sucursal', array_values(array_unique([$scope, 'TODAS'])))
+            ->whereIn('sucursal', $candidateScopes)
             ->orderByRaw("CASE WHEN sucursal = ? THEN 0 ELSE 1 END", [$scope])
             ->first();
     }
@@ -111,12 +115,16 @@ class ProgramacionLaboralService
             return null;
         }
 
-        if (array_key_exists($key, $this->cacheHorarios)) {
-            return $this->cacheHorarios[$key];
+        $cacheKey = SucursalNormalizer::canonicalLabel($key);
+
+        if (array_key_exists($cacheKey, $this->cacheHorarios)) {
+            return $this->cacheHorarios[$cacheKey];
         }
 
-        return $this->cacheHorarios[$key] = HorarioRegional::query()
-            ->where('sucursal', $key)
+        return $this->cacheHorarios[$cacheKey] = HorarioRegional::query()
+            ->where(function ($query) use ($key) {
+                SucursalNormalizer::applyFilter($query, 'sucursal', $key);
+            })
             ->first();
     }
 
@@ -174,7 +182,11 @@ class ProgramacionLaboralService
     {
         $value = trim((string) $sucursal);
 
-        return $value === '' ? 'TODAS' : $value;
+        if ($value === '') {
+            return 'TODAS';
+        }
+
+        return SucursalNormalizer::canonicalLabel($value);
     }
 
     private function resolverHoraEntradaTolerancia(Carbon|string|null $fecha, ?string $horaEntrada): ?string

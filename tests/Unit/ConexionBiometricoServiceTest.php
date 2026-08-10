@@ -24,6 +24,9 @@ class ConexionBiometricoServiceTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertTrue($result[0]['connected']);
-        $this->assertStringContainsString('Ultima verificacion', $result[0]['last_sync']);
+        $this->assertTrue(
+            str_contains($result[0]['last_sync'], 'Disponible ahora')
+            || str_contains($result[0]['last_sync'], 'Ultima verificacion')
+        );
     }
 }

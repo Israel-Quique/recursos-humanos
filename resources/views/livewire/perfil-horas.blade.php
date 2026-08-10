@@ -2,6 +2,16 @@
   <section class="surface-card">
     <div class="section-head-row">
       <div>
+        <a
+          href="{{ route('consulta-carnet') }}"
+          onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }"
+          class="table-action-button mb-5 inline-flex"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/>
+          </svg>
+          <span>Volver atras</span>
+        </a>
         <p class="section-kicker">Perfil compartido</p>
         <h3 class="section-title">Horas marcadas del personal</h3>
         <p class="section-copy-sm">Consulta las marcaciones por mes y por dia.</p>

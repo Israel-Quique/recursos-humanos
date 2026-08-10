@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\RegistroAsistencia;
 use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
+use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -408,6 +409,7 @@ class PersonalPage extends Component
         $monthEnd = $referenceMonth->copy()->endOfMonth()->toDateString();
 
         $registrosPorNombre = $this->registrosPorNombre($monthStart, $monthEnd);
+        $searchOperator = $this->caseInsensitiveLikeOperator();
 
         $empleadosQuery = Empleado::query()
             ->with(['asistencias' => function ($query) use ($monthStart, $monthEnd) {
@@ -416,24 +418,24 @@ class PersonalPage extends Component
             }]);
 
         if (filled($this->search)) {
-            $empleadosQuery->where(function ($query) {
-                $query->where('codigo_biometrico', 'ilike', "%{$this->search}%")
-                    ->orWhere('nombre', 'ilike', "%{$this->search}%")
-                    ->orWhere('apellido', 'ilike', "%{$this->search}%");
+            $empleadosQuery->where(function ($query) use ($searchOperator) {
+                $query->where('codigo_biometrico', $searchOperator, "%{$this->search}%")
+                    ->orWhere('nombre', $searchOperator, "%{$this->search}%")
+                    ->orWhere('apellido', $searchOperator, "%{$this->search}%");
             });
         }
 
         if (filled($this->sucursalFiltro)) {
-            $empleadosQuery->where('sucursal', $this->sucursalFiltro);
+            SucursalNormalizer::applyFilter($empleadosQuery, 'sucursal', $this->sucursalFiltro);
         }
 
-        $sucursales = Empleado::query()
+        $sucursales = SucursalNormalizer::optionsFromValues(Empleado::query()
             ->select('sucursal')
             ->whereNotNull('sucursal')
             ->where('sucursal', '!=', '')
             ->distinct()
             ->orderBy('sucursal')
-            ->pluck('sucursal');
+            ->pluck('sucursal'));
 
         $empleadosResumen = (clone $empleadosQuery)
             ->orderByDesc('created_at')
@@ -462,17 +464,19 @@ class PersonalPage extends Component
             ->whereHas('empleado')
             ->where($this->excludeSaturdayRecords())
             ->when(filled($this->search), function ($query) {
-                $query->whereHas('empleado', function ($empleadoQuery) {
-                    $empleadoQuery->where(function ($nestedQuery) {
-                        $nestedQuery->where('codigo_biometrico', 'ilike', "%{$this->search}%")
-                            ->orWhere('nombre', 'ilike', "%{$this->search}%")
-                            ->orWhere('apellido', 'ilike', "%{$this->search}%");
+                $searchOperator = $this->caseInsensitiveLikeOperator();
+
+                $query->whereHas('empleado', function ($empleadoQuery) use ($searchOperator) {
+                    $empleadoQuery->where(function ($nestedQuery) use ($searchOperator) {
+                        $nestedQuery->where('codigo_biometrico', $searchOperator, "%{$this->search}%")
+                            ->orWhere('nombre', $searchOperator, "%{$this->search}%")
+                            ->orWhere('apellido', $searchOperator, "%{$this->search}%");
                     });
                 });
             })
             ->when(filled($this->sucursalFiltro), function ($query) {
                 $query->whereHas('empleado', function ($empleadoQuery) {
-                    $empleadoQuery->where('sucursal', $this->sucursalFiltro);
+                    SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->sucursalFiltro);
                 });
             })
             ->orderByDesc('fecha')
@@ -503,7 +507,9 @@ class PersonalPage extends Component
     private function resumenMensualEmpleado(Empleado $empleado, EloquentCollection $registrosAsistencia, Carbon $referenceMonth): array
     {
         $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 35);
-        $fechaReferencia = $referenceMonth->copy()->endOfMonth()->toDateString();
+        $fechaReferencia = $referenceMonth->isSameMonth(now())
+            ? now()->toDateString()
+            : null;
 
         $minutosTrabajados = 0;
         $minutosRetraso = 0;
@@ -518,7 +524,7 @@ class PersonalPage extends Component
                 continue;
             }
 
-            if ($asistencia->fecha?->toDateString() === $fechaReferencia) {
+            if ($fechaReferencia && $asistencia->fecha?->toDateString() === $fechaReferencia) {
                 $registroHoy = $asistencia;
             }
 
@@ -526,7 +532,7 @@ class PersonalPage extends Component
 
             $minutosTrabajados += $this->calcularMinutosTrabajados($asistencia->hora_entrada, $horaSalidaReal);
 
-            if (blank($asistencia->hora_entrada) || blank($horaSalidaReal)) {
+            if ($this->debeContarComoOlvidoMarcacion($asistencia, $empleado)) {
                 $olvidosMarcacion++;
             }
 
@@ -768,6 +774,47 @@ class PersonalPage extends Component
         return blank($registro->hora_salida) ? null : $registro->hora_salida;
     }
 
+    private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro, Empleado $empleado): bool
+    {
+        if (blank($registro->hora_entrada)) {
+            return true;
+        }
+
+        if (! blank($this->horaSalidaReal($registro))) {
+            return false;
+        }
+
+        return ! $this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
+    }
+
+    private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, Empleado $empleado): bool
+    {
+        if (! $this->tieneSoloEntradaMarcada($registro)) {
+            return false;
+        }
+
+        if (! $registro->fecha?->isToday()) {
+            return false;
+        }
+
+        $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
+
+        if (($horario['laborable'] ?? true) === false) {
+            return false;
+        }
+
+        $salidaProgramada = $this->combinarFechaYHora(
+            $registro->fecha,
+            $horario['hora_salida'] ?? config('asistencia.hora_salida')
+        );
+
+        if (! $salidaProgramada) {
+            return true;
+        }
+
+        return now()->lessThanOrEqualTo($salidaProgramada);
+    }
+
     private function normalizarHoraComparable(?string $hora): ?string
     {
         if (blank($hora)) {
@@ -812,6 +859,26 @@ class PersonalPage extends Component
         }
 
         return null;
+    }
+
+    private function combinarFechaYHora(Carbon|string|null $fecha, ?string $hora): ?Carbon
+    {
+        if (blank($fecha) || blank($hora)) {
+            return null;
+        }
+
+        $horaCarbon = $this->parseTimeToCarbon($hora);
+
+        if (! $horaCarbon) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($fecha instanceof Carbon ? $fecha->toDateString() : $fecha)
+                ->setTime($horaCarbon->hour, $horaCarbon->minute, $horaCarbon->second);
+        } catch (\Exception $exception) {
+            return null;
+        }
     }
 
     private function formatearMinutos(int $minutos): string
@@ -896,6 +963,13 @@ class PersonalPage extends Component
 
             $query->whereRaw('DAYOFWEEK(fecha) <> 7');
         };
+    }
+
+    private function caseInsensitiveLikeOperator(): string
+    {
+        return Empleado::query()->getConnection()->getDriverName() === 'pgsql'
+            ? 'ilike'
+            : 'like';
     }
 
     private function programacionLaboral(): ProgramacionLaboralService

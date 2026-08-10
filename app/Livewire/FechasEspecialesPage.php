@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\FechaEspecialLaboral;
 use App\Models\HorarioRegional;
 use App\Services\AuditoriaService;
+use App\Support\SucursalNormalizer;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -241,7 +242,7 @@ class FechasEspecialesPage extends Component
         }
 
         if (filled($this->sucursalFiltro)) {
-            $fechasQuery->where('sucursal', $this->sucursalFiltro);
+            SucursalNormalizer::applyFilter($fechasQuery, 'sucursal', $this->sucursalFiltro);
         }
 
         $fechas = $fechasQuery
@@ -336,7 +337,9 @@ class FechasEspecialesPage extends Component
     {
         $query = FechaEspecialLaboral::query()
             ->whereDate('fecha', $fecha)
-            ->where('sucursal', $sucursal);
+            ->where(function ($nestedQuery) use ($sucursal) {
+                SucursalNormalizer::applyFilter($nestedQuery, 'sucursal', $sucursal);
+            });
 
         if ($ignoreId) {
             $query->where('id', '!=', $ignoreId);
@@ -362,13 +365,12 @@ class FechasEspecialesPage extends Component
 
     private function sucursalesDisponibles(): array
     {
-        return collect(['TODAS'])
-            ->merge(Empleado::query()->whereNotNull('sucursal')->distinct()->orderBy('sucursal')->pluck('sucursal'))
-            ->merge(HorarioRegional::query()->distinct()->orderBy('sucursal')->pluck('sucursal'))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        return SucursalNormalizer::optionsFromValues(
+            collect()
+                ->merge(Empleado::query()->whereNotNull('sucursal')->distinct()->orderBy('sucursal')->pluck('sucursal'))
+                ->merge(HorarioRegional::query()->distinct()->orderBy('sucursal')->pluck('sucursal')),
+            true
+        );
     }
 
     private function snapshotFechaEspecial(FechaEspecialLaboral $fechaEspecial): array

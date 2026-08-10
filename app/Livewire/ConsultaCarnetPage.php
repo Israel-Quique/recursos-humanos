@@ -4,10 +4,8 @@ namespace App\Livewire;
 
 use App\Models\Empleado;
 use Illuminate\Support\Facades\URL;
-use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.guest')]
 class ConsultaCarnetPage extends Component
 {
     public string $carnet = '';
@@ -39,7 +37,9 @@ class ConsultaCarnetPage extends Component
 
     public function render()
     {
+        $layout = auth()->check() ? 'layouts.app' : 'layouts.guest';
+
         return view('livewire.consulta-carnet')
-            ->layout('layouts.guest', ['title' => 'Consulta por carnet']);
+            ->layout($layout, ['title' => 'Consulta por carnet']);
     }
 }

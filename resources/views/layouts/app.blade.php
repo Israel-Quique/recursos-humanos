@@ -22,6 +22,7 @@
         'incidencias' => 'INCIDENTS',
         'accesos' => 'ACCESS',
         'auditoria' => 'AUDIT',
+        'consulta-carnet' => 'CARNET',
       ];
       $toastModule = $routeTitles[$routeName] ?? 'PANEL';
       $activeRole = auth()->user()?->getRoleNames()->first() ?? 'sin rol';
@@ -108,6 +109,12 @@
                 <span class="app-sidebar-link-label">Reportes</span>
               </a>
             @endcan
+            <a wire:navigate href="{{ route('consulta-carnet') }}" class="app-sidebar-link {{ request()->routeIs('consulta-carnet') ? 'app-sidebar-link-active' : '' }}">
+              <span class="app-sidebar-link-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 9.5h4.5"/><path d="M7.5 13h3"/><circle cx="16.5" cy="11.5" r="2.2"/><path d="M13.9 16.2c.8-1.4 2-2.1 3.1-2.1 1.2 0 2.4.7 3.1 2.1"/></svg>
+              </span>
+              <span class="app-sidebar-link-label">Consulta carnet</span>
+            </a>
             @can('gestionar accesos')
               <a wire:navigate href="{{ route('accesos') }}" class="app-sidebar-link {{ request()->routeIs('accesos') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">

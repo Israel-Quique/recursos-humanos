@@ -7,6 +7,7 @@ use App\Models\Importacion;
 use App\Models\BiometricoDispositivo;
 use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
+use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -283,7 +284,7 @@ class AnalisisAsistenciaService
             ->get();
 
         $forgotMarks = $attendanceToday
-            ->filter(fn (RegistroAsistencia $registro) => blank($registro->hora_entrada) || blank($registro->hora_salida))
+            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->count();
 
         $markedIds = $attendanceToday->pluck('empleado_id')->unique();
@@ -318,7 +319,8 @@ class AnalisisAsistenciaService
             $branch
         )
             ->with('empleado')
-            ->whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
             ->get();
 
         $incidentsRange = $this->filtrarIncidenciasPorSucursal(
@@ -331,7 +333,7 @@ class AnalisisAsistenciaService
             ->get();
 
         $forgotMarks = $attendanceRange
-            ->filter(fn (RegistroAsistencia $registro) => blank($registro->hora_entrada) || blank($registro->hora_salida))
+            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->count();
 
         $faltas = $this->contarFaltasEnRango($start, $end, $branch);
@@ -357,7 +359,8 @@ class AnalisisAsistenciaService
                 RegistroAsistencia::query(),
                 $branch
             )
-                ->whereBetween('fecha', [$start, $end])
+                ->whereDate('fecha', '>=', $start)
+                ->whereDate('fecha', '<=', $end)
                 ->count();
 
             return [
@@ -413,7 +416,8 @@ class AnalisisAsistenciaService
             $branch
         )
             ->with('empleado')
-            ->whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
             ->orderBy('fecha')
             ->get();
 
@@ -430,10 +434,10 @@ class AnalisisAsistenciaService
                 ...$this->detalleFaltasEnRango($start, $end, $branch),
             ],
             'olvidos' => $attendance
-                ->filter(fn (RegistroAsistencia $registro) => blank($registro->hora_entrada) || blank($registro->hora_salida))
+                ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
                 ->map(fn (RegistroAsistencia $registro) => [
                     'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
-                    'detalle' => $registro->fecha?->format('d/m/Y').' - Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.($registro->hora_salida ? substr($registro->hora_salida, 0, 5) : '--:--'),
+                    'detalle' => $registro->fecha?->format('d/m/Y').' - Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.(($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--'),
                 ])->values()->all(),
         ];
     }
@@ -447,7 +451,8 @@ class AnalisisAsistenciaService
             $branch
         )
             ->with('empleado')
-            ->whereBetween('fecha', [$monthStart, $monthEnd])
+            ->whereDate('fecha', '>=', $monthStart)
+            ->whereDate('fecha', '<=', $monthEnd)
             ->orderBy('fecha')
             ->get()
             ->filter(function (RegistroAsistencia $registro) {
@@ -514,13 +519,14 @@ class AnalisisAsistenciaService
         $end = $referenceMonth->copy()->endOfMonth();
         $empleado = Empleado::query()->find($employeeId);
 
-        if (! $empleado || ($branch && $empleado->sucursal !== $branch)) {
+        if (! $empleado || ($branch && ! SucursalNormalizer::matches($empleado->sucursal, $branch))) {
             return null;
         }
 
         $attendance = RegistroAsistencia::query()
             ->where('empleado_id', $employeeId)
-            ->whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
             ->orderBy('fecha')
             ->get();
 
@@ -612,20 +618,21 @@ class AnalisisAsistenciaService
             $branch
         )
             ->with('empleado')
-            ->whereBetween('fecha', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->whereDate('fecha', '>=', $monthStart->toDateString())
+            ->whereDate('fecha', '<=', $monthEnd->toDateString())
             ->orderBy('fecha')
             ->orderBy('hora_entrada')
             ->get()
             ->filter(fn (RegistroAsistencia $registro) => $registro->empleado);
 
         $forgotMarks = $attendance
-            ->filter(fn (RegistroAsistencia $registro) => blank($registro->hora_entrada) || blank($registro->hora_salida))
+            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->map(fn (RegistroAsistencia $registro) => [
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                 'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
                 'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                 'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
-                'salida' => $registro->hora_salida ? substr($registro->hora_salida, 0, 5) : '--:--',
+                'salida' => ($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--',
                 'estado' => $registro->estado_marcacion ?: 'Sin estado',
                 'detalle' => blank($registro->hora_entrada)
                     ? 'Falta marcacion de entrada'
@@ -701,20 +708,45 @@ class AnalisisAsistenciaService
         }
 
         $empleado = Empleado::query()->find($employeeId);
-        if (! $empleado || ($branch && $empleado->sucursal !== $branch)) {
+        if (! $empleado || ($branch && ! SucursalNormalizer::matches($empleado->sucursal, $branch))) {
             return null;
+        }
+
+        $effectiveEnd = $this->limitarFinDeReporteHastaHoy($start, $end);
+
+        if (! $effectiveEnd) {
+            return [
+                'empleado' => [
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
+                        .' - '.
+                        ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+                ],
+                'metrics' => [
+                    ['label' => 'Dias con marcacion', 'value' => '0'],
+                    ['label' => 'Horas acumuladas', 'value' => '00:00'],
+                    ['label' => 'Dias tarde', 'value' => '0'],
+                    ['label' => 'Retraso acumulado', 'value' => '0 min'],
+                    ['label' => 'Incidencias aprobadas', 'value' => '0'],
+                    ['label' => 'Horas justificadas', 'value' => '0 min'],
+                ],
+                'rows' => [],
+            ];
         }
 
         $attendance = RegistroAsistencia::query()
             ->where('empleado_id', $employeeId)
-            ->whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $effectiveEnd->toDateString())
             ->orderBy('fecha')
             ->get();
 
         $incidents = PermisoLaboral::query()
             ->where('empleado_id', $employeeId)
             ->where('estado', 'aprobado')
-            ->whereDate('fecha_inicio', '<=', $end->toDateString())
+            ->whereDate('fecha_inicio', '<=', $effectiveEnd->toDateString())
             ->whereDate('fecha_fin', '>=', $start->toDateString())
             ->get();
 
@@ -783,7 +815,7 @@ class AnalisisAsistenciaService
         }
 
         $cursor = $start->copy()->startOfDay();
-        while ($cursor->lte($end)) {
+        while ($cursor->lte($effectiveEnd)) {
             $dateKey = $cursor->toDateString();
             $isLaborable = $this->programacionLaboral->resolverHorario($empleado, $cursor)['laborable'];
 
@@ -853,7 +885,7 @@ class AnalisisAsistenciaService
         $normalizedSearch = $this->normalizarTexto((string) ($search ?? ''));
 
         return Empleado::query()
-            ->when(filled($branch), fn ($query) => $query->where('sucursal', $branch))
+            ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->orderBy('nombre')
             ->orderBy('apellido')
             ->get()
@@ -879,13 +911,13 @@ class AnalisisAsistenciaService
 
     public function sucursalesParaReportes(): array
     {
-        return Empleado::query()
+        return SucursalNormalizer::optionsFromValues(Empleado::query()
             ->whereNotNull('sucursal')
             ->where('sucursal', '!=', '')
             ->orderBy('sucursal')
             ->distinct()
             ->pluck('sucursal')
-            ->all();
+            ->all());
     }
 
     public function asistenciaPorDepartamento(): array
@@ -1012,10 +1044,10 @@ class AnalisisAsistenciaService
                     'detalle' => $empleado->sucursal.' - ausencia injustificada en la fecha',
                 ])->values()->all(),
             'olvidos' => $attendanceToday
-                ->filter(fn (RegistroAsistencia $registro) => blank($registro->hora_entrada) || blank($registro->hora_salida))
+                ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
                 ->map(fn (RegistroAsistencia $registro) => [
                     'nombre' => $registro->empleado?->nombre_completo,
-                    'detalle' => 'Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.($registro->hora_salida ? substr($registro->hora_salida, 0, 5) : '--:--'),
+                    'detalle' => 'Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.(($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--'),
                 ])->values()->all(),
         ];
     }
@@ -1023,7 +1055,7 @@ class AnalisisAsistenciaService
     private function empleadosActivos(string $fecha, ?string $branch = null): Collection
     {
         return Empleado::query()
-            ->when(filled($branch), fn ($query) => $query->where('sucursal', $branch))
+            ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->where(function ($query) use ($fecha) {
                 $query->whereNull('fecha_despido')
                     ->orWhereDate('fecha_despido', '>=', $fecha);
@@ -1038,11 +1070,18 @@ class AnalisisAsistenciaService
 
     private function detalleFaltasEnRango(Carbon $start, Carbon $end, ?string $branch = null): array
     {
+        $effectiveEnd = $this->limitarFinDeReporteHastaHoy($start, $end);
+
+        if (! $effectiveEnd) {
+            return [];
+        }
+
         $attendance = $this->filtrarAsistenciasPorSucursal(
             RegistroAsistencia::query(),
             $branch
         )
-            ->whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $effectiveEnd->toDateString())
             ->get()
             ->groupBy(fn (RegistroAsistencia $registro) => $registro->empleado_id.'|'.$registro->fecha?->toDateString());
 
@@ -1052,14 +1091,14 @@ class AnalisisAsistenciaService
         )
             ->with('empleado')
             ->where('estado', 'aprobado')
-            ->whereDate('fecha_inicio', '<=', $end->toDateString())
+            ->whereDate('fecha_inicio', '<=', $effectiveEnd->toDateString())
             ->whereDate('fecha_fin', '>=', $start->toDateString())
             ->get();
 
         $details = [];
         $current = $start->copy();
 
-        while ($current->lte($end)) {
+        while ($current->lte($effectiveEnd)) {
             $activeEmployees = $this->empleadosActivos($current->toDateString(), $branch);
             foreach ($activeEmployees as $empleado) {
                 if ($this->programacionLaboral->esDiaNoLaborable($current, $empleado->sucursal)) {
@@ -1095,6 +1134,18 @@ class AnalisisAsistenciaService
         return $details;
     }
 
+    private function limitarFinDeReporteHastaHoy(Carbon $start, Carbon $end): ?Carbon
+    {
+        $today = now()->startOfDay();
+        $effectiveEnd = $end->copy()->startOfDay()->min($today);
+
+        if ($effectiveEnd->lt($start->copy()->startOfDay())) {
+            return null;
+        }
+
+        return $effectiveEnd;
+    }
+
     private function filtrarAsistenciasPorSucursal($query, ?string $branch = null)
     {
         if (! filled($branch)) {
@@ -1102,7 +1153,7 @@ class AnalisisAsistenciaService
         }
 
         return $query->whereHas('empleado', function ($empleadoQuery) use ($branch) {
-            $empleadoQuery->where('sucursal', $branch);
+            SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $branch);
         });
     }
 
@@ -1113,7 +1164,7 @@ class AnalisisAsistenciaService
         }
 
         return $query->whereHas('empleado', function ($empleadoQuery) use ($branch) {
-            $empleadoQuery->where('sucursal', $branch);
+            SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $branch);
         });
     }
 
@@ -1125,7 +1176,8 @@ class AnalisisAsistenciaService
 
         $registros = RegistroAsistencia::query()
             ->with('empleado')
-            ->whereBetween('fecha', [$monthStart, $monthEnd])
+            ->whereDate('fecha', '>=', $monthStart)
+            ->whereDate('fecha', '<=', $monthEnd)
             ->orderBy('fecha')
             ->orderBy('hora_entrada')
             ->get()
@@ -1235,6 +1287,49 @@ class AnalisisAsistenciaService
         return $entrada->diffInMinutes($salida);
     }
 
+    private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro): bool
+    {
+        if (blank($registro->hora_entrada)) {
+            return true;
+        }
+
+        if (! blank($this->horaSalidaReal($registro))) {
+            return false;
+        }
+
+        return ! $this->salidaSiguePendienteDentroDeJornada($registro, $registro->empleado);
+    }
+
+    private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, ?Empleado $empleado = null): bool
+    {
+        if (! $this->tieneSoloEntradaMarcada($registro)) {
+            return false;
+        }
+
+        if (! $registro->fecha?->isToday()) {
+            return false;
+        }
+
+        $horario = $empleado
+            ? $this->programacionLaboral->resolverHorario($empleado, $registro->fecha)
+            : ['laborable' => true, 'hora_salida' => config('asistencia.hora_salida')];
+
+        if (($horario['laborable'] ?? true) === false) {
+            return false;
+        }
+
+        $salidaProgramada = $this->combinarFechaYHora(
+            $registro->fecha,
+            $horario['hora_salida'] ?? config('asistencia.hora_salida')
+        );
+
+        if (! $salidaProgramada) {
+            return true;
+        }
+
+        return now()->lessThanOrEqualTo($salidaProgramada);
+    }
+
     private function tieneSoloEntradaMarcada(RegistroAsistencia $registro): bool
     {
         if (blank($registro->hora_entrada)) {
@@ -1300,6 +1395,26 @@ class AnalisisAsistenciaService
         }
 
         return null;
+    }
+
+    private function combinarFechaYHora(Carbon|string|null $fecha, ?string $hora): ?Carbon
+    {
+        if (blank($fecha) || blank($hora)) {
+            return null;
+        }
+
+        try {
+            $horaCarbon = $this->parseTimeToCarbon($hora);
+
+            if (! $horaCarbon) {
+                return null;
+            }
+
+            return Carbon::parse($fecha instanceof Carbon ? $fecha->toDateString() : $fecha)
+                ->setTime($horaCarbon->hour, $horaCarbon->minute, $horaCarbon->second);
+        } catch (\Exception $exception) {
+            return null;
+        }
     }
 
     private function esSabado(Carbon|string|null $fecha): bool
