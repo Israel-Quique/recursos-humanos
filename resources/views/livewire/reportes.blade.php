@@ -355,11 +355,17 @@
         <div class="attendance-chart">
           @foreach($frequency['bars'] as $bar)
             <div class="attendance-bar-group">
-              <div class="attendance-bar-track">
-                <div class="attendance-bar {{ $bar['active'] ? 'attendance-bar-active' : '' }} {{ $bar['is_peak'] ? 'attendance-bar-peak' : '' }}" style="height: {{ $bar['height'] }};"></div>
-              </div>
-              <span class="attendance-bar-label {{ $bar['active'] ? 'attendance-bar-label-active' : '' }}">{{ $bar['label'] }}</span>
-              <span class="attendance-bar-count">{{ $bar['count'] }}</span>
+              <button
+                type="button"
+                wire:click="selectReferenceMonth('{{ $bar['value'] }}')"
+                class="flex h-full w-full flex-col items-center justify-end text-left transition-transform duration-200 hover:-translate-y-1 focus:outline-none"
+              >
+                <div class="attendance-bar-track">
+                  <div class="attendance-bar {{ $bar['active'] ? 'attendance-bar-active' : '' }} {{ $bar['is_peak'] ? 'attendance-bar-peak' : '' }}" style="height: {{ $bar['height'] }};"></div>
+                </div>
+                <span class="attendance-bar-label {{ $bar['active'] ? 'attendance-bar-label-active' : '' }} block">{{ $bar['label'] }}</span>
+                <span class="attendance-bar-count block">{{ $bar['count'] }}</span>
+              </button>
             </div>
           @endforeach
         </div>

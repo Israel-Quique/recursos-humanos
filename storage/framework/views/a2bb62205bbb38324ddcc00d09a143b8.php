@@ -135,7 +135,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
   <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
   <section class="surface-card relative">
-    <div wire:loading.flex wire:target="importFile" class="loading-overlay">
+    <div wire:loading.flex wire:target="importFiles" class="loading-overlay">
       <div class="loading-spinner" role="status" aria-live="polite" aria-label="Importando archivo">
         <div class="loading-spinner-orbit">
           <svg class="loading-spinner-icon" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -147,7 +147,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
         <div class="loading-spinner-body">
           <p class="loading-spinner-kicker">Sincronizando biometrico</p>
           <p class="loading-spinner-text">Importando registros y preparando asistencias</p>
-          <p class="loading-spinner-copy">Esto puede tardar un momento mientras se validan las marcaciones del archivo.</p>
+          <p class="loading-spinner-copy">El sistema procesa el lote archivo por archivo hasta completar la carga.</p>
         </div>
         <div class="loading-progress" aria-hidden="true">
           <span class="loading-progress-bar"></span>
@@ -162,39 +162,65 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       las marcas de ingreso y salida.
     </p>
 
-    <form wire:submit="importFile" class="mt-8">
+    <form wire:submit="importFiles" class="mt-8">
       <label class="upload-dropzone">
         <input
           type="file"
-          wire:model="archivo"
+          wire:model="archivos"
           class="upload-dropzone-input"
           accept=".xls,.xlsx,.csv,.txt"
+          multiple
         >
 
         <div class="upload-badge">
-          <svg viewBox="0 0 48 48" aria-hidden="true" class="upload-badge-icon">
-            <path d="M14 6h14l10 10v22a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4Z" fill="currentColor" opacity=".14"/>
-            <path d="M28 6v10h10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M17 30h14M17 24h7M17 18h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-          </svg>
+          <div wire:loading.flex wire:target="archivos,importFiles" class="h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+            <span class="inline-flex h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></span>
+          </div>
+
+          <div wire:loading.remove wire:target="archivos,importFiles">
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($archivos) > 0 || collect($uploadBatchStatus)->contains(fn ($item) => ($item['status'] ?? null) === 'completed')): ?>
+              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-9 w-9" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.2 7.261a1 1 0 0 1-1.42.008l-3.2-3.2a1 1 0 0 1 1.414-1.415l2.49 2.49 6.493-6.548a1 1 0 0 1 1.417-.01Z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            <?php else: ?>
+              <svg viewBox="0 0 48 48" aria-hidden="true" class="upload-badge-icon">
+                <path d="M14 6h14l10 10v22a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4Z" fill="currentColor" opacity=".14"/>
+                <path d="M28 6v10h10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 30h14M17 24h7M17 18h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </div>
         </div>
 
-        <h4 class="upload-title">Arrastra aqui tu archivo o haz clic para elegirlo</h4>
-        <p class="upload-copy">Admite archivos `.xls`, `.xlsx` y `.csv` del biometrico para generar asistencias reales.</p>
+        <h4 class="upload-title">Arrastra aqui tus archivos o haz clic para elegirlos</h4>
+        <p class="upload-copy">Admite archivos `.xls`, `.xlsx` y `.csv` del biometrico para generar asistencias reales, uno por uno.</p>
 
         <div class="upload-actions">
-          <span class="upload-action-button">Seleccionar archivo</span>
-          <span class="upload-hint">Tambien puedes soltar el Excel directamente en esta zona.</span>
+          <span class="upload-action-button">Seleccionar archivos</span>
+          <span class="upload-hint">Tambien puedes soltar varios Excel directamente en esta zona.</span>
         </div>
 
         <span class="upload-format">
-          <?php echo e($archivo ? $archivo->getClientOriginalName() : 'Formato sugerido: planilla_asistencia_2026.xlsx'); ?>
-
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($archivos) > 0): ?>
+            <?php echo e(count($archivos)); ?> archivo(s) listo(s) para importar
+          <?php else: ?>
+            Formato sugerido: planilla_asistencia_2026.xlsx
+          <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </span>
 
-        <span wire:loading wire:target="archivo" class="upload-loading">Cargando archivo...</span>
+        <span wire:loading wire:target="archivos" class="upload-loading">Cargando archivos...</span>
       </label>
-      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['archivo'];
+      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['archivos'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> <p class="form-error mt-3"><?php echo e($message); ?></p> <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['archivos.*'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
@@ -203,10 +229,38 @@ if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($uploadBatchStatus) > 0): ?>
+        <div class="mt-6 space-y-3">
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $uploadBatchStatus; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $item): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <div class="flex items-center justify-between gap-4 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3">
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-slate-900"><?php echo e($item['name']); ?></p>
+                <p class="mt-1 text-sm text-slate-500"><?php echo e($item['message']); ?></p>
+              </div>
+              <div class="shrink-0">
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($item['status'] === 'completed'): ?>
+                  <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Completado">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-6 w-6">
+                      <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.2 7.261a1 1 0 0 1-1.42.008l-3.2-3.2a1 1 0 0 1 1.414-1.415l2.49 2.49 6.493-6.548a1 1 0 0 1 1.417-.01Z" clip-rule="evenodd" />
+                    </svg>
+                  </span>
+                <?php elseif($item['status'] === 'error'): ?>
+                  <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-700 text-xl font-bold" title="Error">!</span>
+                <?php elseif($item['status'] === 'processing'): ?>
+                  <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-sm font-semibold" title="Procesando">...</span>
+                <?php else: ?>
+                  <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-slate-600 text-sm font-semibold" title="Pendiente">...</span>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </div>
+      <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
       <div class="mt-6 flex items-center gap-4">
         <button type="submit" class="login-submit max-w-[22rem]" wire:loading.attr="disabled">
-          <span wire:loading.remove wire:target="importFile">Importar y generar registros</span>
-          <span wire:loading wire:target="importFile">Procesando archivo...</span>
+          <span wire:loading.remove wire:target="importFiles">Importar y generar registros</span>
+          <span wire:loading wire:target="importFiles">Procesando archivos...</span>
         </button>
       </div>
     </form>

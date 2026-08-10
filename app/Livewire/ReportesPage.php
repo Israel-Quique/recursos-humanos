@@ -38,6 +38,15 @@ class ReportesPage extends Component
         $this->detailEmployeeReport = [];
     }
 
+    public function selectReferenceMonth(string $month): void
+    {
+        try {
+            $this->referenceMonth = Carbon::createFromFormat('Y-m', $month)->format('Y-m');
+        } catch (\Throwable $exception) {
+            return;
+        }
+    }
+
     public function descargarPdfReporte()
     {
         $analysis = app(AnalisisAsistenciaService::class);

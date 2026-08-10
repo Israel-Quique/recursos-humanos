@@ -18,8 +18,8 @@ class ImportarExcelPage extends Component
 {
     use WithFileUploads;
 
-    #[Validate(['required', 'file', 'mimes:xls,xlsx,csv,txt', 'max:512000'])]
-    public $archivo;
+    #[Validate(['required', 'array', 'min:1'])]
+    public array $archivos = [];
 
     public string $deviceDepartment = '';
     public string $deviceBranch = '';
@@ -39,6 +39,7 @@ class ImportarExcelPage extends Component
     public string $pendingDeleteImportacionNombre = '';
     public bool $reconnecting = false;
     public array $reconnectProgress = [];
+    public array $uploadBatchStatus = [];
 
     public function mount(): void
     {
@@ -205,7 +206,7 @@ class ImportarExcelPage extends Component
 
     public function extraerExcel(int $deviceIndex)
     {
-        $this->resetErrorBag('archivo');
+        $this->resetErrorBag('archivos');
         $this->extendExtractionRuntime();
 
         try {
@@ -233,7 +234,7 @@ class ImportarExcelPage extends Component
 
     public function extraerExcelCompleto(int $deviceIndex)
     {
-        $this->resetErrorBag('archivo');
+        $this->resetErrorBag('archivos');
         $this->extendExtractionRuntime();
 
         try {
@@ -304,33 +305,80 @@ class ImportarExcelPage extends Component
         }
     }
 
-    public function importFile(): void
+    public function importFiles(): void
     {
         $this->validate();
 
-        $storedPath = $this->archivo->store('importaciones');
+        $this->validate([
+            'archivos.*' => ['required', 'file', 'mimes:xls,xlsx,csv,txt', 'max:512000'],
+        ]);
 
-        try {
-            $importacion = app(ImportacionBiometricaService::class)->importarArchivo(
-                storage_path('app/'.$storedPath),
-                $this->archivo->getClientOriginalName(),
-                auth()->user(),
-                $storedPath
-            );
+        $this->uploadBatchStatus = [];
+        $processedCount = 0;
 
-            $this->lastImportSummary = $importacion->resumen_json;
-            $this->reset('archivo');
+        foreach ($this->archivos as $index => $archivo) {
+            $fileName = $archivo->getClientOriginalName();
+            $this->uploadBatchStatus[] = [
+                'name' => $fileName,
+                'status' => 'processing',
+                'message' => 'Procesando archivo...',
+            ];
 
-            session()->flash('status', 'Archivo importado y asistencias generadas correctamente.');
-        } catch (\Throwable $exception) {
-            report($exception);
-            $this->addError('archivo', $exception->getMessage());
+            try {
+                $storedPath = $archivo->store('importaciones');
+                $importacion = app(ImportacionBiometricaService::class)->importarArchivo(
+                    storage_path('app/'.$storedPath),
+                    $fileName,
+                    auth()->user(),
+                    $storedPath
+                );
+
+                $this->lastImportSummary = $importacion->resumen_json;
+                $this->uploadBatchStatus[$index] = [
+                    'name' => $fileName,
+                    'status' => 'completed',
+                    'message' => 'Importado correctamente.',
+                ];
+                $processedCount++;
+            } catch (\Throwable $exception) {
+                report($exception);
+                $this->uploadBatchStatus[$index] = [
+                    'name' => $fileName,
+                    'status' => 'error',
+                    'message' => $exception->getMessage(),
+                ];
+            }
         }
+
+        $this->reset('archivos');
+
+        if ($processedCount === count($this->uploadBatchStatus)) {
+            session()->flash('status', $processedCount === 1
+                ? 'Archivo importado y asistencias generadas correctamente.'
+                : 'Archivos importados y asistencias generadas correctamente.');
+
+            return;
+        }
+
+        if ($processedCount > 0) {
+            session()->flash('status', 'Se completaron '.$processedCount.' archivos y algunos presentaron error.');
+
+            return;
+        }
+
+        $this->addError('archivos', 'No se pudo procesar ninguno de los archivos seleccionados.');
     }
 
-    public function updatedArchivo(): void
+    public function updatedArchivos(): void
     {
-        $this->resetErrorBag('archivo');
+        $this->resetErrorBag('archivos');
+        $this->uploadBatchStatus = collect($this->archivos)
+            ->map(fn ($archivo) => [
+                'name' => $archivo->getClientOriginalName(),
+                'status' => 'pending',
+                'message' => 'Listo para importar.',
+            ])
+            ->all();
     }
 
     public function openDeleteModal(int $importacionId, string $nombreArchivo): void
@@ -384,11 +432,13 @@ class ImportarExcelPage extends Component
     protected function messages(): array
     {
         return [
-            'archivo.required' => 'Selecciona un archivo Excel o CSV antes de importar.',
-            'archivo.file' => 'El archivo seleccionado no es valido.',
-            'archivo.uploaded' => 'No se pudo cargar el archivo. Si quieres leer desde el biometrico, usa el boton Extraer Excel o Extraer todo de la sucursal.',
-            'archivo.mimes' => 'Solo se admiten archivos .xls, .xlsx, .csv o .txt.',
-            'archivo.max' => 'El archivo no debe superar los 500 MB.',
+            'archivos.required' => 'Selecciona al menos un archivo Excel o CSV antes de importar.',
+            'archivos.array' => 'La carga debe contener una lista de archivos valida.',
+            'archivos.min' => 'Selecciona al menos un archivo para iniciar la importacion.',
+            'archivos.*.file' => 'Uno de los archivos seleccionados no es valido.',
+            'archivos.*.uploaded' => 'No se pudo cargar uno de los archivos. Si quieres leer desde el biometrico, usa el boton Extraer Excel o Extraer todo de la sucursal.',
+            'archivos.*.mimes' => 'Solo se admiten archivos .xls, .xlsx, .csv o .txt.',
+            'archivos.*.max' => 'Cada archivo no debe superar los 500 MB.',
         ];
     }
 

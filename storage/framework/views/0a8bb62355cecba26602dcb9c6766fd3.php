@@ -355,11 +355,17 @@
         <div class="attendance-chart">
           <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $frequency['bars']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bar): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
             <div class="attendance-bar-group">
-              <div class="attendance-bar-track">
-                <div class="attendance-bar <?php echo e($bar['active'] ? 'attendance-bar-active' : ''); ?> <?php echo e($bar['is_peak'] ? 'attendance-bar-peak' : ''); ?>" style="height: <?php echo e($bar['height']); ?>;"></div>
-              </div>
-              <span class="attendance-bar-label <?php echo e($bar['active'] ? 'attendance-bar-label-active' : ''); ?>"><?php echo e($bar['label']); ?></span>
-              <span class="attendance-bar-count"><?php echo e($bar['count']); ?></span>
+              <button
+                type="button"
+                wire:click="selectReferenceMonth('<?php echo e($bar['value']); ?>')"
+                class="flex h-full w-full flex-col items-center justify-end text-left transition-transform duration-200 hover:-translate-y-1 focus:outline-none"
+              >
+                <div class="attendance-bar-track">
+                  <div class="attendance-bar <?php echo e($bar['active'] ? 'attendance-bar-active' : ''); ?> <?php echo e($bar['is_peak'] ? 'attendance-bar-peak' : ''); ?>" style="height: <?php echo e($bar['height']); ?>;"></div>
+                </div>
+                <span class="attendance-bar-label <?php echo e($bar['active'] ? 'attendance-bar-label-active' : ''); ?> block"><?php echo e($bar['label']); ?></span>
+                <span class="attendance-bar-count block"><?php echo e($bar['count']); ?></span>
+              </button>
             </div>
           <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </div>

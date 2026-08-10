@@ -367,6 +367,7 @@ class AnalisisAsistenciaService
                 'label' => $offset === 0
                     ? ucfirst($date->locale('es')->translatedFormat('M')).' (Actual)'
                     : ucfirst($date->locale('es')->translatedFormat('M')),
+                'value' => $date->format('Y-m'),
                 'count' => $count,
                 'active' => $offset === 0,
             ];
@@ -390,6 +391,7 @@ class AnalisisAsistenciaService
             ],
             'bars' => $months->map(fn (array $month) => [
                 'label' => $month['label'],
+                'value' => $month['value'],
                 'height' => max(18, (int) round(($month['count'] / $max) * 100)).'%',
                 'active' => $month['active'],
                 'count' => $month['count'],
