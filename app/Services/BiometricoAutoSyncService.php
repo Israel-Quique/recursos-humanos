@@ -13,6 +13,10 @@ class BiometricoAutoSyncService
 
     public function triggerIfDue(): void
     {
+        if (! config('biometrico.web_auto_sync_enabled', false)) {
+            return;
+        }
+
         if (app()->runningInConsole()) {
             return;
         }

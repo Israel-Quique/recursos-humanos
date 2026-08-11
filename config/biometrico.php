@@ -32,6 +32,7 @@ return [
     'table' => env('BIOMETRICO_TABLE'),
     'pull_interval' => (int) env('BIOMETRICO_PULL_INTERVAL', 60),
     'auto_sync_minutes' => (int) env('BIOMETRICO_AUTO_SYNC_MINUTES', 15),
+    'web_auto_sync_enabled' => (bool) env('BIOMETRICO_WEB_AUTO_SYNC_ENABLED', false),
     'sync_window_days' => max(1, (int) env('BIOMETRICO_SYNC_WINDOW_DAYS', 2)),
     'timeout' => (float) env('BIOMETRICO_TIMEOUT', 2),
     'export_timeout' => max(60, (int) env('BIOMETRICO_EXPORT_TIMEOUT', 90)),
