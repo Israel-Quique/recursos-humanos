@@ -618,8 +618,8 @@
   @if ($vista === 'marcaciones')
   <section>
     <article class="surface-card">
-      <div class="section-head-row">
-        <div>
+      <div class="section-head-row section-head-row-spacious">
+        <div class="history-panel-intro">
           <p class="section-kicker">Dias marcados</p>
           <h3 class="section-title">Historial reciente de marcaciones</h3>
           <p class="section-copy-sm">Lista de los ultimos dias en los que se registro una marcacion, con fecha y dia.</p>
@@ -627,7 +627,7 @@
       </div>
 
       <div class="history-table-shell">
-        <div class="mb-6 grid gap-4 md:grid-cols-2">
+        <div class="history-filters-grid md:grid-cols-3">
           <div>
             <label for="marcaciones-search" class="form-label">Buscar por codigo o nombre</label>
             <input
@@ -645,6 +645,17 @@
               @foreach ($sucursales as $sucursal)
                 <option value="{{ $sucursal }}">{{ $sucursal }}</option>
               @endforeach
+            </select>
+          </div>
+          <div>
+            <label for="marcaciones-orden" class="form-label">Ordenar por</label>
+            <select id="marcaciones-orden" wire:model.live="ordenMarcaciones" class="form-input">
+              <option value="fecha_reciente">Fecha mas reciente</option>
+              <option value="fecha_antigua">Fecha mas antigua</option>
+              <option value="hora_asc">Hora mas temprana</option>
+              <option value="hora_desc">Hora mas tarde</option>
+              <option value="nombre_asc">Empleado A-Z</option>
+              <option value="nombre_desc">Empleado Z-A</option>
             </select>
           </div>
         </div>
@@ -774,14 +785,16 @@
   @if ($vista === 'control')
   <section>
     <article class="surface-card">
-      <p class="section-kicker">Control mensual</p>
-      <h3 class="section-title">Horas y consumo de tolerancia</h3>
-      <p class="section-copy-sm">
-        Regla aplicada: se usa el horario regional de cada sucursal, una tolerancia maxima de 35 minutos por mes y tambien se respetan los feriados o jornadas especiales programadas.
-      </p>
+      <div class="history-panel-intro">
+        <p class="section-kicker">Control mensual</p>
+        <h3 class="section-title">Horas y consumo de tolerancia</h3>
+        <p class="section-copy-sm">
+          Regla aplicada: se usa el horario regional de cada sucursal, una tolerancia maxima de 35 minutos por mes y tambien se respetan los feriados o jornadas especiales programadas.
+        </p>
+      </div>
 
       <div class="history-table-shell history-table-shell-personal">
-        <div class="mb-6 grid gap-4 md:grid-cols-2">
+        <div class="history-filters-grid md:grid-cols-2">
           <div>
             <label for="control-search" class="form-label">Buscar por codigo o nombre</label>
             <input

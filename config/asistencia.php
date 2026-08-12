@@ -12,5 +12,5 @@ return [
     'enforce_created_by' => true,
 
     // Política de tolerancia mensual en minutos
-    'tolerancia_mensual_min' => env('ASISTENCIA_TOLERANCIA_MIN', 35),
+    'tolerancia_mensual_min' => env('ASISTENCIA_TOLERANCIA_MIN', 30),
 ];

@@ -72,8 +72,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
           <div>
             <label class="form-label">Alcance</label>
-            <select wire:model.live="alcance" class="form-input" <?php if($tipo === 'cumpleanos'): echo 'disabled'; endif; ?>>
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $alcances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <select wire:model.live="alcance" class="form-input">
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $tipo === 'cumpleanos' ? $alcancesCumpleanos : $alcances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                 <option value="<?php echo e($value); ?>"><?php echo e($label); ?></option>
               <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </select>
@@ -141,7 +141,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
           <div class="md:col-span-2">
             <p class="section-copy-sm">
-              Cumpleanos se cuenta hasta medio dia. Feriados y paros se programan en fechas especiales. Las faltas y permisos se contabilizan por horas reales o por bloque segun la seleccion.
+              Cumpleanos se registra en el mismo dia y puede asignarse a la manana o a la tarde. Feriados y paros se programan en fechas especiales. Las faltas y permisos se contabilizan por horas reales o por bloque segun la seleccion.
             </p>
           </div>
           <div class="md:col-span-2 app-modal-actions">
@@ -201,8 +201,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
           <div>
             <label class="form-label">Alcance</label>
-            <select wire:model.live="editAlcance" class="form-input" <?php if($editTipo === 'cumpleanos'): echo 'disabled'; endif; ?>>
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $alcances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <select wire:model.live="editAlcance" class="form-input">
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $editTipo === 'cumpleanos' ? $alcancesCumpleanos : $alcances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                 <option value="<?php echo e($value); ?>"><?php echo e($label); ?></option>
               <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </select>
@@ -281,7 +281,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       <div>
         <p class="section-kicker">Control de novedades</p>
         <h3 class="section-title">Incidencias, permisos y faltas</h3>
-        <p class="section-copy-sm">Programa permisos por horas, incidencias por manana o tarde, cumpleanos hasta medio dia y faltas con tiempo contabilizado.</p>
+        <p class="section-copy-sm">Programa permisos por horas, incidencias por manana o tarde, cumpleanos por la manana o la tarde, y faltas con tiempo contabilizado.</p>
       </div>
       <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar incidencia</button>
     </div>

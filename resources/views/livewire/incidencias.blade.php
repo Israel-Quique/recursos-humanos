@@ -65,8 +65,8 @@
           </div>
           <div>
             <label class="form-label">Alcance</label>
-            <select wire:model.live="alcance" class="form-input" @disabled($tipo === 'cumpleanos')>
-              @foreach($alcances as $value => $label)
+            <select wire:model.live="alcance" class="form-input">
+              @foreach($tipo === 'cumpleanos' ? $alcancesCumpleanos : $alcances as $value => $label)
                 <option value="{{ $value }}">{{ $label }}</option>
               @endforeach
             </select>
@@ -104,9 +104,20 @@
             <label class="form-label">Motivo / detalle</label>
             <textarea wire:model="motivo" rows="3" class="form-input" placeholder="Ej. permiso por salud, incidencia interna o falta parcial"></textarea>
           </div>
+          @if($tipo === 'permiso')
+            <div class="md:col-span-2">
+              <label class="form-label">Tipo de permiso</label>
+              <select wire:model.live="tipoPermiso" class="form-input">
+                <option value="">Selecciona un tipo de permiso</option>
+                @foreach($tiposPermiso as $value => $label)
+                  <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+              </select>
+            </div>
+          @endif
           <div class="md:col-span-2">
             <p class="section-copy-sm">
-              Cumpleanos se cuenta hasta medio dia. Feriados y paros se programan en fechas especiales. Las faltas y permisos se contabilizan por horas reales o por bloque segun la seleccion.
+              Cumpleanos se registra en el mismo dia y puede asignarse a la manana o a la tarde. Feriados y paros se programan en fechas especiales. Las faltas y permisos se contabilizan por horas reales o por bloque segun la seleccion.
             </p>
           </div>
           <div class="md:col-span-2 app-modal-actions">
@@ -159,8 +170,8 @@
           </div>
           <div>
             <label class="form-label">Alcance</label>
-            <select wire:model.live="editAlcance" class="form-input" @disabled($editTipo === 'cumpleanos')>
-              @foreach($alcances as $value => $label)
+            <select wire:model.live="editAlcance" class="form-input">
+              @foreach($editTipo === 'cumpleanos' ? $alcancesCumpleanos : $alcances as $value => $label)
                 <option value="{{ $value }}">{{ $label }}</option>
               @endforeach
             </select>
@@ -198,6 +209,17 @@
             <label class="form-label">Motivo / detalle</label>
             <textarea wire:model="editMotivo" rows="3" class="form-input"></textarea>
           </div>
+          @if($editTipo === 'permiso')
+            <div class="md:col-span-2">
+              <label class="form-label">Tipo de permiso</label>
+              <select wire:model.live="editTipoPermiso" class="form-input">
+                <option value="">Selecciona un tipo de permiso</option>
+                @foreach($tiposPermiso as $value => $label)
+                  <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+              </select>
+            </div>
+          @endif
           <div class="md:col-span-2 app-modal-actions">
             <button type="submit" class="login-submit app-modal-submit">Guardar cambios</button>
           </div>
@@ -211,7 +233,7 @@
       <div>
         <p class="section-kicker">Control de novedades</p>
         <h3 class="section-title">Incidencias, permisos y faltas</h3>
-        <p class="section-copy-sm">Programa permisos por horas, incidencias por manana o tarde, cumpleanos hasta medio dia y faltas con tiempo contabilizado.</p>
+        <p class="section-copy-sm">Programa permisos por horas, incidencias por manana o tarde, cumpleanos por la manana o la tarde, y faltas con tiempo contabilizado.</p>
       </div>
       <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar incidencia</button>
     </div>

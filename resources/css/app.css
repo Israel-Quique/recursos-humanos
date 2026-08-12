@@ -290,6 +290,18 @@ body{
   @apply flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between;
 }
 
+.section-head-row-spacious{
+  @apply mb-3;
+}
+
+.history-panel-intro{
+  @apply space-y-3;
+}
+
+.history-panel-intro .section-title{
+  @apply leading-tight;
+}
+
 .section-action-button{
   @apply inline-flex items-center justify-center self-start rounded-[1rem] bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(15,103,192,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0d58a4];
 }
@@ -903,6 +915,10 @@ body{
 
 .history-table-shell-personal{
   @apply overflow-x-auto;
+}
+
+.history-filters-grid{
+  @apply grid gap-5 px-5 pt-5 pb-1 md:px-6 md:pt-6;
 }
 
 .history-table{

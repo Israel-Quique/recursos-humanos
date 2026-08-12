@@ -24,6 +24,7 @@ class PersonalPage extends Component
     public string $vista = 'personal';
     public string $search = '';
     public string $sucursalFiltro = '';
+    public string $ordenMarcaciones = 'fecha_reciente';
     public int $registrosPage = 1;
     public ?int $detailEmpleadoId = null;
     public ?int $editingEmpleadoId = null;
@@ -402,6 +403,11 @@ class PersonalPage extends Component
         $this->resetPage('registrosPage');
     }
 
+    public function updatingOrdenMarcaciones(): void
+    {
+        $this->resetPage('registrosPage');
+    }
+
     public function render()
     {
         $referenceMonth = $this->referenceMonth();
@@ -479,8 +485,7 @@ class PersonalPage extends Component
                     SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->sucursalFiltro);
                 });
             })
-            ->orderByDesc('fecha')
-            ->orderByDesc('created_at')
+            ->tap(fn ($query) => $this->aplicarOrdenMarcaciones($query))
             ->paginate(10, ['*'], 'registrosPage');
 
         $registros->getCollection()->transform(function (RegistroAsistencia $registro) {
@@ -502,6 +507,40 @@ class PersonalPage extends Component
             'mes_resumen' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'sucursales' => $sucursales,
         ])->layout('layouts.app', ['title' => 'Registro de personal']);
+    }
+
+    private function aplicarOrdenMarcaciones(Builder $query): Builder
+    {
+        return match ($this->ordenMarcaciones) {
+            'fecha_antigua' => $query
+                ->orderBy('fecha')
+                ->orderBy('created_at'),
+            'hora_asc' => $query
+                ->orderBy('hora_entrada')
+                ->orderByDesc('fecha')
+                ->orderByDesc('created_at'),
+            'hora_desc' => $query
+                ->orderByDesc('hora_entrada')
+                ->orderByDesc('fecha')
+                ->orderByDesc('created_at'),
+            'nombre_asc' => $query
+                ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
+                ->select('registros_asistencia.*')
+                ->orderBy('empleados.nombre')
+                ->orderBy('empleados.apellido')
+                ->orderByDesc('registros_asistencia.fecha')
+                ->orderByDesc('registros_asistencia.created_at'),
+            'nombre_desc' => $query
+                ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
+                ->select('registros_asistencia.*')
+                ->orderByDesc('empleados.nombre')
+                ->orderByDesc('empleados.apellido')
+                ->orderByDesc('registros_asistencia.fecha')
+                ->orderByDesc('registros_asistencia.created_at'),
+            default => $query
+                ->orderByDesc('fecha')
+                ->orderByDesc('created_at'),
+        };
     }
 
     private function resumenMensualEmpleado(Empleado $empleado, EloquentCollection $registrosAsistencia, Carbon $referenceMonth): array
