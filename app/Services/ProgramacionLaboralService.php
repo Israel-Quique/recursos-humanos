@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 class ProgramacionLaboralService
 {
     private array $cacheFechas = [];
+    private array $cacheFechasPorDia = [];
     private array $cacheHorarios = [];
 
     public function obtenerFechaEspecial(Carbon|string|null $fecha, ?string $sucursal = null): ?FechaEspecialLaboral
@@ -21,20 +22,27 @@ class ProgramacionLaboralService
         }
 
         $scope = $this->normalizarSucursal($sucursal);
-        $key = $this->normalizarFecha($fecha).'|'.$scope;
+        $normalizedDate = $this->normalizarFecha($fecha);
+        $key = $normalizedDate.'|'.$scope;
 
         if (array_key_exists($key, $this->cacheFechas)) {
             return $this->cacheFechas[$key];
         }
 
-        $aliases = SucursalNormalizer::aliasesFor($scope);
-        $candidateScopes = array_values(array_unique([...$aliases, 'TODAS']));
+        $fechaEspeciales = $this->fechasEspecialesPorDia($normalizedDate);
 
-        return $this->cacheFechas[$key] = FechaEspecialLaboral::query()
-            ->whereDate('fecha', $this->normalizarFecha($fecha))
-            ->whereIn('sucursal', $candidateScopes)
-            ->orderByRaw("CASE WHEN sucursal = ? THEN 0 ELSE 1 END", [$scope])
-            ->first();
+        $branchMatch = $fechaEspeciales->first(function (FechaEspecialLaboral $fechaEspecial) use ($scope) {
+            return $this->normalizarSucursal($fechaEspecial->sucursal) !== 'TODAS'
+                && SucursalNormalizer::matches($fechaEspecial->sucursal, $scope);
+        });
+
+        if ($branchMatch) {
+            return $this->cacheFechas[$key] = $branchMatch;
+        }
+
+        return $this->cacheFechas[$key] = $fechaEspeciales->first(function (FechaEspecialLaboral $fechaEspecial) {
+            return $this->normalizarSucursal($fechaEspecial->sucursal) === 'TODAS';
+        });
     }
 
     public function fechasEnRango(Carbon $inicio, Carbon $fin): Collection
@@ -221,6 +229,18 @@ class ProgramacionLaboralService
         }
 
         return $horaEntrada;
+    }
+
+    private function fechasEspecialesPorDia(string $fecha): Collection
+    {
+        if (array_key_exists($fecha, $this->cacheFechasPorDia)) {
+            return $this->cacheFechasPorDia[$fecha];
+        }
+
+        return $this->cacheFechasPorDia[$fecha] = FechaEspecialLaboral::query()
+            ->whereDate('fecha', $fecha)
+            ->orderBy('sucursal')
+            ->get();
     }
 
     private function minutosEntreHoras(?string $horaInicio, ?string $horaFin): int

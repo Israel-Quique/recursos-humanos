@@ -139,6 +139,17 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <label class="form-label">Motivo / detalle</label>
             <textarea wire:model="motivo" rows="3" class="form-input" placeholder="Ej. permiso por salud, incidencia interna o falta parcial"></textarea>
           </div>
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($tipo === 'permiso'): ?>
+            <div class="md:col-span-2">
+              <label class="form-label">Tipo de permiso</label>
+              <select wire:model.live="tipoPermiso" class="form-input">
+                <option value="">Selecciona un tipo de permiso</option>
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $tiposPermiso; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                  <option value="<?php echo e($value); ?>"><?php echo e($label); ?></option>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+              </select>
+            </div>
+          <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           <div class="md:col-span-2">
             <p class="section-copy-sm">
               Cumpleanos se registra en el mismo dia y puede asignarse a la manana o a la tarde. Feriados y paros se programan en fechas especiales. Las faltas y permisos se contabilizan por horas reales o por bloque segun la seleccion.
@@ -268,6 +279,17 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <label class="form-label">Motivo / detalle</label>
             <textarea wire:model="editMotivo" rows="3" class="form-input"></textarea>
           </div>
+          <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($editTipo === 'permiso'): ?>
+            <div class="md:col-span-2">
+              <label class="form-label">Tipo de permiso</label>
+              <select wire:model.live="editTipoPermiso" class="form-input">
+                <option value="">Selecciona un tipo de permiso</option>
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $tiposPermiso; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                  <option value="<?php echo e($value); ?>"><?php echo e($label); ?></option>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+              </select>
+            </div>
+          <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           <div class="md:col-span-2 app-modal-actions">
             <button type="submit" class="login-submit app-modal-submit">Guardar cambios</button>
           </div>

@@ -7032,3 +7032,4 @@ Did you mean one of these?
 #4 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/artisan(13): Illuminate/Foundation/Application->handleCommand()
 #5 {main}
 "} 
+[2026-08-12 10:07:39] local.INFO: Extraccion biometrico Python process ejecutado {"probe_only":false,"python":"C:\\Users\\israe\\OneDrive\\Desktop\\Pasantia\\Proyectos\\recursos-humanos\\.venv/Scripts/python.exe","device_ip":"172.65.14.108","device_port":4370,"successful":true,"exit_code":0,"output":"OK","error_output":""} 

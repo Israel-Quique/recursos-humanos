@@ -703,8 +703,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
   <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'marcaciones'): ?>
   <section>
     <article class="surface-card">
-      <div class="section-head-row">
-        <div>
+      <div class="section-head-row section-head-row-spacious">
+        <div class="history-panel-intro">
           <p class="section-kicker">Dias marcados</p>
           <h3 class="section-title">Historial reciente de marcaciones</h3>
           <p class="section-copy-sm">Lista de los ultimos dias en los que se registro una marcacion, con fecha y dia.</p>
@@ -712,7 +712,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       </div>
 
       <div class="history-table-shell">
-        <div class="mb-6 grid gap-4 md:grid-cols-3">
+        <div class="history-filters-grid md:grid-cols-3">
           <div>
             <label for="marcaciones-search" class="form-label">Buscar por codigo o nombre</label>
             <input
@@ -871,14 +871,16 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
   <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'control'): ?>
   <section>
     <article class="surface-card">
-      <p class="section-kicker">Control mensual</p>
-      <h3 class="section-title">Horas y consumo de tolerancia</h3>
-      <p class="section-copy-sm">
-        Regla aplicada: se usa el horario regional de cada sucursal, una tolerancia maxima de 30 minutos por mes y tambien se respetan los feriados o jornadas especiales programadas.
-      </p>
+      <div class="history-panel-intro">
+        <p class="section-kicker">Control mensual</p>
+        <h3 class="section-title">Horas y consumo de tolerancia</h3>
+        <p class="section-copy-sm">
+          Regla aplicada: se usa el horario regional de cada sucursal, una tolerancia maxima de 35 minutos por mes y tambien se respetan los feriados o jornadas especiales programadas.
+        </p>
+      </div>
 
       <div class="history-table-shell history-table-shell-personal">
-        <div class="mb-6 grid gap-4 md:grid-cols-2">
+        <div class="history-filters-grid md:grid-cols-2">
           <div>
             <label for="control-search" class="form-label">Buscar por codigo o nombre</label>
             <input
