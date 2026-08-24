@@ -1,0 +1,2156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak]{
+  display: none !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Design Tokens                                                              */
+/* -------------------------------------------------------------------------- */
+:root{
+  --color-offwhite: #f7f8f4;
+  --color-brand-primary: #0f67c0;
+  --color-brand-primary-strong: #0b4d93;
+  --color-brand-accent: #ffd400;
+  --ui-border-soft: rgb(226 232 240);
+  --ui-border-strong: rgba(255, 255, 255, 0.8);
+  --ui-surface-solid: rgba(255, 255, 255, 1);
+  --ui-surface-glass: rgba(255, 255, 255, 0.9);
+  --ui-surface-muted: rgb(248 250 252);
+  --ui-shadow-card: 0 20px 52px rgba(15, 23, 42, 0.06);
+  --ui-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --ui-shadow-float: 0 30px 90px rgba(15, 23, 42, 0.22);
+  --ui-radius-card: 2rem;
+  --ui-radius-lg: 1.6rem;
+  --ui-radius-md: 1.2rem;
+}
+
+body{
+  background:
+    radial-gradient(circle at 22% 14%, rgba(255, 212, 0, 0.42), transparent 22%),
+    radial-gradient(circle at 56% 72%, rgba(142, 230, 225, 0.18), transparent 28%),
+    linear-gradient(180deg, #f4f6f2 0%, #f9faf6 55%, #f4f7f3 100%);
+  min-height: 100vh;
+}
+
+.guest-body{
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 210, 27, 0.45), transparent 30%),
+    radial-gradient(circle at 82% 10%, rgba(15, 76, 129, 0.14), transparent 24%),
+    linear-gradient(135deg, #ffd400 0%, #ffe77a 26%, #fff5c7 55%, #eef6ff 100%);
+}
+
+.font-serif{
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared Foundations                                                         */
+/* -------------------------------------------------------------------------- */
+.surface-card,
+.app-main-header,
+.personal-submenu-card,
+.metric-card{
+  background-color: var(--ui-surface-glass);
+  border-color: var(--ui-border-strong);
+  border-radius: var(--ui-radius-card);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.app-modal-card,
+.app-toast,
+.department-bubble,
+.history-table-shell,
+.calendar-shell{
+  background-color: var(--ui-surface-solid);
+  border-color: var(--ui-border-soft);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-soft);
+}
+
+.form-input,
+.app-modal-close,
+.app-modal-secondary,
+.table-action-button,
+.table-pagination-button,
+.personal-submenu-button{
+  background-color: var(--ui-surface-solid);
+  border-color: var(--ui-border-soft);
+  border-radius: var(--ui-radius-md);
+}
+
+/* -------------------------------------------------------------------------- */
+/* App Shell And Global Navigation                                            */
+/* -------------------------------------------------------------------------- */
+.app-shell{
+  @apply min-h-screen lg:grid lg:grid-cols-[300px,1fr] xl:grid-cols-[312px,1fr];
+}
+
+.app-sidebar{
+  @apply relative p-0 lg:p-0;
+}
+
+.app-sidebar-panel{
+  @apply sticky top-0 flex min-h-screen flex-col overflow-hidden px-6 py-7 text-white shadow-[0_30px_90px_rgba(8,58,112,0.26)];
+  background:
+    radial-gradient(circle at top left, rgba(255, 212, 0, 0.72), rgba(255, 212, 0, 0) 28%),
+    radial-gradient(circle at center left, rgba(255, 255, 255, 0.10), rgba(255,255,255,0) 36%),
+    linear-gradient(180deg, #274a57 0%, #163f7d 24%, #173f79 68%, #163462 100%);
+}
+
+.app-sidebar-brandmark{
+  @apply overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/5 p-3 shadow-[0_16px_36px_rgba(0,0,0,0.14)];
+}
+
+.app-sidebar-brandmark-image{
+  @apply block h-auto max-h-[86px] w-full rounded-[1.15rem] bg-[#f7c931] object-contain;
+}
+
+.app-sidebar-nav{
+  @apply mt-8 flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1;
+}
+
+.app-sidebar-link{
+  @apply relative flex items-center gap-3 rounded-[1rem] border-l-[3px] border-transparent px-3 py-2.5 text-[0.95rem] font-semibold text-white/[0.78] transition duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white;
+}
+
+.app-sidebar-link-active{
+  @apply border-[#ffd400] bg-white/[0.16] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)];
+}
+
+.app-sidebar-link-icon{
+  @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.75rem] bg-white/[0.07] text-white/[0.65] transition duration-200;
+}
+
+.app-sidebar-link-icon svg{
+  width: 18px;
+  height: 18px;
+}
+
+.app-sidebar-link:hover .app-sidebar-link-icon{
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.app-sidebar-link-active .app-sidebar-link-icon{
+  background: rgba(255, 212, 0, 0.18);
+  color: #ffd400;
+}
+
+.app-sidebar-link-label{
+  @apply flex-1 truncate;
+}
+
+.app-sidebar-chevron{
+  @apply h-4 w-4 shrink-0 text-white/[0.45] transition-transform duration-200;
+}
+
+.app-sidebar-chevron-open{
+  @apply rotate-180 text-white/80;
+}
+
+.app-sidebar-submenu{
+  @apply mt-1 mb-1 ml-[1.15rem] flex flex-col gap-0.5 border-l border-white/[0.15] pl-4;
+}
+
+.app-sidebar-sublink{
+  @apply flex items-center gap-2.5 rounded-[0.8rem] px-3 py-2 text-[0.87rem] font-semibold text-white/[0.62] transition hover:bg-white/10 hover:text-white;
+}
+
+.app-sidebar-sublink-active{
+  @apply bg-white/[0.15] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10)];
+}
+
+.app-sidebar-subdot{
+  @apply h-1.5 w-1.5 shrink-0 rounded-full bg-white/30 transition;
+}
+
+.app-sidebar-sublink-active .app-sidebar-subdot{
+  background: #ffd400;
+  box-shadow: 0 0 0 3px rgba(255, 212, 0, 0.18);
+}
+
+.app-sidebar-logout{
+  @apply mt-6 border-t border-white/[0.12] pt-5;
+}
+
+.app-sidebar-logout-button{
+  @apply flex w-full items-center justify-center gap-2.5 rounded-[1.1rem] bg-[#ffa31a] px-4 py-3 text-sm font-bold text-white shadow-[0_18px_32px_rgba(255,163,26,0.30)] transition hover:-translate-y-0.5 hover:bg-[#f19200];
+}
+
+.app-sidebar-logout-icon{
+  @apply h-4 w-4;
+}
+
+.app-main{
+  @apply relative min-w-0 px-3 pb-8 pt-7 md:px-6 lg:px-7 xl:px-8;
+}
+
+.app-main-header{
+  @apply mb-6 rounded-[2rem] border border-white/80 bg-white/90 px-6 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur;
+}
+
+.app-main-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.32em] text-[#0f67c0];
+}
+
+.app-main-title{
+  @apply mt-2 font-serif text-3xl text-slate-900 md:text-[2.7rem];
+}
+
+.app-session-chip{
+  @apply inline-flex items-center gap-3 self-start rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-600 shadow-sm;
+}
+
+.app-session-icon{
+  @apply h-4 w-4 rounded-full bg-[#0f67c0];
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,0.95);
+}
+
+.app-toast{
+  @apply fixed right-5 top-5 z-30 hidden items-start gap-4 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-4 text-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition duration-500 xl:flex;
+}
+
+.app-toast-icon{
+  @apply mt-1 h-5 w-5 rounded-full bg-[#0f67c0];
+  box-shadow: inset 0 0 0 5px rgba(255,255,255,0.96);
+}
+
+.app-toast-title{
+  @apply text-xl font-semibold text-slate-800;
+}
+
+.app-toast-copy{
+  @apply mt-1 text-sm text-slate-500;
+}
+
+.app-toast-hidden{
+  @apply pointer-events-none translate-y-3 opacity-0;
+}
+
+.app-footer{
+  @apply mt-10 flex flex-col gap-3 border-t border-white/80 px-1 pt-8 text-sm text-slate-400 md:flex-row md:items-center md:justify-between;
+}
+
+.page-stack{
+  @apply mx-auto max-w-[1680px] space-y-8;
+}
+
+.page-stack-calendar{
+  @apply max-w-none space-y-6;
+}
+
+.surface-card{
+  @apply rounded-[2rem] border border-white/80 bg-white/90 p-6 xl:p-7 shadow-[0_20px_52px_rgba(15,23,42,0.06)] backdrop-blur;
+}
+
+.surface-card-calendar{
+  @apply p-5 xl:p-6;
+}
+
+.surface-card-map{
+  @apply overflow-hidden;
+}
+
+.surface-card-large{
+  @apply min-h-[24rem];
+}
+
+.surface-card-side{
+  @apply min-h-[24rem];
+}
+
+.section-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-[#0f67c0];
+}
+
+.section-kicker-soft{
+  @apply text-slate-400;
+}
+
+.section-title{
+  @apply font-serif text-3xl text-slate-900 md:text-[2.6rem];
+}
+
+.section-title-xl{
+  @apply mt-4 max-w-5xl text-[2.75rem] leading-tight md:text-[4rem];
+}
+
+.section-copy{
+  @apply mt-5 max-w-4xl text-[15px] leading-8 text-slate-600;
+}
+
+.section-copy-sm{
+  @apply mt-2 text-sm leading-7 text-slate-500;
+}
+
+.section-head-row{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.section-head-row-spacious{
+  @apply mb-3;
+}
+
+.history-panel-intro{
+  @apply space-y-3;
+}
+
+.history-panel-intro .section-title{
+  @apply leading-tight;
+}
+
+.section-action-button{
+  @apply inline-flex items-center justify-center self-start rounded-[1rem] bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(15,103,192,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0d58a4];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Personal Navigation And Shared Panels                                      */
+/* -------------------------------------------------------------------------- */
+.personal-submenu-card{
+  @apply mb-6 flex flex-col gap-5 rounded-[1.6rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur xl:flex-row xl:items-center xl:justify-between;
+}
+
+.personal-submenu-copy{
+  @apply max-w-2xl;
+}
+
+.personal-submenu-actions{
+  @apply grid gap-3 md:grid-cols-3 xl:min-w-[560px];
+}
+
+.personal-submenu-button{
+  @apply rounded-[1.1rem] border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-slate-600 shadow-[0_12px_26px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#0f67c0]/30 hover:text-[#0f67c0];
+}
+
+.personal-submenu-button-active{
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white shadow-[0_16px_30px_rgba(15,103,192,0.22)] hover:text-white;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Modal System                                                               */
+/* -------------------------------------------------------------------------- */
+.app-modal-backdrop{
+  @apply fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm;
+}
+
+.app-modal-card{
+  @apply relative z-50 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-8 shadow-[0_30px_90px_rgba(15,23,42,0.22)];
+}
+
+.app-modal-card-detail{
+  @apply max-w-[82rem] p-10 xl:p-12;
+}
+
+.app-modal-head{
+  @apply flex flex-col gap-4 border-b border-slate-100 pb-6 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.app-modal-title{
+  @apply md:text-[2.3rem];
+}
+
+.app-modal-close{
+  @apply inline-flex h-11 w-11 items-center justify-center self-start rounded-full border border-slate-200 bg-slate-50 text-lg font-semibold leading-none text-slate-600 transition hover:bg-slate-100;
+}
+
+.app-modal-close-corner{
+  @apply absolute right-5 top-5 z-10 self-auto;
+}
+
+.app-modal-actions{
+  @apply flex flex-col-reverse gap-3 pt-2 md:flex-row md:justify-end;
+}
+
+.app-modal-secondary{
+  @apply inline-flex items-center justify-center rounded-[0.95rem] border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50;
+}
+
+.app-modal-submit{
+  @apply md:w-auto md:min-w-[220px];
+}
+
+.dashboard-grid{
+  @apply grid gap-6 2xl:grid-cols-[minmax(0,1.55fr),480px];
+}
+
+.bolivia-map-card{
+  @apply mt-6 grid items-stretch gap-6 xl:grid-cols-[minmax(0,1.25fr),300px];
+}
+
+.bolivia-map-shell{
+  @apply overflow-hidden rounded-[1.8rem] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f6fbff_100%)] p-4 shadow-inner;
+}
+
+.bolivia-map-svg{
+  @apply h-auto w-full;
+}
+
+.bolivia-map-canvas{
+  @apply flex min-h-[22rem] w-full items-center justify-center;
+}
+
+.bolivia-map-layer{
+  isolation: isolate;
+}
+
+.bolivia-map-region{
+  cursor: pointer;
+  stroke: #5f6771;
+  stroke-width: 1.35;
+  outline: none;
+  transition: fill 0.22s ease, filter 0.22s ease, transform 0.22s ease;
+}
+
+.bolivia-map-region:hover,
+.bolivia-map-region:focus-visible,
+.bolivia-map-region.is-active{
+  filter: brightness(0.98);
+  stroke: #21466f;
+  stroke-width: 2.4;
+}
+
+.bolivia-map-label{
+  fill: #5b5f66;
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.map-fallback-copy{
+  @apply flex min-h-[22rem] items-center justify-center text-center text-sm text-slate-400;
+}
+
+.department-bubble{
+  @apply flex min-h-[22rem] flex-col rounded-[1.7rem] border border-slate-200 bg-white p-6 shadow-[0_18px_38px_rgba(15,23,42,0.07)];
+}
+
+.department-bubble-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.24em] text-[#0f67c0];
+}
+
+.department-bubble-title{
+  @apply mt-3 font-serif text-[2.35rem] leading-tight text-slate-900;
+}
+
+.department-bubble-copy{
+  @apply mt-2 text-sm leading-6 text-slate-500;
+}
+
+.department-bubble-grid{
+  @apply mt-6 space-y-3;
+}
+
+.department-bubble-stat{
+  @apply flex items-center justify-between rounded-[1.1rem] bg-slate-50 px-4 py-3 text-sm text-slate-600;
+}
+
+.department-bubble-stat strong{
+  @apply text-xl font-bold text-slate-900;
+}
+
+.department-bubble-stat-alert{
+  @apply bg-amber-50 text-amber-800;
+}
+
+.department-presence-box{
+  @apply mt-6 rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4;
+}
+
+.department-presence-head{
+  @apply flex items-start justify-between gap-3;
+}
+
+.department-presence-kicker{
+  @apply text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700;
+}
+
+.department-presence-title{
+  @apply mt-1 text-base font-bold text-emerald-950;
+}
+
+.department-presence-total{
+  @apply inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-emerald-800;
+}
+
+.department-presence-list{
+  @apply mt-4 space-y-3;
+}
+
+.department-presence-item{
+  @apply rounded-[1rem] bg-white px-4 py-3 shadow-sm;
+}
+
+.department-presence-item strong{
+  @apply block text-sm font-bold text-slate-900;
+}
+
+.department-presence-item span{
+  @apply mt-1 block text-xs leading-5 text-slate-500;
+}
+
+.department-presence-empty{
+  @apply text-sm leading-6 text-emerald-900;
+}
+
+.detail-marking-filter-row{
+  @apply mt-6 grid gap-4 border-t border-slate-100 pt-6 md:grid-cols-2;
+}
+
+.detail-marking-filter-button{
+  @apply inline-flex min-h-[4rem] w-full items-center justify-center rounded-[1.15rem] border border-slate-200 bg-white px-8 py-4 text-lg font-semibold text-slate-700 shadow-sm transition;
+}
+
+.detail-marking-filter-button:hover{
+  @apply border-[#0f67c0] text-[#0f67c0];
+}
+
+.detail-marking-filter-button-active{
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white shadow-[0_18px_40px_rgba(15,103,192,0.22)];
+}
+
+.hero-status-row{
+  @apply mt-12 flex flex-wrap gap-4 border-t border-slate-100 pt-6;
+}
+
+.hero-status-pill{
+  @apply inline-flex items-center gap-3 text-sm text-slate-600;
+}
+
+.hero-status-icon{
+  @apply h-5 w-5 rounded-full bg-emerald-100;
+  box-shadow: inset 0 0 0 6px #16a34a;
+}
+
+.hero-status-icon-lock{
+  @apply bg-blue-100;
+  box-shadow: inset 0 0 0 6px #0f67c0;
+}
+
+.summary-list{
+  @apply space-y-6;
+}
+
+.summary-item{
+  @apply flex items-center justify-between gap-4 border-b border-slate-100 pb-6 text-[15px] text-slate-600;
+}
+
+.summary-value{
+  @apply rounded-xl bg-slate-100 px-3 py-1 text-base font-bold text-[#0f4c81];
+}
+
+.sync-box{
+  @apply mt-8 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-5 text-center;
+}
+
+.sync-box-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.25em] text-[#0f67c0];
+}
+
+.sync-box-copy{
+  @apply mt-2 text-sm text-slate-400;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Metrics And Summary Blocks                                                 */
+/* -------------------------------------------------------------------------- */
+.metric-grid{
+  @apply grid gap-5 xl:grid-cols-4;
+}
+
+.metric-grid-3{
+  @apply xl:grid-cols-3;
+}
+
+.metric-card{
+  @apply rounded-[1.6rem] border border-white/80 bg-white/90 px-6 py-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)];
+}
+
+.metric-card-centered{
+  @apply text-center;
+}
+
+.metric-icon{
+  @apply mx-auto block h-10 w-10 rounded-full;
+}
+
+.metric-icon-emerald{
+  @apply bg-emerald-100;
+  box-shadow: inset 0 0 0 9px #059669;
+}
+
+.metric-icon-amber{
+  @apply bg-amber-100;
+  box-shadow: inset 0 0 0 9px #d97706;
+}
+
+.metric-icon-rose{
+  @apply bg-rose-100;
+  box-shadow: inset 0 0 0 9px #e11d48;
+}
+
+.metric-label{
+  @apply text-[12px] font-bold uppercase tracking-[0.24em] text-slate-400;
+}
+
+.metric-value{
+  @apply mt-3 block font-serif text-4xl text-slate-900 md:text-[3.2rem];
+}
+
+.metric-card-detail{
+  @apply min-h-[14rem] px-7 py-7;
+}
+
+.metric-value-detail{
+  @apply text-[3rem] leading-[1.05] md:text-[3.35rem];
+  overflow-wrap: anywhere;
+}
+
+.detail-info-card{
+  @apply rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-5;
+}
+
+.detail-info-value{
+  @apply mt-3 text-[1.15rem] font-semibold text-slate-900;
+}
+
+.pdf-export-sheet{
+  @apply rounded-[1.8rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)];
+}
+
+.pdf-export-header{
+  @apply flex flex-col gap-5 border-b border-slate-200 pb-6 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.pdf-export-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-[#0f67c0];
+}
+
+.pdf-export-title{
+  @apply mt-2 font-serif text-[2.2rem] leading-tight text-slate-900 md:text-[2.8rem];
+}
+
+.pdf-export-copy{
+  @apply mt-3 max-w-3xl text-sm leading-7 text-slate-500;
+}
+
+.pdf-export-badge{
+  @apply self-start rounded-[1.2rem] border border-slate-200 bg-white px-5 py-4 shadow-sm;
+}
+
+.pdf-export-badge-label{
+  @apply block text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400;
+}
+
+.pdf-export-badge-value{
+  @apply mt-2 block text-lg font-semibold text-slate-900;
+}
+
+.pdf-export-grid{
+  @apply grid gap-4;
+}
+
+.pdf-export-grid-primary{
+  @apply md:grid-cols-2 xl:grid-cols-4;
+}
+
+.pdf-export-grid-secondary{
+  @apply md:grid-cols-2 xl:grid-cols-3;
+}
+
+.pdf-export-card{
+  @apply rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_12px_28px_rgba(15,23,42,0.05)];
+}
+
+.pdf-export-card-highlight{
+  background: linear-gradient(135deg, #eef6ff 0%, #ffffff 100%);
+}
+
+.pdf-export-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400;
+}
+
+.pdf-export-value{
+  @apply mt-3 block text-[1.35rem] font-bold leading-tight text-slate-900;
+}
+
+.pdf-export-value-sm{
+  @apply mt-3 text-[1.05rem] font-semibold leading-7 text-slate-900;
+}
+
+.pdf-export-table-shell{
+  @apply mt-0 border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.05)];
+}
+
+.pdf-export-section-head{
+  @apply mb-4;
+}
+
+.metric-copy{
+  @apply mt-2 text-sm leading-6 text-slate-400;
+}
+
+.dual-grid{
+  @apply grid gap-6 2xl:grid-cols-2;
+}
+
+.module-grid{
+  @apply mt-6 grid gap-5 lg:grid-cols-2;
+}
+
+.module-card-refined{
+  @apply rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(15,103,192,0.10)];
+}
+
+.list-stack{
+  @apply mt-6 space-y-4;
+}
+
+.list-card{
+  @apply rounded-[1.2rem] border border-slate-200 bg-white px-4 py-4;
+}
+
+.list-row{
+  @apply flex items-center justify-between gap-4;
+}
+
+.status-badge{
+  @apply inline-flex rounded-full px-3 py-1 text-xs font-bold;
+}
+
+.status-available{
+  @apply bg-emerald-100 text-emerald-700;
+}
+
+.status-warning{
+  @apply bg-amber-100 text-amber-700;
+}
+
+.status-danger{
+  @apply bg-rose-100 text-rose-700;
+}
+
+.status-info{
+  @apply bg-blue-100 text-blue-700;
+}
+
+.diagnostic-grid{
+  @apply grid gap-5 xl:grid-cols-2;
+}
+
+.diagnostic-card{
+  @apply rounded-[1.5rem] border border-slate-200 bg-white p-5;
+}
+
+.report-priority{
+  @apply inline-flex rounded-full px-3 py-1 text-xs font-bold;
+}
+
+.upload-dropzone{
+  @apply relative mt-10 flex min-h-[18rem] flex-col items-center justify-center rounded-[1.8rem] border-2 border-dashed border-[#a9bfdc] bg-[linear-gradient(180deg,rgba(248,250,252,0.98)_0%,rgba(241,245,249,0.82)_100%)] px-6 py-10 text-center transition duration-200 hover:border-[#0f67c0] hover:bg-white;
+}
+
+.upload-dropzone-input{
+  @apply absolute inset-0 z-10 cursor-pointer opacity-0;
+}
+
+.upload-badge{
+  @apply mb-6 flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-white text-[#0f67c0] shadow-[0_16px_36px_rgba(15,103,192,0.14)];
+}
+
+.upload-badge-icon{
+  width: 42px;
+  height: 42px;
+}
+
+.upload-title{
+  @apply max-w-2xl text-[1.9rem] font-semibold leading-tight text-[#18386c];
+}
+
+.upload-copy{
+  @apply mt-3 max-w-2xl text-sm leading-7 text-slate-500;
+}
+
+.upload-actions{
+  @apply mt-6 flex flex-col items-center gap-3;
+}
+
+.upload-action-button{
+  @apply inline-flex items-center rounded-full bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,103,192,0.20)];
+}
+
+.upload-hint{
+  @apply text-sm text-slate-400;
+}
+
+.upload-format{
+  @apply mt-6 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs text-slate-500;
+}
+
+.upload-loading{
+  @apply mt-4 text-sm font-semibold text-[#0f67c0];
+}
+
+.loading-overlay{
+  @apply absolute inset-0 z-20 flex items-center justify-center rounded-[1.5rem] bg-slate-950/[0.45] p-6 backdrop-blur-md;
+}
+
+.loading-spinner{
+  @apply relative flex w-full max-w-[28rem] flex-col items-center gap-6 overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 px-8 py-8 text-center text-slate-700 shadow-[0_35px_90px_rgba(15,23,42,0.22)];
+}
+
+.loading-spinner::before{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(250, 204, 21, 0.18), transparent 38%), linear-gradient(135deg, rgba(15, 103, 192, 0.08), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.loading-spinner-orbit{
+  @apply relative flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)];
+}
+
+.loading-spinner-icon{
+  width: 5.5rem;
+  height: 5.5rem;
+  animation: spin 1.05s linear infinite;
+}
+
+.loading-spinner-track{
+  stroke: rgba(148, 163, 184, 0.26);
+}
+
+.loading-spinner-circle{
+  stroke: #0f67c0;
+  stroke-linecap: round;
+  stroke-dasharray: 92;
+  stroke-dashoffset: 28;
+}
+
+.loading-spinner-dot{
+  position: absolute;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #0f67c0, #38bdf8);
+  box-shadow: 0 0 0 6px rgba(15, 103, 192, 0.12);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.loading-spinner-body{
+  @apply relative z-[1] flex flex-col items-center gap-2;
+}
+
+.loading-spinner-kicker{
+  @apply text-[0.7rem] font-extrabold uppercase tracking-[0.35em] text-[#0f67c0];
+}
+
+.loading-spinner-text{
+  @apply text-[1.45rem] font-semibold leading-tight text-slate-900;
+}
+
+.loading-spinner-copy{
+  @apply max-w-[22rem] text-sm leading-6 text-slate-500;
+}
+
+.loading-progress{
+  @apply relative z-[1] h-2 w-full overflow-hidden rounded-full bg-slate-200/80;
+}
+
+.loading-progress-bar{
+  display: block;
+  height: 100%;
+  width: 42%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #0f67c0, #38bdf8, #facc15);
+  animation: loading-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(0.8);
+    opacity: 0.82;
+  }
+}
+
+@keyframes loading-slide {
+  0% {
+    transform: translateX(-115%);
+  }
+
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tables, Lists And Pagination                                               */
+/* -------------------------------------------------------------------------- */
+.history-header{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.history-pill{
+  @apply inline-flex items-center gap-3 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-500;
+}
+
+.history-table-shell{
+  @apply mt-8 overflow-x-auto rounded-[1.5rem] border border-slate-100;
+}
+
+.history-table-shell-personal{
+  @apply overflow-x-auto;
+}
+
+.history-filters-grid{
+  @apply grid gap-5 px-5 pt-5 pb-1 md:px-6 md:pt-6;
+}
+
+.history-table{
+  @apply w-full border-collapse text-left text-sm text-slate-600;
+}
+
+.history-table thead{
+  @apply bg-white;
+}
+
+.history-table th{
+  @apply px-6 py-4 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-400;
+}
+
+.history-table td{
+  @apply border-t border-slate-100 px-6 py-4;
+}
+
+.history-row-warning td{
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.history-row-warning td:first-child{
+  box-shadow: inset 5px 0 0 #f59e0b;
+}
+
+.history-row-danger td{
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.history-row-danger td:first-child{
+  box-shadow: inset 5px 0 0 #dc2626;
+}
+
+.history-row-warning td strong,
+.history-row-danger td strong{
+  color: inherit;
+}
+
+.history-table-shell-personal .history-table{
+  min-width: 860px;
+}
+
+.history-table-shell-personal .history-table th,
+.history-table-shell-personal .history-table td{
+  white-space: nowrap;
+}
+
+.audit-detail-cell{
+  min-width: 26rem;
+  max-width: 36rem;
+  white-space: normal !important;
+  vertical-align: top;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.audit-detail-block + .audit-detail-block{
+  margin-top: 0.5rem;
+}
+
+.audit-detail-block strong{
+  display: block;
+  margin-bottom: 0.35rem;
+  color: rgb(15 23 42);
+}
+
+.audit-detail-block pre{
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.audit-control-cell{
+  white-space: normal !important;
+  vertical-align: top;
+}
+
+.table-actions-cell{
+  @apply min-w-[260px];
+}
+
+.table-actions-group{
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.table-action-button{
+  @apply inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#0f67c0] hover:text-[#0f67c0];
+}
+
+.table-action-button-danger{
+  @apply border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-500 hover:text-rose-700;
+}
+
+.table-action-icon{
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.table-pagination-shell{
+  @apply mt-6 overflow-x-auto;
+}
+
+.table-pagination-bar{
+  @apply flex min-w-max flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.table-pagination-copy{
+  @apply text-sm text-slate-500;
+}
+
+.table-pagination-actions{
+  @apply flex items-center gap-2 self-start xl:self-auto;
+}
+
+.table-pagination-button{
+  @apply inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm;
+}
+
+.table-pagination-button-active{
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white;
+}
+
+.table-pagination-button-disabled{
+  @apply cursor-not-allowed opacity-50;
+}
+
+.device-grid{
+  @apply mt-8 grid gap-4 xl:grid-cols-2;
+}
+
+.device-card{
+  @apply rounded-[1.4rem] border p-5;
+}
+
+.device-card-online{
+  @apply border-emerald-200 bg-emerald-50/60;
+}
+
+.device-card-offline{
+  @apply border-rose-200 bg-rose-50/60;
+}
+
+.device-card-head{
+  @apply flex items-start justify-between gap-4;
+}
+
+.device-card-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500;
+}
+
+.device-card-title{
+  @apply mt-2 font-serif text-2xl text-slate-900;
+}
+
+.device-card-meta{
+  @apply mt-4 flex flex-col gap-2 text-sm text-slate-600;
+}
+
+.device-alert-box{
+  @apply mt-6 rounded-[1.4rem] border border-amber-200 bg-amber-50 px-5 py-5;
+}
+
+.device-alert-title{
+  @apply text-sm font-bold text-amber-900;
+}
+
+.device-alert-list{
+  @apply mt-4 flex flex-wrap gap-3;
+}
+
+.device-alert-pill{
+  @apply rounded-full bg-white px-4 py-2 text-sm font-semibold text-amber-800;
+}
+
+.timeline-stack{
+  @apply mt-6 space-y-4;
+}
+
+.timeline-item{
+  @apply flex gap-4 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-4;
+}
+
+.timeline-index{
+  @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0] text-sm font-bold text-white;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Calendar Module                                                            */
+/* -------------------------------------------------------------------------- */
+.calendar-header{
+  @apply flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+}
+
+.calendar-controls{
+  @apply flex items-center gap-3 self-start;
+}
+
+.calendar-chip{
+  @apply rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600;
+}
+
+.calendar-month-box{
+  @apply inline-flex items-center gap-4 rounded-[1rem] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[#18386c];
+}
+
+.calendar-arrow{
+  @apply text-2xl leading-none text-[#18386c] transition hover:text-[#0f67c0];
+}
+
+.calendar-shell{
+  @apply mt-4 overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white;
+}
+
+.calendar-layout{
+  @apply mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),320px] 2xl:grid-cols-[minmax(0,1fr),340px];
+}
+
+.calendar-grid-main{
+  min-width: 0;
+}
+
+.calendar-legend{
+  @apply mt-6 flex flex-wrap items-center gap-4;
+}
+
+.calendar-legend-item{
+  @apply inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700;
+}
+
+.calendar-weekdays{
+  @apply grid min-w-[760px] grid-cols-7 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500;
+}
+
+.calendar-weekdays div{
+  @apply border-r border-slate-200 px-3 py-4 last:border-r-0;
+}
+
+.calendar-weeks{
+  @apply bg-white;
+}
+
+.calendar-week-row{
+  @apply grid min-w-[760px] grid-cols-7;
+}
+
+.calendar-day-card{
+  @apply flex min-h-[5.8rem] flex-col border-r border-t border-slate-200 px-2 py-2 last:border-r-0;
+}
+
+.calendar-day-card-interactive{
+  @apply cursor-pointer transition hover:bg-slate-50;
+}
+
+.calendar-day-card-muted{
+  @apply bg-slate-50 text-slate-300;
+}
+
+.calendar-day-card-today{
+  @apply bg-amber-50/60;
+}
+
+.calendar-day-card-selected{
+  @apply bg-[#eef6ff] ring-2 ring-inset ring-[#0f67c0];
+}
+
+.calendar-day-top{
+  @apply flex items-start justify-end;
+}
+
+.calendar-day-number{
+  @apply text-[15px] font-semibold text-slate-700;
+}
+
+.calendar-day-events{
+  @apply mt-auto flex flex-wrap items-center gap-2 overflow-hidden;
+}
+
+.calendar-day-counter{
+  @apply inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700;
+}
+
+.calendar-day-counter-dark{
+  @apply border-slate-300 bg-slate-100 text-slate-900;
+}
+
+.calendar-event-dot{
+  @apply mt-1 h-3 w-3 shrink-0 rounded-full;
+}
+
+.calendar-event-copy{
+  @apply flex min-w-0 flex-col;
+}
+
+.calendar-event-name{
+  @apply truncate text-xs font-semibold text-slate-800;
+}
+
+.calendar-event-detail{
+  @apply text-[11px] text-slate-500;
+}
+
+.calendar-event-red{
+  @apply border-rose-200 bg-rose-50/80;
+}
+
+.calendar-event-black{
+  @apply border-slate-900/20 bg-slate-200/70;
+}
+
+.calendar-event-dot-red{
+  @apply bg-rose-500;
+}
+
+.calendar-event-dot-black{
+  @apply bg-slate-900;
+}
+
+.calendar-side-panel{
+  @apply rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)] xl:sticky xl:top-4 xl:self-start;
+  max-height: calc(100vh - 7rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-side-head{
+  @apply flex items-start justify-between gap-3 border-b border-slate-200 pb-4;
+  flex-shrink: 0;
+}
+
+.calendar-side-body{
+  @apply min-h-0 overflow-y-auto pr-1;
+}
+
+.calendar-side-day-title{
+  @apply text-[1.95rem] leading-none md:text-[2.2rem];
+}
+
+.calendar-side-badge{
+  @apply inline-flex items-center rounded-full bg-[#0f67c0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white;
+}
+
+.calendar-side-metrics{
+  @apply mt-4 grid gap-2.5 sm:grid-cols-2;
+}
+
+.calendar-side-metric{
+  @apply rounded-[1rem] border border-slate-200 bg-white px-3.5 py-3.5;
+}
+
+.calendar-side-metric-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400;
+}
+
+.calendar-side-metric-value{
+  @apply mt-2 block text-[1.7rem] leading-tight font-semibold text-slate-900;
+}
+
+.calendar-side-note{
+  @apply mt-4 rounded-[1rem] border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-800;
+}
+
+.calendar-side-block{
+  @apply mt-4 rounded-[1.1rem] border border-slate-200 bg-white px-3.5 py-3.5;
+}
+
+.calendar-side-toggle{
+  @apply block w-full text-left;
+}
+
+.calendar-side-block-head{
+  @apply flex items-center justify-between gap-4 border-b border-slate-100 pb-3;
+}
+
+.calendar-side-block-head-static{
+  @apply border-b-0 pb-0;
+}
+
+.calendar-side-block-title{
+  @apply text-base font-semibold text-slate-900;
+}
+
+.calendar-side-block-count{
+  @apply inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full bg-slate-100 px-2 text-sm font-semibold text-slate-700;
+}
+
+.calendar-side-toggle-meta{
+  @apply flex items-center gap-2;
+}
+
+.calendar-side-toggle-icon{
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-lg font-semibold leading-none text-slate-700;
+}
+
+.calendar-side-list{
+  @apply mt-4 space-y-3 overflow-y-auto pr-1;
+  max-height: 18.5rem;
+}
+
+.calendar-side-item{
+  @apply flex items-start gap-3 rounded-[1rem] border border-rose-100 bg-rose-50/[0.55] px-3 py-3;
+}
+
+.calendar-side-item-neutral{
+  @apply border-slate-200 bg-slate-50;
+}
+
+.calendar-side-item-copy{
+  @apply flex min-w-0 flex-col;
+}
+
+.calendar-side-item-copy strong{
+  @apply truncate text-sm text-slate-900;
+}
+
+.calendar-side-item-copy span{
+  @apply text-xs leading-5 text-slate-500;
+}
+
+.calendar-side-empty{
+  @apply rounded-[1rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reports And Charts                                                         */
+/* -------------------------------------------------------------------------- */
+.report-scroll-list{
+  @apply overflow-y-auto pr-1;
+  max-height: 31rem;
+}
+
+.attendance-chart-shell{
+  @apply mt-8 rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#fcfdff_0%,#f7fbff_100%)] p-5;
+}
+
+.attendance-chart-summary{
+  @apply mb-6 flex flex-col gap-3 md:flex-row;
+}
+
+.attendance-chart-pill{
+  @apply rounded-[1rem] border border-slate-200 bg-white px-4 py-3 shadow-sm;
+}
+
+.attendance-chart-pill-label{
+  @apply block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400;
+}
+
+.attendance-chart-pill-value{
+  @apply mt-2 block text-base font-semibold text-slate-900;
+}
+
+.attendance-chart-frame{
+  @apply grid gap-4 md:grid-cols-[3.5rem,minmax(0,1fr)];
+}
+
+.attendance-chart-scale{
+  @apply hidden h-full min-h-[20rem] flex-col justify-between pt-2 text-right text-xs font-semibold text-slate-400 md:flex;
+}
+
+.attendance-chart{
+  @apply grid min-h-[20rem] grid-cols-2 items-end gap-4 rounded-[1.2rem] border border-slate-200 bg-white px-4 py-5 md:grid-cols-3 xl:grid-cols-6;
+  background-image:
+    linear-gradient(to top, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 100% 33.333%;
+}
+
+.attendance-bar-group{
+  @apply flex h-full flex-col items-center justify-end;
+}
+
+.attendance-bar-track{
+  @apply flex h-full w-full items-end rounded-[1.1rem] bg-slate-100/80 p-1;
+}
+
+.attendance-bar{
+  @apply w-full rounded-[0.9rem] bg-slate-300 shadow-[0_14px_26px_rgba(148,163,184,0.18)] transition duration-200;
+}
+
+.attendance-bar-active{
+  background: linear-gradient(180deg, #38bdf8 0%, #0f67c0 55%, #0b4d93 100%);
+}
+
+.attendance-bar-peak{
+  @apply ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white;
+}
+
+.attendance-bar-label{
+  @apply mt-4 text-sm text-slate-500;
+}
+
+.attendance-bar-label-active{
+  @apply font-semibold text-[#0f4f97];
+}
+
+.attendance-bar-count{
+  @apply mt-2 text-xs font-semibold text-slate-400;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Structural Diagram                                                         */
+/* -------------------------------------------------------------------------- */
+.org-chart{
+  @apply mx-auto mt-10 flex max-w-4xl flex-col items-center;
+}
+
+.org-node{
+  @apply w-full max-w-[23rem] rounded-[1.2rem] border border-slate-200 bg-white px-6 py-6 text-center shadow-sm;
+}
+
+.org-node-main{
+  @apply max-w-[28rem];
+}
+
+.org-node-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.25em] text-amber-500;
+}
+
+.org-node-title{
+  @apply mt-3 font-serif text-3xl text-slate-900;
+}
+
+.org-node-copy{
+  @apply mt-2 text-sm leading-6 text-slate-400;
+}
+
+.org-connector{
+  @apply my-4 h-8 w-px bg-slate-200;
+}
+
+.org-branches{
+  @apply grid w-full gap-5 xl:grid-cols-2;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Authentication Screens                                                     */
+/* -------------------------------------------------------------------------- */
+.login-stage{
+  @apply flex min-h-screen items-center justify-center px-6 py-10;
+}
+
+.login-shell{
+  @apply grid w-full max-w-6xl overflow-hidden rounded-[1.75rem] bg-white shadow-[0_25px_70px_rgba(15,23,42,0.16)] ring-1 ring-slate-900/5 lg:grid-cols-[1.05fr,0.95fr];
+}
+
+.login-welcome{
+  @apply relative overflow-hidden px-8 py-10 text-white lg:px-14 lg:py-16;
+  background: linear-gradient(160deg, #0b4d93 0%, #0f67c0 45%, #083a70 100%);
+}
+
+.login-welcome::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.15));
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.15));
+  pointer-events: none;
+}
+
+.login-welcome::after{
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  top: -180px;
+  right: -180px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 212, 0, 0.32) 0%, rgba(255, 212, 0, 0) 70%);
+  pointer-events: none;
+}
+
+.login-welcome-content{
+  @apply relative z-10 mx-auto max-w-md;
+}
+
+.login-welcome-content-public{
+  @apply flex min-h-full items-center justify-center;
+}
+
+.login-welcome-brand{
+  @apply flex items-center gap-4;
+}
+
+.login-welcome-brand-public{
+  @apply items-center justify-center gap-5;
+}
+
+.login-public-stack{
+  @apply mx-auto flex w-full max-w-[30rem] flex-col justify-center;
+}
+
+.login-public-hero{
+  @apply flex items-center gap-5;
+}
+
+.login-public-hero-copy{
+  @apply flex-1;
+}
+
+.login-brand{
+  @apply flex items-center gap-4;
+}
+
+.login-brand-badge{
+  @apply flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.1rem] bg-white p-2 font-serif text-xl font-bold text-[#0f4c81] shadow-[0_14px_28px_rgba(0,0,0,0.18)];
+}
+
+.login-brand-badge-image{
+  @apply h-full w-full object-contain;
+}
+
+.login-brand-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.3em] text-amber-200;
+}
+
+.login-brand-title{
+  @apply mt-1 font-serif text-4xl text-white lg:text-[2.75rem];
+}
+
+.login-brand-title-public{
+  @apply text-[2.7rem] leading-[0.94] lg:text-[3.15rem];
+}
+
+.login-welcome-copy{
+  @apply mt-6 max-w-sm text-sm leading-7 text-blue-50;
+  color: rgba(239, 246, 255, 0.85);
+}
+
+.login-welcome-public{
+  background:
+    radial-gradient(circle at top right, rgba(255, 212, 0, 0.14), transparent 28%),
+    linear-gradient(160deg, #0f5aa7 0%, #0f67c0 42%, #123f79 100%);
+}
+
+.login-welcome-copy-public{
+  @apply mt-4 max-w-[24rem] text-[0.98rem] leading-8;
+  color: rgba(239, 246, 255, 0.9);
+}
+
+.login-security-note{
+  @apply mt-5 inline-flex items-center gap-2 rounded-full border border-white/[0.15] bg-white/[0.08] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-blue-50;
+}
+
+.login-security-note svg{
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.login-status-ok{
+  @apply mt-6 rounded-2xl border border-emerald-200/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+}
+
+.login-form{
+  @apply mt-9 space-y-5 border-t border-white/[0.12] pt-8;
+}
+
+.login-field-head{
+  @apply flex items-center justify-between gap-4;
+}
+
+.login-input-shell{
+  @apply relative;
+}
+
+.form-label{
+  @apply mb-2 block pt-1 text-sm font-semibold leading-normal text-slate-700;
+}
+
+.form-input{
+  @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100;
+}
+
+.form-error{
+  @apply mt-2 text-sm text-rose-600;
+}
+
+.form-error-dark{
+  @apply text-rose-200;
+}
+
+.login-input{
+  @apply rounded-[0.85rem] border-white/70 bg-white py-3.5 pl-12 pr-14 text-slate-900 shadow-[0_10px_24px_rgba(5,40,73,0.14)] transition focus:border-amber-300 focus:ring-4 focus:ring-amber-200/50;
+}
+
+.login-input-icon{
+  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500;
+}
+
+.login-input-icon svg,
+.login-eye svg{
+  width: 18px;
+  height: 18px;
+}
+
+.login-eye{
+  @apply absolute inset-y-0 right-0 flex items-center pr-4 text-[11px] font-bold uppercase tracking-[0.14em] text-[#0f4c81] transition hover:text-[#0d58a4];
+}
+
+.login-link-hint{
+  @apply text-xs font-semibold text-amber-200;
+}
+
+.login-submit{
+  @apply mt-2 inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-[#ff9f1a] px-4 py-3.5 text-base font-semibold text-white shadow-[0_16px_30px_rgba(255,159,26,0.32)] transition hover:-translate-y-0.5 hover:bg-[#f18b00] hover:shadow-[0_20px_38px_rgba(255,159,26,0.38)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+}
+
+.login-submit-icon{
+  @apply h-4 w-4 transition-transform duration-200;
+}
+
+.login-submit:hover .login-submit-icon{
+  transform: translateX(3px);
+}
+
+.login-form-label{
+  @apply text-[13px] font-semibold uppercase tracking-[0.08em] text-white/[0.85];
+}
+
+.login-public-card{
+  @apply mt-8 rounded-[1.7rem] border border-white/[0.18] bg-white/[0.13] p-6 shadow-[0_22px_48px_rgba(4,31,64,0.2)] backdrop-blur-md;
+}
+
+.login-public-form{
+  @apply space-y-4;
+}
+
+.login-public-divider{
+  @apply mt-5 h-px w-full bg-white/[0.12];
+}
+
+.login-public-benefits{
+  @apply mt-5 grid gap-3 md:grid-cols-2;
+}
+
+.login-public-benefit{
+  @apply rounded-[1rem] border border-white/[0.12] bg-slate-950/10 px-4 py-4;
+}
+
+.login-public-benefit strong{
+  @apply block text-sm font-semibold text-white;
+}
+
+.login-public-benefit span{
+  @apply mt-1 block text-sm leading-6 text-blue-100;
+  color: rgba(219, 234, 254, 0.88);
+}
+
+.login-forgot-copy{
+  @apply text-center text-xs text-blue-100;
+  color: rgba(219, 234, 254, 0.8);
+}
+
+.login-sidecard{
+  @apply relative flex flex-col items-center justify-center gap-10 overflow-hidden bg-white px-8 py-10 lg:px-12 lg:py-14;
+}
+
+.login-sidecard::before{
+  content: "";
+  position: absolute;
+  top: -90px;
+  right: -80px;
+  width: 240px;
+  height: 240px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255,212,0,0.55) 0%, rgba(255,212,0,0.22) 55%, rgba(255,212,0,0) 100%);
+}
+
+.login-sidecard::after{
+  content: "";
+  position: absolute;
+  bottom: -80px;
+  left: -70px;
+  width: 210px;
+  height: 210px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(15,103,192,0.16) 0%, rgba(15,103,192,0.05) 58%, rgba(15,103,192,0) 100%);
+}
+
+.login-sidecard-content{
+  @apply relative z-10 mx-auto max-w-sm text-center;
+}
+
+.login-sidecard-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.28em] text-[#0f4c81];
+}
+
+.login-sidecard-title{
+  @apply mt-4 font-serif text-4xl leading-tight text-slate-900;
+}
+
+.login-sidecard-copy{
+  @apply mt-5 text-sm leading-7 text-slate-600;
+}
+
+.login-feature-list{
+  @apply mt-8 space-y-3 text-left;
+}
+
+.login-feature-item{
+  @apply flex items-center gap-3 rounded-[1rem] border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm font-medium text-slate-700;
+}
+
+.login-feature-icon{
+  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[#0f67c0];
+}
+
+.login-feature-icon svg{
+  width: 14px;
+  height: 14px;
+}
+
+.login-sidecard-badge{
+  @apply mx-auto mt-8 inline-flex items-center gap-2 rounded-full bg-[#0f67c0] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,103,192,0.22)];
+}
+
+.login-sidecard-badge-dot{
+  @apply h-2.5 w-2.5 rounded-full bg-[#ffd400];
+}
+
+.login-sidecard-footer{
+  @apply relative z-10 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive Adjustments                                                     */
+/* -------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .app-sidebar-panel{
+    @apply static min-h-0 rounded-b-[2rem] rounded-t-none px-5 py-6;
+  }
+
+  .app-toast{
+    @apply hidden;
+  }
+
+  .surface-card{
+    @apply p-6;
+  }
+
+  .section-title-xl{
+    @apply text-[2.35rem];
+  }
+
+  .login-shell{
+    @apply max-w-xl;
+  }
+
+  .login-sidecard{
+    @apply min-h-[300px];
+  }
+
+  .login-brand-title{
+    @apply text-4xl;
+  }
+}
+
+@media (max-width: 1400px) {
+  .bolivia-map-card{
+    @apply xl:grid-cols-[minmax(0,1.2fr),280px];
+  }
+}
+
+@media (max-width: 1279px) {
+  .bolivia-map-card{
+    @apply grid-cols-1;
+  }
+
+  .bolivia-map-canvas{
+    @apply min-h-[22rem];
+  }
+
+  .map-fallback-copy{
+    @apply min-h-[22rem];
+  }
+
+  .department-bubble{
+    @apply min-h-0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Hero Header                                                     */
+/* -------------------------------------------------------------------------- */
+.report-hero{
+  @apply relative overflow-hidden rounded-[2rem] border border-white/80 p-7 shadow-[0_20px_52px_rgba(15,23,42,0.08)] xl:p-8;
+  background:
+    radial-gradient(circle at 8% 20%, rgba(255, 212, 0, 0.55), transparent 32%),
+    radial-gradient(circle at 90% 80%, rgba(56, 189, 248, 0.18), transparent 30%),
+    linear-gradient(135deg, #1a4f8c 0%, #163f7d 40%, #0f2d5e 100%);
+}
+
+.report-hero-content{
+  @apply flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between;
+}
+
+.report-hero-kicker{
+  @apply text-[11px] font-bold uppercase tracking-[0.35em] text-[#ffd400]/80;
+}
+
+.report-hero-title{
+  @apply mt-2 font-serif text-3xl leading-tight text-white md:text-[2.8rem];
+}
+
+.report-hero-copy{
+  @apply mt-3 text-sm leading-7 text-white/70;
+}
+
+.report-hero-month{
+  @apply font-semibold text-[#ffd400];
+}
+
+.report-hero-actions{
+  @apply flex shrink-0 flex-col gap-3 sm:flex-row;
+}
+
+.report-hero-pdf-btn{
+  @apply inline-flex items-center gap-2.5 rounded-[1rem] border border-white/20 bg-white/[0.12] px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/[0.22] hover:-translate-y-0.5;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Filter Bar                                                      */
+/* -------------------------------------------------------------------------- */
+.report-filter-bar{
+  @apply mt-6 grid gap-4 md:grid-cols-2;
+}
+
+.report-filter-field{
+  @apply flex flex-col gap-2;
+}
+
+.report-filter-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.28em] text-white/60;
+}
+
+.report-filter-input{
+  @apply rounded-[1rem] border border-white/20 bg-white/[0.10] px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur transition focus:border-[#ffd400]/50 focus:bg-white/[0.18] focus:outline-none;
+}
+
+.report-filter-input option{
+  @apply bg-[#163f7d] text-white;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Tab Navigation                                                  */
+/* -------------------------------------------------------------------------- */
+.report-tab-nav{
+  @apply flex gap-2 overflow-x-auto rounded-[1.6rem] border border-white/80 bg-white/90 p-2 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur;
+  scrollbar-width: none;
+}
+
+.report-tab-nav::-webkit-scrollbar{
+  display: none;
+}
+
+.report-tab-button{
+  @apply relative flex shrink-0 items-center gap-2.5 rounded-[1.15rem] border border-transparent px-4 py-2.5 text-sm font-semibold text-slate-500 transition duration-200 hover:bg-slate-100 hover:text-slate-700;
+}
+
+.report-tab-button-active{
+  @apply border-[#0f67c0]/20 bg-[#0f67c0] text-white shadow-[0_8px_20px_rgba(15,103,192,0.28)] hover:bg-[#0f67c0] hover:text-white;
+}
+
+.report-tab-icon{
+  @apply h-4 w-4 shrink-0;
+}
+
+.report-tab-badge{
+  @apply inline-flex min-w-[1.35rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none;
+}
+
+.report-tab-badge-amber{
+  @apply bg-amber-100 text-amber-700;
+}
+.report-tab-button-active .report-tab-badge-amber{
+  @apply bg-white/20 text-white;
+}
+
+.report-tab-badge-rose{
+  @apply bg-rose-100 text-rose-700;
+}
+.report-tab-button-active .report-tab-badge-rose{
+  @apply bg-white/20 text-white;
+}
+
+.report-tab-badge-emerald{
+  @apply bg-emerald-100 text-emerald-700;
+}
+.report-tab-button-active .report-tab-badge-emerald{
+  @apply bg-white/20 text-white;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — KPI Cards                                                       */
+/* -------------------------------------------------------------------------- */
+.report-kpi-grid{
+  @apply grid gap-5 md:grid-cols-3;
+}
+
+.report-kpi-card{
+  @apply flex items-start gap-5 rounded-[1.6rem] border border-white/80 bg-white/90 px-6 py-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,103,192,0.10)];
+}
+
+.report-kpi-icon{
+  @apply mt-1 h-11 w-11 shrink-0 rounded-full;
+}
+
+.report-kpi-icon-emerald{
+  @apply bg-emerald-100;
+  box-shadow: inset 0 0 0 9px #059669;
+}
+
+.report-kpi-icon-amber{
+  @apply bg-amber-100;
+  box-shadow: inset 0 0 0 9px #d97706;
+}
+
+.report-kpi-icon-rose{
+  @apply bg-rose-100;
+  box-shadow: inset 0 0 0 9px #e11d48;
+}
+
+.report-kpi-body{
+  @apply flex-1;
+}
+
+.report-kpi-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.26em] text-slate-400;
+}
+
+.report-kpi-value{
+  @apply mt-2 block font-serif text-[2.6rem] leading-tight text-slate-900;
+}
+
+.report-kpi-detail{
+  @apply mt-1 text-sm leading-6 text-slate-400;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Atrasos / Omisiones Row Tones                                   */
+/* -------------------------------------------------------------------------- */
+.report-atraso-row td{
+  @apply border-t border-amber-100/60;
+}
+.report-atraso-row:hover td{
+  @apply bg-amber-50/40;
+}
+
+.report-omision-row td{
+  @apply border-t border-rose-100/60;
+}
+.report-omision-row:hover td{
+  @apply bg-rose-50/40;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Birthday Cards                                                  */
+/* -------------------------------------------------------------------------- */
+.birthday-today-banner{
+  @apply flex items-center gap-4 rounded-[1.3rem] border border-yellow-300 bg-gradient-to-r from-yellow-50 to-amber-50 px-6 py-5;
+}
+
+.birthday-today-icon{
+  @apply text-4xl leading-none;
+}
+
+.birthday-today-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.26em] text-amber-600;
+}
+
+.birthday-today-names{
+  @apply mt-1 text-lg font-bold text-amber-900;
+}
+
+.birthday-grid{
+  @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-3;
+}
+
+.birthday-card{
+  @apply flex items-center gap-4 rounded-[1.3rem] border border-slate-200 bg-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.07)];
+}
+
+.birthday-card-today{
+  @apply border-yellow-300 bg-gradient-to-br from-yellow-50 to-white shadow-[0_8px_24px_rgba(251,191,36,0.18)];
+}
+
+.birthday-card-week{
+  @apply border-sky-200 bg-sky-50/40;
+}
+
+.birthday-avatar{
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-lg font-bold text-[#0f67c0];
+}
+
+.birthday-avatar-today{
+  @apply bg-yellow-400 text-yellow-900;
+}
+
+.birthday-info{
+  @apply flex-1 min-w-0;
+}
+
+.birthday-name{
+  @apply truncate font-semibold text-slate-900;
+}
+
+.birthday-meta{
+  @apply mt-0.5 truncate text-xs text-slate-500;
+}
+
+.birthday-date-row{
+  @apply mt-1.5 flex items-center gap-1.5 text-xs text-slate-500;
+}
+
+.birthday-chips{
+  @apply shrink-0;
+}
+
+.birthday-chip{
+  @apply inline-flex rounded-full px-3 py-1 text-[11px] font-bold;
+}
+
+.birthday-chip-today{
+  @apply bg-yellow-400 text-yellow-900;
+}
+
+.birthday-chip-week{
+  @apply bg-sky-100 text-sky-700;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Ranking Cards                                                   */
+/* -------------------------------------------------------------------------- */
+.ranking-list{
+  @apply space-y-3;
+}
+
+.ranking-card{
+  @apply flex items-center gap-4 rounded-[1.2rem] border border-slate-200 bg-white px-5 py-4 transition duration-200 hover:-translate-y-0.5;
+}
+
+.ranking-card-danger{
+  @apply border-rose-100 bg-rose-50/30;
+}
+
+.ranking-gold{
+  @apply border-yellow-300 bg-gradient-to-r from-yellow-50 to-white shadow-[0_6px_20px_rgba(251,191,36,0.15)];
+}
+
+.ranking-silver{
+  @apply border-slate-300 bg-gradient-to-r from-slate-50 to-white;
+}
+
+.ranking-bronze{
+  @apply border-orange-200 bg-gradient-to-r from-orange-50 to-white;
+}
+
+.ranking-position{
+  @apply flex h-9 w-9 shrink-0 items-center justify-center;
+}
+
+.ranking-medal{
+  @apply text-2xl leading-none;
+}
+
+.ranking-pos-num{
+  @apply flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500;
+}
+
+.ranking-avatar{
+  @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-sm font-bold text-[#0f67c0];
+}
+
+.ranking-avatar-danger{
+  @apply bg-rose-100 text-rose-700;
+}
+
+.ranking-info{
+  @apply flex-1 min-w-0;
+}
+
+.ranking-name{
+  @apply truncate font-semibold text-slate-900;
+}
+
+.ranking-meta{
+  @apply mt-0.5 truncate text-xs text-slate-500;
+}
+
+.ranking-stat{
+  @apply shrink-0 text-right;
+}
+
+.ranking-stat-label{
+  @apply text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400;
+}
+
+.ranking-stat-value{
+  @apply block text-base font-bold;
+}
+
+.ranking-stat-green .ranking-stat-value{
+  @apply text-emerald-700;
+}
+
+.ranking-stat-red .ranking-stat-value{
+  @apply text-rose-700;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Personal Report Section                                         */
+/* -------------------------------------------------------------------------- */
+.personal-kpi-card{
+  @apply rounded-[1.2rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reportes — Scroll lists inside tabs                                        */
+/* -------------------------------------------------------------------------- */
+.report-scroll-list{
+  max-height: 22rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}

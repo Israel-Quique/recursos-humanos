@@ -1,0 +1,1149 @@
+ .env                                               |     84 [31m-[m
+ .env.example                                       |     83 [31m-[m
+ .phpunit.result.cache                              |      1 [31m-[m
+ .python-packages/bin/futurize.exe                  |    Bin [31m108347[m -> [32m0[m bytes
+ .python-packages/bin/pasteurize.exe                |    Bin [31m108349[m -> [32m0[m bytes
+ .python-packages/future-1.0.0.dist-info/INSTALLER  |      1 [31m-[m
+ .../future-1.0.0.dist-info/LICENSE.txt             |     19 [31m-[m
+ .python-packages/future-1.0.0.dist-info/METADATA   |    112 [31m-[m
+ .python-packages/future-1.0.0.dist-info/RECORD     |    417 [31m-[m
+ .python-packages/future-1.0.0.dist-info/WHEEL      |      5 [31m-[m
+ .../future-1.0.0.dist-info/entry_points.txt        |      3 [31m-[m
+ .../future-1.0.0.dist-info/top_level.txt           |      4 [31m-[m
+ .python-packages/future/__init__.py                |     92 [31m-[m
+ .../future/__pycache__/__init__.cpython-314.pyc    |    Bin [31m3146[m -> [32m0[m bytes
+ .python-packages/future/backports/__init__.py      |     26 [31m-[m
+ .../backports/__pycache__/__init__.cpython-314.pyc |    Bin [31m726[m -> [32m0[m bytes
+ .../__pycache__/_markupbase.cpython-314.pyc        |    Bin [31m15236[m -> [32m0[m bytes
+ .../backports/__pycache__/datetime.cpython-314.pyc |    Bin [31m81713[m -> [32m0[m bytes
+ .../backports/__pycache__/misc.cpython-314.pyc     |    Bin [31m39100[m -> [32m0[m bytes
+ .../backports/__pycache__/socket.cpython-314.pyc   |    Bin [31m19474[m -> [32m0[m bytes
+ .../__pycache__/socketserver.cpython-314.pyc       |    Bin [31m28770[m -> [32m0[m bytes
+ .../__pycache__/total_ordering.cpython-314.pyc     |    Bin [31m2997[m -> [32m0[m bytes
+ .python-packages/future/backports/_markupbase.py   |    422 [31m-[m
+ .python-packages/future/backports/datetime.py      |   2152 [31m-[m
+ .../future/backports/email/__init__.py             |     78 [31m-[m
+ .../email/__pycache__/__init__.cpython-314.pyc     |    Bin [31m2293[m -> [32m0[m bytes
+ .../__pycache__/_encoded_words.cpython-314.pyc     |    Bin [31m9095[m -> [32m0[m bytes
+ .../_header_value_parser.cpython-314.pyc           |    Bin [31m140088[m -> [32m0[m bytes
+ .../email/__pycache__/_parseaddr.cpython-314.pyc   |    Bin [31m23872[m -> [32m0[m bytes
+ .../email/__pycache__/_policybase.cpython-314.pyc  |    Bin [31m17614[m -> [32m0[m bytes
+ .../email/__pycache__/base64mime.cpython-314.pyc   |    Bin [31m4286[m -> [32m0[m bytes
+ .../email/__pycache__/charset.cpython-314.pyc      |    Bin [31m15628[m -> [32m0[m bytes
+ .../email/__pycache__/encoders.cpython-314.pyc     |    Bin [31m3269[m -> [32m0[m bytes
+ .../email/__pycache__/errors.cpython-314.pyc       |    Bin [31m7237[m -> [32m0[m bytes
+ .../email/__pycache__/feedparser.cpython-314.pyc   |    Bin [31m20751[m -> [32m0[m bytes
+ .../email/__pycache__/generator.cpython-314.pyc    |    Bin [31m19513[m -> [32m0[m bytes
+ .../email/__pycache__/header.cpython-314.pyc       |    Bin [31m25768[m -> [32m0[m bytes
+ .../__pycache__/headerregistry.cpython-314.pyc     |    Bin [31m31135[m -> [32m0[m bytes
+ .../email/__pycache__/iterators.cpython-314.pyc    |    Bin [31m3124[m -> [32m0[m bytes
+ .../email/__pycache__/message.cpython-314.pyc      |    Bin [31m37236[m -> [32m0[m bytes
+ .../email/__pycache__/parser.cpython-314.pyc       |    Bin [31m6995[m -> [32m0[m bytes
+ .../email/__pycache__/policy.cpython-314.pyc       |    Bin [31m10258[m -> [32m0[m bytes
+ .../email/__pycache__/quoprimime.cpython-314.pyc   |    Bin [31m12882[m -> [32m0[m bytes
+ .../email/__pycache__/utils.cpython-314.pyc        |    Bin [31m15556[m -> [32m0[m bytes
+ .../future/backports/email/_encoded_words.py       |    232 [31m-[m
+ .../future/backports/email/_header_value_parser.py |   2965 [31m-[m
+ .../future/backports/email/_parseaddr.py           |    546 [31m-[m
+ .../future/backports/email/_policybase.py          |    365 [31m-[m
+ .../future/backports/email/base64mime.py           |    121 [31m-[m
+ .python-packages/future/backports/email/charset.py |    409 [31m-[m
+ .../future/backports/email/encoders.py             |     90 [31m-[m
+ .python-packages/future/backports/email/errors.py  |    111 [31m-[m
+ .../future/backports/email/feedparser.py           |    525 [31m-[m
+ .../future/backports/email/generator.py            |    498 [31m-[m
+ .python-packages/future/backports/email/header.py  |    581 [31m-[m
+ .../future/backports/email/headerregistry.py       |    592 [31m-[m
+ .../future/backports/email/iterators.py            |     74 [31m-[m
+ .python-packages/future/backports/email/message.py |    882 [31m-[m
+ .../future/backports/email/mime/__init__.py        |      0
+ .../mime/__pycache__/__init__.cpython-314.pyc      |    Bin [31m203[m -> [32m0[m bytes
+ .../mime/__pycache__/application.cpython-314.pyc   |    Bin [31m1873[m -> [32m0[m bytes
+ .../email/mime/__pycache__/audio.cpython-314.pyc   |    Bin [31m3183[m -> [32m0[m bytes
+ .../email/mime/__pycache__/base.cpython-314.pyc    |    Bin [31m1391[m -> [32m0[m bytes
+ .../email/mime/__pycache__/image.cpython-314.pyc   |    Bin [31m2322[m -> [32m0[m bytes
+ .../email/mime/__pycache__/message.cpython-314.pyc |    Bin [31m1812[m -> [32m0[m bytes
+ .../mime/__pycache__/multipart.cpython-314.pyc     |    Bin [31m1907[m -> [32m0[m bytes
+ .../mime/__pycache__/nonmultipart.cpython-314.pyc  |    Bin [31m1180[m -> [32m0[m bytes
+ .../email/mime/__pycache__/text.cpython-314.pyc    |    Bin [31m1779[m -> [32m0[m bytes
+ .../future/backports/email/mime/application.py     |     39 [31m-[m
+ .../future/backports/email/mime/audio.py           |     74 [31m-[m
+ .../future/backports/email/mime/base.py            |     25 [31m-[m
+ .../future/backports/email/mime/image.py           |     48 [31m-[m
+ .../future/backports/email/mime/message.py         |     36 [31m-[m
+ .../future/backports/email/mime/multipart.py       |     49 [31m-[m
+ .../future/backports/email/mime/nonmultipart.py    |     24 [31m-[m
+ .../future/backports/email/mime/text.py            |     44 [31m-[m
+ .python-packages/future/backports/email/parser.py  |    135 [31m-[m
+ .python-packages/future/backports/email/policy.py  |    193 [31m-[m
+ .../future/backports/email/quoprimime.py           |    326 [31m-[m
+ .python-packages/future/backports/email/utils.py   |    400 [31m-[m
+ .python-packages/future/backports/html/__init__.py |     27 [31m-[m
+ .../html/__pycache__/__init__.cpython-314.pyc      |    Bin [31m1349[m -> [32m0[m bytes
+ .../html/__pycache__/entities.cpython-314.pyc      |    Bin [31m97249[m -> [32m0[m bytes
+ .../html/__pycache__/parser.cpython-314.pyc        |    Bin [31m22544[m -> [32m0[m bytes
+ .python-packages/future/backports/html/entities.py |   2514 [31m-[m
+ .python-packages/future/backports/html/parser.py   |    536 [31m-[m
+ .python-packages/future/backports/http/__init__.py |      0
+ .../http/__pycache__/__init__.cpython-314.pyc      |    Bin [31m197[m -> [32m0[m bytes
+ .../http/__pycache__/client.cpython-314.pyc        |    Bin [31m49188[m -> [32m0[m bytes
+ .../http/__pycache__/cookiejar.cpython-314.pyc     |    Bin [31m83751[m -> [32m0[m bytes
+ .../http/__pycache__/cookies.cpython-314.pyc       |    Bin [31m24933[m -> [32m0[m bytes
+ .../http/__pycache__/server.cpython-314.pyc        |    Bin [31m51580[m -> [32m0[m bytes
+ .python-packages/future/backports/http/client.py   |   1346 [31m-[m
+ .../future/backports/http/cookiejar.py             |   2116 [31m-[m
+ .python-packages/future/backports/http/cookies.py  |    598 [31m-[m
+ .python-packages/future/backports/http/server.py   |   1226 [31m-[m
+ .python-packages/future/backports/misc.py          |    958 [31m-[m
+ .python-packages/future/backports/socket.py        |    454 [31m-[m
+ .python-packages/future/backports/socketserver.py  |    747 [31m-[m
+ .python-packages/future/backports/test/__init__.py |      9 [31m-[m
+ .../test/__pycache__/__init__.cpython-314.pyc      |    Bin [31m474[m -> [32m0[m bytes
+ .../test/__pycache__/pystone.cpython-314.pyc       |    Bin [31m10376[m -> [32m0[m bytes
+ .../test/__pycache__/ssl_servers.cpython-314.pyc   |    Bin [31m12103[m -> [32m0[m bytes
+ .../test/__pycache__/support.cpython-314.pyc       |    Bin [31m84162[m -> [32m0[m bytes
+ .python-packages/future/backports/test/badcert.pem |     36 [31m-[m
+ .python-packages/future/backports/test/badkey.pem  |     40 [31m-[m
+ .python-packages/future/backports/test/dh512.pem   |      9 [31m-[m
+ .../backports/test/https_svn_python_org_root.pem   |     41 [31m-[m
+ .../future/backports/test/keycert.passwd.pem       |     33 [31m-[m
+ .python-packages/future/backports/test/keycert.pem |     31 [31m-[m
+ .../future/backports/test/keycert2.pem             |     31 [31m-[m
+ .python-packages/future/backports/test/nokia.pem   |     31 [31m-[m
+ .../future/backports/test/nullbytecert.pem         |     90 [31m-[m
+ .../future/backports/test/nullcert.pem             |      0
+ .python-packages/future/backports/test/pystone.py  |    272 [31m-[m
+ .python-packages/future/backports/test/sha256.pem  |    128 [31m-[m
+ .../future/backports/test/ssl_cert.pem             |     15 [31m-[m
+ .../future/backports/test/ssl_key.passwd.pem       |     18 [31m-[m
+ .python-packages/future/backports/test/ssl_key.pem |     16 [31m-[m
+ .../future/backports/test/ssl_servers.py           |    207 [31m-[m
+ .python-packages/future/backports/test/support.py  |   2016 [31m-[m
+ .../future/backports/total_ordering.py             |     38 [31m-[m
+ .../future/backports/urllib/__init__.py            |      0
+ .../urllib/__pycache__/__init__.cpython-314.pyc    |    Bin [31m199[m -> [32m0[m bytes
+ .../urllib/__pycache__/error.cpython-314.pyc       |    Bin [31m3468[m -> [32m0[m bytes
+ .../urllib/__pycache__/parse.cpython-314.pyc       |    Bin [31m41801[m -> [32m0[m bytes
+ .../urllib/__pycache__/request.cpython-314.pyc     |    Bin [31m114324[m -> [32m0[m bytes
+ .../urllib/__pycache__/response.cpython-314.pyc    |    Bin [31m5615[m -> [32m0[m bytes
+ .../urllib/__pycache__/robotparser.cpython-314.pyc |    Bin [31m9998[m -> [32m0[m bytes
+ .python-packages/future/backports/urllib/error.py  |     75 [31m-[m
+ .python-packages/future/backports/urllib/parse.py  |    991 [31m-[m
+ .../future/backports/urllib/request.py             |   2647 [31m-[m
+ .../future/backports/urllib/response.py            |    103 [31m-[m
+ .../future/backports/urllib/robotparser.py         |    211 [31m-[m
+ .../future/backports/xmlrpc/__init__.py            |      1 [31m-[m
+ .../xmlrpc/__pycache__/__init__.cpython-314.pyc    |    Bin [31m199[m -> [32m0[m bytes
+ .../xmlrpc/__pycache__/client.cpython-314.pyc      |    Bin [31m51493[m -> [32m0[m bytes
+ .../xmlrpc/__pycache__/server.cpython-314.pyc      |    Bin [31m43614[m -> [32m0[m bytes
+ .python-packages/future/backports/xmlrpc/client.py |   1497 [31m-[m
+ .python-packages/future/backports/xmlrpc/server.py |    999 [31m-[m
+ .python-packages/future/builtins/__init__.py       |     51 [31m-[m
+ .../builtins/__pycache__/__init__.cpython-314.pyc  |    Bin [31m1548[m -> [32m0[m bytes
+ .../builtins/__pycache__/disabled.cpython-314.pyc  |    Bin [31m2513[m -> [32m0[m bytes
+ .../builtins/__pycache__/iterators.cpython-314.pyc |    Bin [31m1766[m -> [32m0[m bytes
+ .../builtins/__pycache__/misc.cpython-314.pyc      |    Bin [31m3952[m -> [32m0[m bytes
+ .../__pycache__/new_min_max.cpython-314.pyc        |    Bin [31m2536[m -> [32m0[m bytes
+ .../builtins/__pycache__/newnext.cpython-314.pyc   |    Bin [31m2413[m -> [32m0[m bytes
+ .../builtins/__pycache__/newround.cpython-314.pyc  |    Bin [31m3755[m -> [32m0[m bytes
+ .../builtins/__pycache__/newsuper.cpython-314.pyc  |    Bin [31m4326[m -> [32m0[m bytes
+ .python-packages/future/builtins/disabled.py       |     66 [31m-[m
+ .python-packages/future/builtins/iterators.py      |     52 [31m-[m
+ .python-packages/future/builtins/misc.py           |    135 [31m-[m
+ .python-packages/future/builtins/new_min_max.py    |     59 [31m-[m
+ .python-packages/future/builtins/newnext.py        |     70 [31m-[m
+ .python-packages/future/builtins/newround.py       |    105 [31m-[m
+ .python-packages/future/builtins/newsuper.py       |    113 [31m-[m
+ .python-packages/future/moves/__init__.py          |      8 [31m-[m
+ .../moves/__pycache__/__init__.cpython-314.pyc     |    Bin [31m470[m -> [32m0[m bytes
+ .../__pycache__/_dummy_thread.cpython-314.pyc      |    Bin [31m469[m -> [32m0[m bytes
+ .../moves/__pycache__/_markupbase.cpython-314.pyc  |    Bin [31m394[m -> [32m0[m bytes
+ .../moves/__pycache__/_thread.cpython-314.pyc      |    Bin [31m382[m -> [32m0[m bytes
+ .../moves/__pycache__/builtins.cpython-314.pyc     |    Bin [31m419[m -> [32m0[m bytes
+ .../moves/__pycache__/collections.cpython-314.pyc  |    Bin [31m733[m -> [32m0[m bytes
+ .../moves/__pycache__/configparser.cpython-314.pyc |    Bin [31m368[m -> [32m0[m bytes
+ .../moves/__pycache__/copyreg.cpython-314.pyc      |    Bin [31m473[m -> [32m0[m bytes
+ .../moves/__pycache__/itertools.cpython-314.pyc    |    Bin [31m419[m -> [32m0[m bytes
+ .../__pycache__/multiprocessing.cpython-314.pyc    |    Bin [31m441[m -> [32m0[m bytes
+ .../moves/__pycache__/pickle.cpython-314.pyc       |    Bin [31m469[m -> [32m0[m bytes
+ .../future/moves/__pycache__/queue.cpython-314.pyc |    Bin [31m377[m -> [32m0[m bytes
+ .../moves/__pycache__/reprlib.cpython-314.pyc      |    Bin [31m380[m -> [32m0[m bytes
+ .../moves/__pycache__/socketserver.cpython-314.pyc |    Bin [31m398[m -> [32m0[m bytes
+ .../moves/__pycache__/subprocess.cpython-314.pyc   |    Bin [31m534[m -> [32m0[m bytes
+ .../future/moves/__pycache__/sys.cpython-314.pyc   |    Bin [31m371[m -> [32m0[m bytes
+ .../moves/__pycache__/winreg.cpython-314.pyc       |    Bin [31m381[m -> [32m0[m bytes
+ .python-packages/future/moves/_dummy_thread.py     |     13 [31m-[m
+ .python-packages/future/moves/_markupbase.py       |      8 [31m-[m
+ .python-packages/future/moves/_thread.py           |      8 [31m-[m
+ .python-packages/future/moves/builtins.py          |     10 [31m-[m
+ .python-packages/future/moves/collections.py       |     18 [31m-[m
+ .python-packages/future/moves/configparser.py      |      8 [31m-[m
+ .python-packages/future/moves/copyreg.py           |     12 [31m-[m
+ .python-packages/future/moves/dbm/__init__.py      |     20 [31m-[m
+ .../moves/dbm/__pycache__/__init__.cpython-314.pyc |    Bin [31m578[m -> [32m0[m bytes
+ .../moves/dbm/__pycache__/dumb.cpython-314.pyc     |    Bin [31m385[m -> [32m0[m bytes
+ .../moves/dbm/__pycache__/gnu.cpython-314.pyc      |    Bin [31m380[m -> [32m0[m bytes
+ .../moves/dbm/__pycache__/ndbm.cpython-314.pyc     |    Bin [31m381[m -> [32m0[m bytes
+ .python-packages/future/moves/dbm/dumb.py          |      9 [31m-[m
+ .python-packages/future/moves/dbm/gnu.py           |      9 [31m-[m
+ .python-packages/future/moves/dbm/ndbm.py          |      9 [31m-[m
+ .python-packages/future/moves/html/__init__.py     |     31 [31m-[m
+ .../html/__pycache__/__init__.cpython-314.pyc      |    Bin [31m1084[m -> [32m0[m bytes
+ .../html/__pycache__/entities.cpython-314.pyc      |    Bin [31m402[m -> [32m0[m bytes
+ .../moves/html/__pycache__/parser.cpython-314.pyc  |    Bin [31m394[m -> [32m0[m bytes
+ .python-packages/future/moves/html/entities.py     |      8 [31m-[m
+ .python-packages/future/moves/html/parser.py       |      8 [31m-[m
+ .python-packages/future/moves/http/__init__.py     |      4 [31m-[m
+ .../http/__pycache__/__init__.cpython-314.pyc      |    Bin [31m294[m -> [32m0[m bytes
+ .../moves/http/__pycache__/client.cpython-314.pyc  |    Bin [31m375[m -> [32m0[m bytes
+ .../http/__pycache__/cookiejar.cpython-314.pyc     |    Bin [31m399[m -> [32m0[m bytes
+ .../moves/http/__pycache__/cookies.cpython-314.pyc |    Bin [31m422[m -> [32m0[m bytes
+ .../moves/http/__pycache__/server.cpython-314.pyc  |    Bin [31m712[m -> [32m0[m bytes
+ .python-packages/future/moves/http/client.py       |      8 [31m-[m
+ .python-packages/future/moves/http/cookiejar.py    |      8 [31m-[m
+ .python-packages/future/moves/http/cookies.py      |      9 [31m-[m
+ .python-packages/future/moves/http/server.py       |     20 [31m-[m
+ .python-packages/future/moves/itertools.py         |      8 [31m-[m
+ .python-packages/future/moves/multiprocessing.py   |      7 [31m-[m
+ .python-packages/future/moves/pickle.py            |     11 [31m-[m
+ .python-packages/future/moves/queue.py             |      8 [31m-[m
+ .python-packages/future/moves/reprlib.py           |      8 [31m-[m
+ .python-packages/future/moves/socketserver.py      |      8 [31m-[m
+ .python-packages/future/moves/subprocess.py        |     11 [31m-[m
+ .python-packages/future/moves/sys.py               |      8 [31m-[m
+ .python-packages/future/moves/test/__init__.py     |      5 [31m-[m
+ .../test/__pycache__/__init__.cpython-314.pyc      |    Bin [31m345[m -> [32m0[m bytes
+ .../moves/test/__pycache__/support.cpython-314.pyc |    Bin [31m869[m -> [32m0[m bytes
+ .python-packages/future/moves/test/support.py      |     19 [31m-[m
+ .python-packages/future/moves/tkinter/__init__.py  |     27 [31m-[m
+ .../tkinter/__pycache__/__init__.cpython-314.pyc   |    Bin [31m886[m -> [32m0[m bytes
+ .../__pycache__/colorchooser.cpython-314.pyc       |    Bin [31m568[m -> [32m0[m bytes
+ .../__pycache__/commondialog.cpython-314.pyc       |    Bin [31m568[m -> [32m0[m bytes
+ .../tkinter/__pycache__/constants.cpython-314.pyc  |    Bin [31m556[m -> [32m0[m bytes
+ .../tkinter/__pycache__/dialog.cpython-314.pyc     |    Bin [31m540[m -> [32m0[m bytes
+ .../moves/tkinter/__pycache__/dnd.cpython-314.pyc  |    Bin [31m532[m -> [32m0[m bytes
+ .../tkinter/__pycache__/filedialog.cpython-314.pyc |    Bin [31m754[m -> [32m0[m bytes
+ .../moves/tkinter/__pycache__/font.cpython-314.pyc |    Bin [31m536[m -> [32m0[m bytes
+ .../tkinter/__pycache__/messagebox.cpython-314.pyc |    Bin [31m560[m -> [32m0[m bytes
+ .../__pycache__/scrolledtext.cpython-314.pyc       |    Bin [31m564[m -> [32m0[m bytes
+ .../__pycache__/simpledialog.cpython-314.pyc       |    Bin [31m564[m -> [32m0[m bytes
+ .../moves/tkinter/__pycache__/tix.cpython-314.pyc  |    Bin [31m528[m -> [32m0[m bytes
+ .../moves/tkinter/__pycache__/ttk.cpython-314.pyc  |    Bin [31m528[m -> [32m0[m bytes
+ .../future/moves/tkinter/colorchooser.py           |     12 [31m-[m
+ .../future/moves/tkinter/commondialog.py           |     12 [31m-[m
+ .python-packages/future/moves/tkinter/constants.py |     12 [31m-[m
+ .python-packages/future/moves/tkinter/dialog.py    |     12 [31m-[m
+ .python-packages/future/moves/tkinter/dnd.py       |     12 [31m-[m
+ .../future/moves/tkinter/filedialog.py             |     18 [31m-[m
+ .python-packages/future/moves/tkinter/font.py      |     12 [31m-[m
+ .../future/moves/tkinter/messagebox.py             |     12 [31m-[m
+ .../future/moves/tkinter/scrolledtext.py           |     12 [31m-[m
+ .../future/moves/tkinter/simpledialog.py           |     12 [31m-[m
+ .python-packages/future/moves/tkinter/tix.py       |     12 [31m-[m
+ .python-packages/future/moves/tkinter/ttk.py       |     12 [31m-[m
+ .python-packages/future/moves/urllib/__init__.py   |      5 [31m-[m
+ .../urllib/__pycache__/__init__.cpython-314.pyc    |    Bin [31m347[m -> [32m0[m bytes
+ .../moves/urllib/__pycache__/error.cpython-314.pyc |    Bin [31m666[m -> [32m0[m bytes
+ .../moves/urllib/__pycache__/parse.cpython-314.pyc |    Bin [31m927[m -> [32m0[m bytes
+ .../urllib/__pycache__/request.cpython-314.pyc     |    Bin [31m1258[m -> [32m0[m bytes
+ .../urllib/__pycache__/response.cpython-314.pyc    |    Bin [31m646[m -> [32m0[m bytes
+ .../urllib/__pycache__/robotparser.cpython-314.pyc |    Bin [31m409[m -> [32m0[m bytes
+ .python-packages/future/moves/urllib/error.py      |     16 [31m-[m
+ .python-packages/future/moves/urllib/parse.py      |     28 [31m-[m
+ .python-packages/future/moves/urllib/request.py    |     94 [31m-[m
+ .python-packages/future/moves/urllib/response.py   |     12 [31m-[m
+ .../future/moves/urllib/robotparser.py             |      8 [31m-[m
+ .python-packages/future/moves/winreg.py            |      8 [31m-[m
+ .python-packages/future/moves/xmlrpc/__init__.py   |      0
+ .../xmlrpc/__pycache__/__init__.cpython-314.pyc    |    Bin [31m195[m -> [32m0[m bytes
+ .../xmlrpc/__pycache__/client.cpython-314.pyc      |    Bin [31m367[m -> [32m0[m bytes
+ .../xmlrpc/__pycache__/server.cpython-314.pyc      |    Bin [31m367[m -> [32m0[m bytes
+ .python-packages/future/moves/xmlrpc/client.py     |      7 [31m-[m
+ .python-packages/future/moves/xmlrpc/server.py     |      7 [31m-[m
+ .../future/standard_library/__init__.py            |    821 [31m-[m
+ .../__pycache__/__init__.cpython-314.pyc           |    Bin [31m26306[m -> [32m0[m bytes
+ .python-packages/future/tests/__init__.py          |      0
+ .../tests/__pycache__/__init__.cpython-314.pyc     |    Bin [31m188[m -> [32m0[m bytes
+ .../future/tests/__pycache__/base.cpython-314.pyc  |    Bin [31m24497[m -> [32m0[m bytes
+ .python-packages/future/tests/base.py              |    539 [31m-[m
+ .python-packages/future/types/__init__.py          |    257 [31m-[m
+ .../types/__pycache__/__init__.cpython-314.pyc     |    Bin [31m6806[m -> [32m0[m bytes
+ .../types/__pycache__/newbytes.cpython-314.pyc     |    Bin [31m20738[m -> [32m0[m bytes
+ .../types/__pycache__/newdict.cpython-314.pyc      |    Bin [31m3023[m -> [32m0[m bytes
+ .../types/__pycache__/newint.cpython-314.pyc       |    Bin [31m18161[m -> [32m0[m bytes
+ .../types/__pycache__/newlist.cpython-314.pyc      |    Bin [31m4062[m -> [32m0[m bytes
+ .../__pycache__/newmemoryview.cpython-314.pyc      |    Bin [31m1160[m -> [32m0[m bytes
+ .../types/__pycache__/newobject.cpython-314.pyc    |    Bin [31m3387[m -> [32m0[m bytes
+ .../types/__pycache__/newopen.cpython-314.pyc      |    Bin [31m2137[m -> [32m0[m bytes
+ .../types/__pycache__/newrange.cpython-314.pyc     |    Bin [31m8681[m -> [32m0[m bytes
+ .../types/__pycache__/newstr.cpython-314.pyc       |    Bin [31m20387[m -> [32m0[m bytes
+ .python-packages/future/types/newbytes.py          |    460 [31m-[m
+ .python-packages/future/types/newdict.py           |     76 [31m-[m
+ .python-packages/future/types/newint.py            |    386 [31m-[m
+ .python-packages/future/types/newlist.py           |     95 [31m-[m
+ .python-packages/future/types/newmemoryview.py     |     29 [31m-[m
+ .python-packages/future/types/newobject.py         |    117 [31m-[m
+ .python-packages/future/types/newopen.py           |     32 [31m-[m
+ .python-packages/future/types/newrange.py          |    170 [31m-[m
+ .python-packages/future/types/newstr.py            |    426 [31m-[m
+ .python-packages/future/utils/__init__.py          |    770 [31m-[m
+ .../utils/__pycache__/__init__.cpython-314.pyc     |    Bin [31m26991[m -> [32m0[m bytes
+ .../__pycache__/surrogateescape.cpython-314.pyc    |    Bin [31m6210[m -> [32m0[m bytes
+ .python-packages/future/utils/surrogateescape.py   |    198 [31m-[m
+ .python-packages/libfuturize/__init__.py           |      1 [31m-[m
+ .../__pycache__/__init__.cpython-314.pyc           |    Bin [31m187[m -> [32m0[m bytes
+ .../__pycache__/fixer_util.cpython-314.pyc         |    Bin [31m20608[m -> [32m0[m bytes
+ .../libfuturize/__pycache__/main.cpython-314.pyc   |    Bin [31m15145[m -> [32m0[m bytes
+ .python-packages/libfuturize/fixer_util.py         |    518 [31m-[m
+ .python-packages/libfuturize/fixes/__init__.py     |     97 [31m-[m
+ .../fixes/__pycache__/__init__.cpython-314.pyc     |    Bin [31m2096[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_UserDict.cpython-314.pyc |    Bin [31m3569[m -> [32m0[m bytes
+ .../fix_absolute_import.cpython-314.pyc            |    Bin [31m3564[m -> [32m0[m bytes
+ ...imports_except_unicode_literals.cpython-314.pyc |    Bin [31m1327[m -> [32m0[m bytes
+ .../__pycache__/fix_basestring.cpython-314.pyc     |    Bin [31m1011[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_bytes.cpython-314.pyc    |    Bin [31m1513[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_cmp.cpython-314.pyc      |    Bin [31m1377[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_division.cpython-314.pyc |    Bin [31m448[m -> [32m0[m bytes
+ .../__pycache__/fix_division_safe.cpython-314.pyc  |    Bin [31m4860[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_execfile.cpython-314.pyc |    Bin [31m1610[m -> [32m0[m bytes
+ .../fix_future_builtins.cpython-314.pyc            |    Bin [31m2098[m -> [32m0[m bytes
+ .../fix_future_standard_library.cpython-314.pyc    |    Bin [31m1309[m -> [32m0[m bytes
+ ..._future_standard_library_urllib.cpython-314.pyc |    Bin [31m1399[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_input.cpython-314.pyc    |    Bin [31m1397[m -> [32m0[m bytes
+ .../__pycache__/fix_metaclass.cpython-314.pyc      |    Bin [31m11762[m -> [32m0[m bytes
+ .../__pycache__/fix_next_call.cpython-314.pyc      |    Bin [31m4590[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_object.cpython-314.pyc   |    Bin [31m1014[m -> [32m0[m bytes
+ .../__pycache__/fix_oldstr_wrap.cpython-314.pyc    |    Bin [31m1962[m -> [32m0[m bytes
+ .../fix_order___future__imports.cpython-314.pyc    |    Bin [31m1220[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_print.cpython-314.pyc    |    Bin [31m4393[m -> [32m0[m bytes
+ .../fix_print_with_import.cpython-314.pyc          |    Bin [31m1189[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_raise.cpython-314.pyc    |    Bin [31m3857[m -> [32m0[m bytes
+ ...fix_remove_old__future__imports.cpython-314.pyc |    Bin [31m1492[m -> [32m0[m bytes
+ .../__pycache__/fix_unicode_keep_u.cpython-314.pyc |    Bin [31m1525[m -> [32m0[m bytes
+ .../fix_unicode_literals_import.cpython-314.pyc    |    Bin [31m1013[m -> [32m0[m bytes
+ .../fix_xrange_with_import.cpython-314.pyc         |    Bin [31m1121[m -> [32m0[m bytes
+ .python-packages/libfuturize/fixes/fix_UserDict.py |    102 [31m-[m
+ .../libfuturize/fixes/fix_absolute_import.py       |     91 [31m-[m
+ ...add__future__imports_except_unicode_literals.py |     26 [31m-[m
+ .../libfuturize/fixes/fix_basestring.py            |     17 [31m-[m
+ .python-packages/libfuturize/fixes/fix_bytes.py    |     24 [31m-[m
+ .python-packages/libfuturize/fixes/fix_cmp.py      |     33 [31m-[m
+ .python-packages/libfuturize/fixes/fix_division.py |     12 [31m-[m
+ .../libfuturize/fixes/fix_division_safe.py         |    109 [31m-[m
+ .python-packages/libfuturize/fixes/fix_execfile.py |     37 [31m-[m
+ .../libfuturize/fixes/fix_future_builtins.py       |     59 [31m-[m
+ .../fixes/fix_future_standard_library.py           |     24 [31m-[m
+ .../fixes/fix_future_standard_library_urllib.py    |     28 [31m-[m
+ .python-packages/libfuturize/fixes/fix_input.py    |     32 [31m-[m
+ .../libfuturize/fixes/fix_metaclass.py             |    262 [31m-[m
+ .../libfuturize/fixes/fix_next_call.py             |    104 [31m-[m
+ .python-packages/libfuturize/fixes/fix_object.py   |     17 [31m-[m
+ .../libfuturize/fixes/fix_oldstr_wrap.py           |     39 [31m-[m
+ .../fixes/fix_order___future__imports.py           |     36 [31m-[m
+ .python-packages/libfuturize/fixes/fix_print.py    |    104 [31m-[m
+ .../libfuturize/fixes/fix_print_with_import.py     |     22 [31m-[m
+ .python-packages/libfuturize/fixes/fix_raise.py    |    107 [31m-[m
+ .../fixes/fix_remove_old__future__imports.py       |     26 [31m-[m
+ .../libfuturize/fixes/fix_unicode_keep_u.py        |     24 [31m-[m
+ .../fixes/fix_unicode_literals_import.py           |     18 [31m-[m
+ .../libfuturize/fixes/fix_xrange_with_import.py    |     20 [31m-[m
+ .python-packages/libfuturize/main.py               |    322 [31m-[m
+ .python-packages/libpasteurize/__init__.py         |      1 [31m-[m
+ .../__pycache__/__init__.cpython-314.pyc           |    Bin [31m189[m -> [32m0[m bytes
+ .../libpasteurize/__pycache__/main.cpython-314.pyc |    Bin [31m9430[m -> [32m0[m bytes
+ .python-packages/libpasteurize/fixes/__init__.py   |     54 [31m-[m
+ .../fixes/__pycache__/__init__.cpython-314.pyc     |    Bin [31m885[m -> [32m0[m bytes
+ .../fixes/__pycache__/feature_base.cpython-314.pyc |    Bin [31m3067[m -> [32m0[m bytes
+ .../fix_add_all__future__imports.cpython-314.pyc   |    Bin [31m1335[m -> [32m0[m bytes
+ .../fix_add_all_future_builtins.cpython-314.pyc    |    Bin [31m1399[m -> [32m0[m bytes
+ ..._future_standard_library_import.cpython-314.pyc |    Bin [31m1198[m -> [32m0[m bytes
+ .../__pycache__/fix_annotations.cpython-314.pyc    |    Bin [31m2775[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_division.cpython-314.pyc |    Bin [31m1781[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_features.cpython-314.pyc |    Bin [31m2884[m -> [32m0[m bytes
+ .../__pycache__/fix_fullargspec.cpython-314.pyc    |    Bin [31m1128[m -> [32m0[m bytes
+ .../fix_future_builtins.cpython-314.pyc            |    Bin [31m1895[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_getcwd.cpython-314.pyc   |    Bin [31m1485[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_imports.cpython-314.pyc  |    Bin [31m4893[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_imports2.cpython-314.pyc |    Bin [31m7193[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_kwargs.cpython-314.pyc   |    Bin [31m6590[m -> [32m0[m bytes
+ .../__pycache__/fix_memoryview.cpython-314.pyc     |    Bin [31m1205[m -> [32m0[m bytes
+ .../__pycache__/fix_metaclass.cpython-314.pyc      |    Bin [31m3831[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_newstyle.cpython-314.pyc |    Bin [31m1910[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_next.cpython-314.pyc     |    Bin [31m2207[m -> [32m0[m bytes
+ .../__pycache__/fix_printfunction.cpython-314.pyc  |    Bin [31m1002[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_raise.cpython-314.pyc    |    Bin [31m2191[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_raise_.cpython-314.pyc   |    Bin [31m2330[m -> [32m0[m bytes
+ .../fixes/__pycache__/fix_throw.cpython-314.pyc    |    Bin [31m1724[m -> [32m0[m bytes
+ .../__pycache__/fix_unpacking.cpython-314.pyc      |    Bin [31m10754[m -> [32m0[m bytes
+ .../libpasteurize/fixes/feature_base.py            |     57 [31m-[m
+ .../fixes/fix_add_all__future__imports.py          |     24 [31m-[m
+ .../fixes/fix_add_all_future_builtins.py           |     37 [31m-[m
+ .../fix_add_future_standard_library_import.py      |     23 [31m-[m
+ .../libpasteurize/fixes/fix_annotations.py         |     48 [31m-[m
+ .../libpasteurize/fixes/fix_division.py            |     28 [31m-[m
+ .../libpasteurize/fixes/fix_features.py            |     86 [31m-[m
+ .../libpasteurize/fixes/fix_fullargspec.py         |     16 [31m-[m
+ .../libpasteurize/fixes/fix_future_builtins.py     |     46 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_getcwd.py |     26 [31m-[m
+ .../libpasteurize/fixes/fix_imports.py             |    113 [31m-[m
+ .../libpasteurize/fixes/fix_imports2.py            |    174 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_kwargs.py |    147 [31m-[m
+ .../libpasteurize/fixes/fix_memoryview.py          |     21 [31m-[m
+ .../libpasteurize/fixes/fix_metaclass.py           |     78 [31m-[m
+ .../libpasteurize/fixes/fix_newstyle.py            |     33 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_next.py   |     43 [31m-[m
+ .../libpasteurize/fixes/fix_printfunction.py       |     17 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_raise.py  |     25 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_raise_.py |     35 [31m-[m
+ .python-packages/libpasteurize/fixes/fix_throw.py  |     23 [31m-[m
+ .../libpasteurize/fixes/fix_unpacking.py           |    124 [31m-[m
+ .python-packages/libpasteurize/main.py             |    204 [31m-[m
+ .python-packages/past/__init__.py                  |     90 [31m-[m
+ .../past/__pycache__/__init__.cpython-314.pyc      |    Bin [31m3111[m -> [32m0[m bytes
+ .python-packages/past/builtins/__init__.py         |     72 [31m-[m
+ .../builtins/__pycache__/__init__.cpython-314.pyc  |    Bin [31m1748[m -> [32m0[m bytes
+ .../past/builtins/__pycache__/misc.cpython-314.pyc |    Bin [31m7075[m -> [32m0[m bytes
+ .../__pycache__/noniterators.cpython-314.pyc       |    Bin [31m4144[m -> [32m0[m bytes
+ .python-packages/past/builtins/misc.py             |    162 [31m-[m
+ .python-packages/past/builtins/noniterators.py     |    272 [31m-[m
+ .python-packages/past/translation/__init__.py      |    453 [31m-[m
+ .../__pycache__/__init__.cpython-314.pyc           |    Bin [31m17631[m -> [32m0[m bytes
+ .python-packages/past/types/__init__.py            |     29 [31m-[m
+ .../types/__pycache__/__init__.cpython-314.pyc     |    Bin [31m1087[m -> [32m0[m bytes
+ .../types/__pycache__/basestring.cpython-314.pyc   |    Bin [31m1833[m -> [32m0[m bytes
+ .../past/types/__pycache__/olddict.cpython-314.pyc |    Bin [31m3076[m -> [32m0[m bytes
+ .../past/types/__pycache__/oldstr.cpython-314.pyc  |    Bin [31m3735[m -> [32m0[m bytes
+ .python-packages/past/types/basestring.py          |     38 [31m-[m
+ .python-packages/past/types/olddict.py             |     96 [31m-[m
+ .python-packages/past/types/oldstr.py              |    135 [31m-[m
+ .python-packages/past/utils/__init__.py            |     97 [31m-[m
+ .../utils/__pycache__/__init__.cpython-314.pyc     |    Bin [31m3638[m -> [32m0[m bytes
+ .python-packages/pyzk-0.9.dist-info/INSTALLER      |      1 [31m-[m
+ .python-packages/pyzk-0.9.dist-info/METADATA       |     17 [31m-[m
+ .python-packages/pyzk-0.9.dist-info/RECORD         |     20 [31m-[m
+ .python-packages/pyzk-0.9.dist-info/REQUESTED      |      0
+ .python-packages/pyzk-0.9.dist-info/WHEEL          |      5 [31m-[m
+ .python-packages/pyzk-0.9.dist-info/top_level.txt  |      1 [31m-[m
+ .python-packages/zk/__init__.py                    |      7 [31m-[m
+ .../zk/__pycache__/__init__.cpython-314.pyc        |    Bin [31m269[m -> [32m0[m bytes
+ .../zk/__pycache__/attendance.cpython-314.pyc      |    Bin [31m1401[m -> [32m0[m bytes
+ .../zk/__pycache__/base.cpython-314.pyc            |    Bin [31m81598[m -> [32m0[m bytes
+ .../zk/__pycache__/const.cpython-314.pyc           |    Bin [31m2765[m -> [32m0[m bytes
+ .../zk/__pycache__/exception.cpython-314.pyc       |    Bin [31m902[m -> [32m0[m bytes
+ .../zk/__pycache__/finger.cpython-314.pyc          |    Bin [31m3957[m -> [32m0[m bytes
+ .../zk/__pycache__/user.cpython-314.pyc            |    Bin [31m3846[m -> [32m0[m bytes
+ .python-packages/zk/attendance.py                  |     14 [31m-[m
+ .python-packages/zk/base.py                        |   1618 [31m-[m
+ .python-packages/zk/const.py                       |    110 [31m-[m
+ .python-packages/zk/exception.py                   |     15 [31m-[m
+ .python-packages/zk/finger.py                      |     52 [31m-[m
+ .python-packages/zk/user.py                        |     40 [31m-[m
+ INTEGRACION_BIOMETRICO.md                          |     53 [31m-[m
+ README.md                                          |     30 [31m-[m
+ SETUP_LARAVEL.md                                   |     61 [31m-[m
+ app/Livewire/AuditoriaPage.php                     |    330 [31m-[m
+ app/Livewire/Auth/LoginPage.php                    |     71 [31m-[m
+ app/Livewire/CalendarioPage.php                    |     73 [31m-[m
+ app/Livewire/ConsultaCarnetPage.php                |     45 [31m-[m
+ app/Livewire/DashboardPage.php                     |     22 [31m-[m
+ app/Livewire/EstructuraCodigoPage.php              |     34 [31m-[m
+ app/Livewire/FechasEspecialesPage.php              |    389 [31m-[m
+ app/Livewire/GestionAccesosPage.php                |    339 [31m-[m
+ app/Livewire/HorariosPage.php                      |    188 [31m-[m
+ app/Livewire/ImportarExcelPage.php                 |    552 [31m-[m
+ app/Livewire/IncidenciasPage.php                   |    575 [31m-[m
+ app/Livewire/MisHorasPage.php                      |     66 [31m-[m
+ app/Livewire/PerfilHorasPage.php                   |     75 [31m-[m
+ app/Livewire/PersonalPage.php                      |   1181 [31m-[m
+ app/Livewire/ReportesPage.php                      |    115 [31m-[m
+ app/Models/Auditoria.php                           |     37 [31m-[m
+ app/Models/BiometricoDispositivo.php               |     30 [31m-[m
+ app/Models/Empleado.php                            |     55 [31m-[m
+ app/Models/FechaEspecialLaboral.php                |     70 [31m-[m
+ app/Models/HorarioRegional.php                     |     54 [31m-[m
+ app/Models/Importacion.php                         |     45 [31m-[m
+ app/Models/PermisoLaboral.php                      |     63 [31m-[m
+ app/Models/RegistroAsistencia.php                  |     78 [31m-[m
+ app/Models/User.php                                |     41 [31m-[m
+ app/Providers/AppServiceProvider.php               |     22 [31m-[m
+ app/Services/AnalisisAsistenciaService.php         |   1570 [31m-[m
+ app/Services/AuditoriaService.php                  |     56 [31m-[m
+ app/Services/BiometricoAutoSyncService.php         |    101 [31m-[m
+ app/Services/ConexionBiometricoService.php         |    309 [31m-[m
+ app/Services/ExtraccionBiometricoZkService.php     |    346 [31m-[m
+ app/Services/ImportacionBiometricaService.php      |   1097 [31m-[m
+ app/Services/ProgramacionLaboralService.php        |    276 [31m-[m
+ app/Services/SincronizacionBiometricoService.php   |    224 [31m-[m
+ app/Support/SucursalNormalizer.php                 |    122 [31m-[m
+ artisan                                            |     15 [31m-[m
+ bootstrap/app.php                                  |     25 [31m-[m
+ bootstrap/cache/packages.php                       |     60 [31m-[m
+ bootstrap/cache/services.php                       |    254 [31m-[m
+ bootstrap/providers.php                            |      5 [31m-[m
+ composer.json                                      |     69 [31m-[m
+ composer.lock                                      |   9060 [31m-[m
+ config/app.php                                     |    126 [31m-[m
+ config/asistencia.php                              |     16 [31m-[m
+ config/auth.php                                    |    115 [31m-[m
+ config/biometrico.php                              |     41 [31m-[m
+ config/cache.php                                   |    107 [31m-[m
+ config/database.php                                |    170 [31m-[m
+ config/filesystems.php                             |     76 [31m-[m
+ config/livewire.php                                |     34 [31m-[m
+ config/logging.php                                 |    132 [31m-[m
+ config/mail.php                                    |    103 [31m-[m
+ config/permission.php                              |    206 [31m-[m
+ config/queue.php                                   |    112 [31m-[m
+ config/services.php                                |     34 [31m-[m
+ config/session.php                                 |    218 [31m-[m
+ config/tinker.php                                  |     63 [31m-[m
+ database/database.sqlite                           |    Bin [31m9531392[m -> [32m0[m bytes
+ .../0001_01_01_000000_create_users_table.php       |     43 [31m-[m
+ .../2026_07_18_000001_create_roles_table.php       |     23 [31m-[m
+ .../2026_07_18_000002_create_role_user_table.php   |     27 [31m-[m
+ .../2026_07_18_000003_add_created_by_columns.php   |     36 [31m-[m
+ .../2026_07_19_223943_create_permission_tables.php |    148 [31m-[m
+ .../2026_07_20_000004_create_empleados_table.php   |     33 [31m-[m
+ ...20_000005_create_registros_asistencia_table.php |     30 [31m-[m
+ ...06_add_codigo_biometrico_to_empleados_table.php |     24 [31m-[m
+ ...026_07_20_000007_create_importaciones_table.php |     34 [31m-[m
+ ...7_20_000008_create_permisos_laborales_table.php |     31 [31m-[m
+ ...rico_metadata_to_registros_asistencia_table.php |     24 [31m-[m
+ ...21_000010_add_soft_deletes_and_audit_fields.php |     56 [31m-[m
+ ...mportacion_id_to_registros_asistencia_table.php |     30 [31m-[m
+ ...12_create_fechas_especiales_laborales_table.php |     31 [31m-[m
+ ..._22_000013_create_horarios_regionales_table.php |     28 [31m-[m
+ ...014_add_alcance_to_permisos_laborales_table.php |     25 [31m-[m
+ ...015_scope_fechas_especiales_laborales_table.php |     97 [31m-[m
+ ...900_add_fecha_nacimiento_to_empleados_table.php |     26 [31m-[m
+ .../2026_07_23_160000_create_auditorias_table.php  |     33 [31m-[m
+ ...120500_create_biometrico_dispositivos_table.php |     28 [31m-[m
+ ...nc_columns_to_biometrico_dispositivos_table.php |     48 [31m-[m
+ ...10_add_mac_to_biometrico_dispositivos_table.php |     26 [31m-[m
+ ...drop_mac_from_biometrico_dispositivos_table.php |     26 [31m-[m
+ ...08_05_000001_add_empleado_id_to_users_table.php |     26 [31m-[m
+ database/seeders/DatabaseSeeder.php                |    118 [31m-[m
+ database/seeders/RolePermissionSeeder.php          |     56 [31m-[m
+ lang/es/validation.php                             |     11 [31m-[m
+ node_modules/.bin/autoprefixer                     |     16 [31m-[m
+ node_modules/.bin/autoprefixer.cmd                 |     17 [31m-[m
+ node_modules/.bin/autoprefixer.ps1                 |     28 [31m-[m
+ node_modules/.bin/baseline-browser-mapping         |     16 [31m-[m
+ node_modules/.bin/baseline-browser-mapping.cmd     |     17 [31m-[m
+ node_modules/.bin/baseline-browser-mapping.ps1     |     28 [31m-[m
+ node_modules/.bin/browserslist                     |     16 [31m-[m
+ node_modules/.bin/browserslist.cmd                 |     17 [31m-[m
+ node_modules/.bin/browserslist.ps1                 |     28 [31m-[m
+ node_modules/.bin/cssesc                           |     16 [31m-[m
+ node_modules/.bin/cssesc.cmd                       |     17 [31m-[m
+ node_modules/.bin/cssesc.ps1                       |     28 [31m-[m
+ node_modules/.bin/csv2json                         |     16 [31m-[m
+ node_modules/.bin/csv2json.cmd                     |     17 [31m-[m
+ node_modules/.bin/csv2json.ps1                     |     28 [31m-[m
+ node_modules/.bin/csv2tsv                          |     16 [31m-[m
+ node_modules/.bin/csv2tsv.cmd                      |     17 [31m-[m
+ node_modules/.bin/csv2tsv.ps1                      |     28 [31m-[m
+ node_modules/.bin/dsv2dsv                          |     16 [31m-[m
+ node_modules/.bin/dsv2dsv.cmd                      |     17 [31m-[m
+ node_modules/.bin/dsv2dsv.ps1                      |     28 [31m-[m
+ node_modules/.bin/dsv2json                         |     16 [31m-[m
+ node_modules/.bin/dsv2json.cmd                     |     17 [31m-[m
+ node_modules/.bin/dsv2json.ps1                     |     28 [31m-[m
+ node_modules/.bin/jiti                             |     16 [31m-[m
+ node_modules/.bin/jiti.cmd                         |     17 [31m-[m
+ node_modules/.bin/jiti.ps1                         |     28 [31m-[m
+ node_modules/.bin/json2csv                         |     16 [31m-[m
+ node_modules/.bin/json2csv.cmd                     |     17 [31m-[m
+ node_modules/.bin/json2csv.ps1                     |     28 [31m-[m
+ node_modules/.bin/json2dsv                         |     16 [31m-[m
+ node_modules/.bin/json2dsv.cmd                     |     17 [31m-[m
+ node_modules/.bin/json2dsv.ps1                     |     28 [31m-[m
+ node_modules/.bin/json2tsv                         |     16 [31m-[m
+ node_modules/.bin/json2tsv.cmd                     |     17 [31m-[m
+ node_modules/.bin/json2tsv.ps1                     |     28 [31m-[m
+ node_modules/.bin/nanoid                           |     16 [31m-[m
+ node_modules/.bin/nanoid.cmd                       |     17 [31m-[m
+ node_modules/.bin/nanoid.ps1                       |     28 [31m-[m
+ node_modules/.bin/resolve                          |     16 [31m-[m
+ node_modules/.bin/resolve.cmd                      |     17 [31m-[m
+ node_modules/.bin/resolve.ps1                      |     28 [31m-[m
+ node_modules/.bin/sucrase                          |     16 [31m-[m
+ node_modules/.bin/sucrase-node                     |     16 [31m-[m
+ node_modules/.bin/sucrase-node.cmd                 |     17 [31m-[m
+ node_modules/.bin/sucrase-node.ps1                 |     28 [31m-[m
+ node_modules/.bin/sucrase.cmd                      |     17 [31m-[m
+ node_modules/.bin/sucrase.ps1                      |     28 [31m-[m
+ node_modules/.bin/tailwind                         |     16 [31m-[m
+ node_modules/.bin/tailwind.cmd                     |     17 [31m-[m
+ node_modules/.bin/tailwind.ps1                     |     28 [31m-[m
+ node_modules/.bin/tailwindcss                      |     16 [31m-[m
+ node_modules/.bin/tailwindcss.cmd                  |     17 [31m-[m
+ node_modules/.bin/tailwindcss.ps1                  |     28 [31m-[m
+ node_modules/.bin/topo2geo                         |     16 [31m-[m
+ node_modules/.bin/topo2geo.cmd                     |     17 [31m-[m
+ node_modules/.bin/topo2geo.ps1                     |     28 [31m-[m
+ node_modules/.bin/topomerge                        |     16 [31m-[m
+ node_modules/.bin/topomerge.cmd                    |     17 [31m-[m
+ node_modules/.bin/topomerge.ps1                    |     28 [31m-[m
+ node_modules/.bin/topoquantize                     |     16 [31m-[m
+ node_modules/.bin/topoquantize.cmd                 |     17 [31m-[m
+ node_modules/.bin/topoquantize.ps1                 |     28 [31m-[m
+ node_modules/.bin/tsv2csv                          |     16 [31m-[m
+ node_modules/.bin/tsv2csv.cmd                      |     17 [31m-[m
+ node_modules/.bin/tsv2csv.ps1                      |     28 [31m-[m
+ node_modules/.bin/tsv2json                         |     16 [31m-[m
+ node_modules/.bin/tsv2json.cmd                     |     17 [31m-[m
+ node_modules/.bin/tsv2json.ps1                     |     28 [31m-[m
+ node_modules/.bin/update-browserslist-db           |     16 [31m-[m
+ node_modules/.bin/update-browserslist-db.cmd       |     17 [31m-[m
+ node_modules/.bin/update-browserslist-db.ps1       |     28 [31m-[m
+ node_modules/.package-lock.json                    |   1666 [31m-[m
+ node_modules/@alloc/quick-lru/index.d.ts           |    128 [31m-[m
+ node_modules/@alloc/quick-lru/index.js             |    263 [31m-[m
+ node_modules/@alloc/quick-lru/license              |      9 [31m-[m
+ node_modules/@alloc/quick-lru/package.json         |     43 [31m-[m
+ node_modules/@alloc/quick-lru/readme.md            |    139 [31m-[m
+ node_modules/@jridgewell/gen-mapping/LICENSE       |     19 [31m-[m
+ node_modules/@jridgewell/gen-mapping/README.md     |    227 [31m-[m
+ .../@jridgewell/gen-mapping/dist/gen-mapping.mjs   |    292 [31m-[m
+ .../gen-mapping/dist/gen-mapping.mjs.map           |      6 [31m-[m
+ .../gen-mapping/dist/gen-mapping.umd.js            |    358 [31m-[m
+ .../gen-mapping/dist/gen-mapping.umd.js.map        |      6 [31m-[m
+ .../gen-mapping/dist/types/gen-mapping.d.ts        |     88 [31m-[m
+ .../gen-mapping/dist/types/set-array.d.ts          |     32 [31m-[m
+ .../gen-mapping/dist/types/sourcemap-segment.d.ts  |     12 [31m-[m
+ .../@jridgewell/gen-mapping/dist/types/types.d.ts  |     43 [31m-[m
+ node_modules/@jridgewell/gen-mapping/package.json  |     67 [31m-[m
+ .../@jridgewell/gen-mapping/src/gen-mapping.ts     |    614 [31m-[m
+ .../@jridgewell/gen-mapping/src/set-array.ts       |     82 [31m-[m
+ .../gen-mapping/src/sourcemap-segment.ts           |     16 [31m-[m
+ node_modules/@jridgewell/gen-mapping/src/types.ts  |     61 [31m-[m
+ .../gen-mapping/types/gen-mapping.d.cts            |     89 [31m-[m
+ .../gen-mapping/types/gen-mapping.d.cts.map        |      1 [31m-[m
+ .../gen-mapping/types/gen-mapping.d.mts            |     89 [31m-[m
+ .../gen-mapping/types/gen-mapping.d.mts.map        |      1 [31m-[m
+ .../@jridgewell/gen-mapping/types/set-array.d.cts  |     33 [31m-[m
+ .../gen-mapping/types/set-array.d.cts.map          |      1 [31m-[m
+ .../@jridgewell/gen-mapping/types/set-array.d.mts  |     33 [31m-[m
+ .../gen-mapping/types/set-array.d.mts.map          |      1 [31m-[m
+ .../gen-mapping/types/sourcemap-segment.d.cts      |     13 [31m-[m
+ .../gen-mapping/types/sourcemap-segment.d.cts.map  |      1 [31m-[m
+ .../gen-mapping/types/sourcemap-segment.d.mts      |     13 [31m-[m
+ .../gen-mapping/types/sourcemap-segment.d.mts.map  |      1 [31m-[m
+ .../@jridgewell/gen-mapping/types/types.d.cts      |     44 [31m-[m
+ .../@jridgewell/gen-mapping/types/types.d.cts.map  |      1 [31m-[m
+ .../@jridgewell/gen-mapping/types/types.d.mts      |     44 [31m-[m
+ .../@jridgewell/gen-mapping/types/types.d.mts.map  |      1 [31m-[m
+ node_modules/@jridgewell/resolve-uri/LICENSE       |     19 [31m-[m
+ node_modules/@jridgewell/resolve-uri/README.md     |     40 [31m-[m
+ .../@jridgewell/resolve-uri/dist/resolve-uri.mjs   |    232 [31m-[m
+ .../resolve-uri/dist/resolve-uri.mjs.map           |      1 [31m-[m
+ .../resolve-uri/dist/resolve-uri.umd.js            |    240 [31m-[m
+ .../resolve-uri/dist/resolve-uri.umd.js.map        |      1 [31m-[m
+ .../resolve-uri/dist/types/resolve-uri.d.ts        |      4 [31m-[m
+ node_modules/@jridgewell/resolve-uri/package.json  |     69 [31m-[m
+ node_modules/@jridgewell/sourcemap-codec/LICENSE   |     19 [31m-[m
+ node_modules/@jridgewell/sourcemap-codec/README.md |    264 [31m-[m
+ .../sourcemap-codec/dist/sourcemap-codec.mjs       |    423 [31m-[m
+ .../sourcemap-codec/dist/sourcemap-codec.mjs.map   |      6 [31m-[m
+ .../sourcemap-codec/dist/sourcemap-codec.umd.js    |    464 [31m-[m
+ .../dist/sourcemap-codec.umd.js.map                |      6 [31m-[m
+ .../@jridgewell/sourcemap-codec/package.json       |     63 [31m-[m
+ .../@jridgewell/sourcemap-codec/src/scopes.ts      |    345 [31m-[m
+ .../sourcemap-codec/src/sourcemap-codec.ts         |    111 [31m-[m
+ .../@jridgewell/sourcemap-codec/src/strings.ts     |     65 [31m-[m
+ .../@jridgewell/sourcemap-codec/src/vlq.ts         |     55 [31m-[m
+ .../@jridgewell/sourcemap-codec/types/scopes.d.cts |     50 [31m-[m
+ .../sourcemap-codec/types/scopes.d.cts.map         |      1 [31m-[m
+ .../@jridgewell/sourcemap-codec/types/scopes.d.mts |     50 [31m-[m
+ .../sourcemap-codec/types/scopes.d.mts.map         |      1 [31m-[m
+ .../sourcemap-codec/types/sourcemap-codec.d.cts    |      9 [31m-[m
+ .../types/sourcemap-codec.d.cts.map                |      1 [31m-[m
+ .../sourcemap-codec/types/sourcemap-codec.d.mts    |      9 [31m-[m
+ .../types/sourcemap-codec.d.mts.map                |      1 [31m-[m
+ .../sourcemap-codec/types/strings.d.cts            |     16 [31m-[m
+ .../sourcemap-codec/types/strings.d.cts.map        |      1 [31m-[m
+ .../sourcemap-codec/types/strings.d.mts            |     16 [31m-[m
+ .../sourcemap-codec/types/strings.d.mts.map        |      1 [31m-[m
+ .../@jridgewell/sourcemap-codec/types/vlq.d.cts    |      7 [31m-[m
+ .../sourcemap-codec/types/vlq.d.cts.map            |      1 [31m-[m
+ .../@jridgewell/sourcemap-codec/types/vlq.d.mts    |      7 [31m-[m
+ .../sourcemap-codec/types/vlq.d.mts.map            |      1 [31m-[m
+ node_modules/@jridgewell/trace-mapping/LICENSE     |     19 [31m-[m
+ node_modules/@jridgewell/trace-mapping/README.md   |    348 [31m-[m
+ .../trace-mapping/dist/trace-mapping.mjs           |    493 [31m-[m
+ .../trace-mapping/dist/trace-mapping.mjs.map       |      6 [31m-[m
+ .../trace-mapping/dist/trace-mapping.umd.js        |    559 [31m-[m
+ .../trace-mapping/dist/trace-mapping.umd.js.map    |      6 [31m-[m
+ .../@jridgewell/trace-mapping/package.json         |     67 [31m-[m
+ .../@jridgewell/trace-mapping/src/binary-search.ts |    115 [31m-[m
+ .../@jridgewell/trace-mapping/src/by-source.ts     |     41 [31m-[m
+ .../@jridgewell/trace-mapping/src/flatten-map.ts   |    192 [31m-[m
+ .../@jridgewell/trace-mapping/src/resolve.ts       |     16 [31m-[m
+ node_modules/@jridgewell/trace-mapping/src/sort.ts |     45 [31m-[m
+ .../trace-mapping/src/sourcemap-segment.ts         |     23 [31m-[m
+ .../trace-mapping/src/strip-filename.ts            |      8 [31m-[m
+ .../@jridgewell/trace-mapping/src/trace-mapping.ts |    502 [31m-[m
+ .../@jridgewell/trace-mapping/src/types.ts         |    114 [31m-[m
+ .../trace-mapping/types/binary-search.d.cts        |     33 [31m-[m
+ .../trace-mapping/types/binary-search.d.cts.map    |      1 [31m-[m
+ .../trace-mapping/types/binary-search.d.mts        |     33 [31m-[m
+ .../trace-mapping/types/binary-search.d.mts.map    |      1 [31m-[m
+ .../trace-mapping/types/by-source.d.cts            |      4 [31m-[m
+ .../trace-mapping/types/by-source.d.cts.map        |      1 [31m-[m
+ .../trace-mapping/types/by-source.d.mts            |      4 [31m-[m
+ .../trace-mapping/types/by-source.d.mts.map        |      1 [31m-[m
+ .../trace-mapping/types/flatten-map.d.cts          |      9 [31m-[m
+ .../trace-mapping/types/flatten-map.d.cts.map      |      1 [31m-[m
+ .../trace-mapping/types/flatten-map.d.mts          |      9 [31m-[m
+ .../trace-mapping/types/flatten-map.d.mts.map      |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/resolve.d.cts  |      4 [31m-[m
+ .../trace-mapping/types/resolve.d.cts.map          |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/resolve.d.mts  |      4 [31m-[m
+ .../trace-mapping/types/resolve.d.mts.map          |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/sort.d.cts     |      4 [31m-[m
+ .../@jridgewell/trace-mapping/types/sort.d.cts.map |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/sort.d.mts     |      4 [31m-[m
+ .../@jridgewell/trace-mapping/types/sort.d.mts.map |      1 [31m-[m
+ .../trace-mapping/types/sourcemap-segment.d.cts    |     17 [31m-[m
+ .../types/sourcemap-segment.d.cts.map              |      1 [31m-[m
+ .../trace-mapping/types/sourcemap-segment.d.mts    |     17 [31m-[m
+ .../types/sourcemap-segment.d.mts.map              |      1 [31m-[m
+ .../trace-mapping/types/strip-filename.d.cts       |      5 [31m-[m
+ .../trace-mapping/types/strip-filename.d.cts.map   |      1 [31m-[m
+ .../trace-mapping/types/strip-filename.d.mts       |      5 [31m-[m
+ .../trace-mapping/types/strip-filename.d.mts.map   |      1 [31m-[m
+ .../trace-mapping/types/trace-mapping.d.cts        |     80 [31m-[m
+ .../trace-mapping/types/trace-mapping.d.cts.map    |      1 [31m-[m
+ .../trace-mapping/types/trace-mapping.d.mts        |     80 [31m-[m
+ .../trace-mapping/types/trace-mapping.d.mts.map    |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/types.d.cts    |    107 [31m-[m
+ .../trace-mapping/types/types.d.cts.map            |      1 [31m-[m
+ .../@jridgewell/trace-mapping/types/types.d.mts    |    107 [31m-[m
+ .../trace-mapping/types/types.d.mts.map            |      1 [31m-[m
+ node_modules/@nodelib/fs.scandir/LICENSE           |     21 [31m-[m
+ node_modules/@nodelib/fs.scandir/README.md         |    171 [31m-[m
+ .../@nodelib/fs.scandir/out/adapters/fs.d.ts       |     20 [31m-[m
+ .../@nodelib/fs.scandir/out/adapters/fs.js         |     19 [31m-[m
+ .../@nodelib/fs.scandir/out/constants.d.ts         |      4 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/constants.js  |     17 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/index.d.ts    |     12 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/index.js      |     26 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/async.d.ts   |      7 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/async.js     |    104 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/common.d.ts  |      1 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/common.js    |     13 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/sync.d.ts    |      5 [31m-[m
+ .../@nodelib/fs.scandir/out/providers/sync.js      |     54 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/settings.d.ts |     20 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/settings.js   |     24 [31m-[m
+ .../@nodelib/fs.scandir/out/types/index.d.ts       |     20 [31m-[m
+ .../@nodelib/fs.scandir/out/types/index.js         |      2 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/utils/fs.d.ts |      2 [31m-[m
+ node_modules/@nodelib/fs.scandir/out/utils/fs.js   |     19 [31m-[m
+ .../@nodelib/fs.scandir/out/utils/index.d.ts       |      2 [31m-[m
+ .../@nodelib/fs.scandir/out/utils/index.js         |      5 [31m-[m
+ node_modules/@nodelib/fs.scandir/package.json      |     44 [31m-[m
+ node_modules/@nodelib/fs.stat/LICENSE              |     21 [31m-[m
+ node_modules/@nodelib/fs.stat/README.md            |    126 [31m-[m
+ node_modules/@nodelib/fs.stat/out/adapters/fs.d.ts |     13 [31m-[m
+ node_modules/@nodelib/fs.stat/out/adapters/fs.js   |     17 [31m-[m
+ node_modules/@nodelib/fs.stat/out/index.d.ts       |     12 [31m-[m
+ node_modules/@nodelib/fs.stat/out/index.js         |     26 [31m-[m
+ .../@nodelib/fs.stat/out/providers/async.d.ts      |      4 [31m-[m
+ .../@nodelib/fs.stat/out/providers/async.js        |     36 [31m-[m
+ .../@nodelib/fs.stat/out/providers/sync.d.ts       |      3 [31m-[m
+ .../@nodelib/fs.stat/out/providers/sync.js         |     23 [31m-[m
+ node_modules/@nodelib/fs.stat/out/settings.d.ts    |     16 [31m-[m
+ node_modules/@nodelib/fs.stat/out/settings.js      |     16 [31m-[m
+ node_modules/@nodelib/fs.stat/out/types/index.d.ts |      4 [31m-[m
+ node_modules/@nodelib/fs.stat/out/types/index.js   |      2 [31m-[m
+ node_modules/@nodelib/fs.stat/package.json         |     37 [31m-[m
+ node_modules/@nodelib/fs.walk/LICENSE              |     21 [31m-[m
+ node_modules/@nodelib/fs.walk/README.md            |    215 [31m-[m
+ node_modules/@nodelib/fs.walk/out/index.d.ts       |     14 [31m-[m
+ node_modules/@nodelib/fs.walk/out/index.js         |     34 [31m-[m
+ .../@nodelib/fs.walk/out/providers/async.d.ts      |     12 [31m-[m
+ .../@nodelib/fs.walk/out/providers/async.js        |     30 [31m-[m
+ .../@nodelib/fs.walk/out/providers/index.d.ts      |      4 [31m-[m
+ .../@nodelib/fs.walk/out/providers/index.js        |      9 [31m-[m
+ .../@nodelib/fs.walk/out/providers/stream.d.ts     |     12 [31m-[m
+ .../@nodelib/fs.walk/out/providers/stream.js       |     34 [31m-[m
+ .../@nodelib/fs.walk/out/providers/sync.d.ts       |     10 [31m-[m
+ .../@nodelib/fs.walk/out/providers/sync.js         |     14 [31m-[m
+ .../@nodelib/fs.walk/out/readers/async.d.ts        |     30 [31m-[m
+ node_modules/@nodelib/fs.walk/out/readers/async.js |     97 [31m-[m
+ .../@nodelib/fs.walk/out/readers/common.d.ts       |      7 [31m-[m
+ .../@nodelib/fs.walk/out/readers/common.js         |     31 [31m-[m
+ .../@nodelib/fs.walk/out/readers/reader.d.ts       |      6 [31m-[m
+ .../@nodelib/fs.walk/out/readers/reader.js         |     11 [31m-[m
+ .../@nodelib/fs.walk/out/readers/sync.d.ts         |     15 [31m-[m
+ node_modules/@nodelib/fs.walk/out/readers/sync.js  |     59 [31m-[m
+ node_modules/@nodelib/fs.walk/out/settings.d.ts    |     30 [31m-[m
+ node_modules/@nodelib/fs.walk/out/settings.js      |     26 [31m-[m
+ node_modules/@nodelib/fs.walk/out/types/index.d.ts |      8 [31m-[m
+ node_modules/@nodelib/fs.walk/out/types/index.js   |      2 [31m-[m
+ node_modules/@nodelib/fs.walk/package.json         |     44 [31m-[m
+ node_modules/@trase/trase-atlas/LICENSE            |     14 [31m-[m
+ node_modules/@trase/trase-atlas/README.md          |    102 [31m-[m
+ .../@trase/trase-atlas/files/argentina.json        |      1 [31m-[m
+ node_modules/@trase/trase-atlas/files/bolivia.json |      1 [31m-[m
+ node_modules/@trase/trase-atlas/files/brazil.json  |      1 [31m-[m
+ .../@trase/trase-atlas/files/colombia.json         |      1 [31m-[m
+ .../@trase/trase-atlas/files/cote_divoire.json     |      1 [31m-[m
+ node_modules/@trase/trase-atlas/files/ecuador.json |      1 [31m-[m
+ .../@trase/trase-atlas/files/indonesia.json        |      1 [31m-[m
+ .../@trase/trase-atlas/files/paraguay.json         |      1 [31m-[m
+ node_modules/@trase/trase-atlas/package.json       |     38 [31m-[m
+ node_modules/@trase/trase-atlas/properties.js      |     48 [31m-[m
+ node_modules/any-promise/.jshintrc                 |      4 [31m-[m
+ node_modules/any-promise/.npmignore                |      7 [31m-[m
+ node_modules/any-promise/LICENSE                   |     19 [31m-[m
+ node_modules/any-promise/README.md                 |    161 [31m-[m
+ node_modules/any-promise/implementation.d.ts       |      3 [31m-[m
+ node_modules/any-promise/implementation.js         |      1 [31m-[m
+ node_modules/any-promise/index.d.ts                |     73 [31m-[m
+ node_modules/any-promise/index.js                  |      1 [31m-[m
+ node_modules/any-promise/loader.js                 |     78 [31m-[m
+ node_modules/any-promise/optional.js               |      6 [31m-[m
+ node_modules/any-promise/package.json              |     45 [31m-[m
+ node_modules/any-promise/register-shim.js          |     18 [31m-[m
+ node_modules/any-promise/register.d.ts             |     17 [31m-[m
+ node_modules/any-promise/register.js               |     94 [31m-[m
+ node_modules/any-promise/register/bluebird.d.ts    |      1 [31m-[m
+ node_modules/any-promise/register/bluebird.js      |      2 [31m-[m
+ node_modules/any-promise/register/es6-promise.d.ts |      1 [31m-[m
+ node_modules/any-promise/register/es6-promise.js   |      2 [31m-[m
+ node_modules/any-promise/register/lie.d.ts         |      1 [31m-[m
+ node_modules/any-promise/register/lie.js           |      2 [31m-[m
+ .../any-promise/register/native-promise-only.d.ts  |      1 [31m-[m
+ .../any-promise/register/native-promise-only.js    |      2 [31m-[m
+ node_modules/any-promise/register/pinkie.d.ts      |      1 [31m-[m
+ node_modules/any-promise/register/pinkie.js        |      2 [31m-[m
+ node_modules/any-promise/register/promise.d.ts     |      1 [31m-[m
+ node_modules/any-promise/register/promise.js       |      2 [31m-[m
+ node_modules/any-promise/register/q.d.ts           |      1 [31m-[m
+ node_modules/any-promise/register/q.js             |      2 [31m-[m
+ node_modules/any-promise/register/rsvp.d.ts        |      1 [31m-[m
+ node_modules/any-promise/register/rsvp.js          |      2 [31m-[m
+ node_modules/any-promise/register/vow.d.ts         |      1 [31m-[m
+ node_modules/any-promise/register/vow.js           |      2 [31m-[m
+ node_modules/any-promise/register/when.d.ts        |      1 [31m-[m
+ node_modules/any-promise/register/when.js          |      2 [31m-[m
+ node_modules/anymatch/LICENSE                      |     15 [31m-[m
+ node_modules/anymatch/README.md                    |     87 [31m-[m
+ node_modules/anymatch/index.d.ts                   |     20 [31m-[m
+ node_modules/anymatch/index.js                     |    104 [31m-[m
+ node_modules/anymatch/package.json                 |     48 [31m-[m
+ node_modules/arg/LICENSE.md                        |     21 [31m-[m
+ node_modules/arg/README.md                         |    317 [31m-[m
+ node_modules/arg/index.d.ts                        |     44 [31m-[m
+ node_modules/arg/index.js                          |    195 [31m-[m
+ node_modules/arg/package.json                      |     28 [31m-[m
+ node_modules/autoprefixer/LICENSE                  |     20 [31m-[m
+ node_modules/autoprefixer/README.md                |     53 [31m-[m
+ node_modules/autoprefixer/bin/autoprefixer         |     22 [31m-[m
+ node_modules/autoprefixer/data/prefixes.js         |   1141 [31m-[m
+ node_modules/autoprefixer/lib/at-rule.js           |     35 [31m-[m
+ node_modules/autoprefixer/lib/autoprefixer.d.ts    |     95 [31m-[m
+ node_modules/autoprefixer/lib/autoprefixer.js      |    164 [31m-[m
+ node_modules/autoprefixer/lib/brackets.js          |     55 [31m-[m
+ node_modules/autoprefixer/lib/browsers.js          |     79 [31m-[m
+ node_modules/autoprefixer/lib/declaration.js       |    187 [31m-[m
+ .../autoprefixer/lib/hacks/align-content.js        |     49 [31m-[m
+ node_modules/autoprefixer/lib/hacks/align-items.js |     46 [31m-[m
+ node_modules/autoprefixer/lib/hacks/align-self.js  |     56 [31m-[m
+ node_modules/autoprefixer/lib/hacks/animation.js   |     17 [31m-[m
+ node_modules/autoprefixer/lib/hacks/appearance.js  |     23 [31m-[m
+ node_modules/autoprefixer/lib/hacks/autofill.js    |     26 [31m-[m
+ .../autoprefixer/lib/hacks/backdrop-filter.js      |     20 [31m-[m
+ .../autoprefixer/lib/hacks/background-clip.js      |     24 [31m-[m
+ .../autoprefixer/lib/hacks/background-size.js      |     23 [31m-[m
+ .../autoprefixer/lib/hacks/block-logical.js        |     40 [31m-[m
+ .../autoprefixer/lib/hacks/border-image.js         |     15 [31m-[m
+ .../autoprefixer/lib/hacks/border-radius.js        |     40 [31m-[m
+ node_modules/autoprefixer/lib/hacks/break-props.js |     63 [31m-[m
+ node_modules/autoprefixer/lib/hacks/cross-fade.js  |     35 [31m-[m
+ .../autoprefixer/lib/hacks/display-flex.js         |     65 [31m-[m
+ .../autoprefixer/lib/hacks/display-grid.js         |     21 [31m-[m
+ .../autoprefixer/lib/hacks/file-selector-button.js |     26 [31m-[m
+ .../autoprefixer/lib/hacks/filter-value.js         |     14 [31m-[m
+ node_modules/autoprefixer/lib/hacks/filter.js      |     19 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-basis.js  |     39 [31m-[m
+ .../autoprefixer/lib/hacks/flex-direction.js       |     72 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-flow.js   |     53 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-grow.js   |     30 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-shrink.js |     39 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-spec.js   |     19 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex-wrap.js   |     19 [31m-[m
+ node_modules/autoprefixer/lib/hacks/flex.js        |     54 [31m-[m
+ node_modules/autoprefixer/lib/hacks/fullscreen.js  |     20 [31m-[m
+ node_modules/autoprefixer/lib/hacks/gradient.js    |    460 [31m-[m
+ node_modules/autoprefixer/lib/hacks/grid-area.js   |     34 [31m-[m
+ .../autoprefixer/lib/hacks/grid-column-align.js    |     28 [31m-[m
+ node_modules/autoprefixer/lib/hacks/grid-end.js    |     52 [31m-[m
+ .../autoprefixer/lib/hacks/grid-row-align.js       |     28 [31m-[m
+ .../autoprefixer/lib/hacks/grid-row-column.js      |     33 [31m-[m
+ .../autoprefixer/lib/hacks/grid-rows-columns.js    |    125 [31m-[m
+ node_modules/autoprefixer/lib/hacks/grid-start.js  |     33 [31m-[m
+ .../autoprefixer/lib/hacks/grid-template-areas.js  |     84 [31m-[m
+ .../autoprefixer/lib/hacks/grid-template.js        |     69 [31m-[m
+ node_modules/autoprefixer/lib/hacks/grid-utils.js  |   1174 [31m-[m
+ .../autoprefixer/lib/hacks/image-rendering.js      |     48 [31m-[m
+ node_modules/autoprefixer/lib/hacks/image-set.js   |     18 [31m-[m
+ .../autoprefixer/lib/hacks/inline-logical.js       |     34 [31m-[m
+ node_modules/autoprefixer/lib/hacks/intrinsic.js   |     70 [31m-[m
+ .../autoprefixer/lib/hacks/justify-content.js      |     54 [31m-[m
+ node_modules/autoprefixer/lib/hacks/mask-border.js |     38 [31m-[m
+ .../autoprefixer/lib/hacks/mask-composite.js       |     88 [31m-[m
+ node_modules/autoprefixer/lib/hacks/order.js       |     42 [31m-[m
+ .../autoprefixer/lib/hacks/overscroll-behavior.js  |     33 [31m-[m
+ node_modules/autoprefixer/lib/hacks/pixelated.js   |     34 [31m-[m
+ node_modules/autoprefixer/lib/hacks/place-self.js  |     32 [31m-[m
+ .../autoprefixer/lib/hacks/placeholder-shown.js    |     19 [31m-[m
+ node_modules/autoprefixer/lib/hacks/placeholder.js |     33 [31m-[m
+ .../autoprefixer/lib/hacks/print-color-adjust.js   |     25 [31m-[m
+ .../lib/hacks/text-decoration-skip-ink.js          |     23 [31m-[m
+ .../autoprefixer/lib/hacks/text-decoration.js      |     25 [31m-[m
+ .../lib/hacks/text-emphasis-position.js            |     14 [31m-[m
+ .../autoprefixer/lib/hacks/transform-decl.js       |     79 [31m-[m
+ node_modules/autoprefixer/lib/hacks/user-select.js |     33 [31m-[m
+ .../autoprefixer/lib/hacks/writing-mode.js         |     42 [31m-[m
+ node_modules/autoprefixer/lib/info.js              |    123 [31m-[m
+ node_modules/autoprefixer/lib/old-selector.js      |     67 [31m-[m
+ node_modules/autoprefixer/lib/old-value.js         |     22 [31m-[m
+ node_modules/autoprefixer/lib/prefixer.js          |    144 [31m-[m
+ node_modules/autoprefixer/lib/prefixes.js          |    428 [31m-[m
+ node_modules/autoprefixer/lib/processor.js         |    710 [31m-[m
+ node_modules/autoprefixer/lib/resolution.js        |     97 [31m-[m
+ node_modules/autoprefixer/lib/selector.js          |    152 [31m-[m
+ node_modules/autoprefixer/lib/supports.js          |    303 [31m-[m
+ node_modules/autoprefixer/lib/transition.js        |    329 [31m-[m
+ node_modules/autoprefixer/lib/utils.js             |     93 [31m-[m
+ node_modules/autoprefixer/lib/value.js             |    125 [31m-[m
+ node_modules/autoprefixer/lib/vendor.js            |     14 [31m-[m
+ node_modules/autoprefixer/package.json             |     48 [31m-[m
+ node_modules/baseline-browser-mapping/LICENSE.txt  |    201 [31m-[m
+ node_modules/baseline-browser-mapping/README.md    |    467 [31m-[m
+ node_modules/baseline-browser-mapping/dist/cli.cjs |      2 [31m-[m
+ .../baseline-browser-mapping/dist/index.cjs        |      1 [31m-[m
+ .../baseline-browser-mapping/dist/index.d.ts       |    104 [31m-[m
+ .../baseline-browser-mapping/dist/index.js         |      1 [31m-[m
+ node_modules/baseline-browser-mapping/package.json |     68 [31m-[m
+ .../binary-extensions/binary-extensions.json       |    263 [31m-[m
+ .../binary-extensions/binary-extensions.json.d.ts  |      3 [31m-[m
+ node_modules/binary-extensions/index.d.ts          |     14 [31m-[m
+ node_modules/binary-extensions/index.js            |      1 [31m-[m
+ node_modules/binary-extensions/license             |     10 [31m-[m
+ node_modules/binary-extensions/package.json        |     40 [31m-[m
+ node_modules/binary-extensions/readme.md           |     25 [31m-[m
+ node_modules/braces/LICENSE                        |     21 [31m-[m
+ node_modules/braces/README.md                      |    586 [31m-[m
+ node_modules/braces/index.js                       |    170 [31m-[m
+ node_modules/braces/lib/compile.js                 |     60 [31m-[m
+ node_modules/braces/lib/constants.js               |     57 [31m-[m
+ node_modules/braces/lib/expand.js                  |    113 [31m-[m
+ node_modules/braces/lib/parse.js                   |    331 [31m-[m
+ node_modules/braces/lib/stringify.js               |     32 [31m-[m
+ node_modules/braces/lib/utils.js                   |    122 [31m-[m
+ node_modules/braces/package.json                   |     77 [31m-[m
+ node_modules/browserslist/LICENSE                  |     20 [31m-[m
+ node_modules/browserslist/README.md                |     61 [31m-[m
+ node_modules/browserslist/browser.js               |     54 [31m-[m
+ node_modules/browserslist/cli.js                   |    156 [31m-[m
+ node_modules/browserslist/error.d.ts               |      7 [31m-[m
+ node_modules/browserslist/error.js                 |     12 [31m-[m
+ node_modules/browserslist/index.d.ts               |    224 [31m-[m
+ node_modules/browserslist/index.js                 |   1337 [31m-[m
+ node_modules/browserslist/node.js                  |    502 [31m-[m
+ node_modules/browserslist/package.json             |     45 [31m-[m
+ node_modules/browserslist/parse.js                 |     78 [31m-[m
+ node_modules/camelcase-css/README.md               |     27 [31m-[m
+ node_modules/camelcase-css/index-es5.js            |     24 [31m-[m
+ node_modules/camelcase-css/index.js                |     30 [31m-[m
+ node_modules/camelcase-css/license                 |     21 [31m-[m
+ node_modules/camelcase-css/package.json            |     34 [31m-[m
+ node_modules/caniuse-lite/LICENSE                  |    395 [31m-[m
+ node_modules/caniuse-lite/README.md                |      3 [31m-[m
+ node_modules/caniuse-lite/data/agents.js           |      1 [31m-[m
+ node_modules/caniuse-lite/data/browserVersions.js  |      1 [31m-[m
+ node_modules/caniuse-lite/data/browsers.js         |      1 [31m-[m
+ node_modules/caniuse-lite/data/features.js         |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/aac.js     |      1 [31m-[m
+ .../caniuse-lite/data/features/abortcontroller.js  |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/ac3-ec3.js |      1 [31m-[m
+ .../caniuse-lite/data/features/accelerometer.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/addeventlistener.js |      1 [31m-[m
+ .../data/features/alternate-stylesheet.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/ambient-light.js    |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/apng.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/array-find-index.js |      1 [31m-[m
+ .../caniuse-lite/data/features/array-find.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/array-flat.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/array-includes.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/arrow-functions.js  |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/asmjs.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/async-clipboard.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/async-functions.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/atob-btoa.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/audio-api.js        |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/audio.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/audiotracks.js      |      1 [31m-[m
+ .../caniuse-lite/data/features/autofocus.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/auxclick.js         |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/av1.js     |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/avif.js    |      1 [31m-[m
+ .../data/features/background-attachment.js         |      1 [31m-[m
+ .../data/features/background-clip-text.js          |      1 [31m-[m
+ .../data/features/background-img-opts.js           |      1 [31m-[m
+ .../data/features/background-position-x-y.js       |      1 [31m-[m
+ .../data/features/background-repeat-round-space.js |      1 [31m-[m
+ .../caniuse-lite/data/features/background-sync.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/battery-status.js   |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/beacon.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/beforeafterprint.js |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/bigint.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/blobbuilder.js      |      1 [31m-[m
+ .../caniuse-lite/data/features/bloburls.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/border-image.js     |      1 [31m-[m
+ .../caniuse-lite/data/features/border-radius.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/broadcastchannel.js |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/brotli.js  |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/calc.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/canvas-blending.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/canvas-text.js      |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/canvas.js  |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/ch-unit.js |      1 [31m-[m
+ .../data/features/chacha20-poly1305.js             |      1 [31m-[m
+ .../data/features/channel-messaging.js             |      1 [31m-[m
+ .../caniuse-lite/data/features/childnode-remove.js |      1 [31m-[m
+ .../caniuse-lite/data/features/classlist.js        |      1 [31m-[m
+ .../features/client-hints-dpr-width-viewport.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/clipboard.js        |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/colr-v1.js |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/colr.js    |      1 [31m-[m
+ .../data/features/comparedocumentposition.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/console-basic.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/console-time.js     |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/const.js   |      1 [31m-[m
+ .../data/features/constraint-validation.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/contenteditable.js  |      1 [31m-[m
+ .../data/features/contentsecuritypolicy.js         |      1 [31m-[m
+ .../data/features/contentsecuritypolicy2.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/cookie-store-api.js |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/cors.js    |      1 [31m-[m
+ .../data/features/createimagebitmap.js             |      1 [31m-[m
+ .../data/features/credential-management.js         |      1 [31m-[m
+ .../features/cross-document-view-transitions.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/cryptography.js     |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/css-all.js |      1 [31m-[m
+ .../data/features/css-anchor-positioning.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/css-animation.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/css-any-link.js     |      1 [31m-[m
+ .../caniuse-lite/data/features/css-appearance.js   |      1 [31m-[m
+ .../data/features/css-at-counter-style.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/css-autofill.js     |      1 [31m-[m
+ .../data/features/css-backdrop-filter.js           |      1 [31m-[m
+ .../data/features/css-background-offsets.js        |      1 [31m-[m
+ .../data/features/css-backgroundblendmode.js       |      1 [31m-[m
+ .../data/features/css-boxdecorationbreak.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/css-boxshadow.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/css-canvas.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/css-caret-color.js  |      1 [31m-[m
+ .../data/features/css-cascade-layers.js            |      1 [31m-[m
+ .../data/features/css-cascade-scope.js             |      1 [31m-[m
+ .../data/features/css-case-insensitive.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/css-clip-path.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/css-color-adjust.js |      1 [31m-[m
+ .../data/features/css-color-function.js            |      1 [31m-[m
+ .../data/features/css-conic-gradients.js           |      1 [31m-[m
+ .../data/features/css-container-queries-style.js   |      1 [31m-[m
+ .../data/features/css-container-queries.js         |      1 [31m-[m
+ .../data/features/css-container-query-units.js     |      1 [31m-[m
+ .../caniuse-lite/data/features/css-containment.js  |      1 [31m-[m
+ .../data/features/css-content-visibility.js        |      1 [31m-[m
+ .../caniuse-lite/data/features/css-counters.js     |      1 [31m-[m
+ .../caniuse-lite/data/features/css-crisp-edges.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/css-cross-fade.js   |      1 [31m-[m
+ .../data/features/css-default-pseudo.js            |      1 [31m-[m
+ .../data/features/css-descendant-gtgt.js           |      1 [31m-[m
+ .../data/features/css-deviceadaptation.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/css-dir-pseudo.js   |      1 [31m-[m
+ .../data/features/css-display-contents.js          |      1 [31m-[m
+ .../data/features/css-element-function.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/css-env-function.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-exclusions.js   |      1 [31m-[m
+ .../data/features/css-featurequeries.js            |      1 [31m-[m
+ .../data/features/css-file-selector-button.js      |      1 [31m-[m
+ .../data/features/css-filter-function.js           |      1 [31m-[m
+ .../caniuse-lite/data/features/css-filters.js      |      1 [31m-[m
+ .../caniuse-lite/data/features/css-first-letter.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-first-line.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-fixed.js        |      1 [31m-[m
+ .../data/features/css-focus-visible.js             |      1 [31m-[m
+ .../caniuse-lite/data/features/css-focus-within.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-font-palette.js |      1 [31m-[m
+ .../data/features/css-font-rendering-controls.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-font-stretch.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-gencontent.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-gradients.js    |      1 [31m-[m
+ .../data/features/css-grid-animation.js            |      1 [31m-[m
+ .../caniuse-lite/data/features/css-grid-lanes.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-grid.js         |      1 [31m-[m
+ .../data/features/css-hanging-punctuation.js       |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/css-has.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-hyphens.js      |      1 [31m-[m
+ node_modules/caniuse-lite/data/features/css-if.js  |      1 [31m-[m
+ .../data/features/css-image-orientation.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/css-image-set.js    |      1 [31m-[m
+ .../data/features/css-in-out-of-range.js           |      1 [31m-[m
+ .../data/features/css-indeterminate-pseudo.js      |      1 [31m-[m
+ .../data/features/css-initial-letter.js            |      1 [31m-[m
+ .../data/features/css-initial-value.js             |      1 [31m-[m
+ .../caniuse-lite/data/features/css-lch-lab.js      |      1 [31m-[m
+ .../data/features/css-letter-spacing.js            |      1 [31m-[m
+ .../caniuse-lite/data/features/css-line-clamp.js   |      1 [31m-[m
+ .../data/features/css-logical-props.js             |      1 [31m-[m
+ .../data/features/css-marker-pseudo.js             |      1 [31m-[m
+ .../caniuse-lite/data/features/css-masks.js        |      1 [31m-[m
+ .../data/features/css-matches-pseudo.js            |      1 [31m-[m
+ .../data/features/css-math-functions.js            |      1 [31m-[m
+ .../data/features/css-media-interaction.js         |      1 [31m-[m
+ .../data/features/css-media-range-syntax.js        |      1 [31m-[m
+ .../data/features/css-media-resolution.js          |      1 [31m-[m
+ .../data/features/css-media-scripting.js           |      1 [31m-[m
+ .../caniuse-lite/data/features/css-mediaqueries.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-mixblendmode.js |      1 [31m-[m
+ .../data/features/css-module-scripts.js            |      1 [31m-[m
+ .../caniuse-lite/data/features/css-motion-paths.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-namespaces.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-nesting.js      |      1 [31m-[m
+ .../caniuse-lite/data/features/css-not-sel-list.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-nth-child-of.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-opacity.js      |      1 [31m-[m
+ .../data/features/css-optional-pseudo.js           |      1 [31m-[m
+ .../data/features/css-overflow-anchor.js           |      1 [31m-[m
+ .../data/features/css-overflow-overlay.js          |      1 [31m-[m
+ .../caniuse-lite/data/features/css-overflow.js     |      1 [31m-[m
+ .../data/features/css-overscroll-behavior.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/css-page-break.js   |      1 [31m-[m
+ .../caniuse-lite/data/features/css-paged-media.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/css-paint-api.js    |      1 [31m-[m
+ .../data/features/css-placeholder-shown.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/css-placeholder.js  |      1 [31m-[m
+ .../data/features/css-print-color-adjust.js        |      1 [31m-[m
+ .../data/features/css-read-only-write.js           |      1 [31m-[m
+ .../data/features/css-rebeccapurple.js             |      1 [31m-[m
+ .../caniuse-lite/data/features/css-reflections.js  |      1 [31m-[m
+ .../caniuse-lite/data/features/css-regions.js      |      1 [31m-[m
+ .../data/features/css-relative-colors.js           |      1 [31m-[m
+ .../data/features/css-repeating-gradients.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/css-resize.js       |      1 [31m-[m
+ .../caniuse-lite/data/features/css-revert-value.js |      1 [31m-[m
+ .../caniuse-lite/data/features/css-rrggbbaa.js     |      1 [31m-[m
+ .../data/features/css-scroll-behavior.js           |      1 [31m-[m
+ .../caniuse-lite/data/features/css-scrollbar.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/css-sel2.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/css-sel3.js         |      1 [31m-[m
+ .../caniuse-lite/data/features/css-selection.js    |      1 [31m-[m
+ .../caniuse-lite/data/features/css-s
