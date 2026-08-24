@@ -23,7 +23,11 @@
       </div>
       <div class="calendar-legend-item">
         <span class="calendar-event-dot calendar-event-dot-black"></span>
-        <span>Excedio tolerancia mensual</span>
+        <span>Excedió tolerancia mensual</span>
+      </div>
+      <div class="calendar-legend-item">
+        <span class="inline-block h-3 w-3 rounded-full bg-purple-500"></span>
+        <span>Feriado Nacional / Especial</span>
       </div>
     </div>
 
@@ -42,13 +46,24 @@
                 @foreach($week as $day)
                   <article
                     wire:click="selectDate('{{ $day['date'] }}')"
-                    class="calendar-day-card calendar-day-card-interactive {{ $day['is_current_month'] ? '' : 'calendar-day-card-muted' }} {{ $day['is_today'] ? 'calendar-day-card-today' : '' }} {{ $selectedDay['date'] === $day['date'] ? 'calendar-day-card-selected' : '' }}"
+                    class="calendar-day-card calendar-day-card-interactive {{ $day['is_current_month'] ? '' : 'calendar-day-card-muted' }} {{ $day['is_today'] ? 'calendar-day-card-today' : '' }} {{ $selectedDay['date'] === $day['date'] ? 'calendar-day-card-selected' : '' }} {{ $day['is_holiday'] ? 'border-purple-300 bg-purple-50/40' : '' }}"
                   >
                     <div class="calendar-day-top">
-                      <span class="calendar-day-number">{{ $day['label'] }}</span>
+                      <span class="calendar-day-number {{ $day['is_holiday'] ? 'font-bold text-purple-700' : '' }}">{{ $day['label'] }}</span>
+                      @if($day['is_holiday'])
+                        <span class="inline-flex h-2 w-2 rounded-full bg-purple-600" title="{{ $day['holiday_name'] ?? 'Feriado' }}"></span>
+                      @elseif($day['has_special_schedule'])
+                        <span class="inline-flex h-2 w-2 rounded-full bg-amber-500" title="Horario especial"></span>
+                      @endif
                     </div>
 
-                    <div class="calendar-day-events">
+                    @if($day['is_holiday'] && filled($day['holiday_name']))
+                      <p class="mt-1 truncate text-[10px] font-semibold text-purple-700 leading-tight" title="{{ $day['holiday_name'] }}">
+                        {{ $day['holiday_name'] }}
+                      </p>
+                    @endif
+
+                    <div class="calendar-day-events mt-auto">
                       @if($day['summary']['red'] > 0)
                         <div class="calendar-day-counter" title="Llegadas tarde en el dia">
                           <span class="calendar-event-dot calendar-event-dot-red"></span>
@@ -84,6 +99,22 @@
         </div>
 
         <div class="calendar-side-body">
+          {{-- Feriados o Fechas especiales del día --}}
+          @if($selectedDay['api_holiday'] || count($selectedDay['fechas_especiales']) > 0)
+            <div class="rounded-[1.2rem] border border-purple-200 bg-purple-50 p-4 mb-4">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Feriado / Fecha Especial</p>
+              @if($selectedDay['api_holiday'])
+                <p class="mt-1 font-bold text-purple-900 text-sm">🎉 {{ $selectedDay['api_holiday']['nombre'] }} (Nacional)</p>
+              @endif
+              @foreach($selectedDay['fechas_especiales'] as $fe)
+                <p class="mt-1 text-xs font-semibold text-purple-800">
+                  📌 {{ $fe['nombre'] }} ({{ $fe['sucursal'] }})
+                  @if($fe['horario']) <span class="block text-[11px] font-normal text-purple-600">Horario especial: {{ $fe['horario'] }}</span> @endif
+                </p>
+              @endforeach
+            </div>
+          @endif
+
           <div class="calendar-side-metrics">
             <div class="calendar-side-metric">
               <span class="calendar-side-metric-label">Marcaciones</span>

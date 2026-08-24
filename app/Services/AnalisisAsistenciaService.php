@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Empleado;
+use App\Models\FechaEspecialLaboral;
 use App\Models\Importacion;
 use App\Models\BiometricoDispositivo;
 use App\Models\PermisoLaboral;
@@ -159,17 +160,41 @@ class AnalisisAsistenciaService
         $weeks = [];
         $events = $this->eventosTardanzaPorFecha($reference);
 
+        // Cargar feriados nacionales e institucionales (DB y API Nager)
+        $fechasEspecialesDB = FechaEspecialLaboral::query()
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
+            ->get()
+            ->groupBy(fn ($f) => $f->fecha?->format('Y-m-d'));
+
+        $apiHolidays = $this->obtenerFeriadosApiBolivia((int) $reference->year);
+
         while ($current->lte($end)) {
             $week = [];
             for ($i = 0; $i < 7; $i++) {
                 $day = $current->copy();
-                $dayEvents = collect($events[$day->format('Y-m-d')] ?? []);
+                $dateStr = $day->format('Y-m-d');
+                $dayEvents = collect($events[$dateStr] ?? []);
+
+                // Verificar feche especial DB o API
+                $especialesDB = $fechasEspecialesDB->get($dateStr, collect());
+                $apiHoliday = $apiHolidays[$dateStr] ?? null;
+
+                $esFeriado = $especialesDB->contains(fn ($f) => in_array($f->tipo, ['feriado', 'paro'], true))
+                    || ($apiHoliday !== null);
+
+                $nombreFeriado = $especialesDB->first()?->nombre
+                    ?? ($apiHoliday['nombre'] ?? null);
+
                 $week[] = [
-                    'date' => $day->format('Y-m-d'),
+                    'date' => $dateStr,
                     'label' => $day->day,
                     'is_current_month' => $day->month === $reference->month,
                     'is_today' => $day->isToday(),
                     'is_weekend' => $day->isWeekend(),
+                    'is_holiday' => $esFeriado,
+                    'holiday_name' => $nombreFeriado,
+                    'has_special_schedule' => $especialesDB->contains(fn ($f) => $f->tipo === 'horario_especial'),
                     'events' => $dayEvents->all(),
                     'summary' => [
                         'red' => $dayEvents->where('tone', 'red')->count(),
@@ -194,8 +219,8 @@ class AnalisisAsistenciaService
             'milestones' => [
                 'Punto rojo: llego tarde en el dia',
                 'Punto negro: ese atraso hizo que exceda su tolerancia mensual',
-                'Los sabados y domingos no se consideran para el control de tardanzas',
-                'La tolerancia mensual vigente se calcula en '.$this->formatearMinutosEtiqueta((int) config('asistencia.tolerancia_mensual_min')),
+                'Punto morado/dorado: Feriado o Fecha Especial programada',
+                'Los sabados, domingos y feriados no se consideran para el control de tardanzas',
             ],
         ];
     }
@@ -214,12 +239,28 @@ class AnalisisAsistenciaService
             ->filter(fn (RegistroAsistencia $registro) => $registro->empleado)
             ->values();
 
+        // Fechas especiales en la fecha
+        $fechasEspeciales = FechaEspecialLaboral::query()
+            ->whereDate('fecha', $selectedDate->toDateString())
+            ->get();
+
+        $apiHolidays = $this->obtenerFeriadosApiBolivia((int) $selectedDate->year);
+        $apiHoliday = $apiHolidays[$selectedDate->format('Y-m-d')] ?? null;
+
         return [
             'date' => $selectedDate->toDateString(),
             'date_label' => $selectedDate->format('d/m/Y'),
             'day_label' => ucfirst($selectedDate->locale('es')->isoFormat('dddd')),
             'is_today' => $selectedDate->isToday(),
             'is_saturday' => $selectedDate->dayOfWeek === Carbon::SATURDAY,
+            'fechas_especiales' => $fechasEspeciales->map(fn ($f) => [
+                'id' => $f->id,
+                'nombre' => $f->nombre,
+                'tipo' => $f->tipo,
+                'sucursal' => $f->sucursal,
+                'horario' => $f->hora_entrada ? (substr($f->hora_entrada, 0, 5).' - '.substr((string) $f->hora_salida, 0, 5)) : null,
+            ])->all(),
+            'api_holiday' => $apiHoliday,
             'totals' => [
                 'marcaciones' => $registrosDia->count(),
                 'tardanzas' => $dayEvents->count(),
@@ -247,6 +288,71 @@ class AnalisisAsistenciaService
                     'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                 ];
             })->all(),
+        ];
+    }
+
+    public function obtenerFeriadosApiBolivia(int $year): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember('holidays_bo_v2_'.$year, 86400, function () use ($year) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::timeout(5)
+                    ->get("https://nagerholidays.com/api/v4/Holidays/BO/{$year}");
+
+                if (! $response->successful()) {
+                    return $this->feriadosOficialesFallbackBolivia($year);
+                }
+
+                $data = $response->json();
+                $holidays = [];
+
+                $traducciones = [
+                    "New Year's Day" => "Año Nuevo",
+                    "Plurinational State Foundation Day" => "Día del Estado Plurinacional",
+                    "Feast of the Virgin of Candelaria" => "Virgen de la Candelaria",
+                    "Carnival" => "Carnaval",
+                    "Good Friday" => "Viernes Santo",
+                    "Labour Day" => "Día del Trabajo",
+                    "Corpus Christi" => "Corpus Christi",
+                    "Andean New Year" => "Año Nuevo Andino Amazónico",
+                    "Agrarian Reform Day" => "Día de la Revolución Agraria",
+                    "Independence Day" => "Día de la Independencia de Bolivia",
+                    "All Saints' Day" => "Día de Todos los Santos",
+                    "Christmas Day" => "Navidad",
+                ];
+
+                foreach ($data as $item) {
+                    if (isset($item['date'])) {
+                        $rawName = $item['name'] ?? '';
+                        $localName = $item['localName'] ?? '';
+                        $nombreEspanol = $traducciones[$rawName] ?? ($localName ?: $rawName);
+
+                        $holidays[$item['date']] = [
+                            'date' => $item['date'],
+                            'nombre' => $nombreEspanol ?: 'Feriado Nacional',
+                            'tipo' => 'feriado',
+                        ];
+                    }
+                }
+
+                return $holidays;
+            } catch (\Throwable $e) {
+                return $this->feriadosOficialesFallbackBolivia($year);
+            }
+        });
+    }
+
+    private function feriadosOficialesFallbackBolivia(int $year): array
+    {
+        return [
+            "{$year}-01-01" => ['date' => "{$year}-01-01", 'nombre' => "Año Nuevo", 'tipo' => 'feriado'],
+            "{$year}-01-22" => ['date' => "{$year}-01-22", 'nombre' => "Día del Estado Plurinacional", 'tipo' => 'feriado'],
+            "{$year}-02-02" => ['date' => "{$year}-02-02", 'nombre' => "Virgen de la Candelaria", 'tipo' => 'feriado'],
+            "{$year}-05-01" => ['date' => "{$year}-05-01", 'nombre' => "Día del Trabajo", 'tipo' => 'feriado'],
+            "{$year}-06-21" => ['date' => "{$year}-06-21", 'nombre' => "Año Nuevo Andino Amazónico", 'tipo' => 'feriado'],
+            "{$year}-08-02" => ['date' => "{$year}-08-02", 'nombre' => "Día de la Revolución Agraria", 'tipo' => 'feriado'],
+            "{$year}-08-06" => ['date' => "{$year}-08-06", 'nombre' => "Día de la Independencia de Bolivia", 'tipo' => 'feriado'],
+            "{$year}-11-02" => ['date' => "{$year}-11-02", 'nombre' => "Día de Todos los Santos", 'tipo' => 'feriado'],
+            "{$year}-12-25" => ['date' => "{$year}-12-25", 'nombre' => "Navidad", 'tipo' => 'feriado'],
         ];
     }
 
@@ -943,6 +1049,82 @@ class AnalisisAsistenciaService
             ->distinct()
             ->pluck('sucursal')
             ->all());
+    }
+
+    public function reportesAntiguedad(?string $branch = null, int $limit = 10): array
+    {
+        $hoy = now()->startOfDay();
+
+        $query = Empleado::query()
+            ->whereNotNull('fecha_contratacion')
+            ->when(filled($branch), fn ($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch));
+
+        // Empleados más antiguos (contratación más antigua)
+        $masAntiguos = (clone $query)
+            ->orderBy('fecha_contratacion', 'asc')
+            ->take($limit)
+            ->get()
+            ->map(function (Empleado $empleado) use ($hoy) {
+                $contratacion = $empleado->fecha_contratacion;
+                $diff = $contratacion->diff($hoy);
+
+                $anios = $diff->y;
+                $meses = $diff->m;
+                $dias = $diff->d;
+
+                $antiguedadTexto = [];
+                if ($anios > 0) $antiguedadTexto[] = $anios.($anios === 1 ? ' año' : ' años');
+                if ($meses > 0) $antiguedadTexto[] = $meses.($meses === 1 ? ' mes' : ' meses');
+                if ($dias > 0 && $anios === 0) $antiguedadTexto[] = $dias.($dias === 1 ? ' día' : ' días');
+
+                return [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: 'Sin código',
+                    'area' => $empleado->area ?: 'Sin área',
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'fecha_contratacion' => $contratacion->format('d/m/Y'),
+                    'antiguedad_texto' => implode(' y ', $antiguedadTexto) ?: 'Hoy ingresó',
+                    'dias_totales' => (int) $contratacion->diffInDays($hoy),
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            })->all();
+
+        // Empleados más nuevos (contratación más reciente)
+        $masNuevos = (clone $query)
+            ->orderBy('fecha_contratacion', 'desc')
+            ->take($limit)
+            ->get()
+            ->map(function (Empleado $empleado) use ($hoy) {
+                $contratacion = $empleado->fecha_contratacion;
+                $diff = $contratacion->diff($hoy);
+
+                $anios = $diff->y;
+                $meses = $diff->m;
+                $dias = $diff->d;
+
+                $antiguedadTexto = [];
+                if ($anios > 0) $antiguedadTexto[] = $anios.($anios === 1 ? ' año' : ' años');
+                if ($meses > 0) $antiguedadTexto[] = $meses.($meses === 1 ? ' mes' : ' meses');
+                if ($dias > 0 && $anios === 0) $antiguedadTexto[] = $dias.($dias === 1 ? ' día' : ' días');
+
+                return [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: 'Sin código',
+                    'area' => $empleado->area ?: 'Sin área',
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'fecha_contratacion' => $contratacion->format('d/m/Y'),
+                    'antiguedad_texto' => implode(' y ', $antiguedadTexto) ?: 'Hoy ingresó',
+                    'dias_totales' => (int) $contratacion->diffInDays($hoy),
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            })->all();
+
+        return [
+            'mas_antiguos' => $masAntiguos,
+            'mas_nuevos' => $masNuevos,
+        ];
     }
 
     public function cumpleaniosMes(Carbon $referenceMonth, ?string $branch = null): array

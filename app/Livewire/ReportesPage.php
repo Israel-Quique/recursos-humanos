@@ -240,6 +240,7 @@ class ReportesPage extends Component
             'cumpleanos'           => $analysis->cumpleaniosMes($referenceMonth, $this->selectedBranch),
             'rankingMensual'       => $analysis->rankingPuntualidadMensual($referenceMonth, $this->selectedBranch, 5),
             'rankingSemanal'       => $analysis->rankingPuntualidadSemanal($this->selectedBranch, 5),
+            'reportesAntiguedad'   => $analysis->reportesAntiguedad($this->selectedBranch, 10),
             'detalleAtrasos'       => $atrasosPaginados,
             'totalAtrasos'         => $atrasosItems->count(),
             'detalleOmisiones'     => $omisionesPaginadas,

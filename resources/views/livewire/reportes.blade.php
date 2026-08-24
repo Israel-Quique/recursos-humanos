@@ -276,6 +276,12 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V10"/><path d="M12 20V4"/><path d="M18 20v-6"/></svg>
       <span>Ranking</span>
     </button>
+    <button type="button" role="tab" :aria-selected="tab === 'antiguedad'" @click="tab = 'antiguedad'"
+      :class="tab === 'antiguedad' ? 'report-tab-button-active' : ''"
+      class="report-tab-button" id="tab-antiguedad">
+      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+      <span>Antigüedad</span>
+    </button>
     @if($reportePersonal)
     <button type="button" role="tab" :aria-selected="tab === 'mi-reporte'" @click="tab = 'mi-reporte'"
       :class="tab === 'mi-reporte' ? 'report-tab-button-active' : ''"
@@ -766,6 +772,85 @@
             </div>
           @empty
             <p class="py-6 text-center text-sm text-slate-400">Sin atrasos registrados esta semana.</p>
+          @endforelse
+        </div>
+      </section>
+    </div>
+  </div>
+
+  {{-- ============================================================ --}}
+  {{-- TAB 6: ANTIGÜEDAD                                            --}}
+  {{-- ============================================================ --}}
+  <div x-show="tab === 'antiguedad'" x-transition.opacity.duration.200ms role="tabpanel">
+    <div class="grid gap-6 xl:grid-cols-2">
+      {{-- Personal más antiguo --}}
+      <section class="surface-card">
+        <div class="mb-6 flex items-center justify-between">
+          <div>
+            <p class="section-kicker">Mayor Trayectoria</p>
+            <h2 class="section-title">Personal más antiguo</h2>
+            <p class="section-copy-sm">Empleados con mayor tiempo de servicio en la institución.</p>
+          </div>
+          <span class="status-badge status-available">🏛️ Veteranos</span>
+        </div>
+        <div class="space-y-4">
+          @forelse($reportesAntiguedad['mas_antiguos'] ?? [] as $i => $emp)
+            <div class="flex items-center gap-4 rounded-[1.2rem] border border-amber-200/70 bg-gradient-to-r from-amber-50/40 via-white to-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-900 border border-amber-300">
+                #{{ $i + 1 }}
+              </div>
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-base font-bold text-[#0f67c0]">
+                {{ $emp['inicial'] }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="truncate font-semibold text-slate-900 text-base">{{ $emp['nombre'] }}</p>
+                <p class="truncate text-xs text-slate-500 mt-0.5">{{ $emp['area'] }} · {{ $emp['sucursal'] }} · CI: <span class="font-mono">{{ $emp['codigo'] }}</span></p>
+              </div>
+              <div class="shrink-0 text-right">
+                <span class="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+                  {{ $emp['antiguedad_texto'] }}
+                </span>
+                <p class="mt-1 text-[11px] text-slate-400">Ingreso: {{ $emp['fecha_contratacion'] }}</p>
+              </div>
+            </div>
+          @empty
+            <p class="py-12 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
+          @endforelse
+        </div>
+      </section>
+
+      {{-- Personal más nuevo --}}
+      <section class="surface-card">
+        <div class="mb-6 flex items-center justify-between">
+          <div>
+            <p class="section-kicker">Reciente Ingreso</p>
+            <h2 class="section-title">Personal más nuevo</h2>
+            <p class="section-copy-sm">Últimas incorporaciones al equipo de trabajo.</p>
+          </div>
+          <span class="status-badge status-info">🌱 Nuevos</span>
+        </div>
+        <div class="space-y-4">
+          @forelse($reportesAntiguedad['mas_nuevos'] ?? [] as $i => $emp)
+            <div class="flex items-center gap-4 rounded-[1.2rem] border border-blue-200/70 bg-gradient-to-r from-blue-50/40 via-white to-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-900 border border-blue-300">
+                #{{ $i + 1 }}
+              </div>
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-base font-bold text-[#0f67c0]">
+                {{ $emp['inicial'] }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="truncate font-semibold text-slate-900 text-base">{{ $emp['nombre'] }}</p>
+                <p class="truncate text-xs text-slate-500 mt-0.5">{{ $emp['area'] }} · {{ $emp['sucursal'] }} · CI: <span class="font-mono">{{ $emp['codigo'] }}</span></p>
+              </div>
+              <div class="shrink-0 text-right">
+                <span class="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900">
+                  {{ $emp['antiguedad_texto'] }}
+                </span>
+                <p class="mt-1 text-[11px] text-slate-400">Ingreso: {{ $emp['fecha_contratacion'] }}</p>
+              </div>
+            </div>
+          @empty
+            <p class="py-12 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
           @endforelse
         </div>
       </section>
