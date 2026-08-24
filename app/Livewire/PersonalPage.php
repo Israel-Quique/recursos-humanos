@@ -67,7 +67,7 @@ class PersonalPage extends Component
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
-        if (! in_array($this->vista, ['personal', 'marcaciones', 'control'], true)) {
+        if (! in_array($this->vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
             $this->vista = 'personal';
         }
 
@@ -77,7 +77,7 @@ class PersonalPage extends Component
 
     public function setVista(string $vista): void
     {
-        if (! in_array($vista, ['personal', 'marcaciones', 'control'], true)) {
+        if (! in_array($vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
             return;
         }
 
@@ -417,19 +417,15 @@ class PersonalPage extends Component
         $registrosPorNombre = $this->registrosPorNombre($monthStart, $monthEnd);
         $searchOperator = $this->caseInsensitiveLikeOperator();
 
-<<<<<<< Updated upstream
-        $empleadosQuery = Empleado::query()
-=======
         $empleadosBaseQuery = Empleado::query()
             ->withUltimaMarcacion()
->>>>>>> Stashed changes
             ->with(['asistencias' => function ($query) use ($monthStart, $monthEnd) {
                 $query->whereBetween('fecha', [$monthStart, $monthEnd])
                     ->orderByDesc('fecha');
             }]);
 
         if (filled($this->search)) {
-            $empleadosQuery->where(function ($query) use ($searchOperator) {
+            $empleadosBaseQuery->where(function ($query) use ($searchOperator) {
                 $query->where('codigo_biometrico', $searchOperator, "%{$this->search}%")
                     ->orWhere('nombre', $searchOperator, "%{$this->search}%")
                     ->orWhere('apellido', $searchOperator, "%{$this->search}%");
@@ -437,7 +433,7 @@ class PersonalPage extends Component
         }
 
         if (filled($this->sucursalFiltro)) {
-            SucursalNormalizer::applyFilter($empleadosQuery, 'sucursal', $this->sucursalFiltro);
+            SucursalNormalizer::applyFilter($empleadosBaseQuery, 'sucursal', $this->sucursalFiltro);
         }
 
         $sucursales = SucursalNormalizer::optionsFromValues(Empleado::query()
@@ -448,7 +444,7 @@ class PersonalPage extends Component
             ->orderBy('sucursal')
             ->pluck('sucursal'));
 
-        $empleadosResumen = (clone $empleadosQuery)
+        $empleadosResumen = (clone $empleadosBaseQuery)
             ->orderByDesc('created_at')
             ->get();
 
@@ -456,17 +452,15 @@ class PersonalPage extends Component
             return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $referenceMonth);
         });
 
-        $totalMinutosMes = $empleadosResumen->sum(function (Empleado $empleado) {
+        $empleadosFiltrados = $empleadosResumen
+            ->filter(fn (Empleado $empleado) => $this->employeeMatchesVista($empleado))
+            ->values();
+
+        $totalMinutosMes = $empleadosFiltrados->sum(function (Empleado $empleado) {
             return $empleado->resumen_asistencia['minutos_mes'] ?? 0;
         });
 
-        $empleados = (clone $empleadosQuery)
-            ->orderByDesc('created_at')
-            ->paginate(10);
-
-        $empleados->getCollection()->transform(function (Empleado $empleado) use ($registrosPorNombre, $referenceMonth) {
-            return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $referenceMonth);
-        });
+        $empleados = $this->paginarColeccion($empleadosFiltrados, 10);
 
         $totalHorasMes = $this->formatearMinutos((int) $totalMinutosMes);
 
@@ -511,7 +505,7 @@ class PersonalPage extends Component
             'registros' => $registros,
             'mes_resumen' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'sucursales' => $sucursales,
-        ])->layout('layouts.app', ['title' => 'Registro de personal']);
+        ])->layout('layouts.app', ['title' => $this->pageTitle()]);
     }
 
     private function aplicarOrdenMarcaciones(Builder $query): Builder
@@ -625,11 +619,8 @@ class PersonalPage extends Component
             new EloquentCollection($registrosUnificados->all()),
             $referenceMonth
         );
-<<<<<<< Updated upstream
-=======
         $empleado->estado_laboral = $empleado->estadoLaboral(now());
         $empleado->ultima_marcacion_label = $empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones';
->>>>>>> Stashed changes
 
         return $empleado;
     }
@@ -707,6 +698,8 @@ class PersonalPage extends Component
         return [
             'nombre_completo' => $empleado->nombre_completo,
             'codigo_biometrico' => $empleado->codigo_biometrico ?: 'Sin asignar',
+            'estado_laboral' => $empleado->estado_laboral ?? $empleado->estadoLaboral(now()),
+            'ultima_marcacion' => $empleado->ultima_marcacion_label ?? ($empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones'),
             'area' => $empleado->area ?: 'Sin area',
             'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
             'fecha_nacimiento' => $empleado->fecha_nacimiento?->format('d/m/Y'),
@@ -1087,8 +1080,6 @@ class PersonalPage extends Component
         ];
     }
 
-<<<<<<< Updated upstream
-=======
     private function employeeMatchesVista(Empleado $empleado): bool
     {
         return match ($this->vista) {
@@ -1126,8 +1117,6 @@ class PersonalPage extends Component
             default => 'Registro de personal',
         };
     }
-
->>>>>>> Stashed changes
     private function snapshotRegistro(RegistroAsistencia $registro): array
     {
         return [

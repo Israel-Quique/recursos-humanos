@@ -543,7 +543,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
         <div>
           <p class="section-kicker">Personal registrado</p>
           <h3 class="section-title">Plantilla activa de RRHH</h3>
-          <p class="section-copy-sm">Aqui solo se muestra personal activo. Si una persona pasa 30 dias sin marcar, se mueve automaticamente a Inactivos.</p>
+          <p class="section-copy-sm">Resumen calculado con las marcaciones de <?php echo e($mes_resumen); ?>.</p>
         </div>
         <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar personal</button>
       </div>
@@ -578,8 +578,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <th>Nombre</th>
               <th>Sucursal</th>
               <th>Codigo</th>
-              <th>Estado</th>
-              <th>Ultima marcacion</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -589,13 +587,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                 <td><?php echo e($empleado->nombre_completo); ?></td>
                 <td><?php echo e($empleado->sucursal); ?></td>
                 <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
-                <td>
-                  <span class="status-badge <?php echo e($empleado->estado_laboral === 'Activo' ? 'status-available' : 'status-warning'); ?>">
-                    <?php echo e($empleado->estado_laboral); ?>
-
-                  </span>
-                </td>
-                <td><?php echo e($empleado->ultima_marcacion_label); ?></td>
                 <td class="table-actions-cell">
                   <div class="table-actions-group">
                     <button
@@ -658,176 +649,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               </tr>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
               <tr>
-                <td colspan="6" class="text-center text-slate-400">Todavia no hay personal activo para mostrar.</td>
-              </tr>
-            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-
-      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($empleados->hasPages()): ?>
-        <div class="table-pagination-shell">
-          <div class="table-pagination-bar">
-            <p class="table-pagination-copy">
-              Mostrando <?php echo e($empleados->firstItem()); ?> a <?php echo e($empleados->lastItem()); ?> de <?php echo e($empleados->total()); ?> registros
-            </p>
-
-            <div class="table-pagination-actions">
-              <button
-                type="button"
-                wire:click="previousPage"
-                <?php if($empleados->onFirstPage()): echo 'disabled'; endif; ?>
-                class="table-pagination-button <?php echo e($empleados->onFirstPage() ? 'table-pagination-button-disabled' : ''); ?>"
-              >
-                Anterior
-              </button>
-
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = range(max(1, $empleados->currentPage() - 2), min($empleados->lastPage(), $empleados->currentPage() + 2)); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $page): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <button
-                  type="button"
-                  wire:click="gotoPage(<?php echo e($page); ?>)"
-                  class="table-pagination-button <?php echo e($page === $empleados->currentPage() ? 'table-pagination-button-active' : ''); ?>"
-                >
-                  <?php echo e($page); ?>
-
-                </button>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-
-              <button
-                type="button"
-                wire:click="nextPage"
-                <?php if(! $empleados->hasMorePages()): echo 'disabled'; endif; ?>
-                class="table-pagination-button <?php echo e(! $empleados->hasMorePages() ? 'table-pagination-button-disabled' : ''); ?>"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        </div>
-      <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-    </article>
-  </section>
-  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-
-  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'inactivos'): ?>
-  <section>
-    <article class="surface-card">
-      <div class="section-head-row">
-        <div>
-          <p class="section-kicker">Personal inactivo</p>
-          <h3 class="section-title">Sin marcaciones en los ultimos 30 dias</h3>
-          <p class="section-copy-sm">Este modulo se actualiza automaticamente segun la ultima marcacion registrada de cada persona.</p>
-        </div>
-      </div>
-
-      <div class="history-table-shell history-table-shell-personal">
-        <div class="mb-6 grid gap-4 px-6 pt-5 md:grid-cols-2">
-          <div class="space-y-2">
-            <label for="inactivos-search" class="form-label">Buscar por codigo o nombre</label>
-            <input
-              id="inactivos-search"
-              type="text"
-              wire:model.live.debounce.300ms="search"
-              class="form-input"
-              placeholder="Escribe un codigo, nombre o apellido"
-              autocomplete="off"
-            >
-          </div>
-          <div class="space-y-2">
-            <label for="inactivos-sucursal" class="form-label">Filtrar por sucursal</label>
-            <select id="inactivos-sucursal" wire:model.live="sucursalFiltro" class="form-input">
-              <option value="">Todas las sucursales</option>
-              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sucursales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sucursalOption): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($sucursalOption); ?>"><?php echo e($sucursalOption); ?></option>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-            </select>
-          </div>
-        </div>
-
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Sucursal</th>
-              <th>Codigo</th>
-              <th>Estado</th>
-              <th>Ultima marcacion</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $empleados; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $empleado): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-              <tr>
-                <td><?php echo e($empleado->nombre_completo); ?></td>
-                <td><?php echo e($empleado->sucursal); ?></td>
-                <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
-                <td>
-                  <span class="status-badge status-warning"><?php echo e($empleado->estado_laboral); ?></span>
-                </td>
-                <td><?php echo e($empleado->ultima_marcacion_label); ?></td>
-                <td class="table-actions-cell">
-                  <div class="table-actions-group">
-                    <button
-                      type="button"
-                      wire:click="openDetailModal(<?php echo e($empleado->id); ?>)"
-                      class="table-action-button"
-                      aria-label="Ver detalle del personal inactivo"
-                      title="Ver detalle"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"/>
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                      <span>Ver</span>
-                    </button>
-                    <button
-                      type="button"
-                      wire:click="openEditModal(<?php echo e($empleado->id); ?>)"
-                      class="table-action-button"
-                      aria-label="Editar personal inactivo"
-                      title="Editar"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/>
-                      </svg>
-                      <span>Editar</span>
-                    </button>
-                    <button
-                      type="button"
-                      wire:click="openPdfModal(<?php echo e($empleado->id); ?>)"
-                      class="table-action-button"
-                      aria-label="Exportar ficha del personal inactivo en PDF"
-                      title="PDF"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
-                      </svg>
-                      <span>PDF</span>
-                    </button>
-                    <button
-                      type="button"
-                      wire:click="openDeleteModal(<?php echo e($empleado->id); ?>)"
-                      class="table-action-button table-action-button-danger"
-                      aria-label="Eliminar personal inactivo"
-                      title="Eliminar"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 6V4h8v2"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14H6L5 6"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
-                      </svg>
-                      <span>Eliminar</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
-              <tr>
-                <td colspan="6" class="text-center text-slate-400">No hay personal inactivo en este momento.</td>
+                <td colspan="4" class="text-center text-slate-400">Todavia no hay personal registrado.</td>
               </tr>
             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           </tbody>
