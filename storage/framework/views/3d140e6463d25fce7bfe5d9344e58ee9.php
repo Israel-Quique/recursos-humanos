@@ -63,6 +63,7 @@
                 </button>
                 <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
                   <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'personal'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'personal' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Personal registrado</a>
+                  <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'inactivos'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'inactivos' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Inactivos</a>
                   <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'marcaciones'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'marcaciones' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Marcaciones</a>
                   <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'control'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'control' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Control mensual</a>
                 </div>

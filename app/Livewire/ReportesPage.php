@@ -102,36 +102,14 @@ class ReportesPage extends Component
         $rangeStart = $referenceMonth->copy()->startOfMonth();
         $rangeEnd = $referenceMonth->copy()->endOfMonth();
 
-        // Reporte personal del empleado autenticado
-        $authUser = auth()->user()?->loadMissing('empleado');
-        $reportePersonal = null;
-        if ($authUser?->empleado_id) {
-            $reportePersonal = $analysis->detalleMensualPorEmpleado(
-                (int) $authUser->empleado_id,
-                $referenceMonth,
-                null
-            );
-        }
-
-        // Datos de atrasos y omisiones del mes
-        $reporteAtrasoOmision = $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch);
-
         return view('livewire.reportes', [
-            'metrics'              => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch),
-            'frequency'            => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch),
-            'incidents'            => $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch),
-            'monthlyReport'        => $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch),
-            'branches'             => $analysis->sucursalesParaReportes(),
-            'monthLabel'           => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
+            'metrics' => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch),
+            'frequency' => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch),
+            'incidents' => $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch),
+            'monthlyReport' => $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch),
+            'branches' => $analysis->sucursalesParaReportes(),
+            'monthLabel' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'detailEmployeeReport' => $this->detailEmployeeReport,
-            // Nuevos reportes
-            'cumpleanos'           => $analysis->cumpleaniosMes($referenceMonth, $this->selectedBranch),
-            'rankingMensual'       => $analysis->rankingPuntualidadMensual($referenceMonth, $this->selectedBranch, 5),
-            'rankingSemanal'       => $analysis->rankingPuntualidadSemanal($this->selectedBranch, 5),
-            'detalleAtrasos'       => $reporteAtrasoOmision['atrasos'] ?? [],
-            'detalleOmisiones'     => $reporteAtrasoOmision['no_marcados'] ?? [],
-            'reportePersonal'      => $reportePersonal,
-            'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,
         ])->layout('layouts.app', ['title' => 'Reportes de asistencia']);
     }
 }

@@ -37,26 +37,26 @@ class ExtraccionBiometricoZkService
     {
         $payload = $this->ejecutarExtraccion($device, false);
 
-        return array_values(array_filter($payload['rows'] ?? [], fn($row) => is_array($row)));
+        return array_values(array_filter($payload['rows'] ?? [], fn ($row) => is_array($row)));
     }
 
     private function ejecutarExtraccion(array $device, bool $probeOnly): array
     {
         $script = base_path('scripts/extract_zkteco_attendance.py');
 
-        if (!file_exists($script)) {
+        if (! file_exists($script)) {
             throw new \RuntimeException('No se encontro el script de extraccion del biometrico.');
         }
 
-        $outputPath = storage_path('app/biometrico_extract_' . uniqid() . '.json');
+        $outputPath = storage_path('app/biometrico_extract_'.uniqid().'.json');
         $password = trim((string) config('biometrico.password', ''));
         $timeout = $probeOnly
             ? 20
             : max(60, (int) config('biometrico.export_timeout', 180));
-        $lockKey = 'biometrico:extract:' . preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['ip'] ?? 'sin-ip'));
+        $lockKey = 'biometrico:extract:'.preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['ip'] ?? 'sin-ip'));
         $lock = Cache::lock($lockKey, $timeout + 30);
 
-        if (!$lock->get()) {
+        if (! $lock->get()) {
             @unlink($outputPath);
             throw new \RuntimeException('El biometrico esta siendo leido por otra sincronizacion. Intenta nuevamente en unos segundos.');
         }
@@ -65,16 +65,11 @@ class ExtraccionBiometricoZkService
             $process = new Process([
                 $this->pythonBinary(),
                 $script,
-                '--ip',
-                (string) ($device['ip'] ?? ''),
-                '--port',
-                (string) ($device['port'] ?? 4370),
-                '--output',
-                $outputPath,
-                '--timeout',
-                (string) $timeout,
-                '--password',
-                $password !== '' ? $password : '0',
+                '--ip', (string) ($device['ip'] ?? ''),
+                '--port', (string) ($device['port'] ?? 4370),
+                '--output', $outputPath,
+                '--timeout', (string) $timeout,
+                '--password', $password !== '' ? $password : '0',
                 ...($probeOnly ? ['--probe-only'] : []),
             ], base_path(), $this->pythonProcessEnvironment());
 
@@ -99,20 +94,20 @@ class ExtraccionBiometricoZkService
                 'error_output' => trim($process->getErrorOutput()),
             ]);
 
-            if (!$process->isSuccessful()) {
-                $error = trim($process->getErrorOutput() . ' ' . $process->getOutput());
+            if (! $process->isSuccessful()) {
+                $error = trim($process->getErrorOutput().' '.$process->getOutput());
                 @unlink($outputPath);
                 throw new \RuntimeException($error !== '' ? $error : 'No se pudo extraer marcaciones desde el biometrico.');
             }
 
-            if (!file_exists($outputPath)) {
+            if (! file_exists($outputPath)) {
                 throw new \RuntimeException('La extraccion no genero un archivo temporal con marcaciones.');
             }
 
             $payload = json_decode((string) file_get_contents($outputPath), true);
             @unlink($outputPath);
 
-            if (!is_array($payload)) {
+            if (! is_array($payload)) {
                 throw new \RuntimeException('La respuesta del extractor ZKTeco no es valida.');
             }
 
@@ -151,9 +146,9 @@ class ExtraccionBiometricoZkService
             $pythonDir,
             $projectDir,
             getenv('SystemRoot') ?: 'C:\\Windows',
-            (getenv('SystemRoot') ?: 'C:\\Windows') . DIRECTORY_SEPARATOR . 'System32',
-            (getenv('SystemRoot') ?: 'C:\\Windows') . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'Wbem',
-            (getenv('SystemRoot') ?: 'C:\\Windows') . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'WindowsPowerShell' . DIRECTORY_SEPARATOR . 'v1.0',
+            (getenv('SystemRoot') ?: 'C:\\Windows').DIRECTORY_SEPARATOR.'System32',
+            (getenv('SystemRoot') ?: 'C:\\Windows').DIRECTORY_SEPARATOR.'System32'.DIRECTORY_SEPARATOR.'Wbem',
+            (getenv('SystemRoot') ?: 'C:\\Windows').DIRECTORY_SEPARATOR.'System32'.DIRECTORY_SEPARATOR.'WindowsPowerShell'.DIRECTORY_SEPARATOR.'v1.0',
         ]));
 
         return [
@@ -163,7 +158,7 @@ class ExtraccionBiometricoZkService
             'TEMP' => sys_get_temp_dir(),
             'TMP' => sys_get_temp_dir(),
             'PYTHONHOME' => false,
-            'PYTHONPATH' => $projectDir . DIRECTORY_SEPARATOR . '.python-packages',
+            'PYTHONPATH' => false,
             'CONDA_DEFAULT_ENV' => false,
             'CONDA_EXE' => false,
             'CONDA_PREFIX' => false,
@@ -184,7 +179,7 @@ class ExtraccionBiometricoZkService
             '3' => 'Retorno de descanso',
             '4' => 'Entrada extra',
             '5' => 'Salida extra',
-            default => $status !== '' ? 'Estado ' . $status : 'Sin estado',
+            default => $status !== '' ? 'Estado '.$status : 'Sin estado',
         };
     }
 
@@ -198,7 +193,7 @@ class ExtraccionBiometricoZkService
             '2' => 'Apertura remota',
             '3' => 'Boton de salida',
             '4' => 'Alarma',
-            default => $punch !== '' ? 'Evento ' . $punch : 'Sin evento',
+            default => $punch !== '' ? 'Evento '.$punch : 'Sin evento',
         };
     }
 
@@ -223,20 +218,20 @@ class ExtraccionBiometricoZkService
             '13' => 'Rostro + tarjeta + contrasena',
             '14' => 'Solo rostro',
             '15' => 'Tarjeta de proximidad',
-            default => $verification !== '' ? 'Metodo ' . $verification : 'No disponible',
+            default => $verification !== '' ? 'Metodo '.$verification : 'No disponible',
         };
     }
 
     private function filtrarMarcacionesPorPeriodo(array $rows, ?int $year, ?int $month): array
     {
-        if (!$year || !$month) {
+        if (! $year || ! $month) {
             return $rows;
         }
 
         return array_values(array_filter($rows, function (array $row) use ($year, $month) {
             $fechaHora = $row['fecha_hora'] ?? null;
 
-            if (!$fechaHora) {
+            if (! $fechaHora) {
                 return false;
             }
 
@@ -259,20 +254,20 @@ class ExtraccionBiometricoZkService
 
         $directory = storage_path('app/exportaciones-biometrico');
 
-        if (!is_dir($directory) && !mkdir($directory, 0777, true) && !is_dir($directory)) {
+        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
             throw new \RuntimeException('No se pudo crear la carpeta de exportaciones del biometrico.');
         }
 
         $timestamp = now()->format('Ymd_His');
         $safeBranch = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['branch'] ?? 'biometrico')) ?: 'biometrico';
-        $filePath = $directory . DIRECTORY_SEPARATOR . "marcaciones_{$safeBranch}_{$timestamp}.csv";
+        $filePath = $directory.DIRECTORY_SEPARATOR."marcaciones_{$safeBranch}_{$timestamp}.csv";
         $handle = fopen($filePath, 'wb');
         $employeesByCode = Empleado::query()
             ->whereNotNull('codigo_biometrico')
             ->get()
-            ->keyBy(fn(Empleado $empleado) => trim((string) $empleado->codigo_biometrico));
+            ->keyBy(fn (Empleado $empleado) => trim((string) $empleado->codigo_biometrico));
 
-        if (!$handle) {
+        if (! $handle) {
             throw new \RuntimeException('No se pudo crear el archivo exportado del biometrico.');
         }
 

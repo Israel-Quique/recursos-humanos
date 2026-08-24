@@ -1,12 +1,8 @@
-<div class="page-stack" x-data="{ tab: 'resumen' }">
-
-  {{-- ============================================================ --}}
-  {{-- MODAL: DETALLE DE EMPLEADO                                   --}}
-  {{-- ============================================================ --}}
+<div class="page-stack">
   @if ($showEmployeeDetailModal)
     <div class="app-modal-backdrop" wire:click="closeEmployeeDetailModal">
       <div class="app-modal-card app-modal-card-detail" x-on:click.stop>
-        <button type="button" wire:click="closeEmployeeDetailModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">✕</button>
+        <button type="button" wire:click="closeEmployeeDetailModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
         <div class="app-modal-head">
           <div>
             <p class="section-kicker">Detalle mensual</p>
@@ -16,7 +12,9 @@
           <div class="app-modal-actions">
             <button type="button" wire:click="descargarPdfDetalleEmpleado" class="table-action-button">
               <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/><path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
               </svg>
               <span>PDF</span>
             </button>
@@ -61,6 +59,7 @@
               @endforelse
             </div>
           </div>
+
           <div class="rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5">
             <h4 class="text-base font-semibold text-slate-900">No marcados</h4>
             <div class="report-scroll-list mt-4 space-y-3">
@@ -74,6 +73,7 @@
               @endforelse
             </div>
           </div>
+
           <div class="rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5">
             <h4 class="text-base font-semibold text-slate-900">Faltas</h4>
             <div class="report-scroll-list mt-4 space-y-3">
@@ -89,7 +89,6 @@
           </div>
         </div>
 
-        {{-- PDF hidden content --}}
         <div id="reportes-detalle-empleado-pdf-content" class="hidden">
           <div class="pdf-export-sheet space-y-8">
             <header class="pdf-export-header">
@@ -103,28 +102,121 @@
                 <strong class="pdf-export-badge-value">{{ $monthLabel }}</strong>
               </div>
             </header>
+
             <div class="pdf-export-grid pdf-export-grid-primary">
               <div class="pdf-export-card pdf-export-card-highlight">
                 <p class="pdf-export-label">Nombre</p>
                 <strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['nombre'] ?? 'Sin nombre' }}</strong>
               </div>
-              <div class="pdf-export-card"><p class="pdf-export-label">Codigo</p><strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['codigo'] ?? 'Sin codigo' }}</strong></div>
-              <div class="pdf-export-card"><p class="pdf-export-label">Sucursal</p><strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['sucursal'] ?? 'Sin sucursal' }}</strong></div>
-              <div class="pdf-export-card"><p class="pdf-export-label">Horario</p><strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['horario'] ?? '--:-- - --:--' }}</strong></div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Codigo</p>
+                <strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['codigo'] ?? 'Sin codigo' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Sucursal</p>
+                <strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['sucursal'] ?? 'Sin sucursal' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Horario</p>
+                <strong class="pdf-export-value">{{ $detailEmployeeReport['empleado']['horario'] ?? '--:-- - --:--' }}</strong>
+              </div>
             </div>
+
             <div class="pdf-export-grid pdf-export-grid-secondary">
               @foreach(($detailEmployeeReport['metrics'] ?? []) as $metric)
-                <div class="pdf-export-card"><p class="pdf-export-label">{{ $metric['label'] }}</p><p class="pdf-export-value-sm">{{ $metric['value'] }}</p></div>
+                <div class="pdf-export-card">
+                  <p class="pdf-export-label">{{ $metric['label'] }}</p>
+                  <p class="pdf-export-value-sm">{{ $metric['value'] }}</p>
+                </div>
               @endforeach
             </div>
+
             <div class="pdf-export-table-shell">
-              <div class="section-head-row pdf-export-section-head"><div><p class="section-kicker">Tardanzas</p><h3 class="section-title">Dias tarde</h3></div></div>
-              <table class="history-table"><thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Retraso</th><th>Estado</th></tr></thead>
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Tardanzas</p>
+                  <h3 class="section-title">Dias tarde</h3>
+                </div>
+              </div>
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Retraso</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
                 <tbody>
                   @forelse(($detailEmployeeReport['tardanzas'] ?? []) as $item)
-                    <tr><td>{{ $item['fecha'] }}</td><td>{{ $item['entrada'] }}</td><td>{{ $item['salida'] }}</td><td>{{ $item['retraso'] }}</td><td>{{ $item['estado'] }}</td></tr>
+                    <tr>
+                      <td>{{ $item['fecha'] }}</td>
+                      <td>{{ $item['entrada'] }}</td>
+                      <td>{{ $item['salida'] }}</td>
+                      <td>{{ $item['retraso'] }}</td>
+                      <td>{{ $item['estado'] }}</td>
+                    </tr>
                   @empty
                     <tr><td colspan="5" class="text-center text-slate-400">No tiene tardanzas en el mes.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">No marcados</p>
+                  <h3 class="section-title">Registros incompletos</h3>
+                </div>
+              </div>
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse(($detailEmployeeReport['no_marcados'] ?? []) as $item)
+                    <tr>
+                      <td>{{ $item['fecha'] }}</td>
+                      <td>{{ $item['entrada'] }}</td>
+                      <td>{{ $item['salida'] }}</td>
+                      <td>{{ $item['estado'] }}</td>
+                    </tr>
+                  @empty
+                    <tr><td colspan="4" class="text-center text-slate-400">No tiene no marcados en el mes.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Faltas</p>
+                  <h3 class="section-title">Ausencias del mes</h3>
+                </div>
+              </div>
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Detalle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse(($detailEmployeeReport['faltas'] ?? []) as $item)
+                    <tr>
+                      <td>{{ $item['fecha'] }}</td>
+                      <td>{{ $item['detalle'] }}</td>
+                    </tr>
+                  @empty
+                    <tr><td colspan="2" class="text-center text-slate-400">No tiene faltas en el mes.</td></tr>
                   @endforelse
                 </tbody>
               </table>
@@ -135,9 +227,6 @@
     </div>
   @endif
 
-  {{-- ============================================================ --}}
-  {{-- PDF HIDDEN EXPORT CONTENT                                    --}}
-  {{-- ============================================================ --}}
   <div id="reportes-pdf-content" class="hidden">
     <div class="pdf-export-sheet space-y-8">
       <header class="pdf-export-header">
@@ -151,19 +240,45 @@
           <strong class="pdf-export-badge-value">{{ $monthLabel }}</strong>
         </div>
       </header>
+
       <div class="pdf-export-grid pdf-export-grid-primary">
         @foreach($metrics as $metric)
-          <div class="pdf-export-card"><p class="pdf-export-label">{{ $metric['label'] }}</p><strong class="pdf-export-value">{{ $metric['value'] }}</strong><p class="pdf-export-value-sm">{{ $metric['detail'] }}</p></div>
+          <div class="pdf-export-card">
+            <p class="pdf-export-label">{{ $metric['label'] }}</p>
+            <strong class="pdf-export-value">{{ $metric['value'] }}</strong>
+            <p class="pdf-export-value-sm">{{ $metric['detail'] }}</p>
+          </div>
         @endforeach
       </div>
+
       <div class="pdf-export-table-shell">
-        <div class="section-head-row pdf-export-section-head"><div><p class="section-kicker">Mayor retraso</p><h3 class="section-title">Personal con mayor retraso del mes</h3></div></div>
-        <table class="history-table"><thead><tr><th>Personal</th><th>Sucursal</th><th>Dias tarde</th><th>Retraso</th></tr></thead>
+        <div class="section-head-row pdf-export-section-head">
+          <div>
+            <p class="section-kicker">Mayor retraso</p>
+            <h3 class="section-title">Personal con mayor retraso del mes</h3>
+          </div>
+        </div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Personal</th>
+              <th>Sucursal</th>
+              <th>Dias tarde</th>
+              <th>Retraso</th>
+            </tr>
+          </thead>
           <tbody>
             @forelse($monthlyReport['top_employees'] as $employee)
-              <tr><td>{{ $employee['nombre'] }}</td><td>{{ $employee['sucursal'] }}</td><td>{{ $employee['dias_tarde'] }}</td><td>{{ $employee['retraso'] }}</td></tr>
+              <tr>
+                <td>{{ $employee['nombre'] }}</td>
+                <td>{{ $employee['sucursal'] }}</td>
+                <td>{{ $employee['dias_tarde'] }}</td>
+                <td>{{ $employee['retraso'] }}</td>
+              </tr>
             @empty
-              <tr><td colspan="4" class="text-center text-slate-400">No hay retrasos acumulados en el mes seleccionado.</td></tr>
+              <tr>
+                <td colspan="4" class="text-center text-slate-400">No hay retrasos acumulados en el mes seleccionado.</td>
+              </tr>
             @endforelse
           </tbody>
         </table>
@@ -171,35 +286,24 @@
     </div>
   </div>
 
-  {{-- ============================================================ --}}
-  {{-- HERO HEADER                                                  --}}
-  {{-- ============================================================ --}}
-  <div class="report-hero">
-    <div class="report-hero-content">
+  <section class="surface-card">
+    <div class="section-head-row">
       <div>
-        <p class="report-hero-kicker">Módulo de reportes</p>
-        <h1 class="report-hero-title">Reportes de Asistencia</h1>
-        <p class="report-hero-copy">Análisis mensual · Sucursal activa: <strong>{{ $selectedBranch ?: 'Todas' }}</strong> · <span class="report-hero-month">{{ $monthLabel }}</span></p>
+        <p class="section-kicker">Filtro de reportes</p>
+        <h3 class="section-title">Consulta por mes, sucursal y personal</h3>
+        <p class="section-copy-sm">Resumen mensual cargado: {{ $monthLabel }}.</p>
       </div>
-      <div class="report-hero-actions">
-        <button type="button" wire:click="descargarPdfReporte" class="report-hero-pdf-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>
-          </svg>
-          <span>Exportar PDF</span>
-        </button>
-      </div>
+      <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
     </div>
 
-    {{-- Filtros --}}
-    <div class="report-filter-bar">
-      <div class="report-filter-field">
-        <label class="report-filter-label" for="hero-reference-month">Periodo</label>
-        <input id="hero-reference-month" type="month" wire:model.live="referenceMonth" class="report-filter-input">
+    <div class="mt-8 grid gap-4 md:grid-cols-2">
+      <div>
+        <label class="form-label" for="report-reference-month">Mes de reporte</label>
+        <input id="report-reference-month" type="month" wire:model.live="referenceMonth" class="form-input">
       </div>
-      <div class="report-filter-field">
-        <label class="report-filter-label" for="hero-branch">Sucursal</label>
-        <select id="hero-branch" wire:model.live="selectedBranch" class="report-filter-input">
+      <div>
+        <label class="form-label" for="report-branch">Sucursal</label>
+        <select id="report-branch" wire:model.live="selectedBranch" class="form-input">
           <option value="">Todas las sucursales</option>
           @foreach($branches as $branch)
             <option value="{{ $branch }}">{{ $branch }}</option>
@@ -207,610 +311,161 @@
         </select>
       </div>
     </div>
-  </div>
+  </section>
 
-  {{-- ============================================================ --}}
-  {{-- TAB NAVIGATION                                               --}}
-  {{-- ============================================================ --}}
-  <div class="report-tab-nav" role="tablist">
-    <button type="button" role="tab" :aria-selected="tab === 'resumen'" @click="tab = 'resumen'"
-      :class="tab === 'resumen' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-resumen">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-      <span>Resumen</span>
-    </button>
-    <button type="button" role="tab" :aria-selected="tab === 'atrasos'" @click="tab = 'atrasos'"
-      :class="tab === 'atrasos' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-atrasos">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      <span>Atrasos</span>
-      @if(count($detalleAtrasos) > 0)
-        <span class="report-tab-badge report-tab-badge-amber">{{ count($detalleAtrasos) }}</span>
-      @endif
-    </button>
-    <button type="button" role="tab" :aria-selected="tab === 'omisiones'" @click="tab = 'omisiones'"
-      :class="tab === 'omisiones' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-omisiones">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
-      <span>Omisiones</span>
-      @if(count($detalleOmisiones) > 0)
-        <span class="report-tab-badge report-tab-badge-rose">{{ count($detalleOmisiones) }}</span>
-      @endif
-    </button>
-    <button type="button" role="tab" :aria-selected="tab === 'cumpleanos'" @click="tab = 'cumpleanos'"
-      :class="tab === 'cumpleanos' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-cumpleanos">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 3c0 0 1-2 1-2"/></svg>
-      <span>Cumpleaños</span>
-      @if(count($cumpleanos) > 0)
-        <span class="report-tab-badge report-tab-badge-emerald">{{ count($cumpleanos) }}</span>
-      @endif
-    </button>
-    <button type="button" role="tab" :aria-selected="tab === 'ranking'" @click="tab = 'ranking'"
-      :class="tab === 'ranking' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-ranking">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V10"/><path d="M12 20V4"/><path d="M18 20v-6"/></svg>
-      <span>Ranking</span>
-    </button>
-    @if($reportePersonal)
-    <button type="button" role="tab" :aria-selected="tab === 'mi-reporte'" @click="tab = 'mi-reporte'"
-      :class="tab === 'mi-reporte' ? 'report-tab-button-active' : ''"
-      class="report-tab-button" id="tab-mi-reporte">
-      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      <span>Mi Reporte</span>
-    </button>
-    @endif
-  </div>
+  <section class="metric-grid metric-grid-3">
+    @foreach($metrics as $metric)
+      <article class="metric-card metric-card-centered">
+        <span class="metric-icon metric-icon-{{ $metric['tone'] }}"></span>
+        <p class="metric-label mt-6">{{ $metric['label'] }}</p>
+        <strong class="metric-value">{{ $metric['value'] }}</strong>
+        <p class="metric-copy">{{ $metric['detail'] }}</p>
+      </article>
+    @endforeach
+  </section>
 
-  {{-- ============================================================ --}}
-  {{-- TAB 1: RESUMEN                                               --}}
-  {{-- ============================================================ --}}
-  <div x-show="tab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel">
-
-    {{-- KPI Cards --}}
-    <section class="report-kpi-grid">
-      @foreach($metrics as $metric)
-        <article class="report-kpi-card">
-          <div class="report-kpi-icon report-kpi-icon-{{ $metric['tone'] }}"></div>
-          <div class="report-kpi-body">
-            <p class="report-kpi-label">{{ $metric['label'] }}</p>
-            <strong class="report-kpi-value">{{ $metric['value'] }}</strong>
-            <p class="report-kpi-detail">{{ $metric['detail'] }}</p>
-          </div>
-        </article>
-      @endforeach
-    </section>
-
-    {{-- Gráfico de frecuencia --}}
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Frecuencias mensuales</p>
-          <h2 class="section-title">Marcaciones por mes</h2>
-        </div>
-        <p class="section-copy-sm">{{ $monthLabel }}</p>
+  <section class="surface-card">
+    <div class="history-header">
+      <div>
+        <p class="section-kicker">Reporte mensual</p>
+        <h3 class="section-title">Frecuencias y cierre del mes</h3>
       </div>
+      <p class="section-copy-sm">{{ $monthLabel }}</p>
+    </div>
 
-      <div class="attendance-chart-shell">
-        <div class="attendance-chart-summary">
-          <div class="attendance-chart-pill">
-            <span class="attendance-chart-pill-label">Mes actual</span>
-            <strong class="attendance-chart-pill-value">{{ $frequency['summary']['current_count'] }}</strong>
-          </div>
-          <div class="attendance-chart-pill">
-            <span class="attendance-chart-pill-label">Pico del periodo</span>
-            <strong class="attendance-chart-pill-value">{{ $frequency['summary']['peak_label'] }} · {{ $frequency['summary']['peak_count'] }}</strong>
-          </div>
+    <div class="attendance-chart-shell">
+      <div class="attendance-chart-summary">
+        <div class="attendance-chart-pill">
+          <span class="attendance-chart-pill-label">Mes actual</span>
+          <strong class="attendance-chart-pill-value">{{ $frequency['summary']['current_count'] }}</strong>
         </div>
-        <div class="attendance-chart-frame">
-          <div class="attendance-chart-scale" aria-hidden="true">
-            <span>{{ $frequency['scale']['max'] }}</span>
-            <span>{{ $frequency['scale']['mid'] }}</span>
-            <span>{{ $frequency['scale']['min'] }}</span>
-          </div>
-          <div class="attendance-chart">
-            @foreach($frequency['bars'] as $bar)
-              <div class="attendance-bar-group">
-                <button type="button" wire:click="selectReferenceMonth('{{ $bar['value'] }}')"
-                  class="flex h-full w-full flex-col items-center justify-end text-left transition-transform duration-200 hover:-translate-y-1 focus:outline-none">
-                  <div class="attendance-bar-track">
-                    <div class="attendance-bar {{ $bar['active'] ? 'attendance-bar-active' : '' }} {{ $bar['is_peak'] ? 'attendance-bar-peak' : '' }}" style="height: {{ $bar['height'] }};"></div>
-                  </div>
-                  <span class="attendance-bar-label {{ $bar['active'] ? 'attendance-bar-label-active' : '' }} block">{{ $bar['label'] }}</span>
-                  <span class="attendance-bar-count block">{{ $bar['count'] }}</span>
-                </button>
-              </div>
-            @endforeach
-          </div>
+        <div class="attendance-chart-pill">
+          <span class="attendance-chart-pill-label">Pico del periodo</span>
+          <strong class="attendance-chart-pill-value">{{ $frequency['summary']['peak_label'] }} · {{ $frequency['summary']['peak_count'] }}</strong>
         </div>
       </div>
 
-      {{-- Métricas del mes --}}
-      <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        @foreach($monthlyReport['metrics'] as $metric)
-          <div class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-4">
-            <p class="metric-label">{{ $metric['label'] }}</p>
-            <p class="mt-3 text-2xl font-semibold text-slate-900">{{ $metric['value'] }}</p>
-          </div>
-        @endforeach
-      </div>
-
-      {{-- Top atrasados --}}
-      <div class="mt-8 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-5">
-        <div class="flex items-center justify-between gap-4">
-          <h3 class="text-lg font-semibold text-slate-900">Personal con mayor retraso del mes</h3>
-          <span class="status-badge status-warning">{{ $monthlyReport['late_days'] }} dias tarde</span>
+      <div class="attendance-chart-frame">
+        <div class="attendance-chart-scale" aria-hidden="true">
+          <span>{{ $frequency['scale']['max'] }}</span>
+          <span>{{ $frequency['scale']['mid'] }}</span>
+          <span>{{ $frequency['scale']['min'] }}</span>
         </div>
-        <div class="report-scroll-list mt-5 space-y-3">
-          @forelse($monthlyReport['top_employees'] as $employee)
-            <div class="rounded-xl bg-slate-50 px-4 py-3">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="font-semibold text-slate-900">{{ $employee['nombre'] }}</p>
-                  <p class="mt-1 text-sm text-slate-500">{{ $employee['sucursal'] }} | {{ $employee['dias_tarde'] }} dias tarde | {{ $employee['retraso'] }}</p>
+
+        <div class="attendance-chart">
+          @foreach($frequency['bars'] as $bar)
+            <div class="attendance-bar-group">
+              <button
+                type="button"
+                wire:click="selectReferenceMonth('{{ $bar['value'] }}')"
+                class="flex h-full w-full flex-col items-center justify-end text-left transition-transform duration-200 hover:-translate-y-1 focus:outline-none"
+              >
+                <div class="attendance-bar-track">
+                  <div class="attendance-bar {{ $bar['active'] ? 'attendance-bar-active' : '' }} {{ $bar['is_peak'] ? 'attendance-bar-peak' : '' }}" style="height: {{ $bar['height'] }};"></div>
                 </div>
-                <button type="button" wire:click="openEmployeeDetailModal({{ $employee['empleado_id'] }})" class="table-action-button">Ver detalle</button>
-              </div>
-            </div>
-          @empty
-            <p class="text-sm text-slate-400">No hay retrasos acumulados en el mes seleccionado.</p>
-          @endforelse
-        </div>
-      </div>
-    </section>
-
-    {{-- Incidencias --}}
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Incidencias filtradas</p>
-          <h2 class="section-title">Incidencias del mes</h2>
-        </div>
-        <p class="section-copy-sm">{{ $monthLabel }}</p>
-      </div>
-      <div class="diagnostic-grid mt-8">
-        <div class="diagnostic-card">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-base font-semibold text-slate-900">Incidencias justificadas</h4>
-            <span class="status-badge status-available">{{ count($incidents['permisos']) }}</span>
-          </div>
-          <div class="report-scroll-list mt-4 space-y-3">
-            @forelse($incidents['permisos'] as $item)
-              <div class="rounded-xl bg-slate-50 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
-              </div>
-            @empty
-              <p class="text-sm text-slate-400">No hay incidencias justificadas en el rango.</p>
-            @endforelse
-          </div>
-        </div>
-        <div class="diagnostic-card">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-base font-semibold text-slate-900">Ausencias injustificadas</h4>
-            <span class="status-badge status-warning">{{ count($incidents['faltas']) }}</span>
-          </div>
-          <div class="report-scroll-list mt-4 space-y-3">
-            @forelse($incidents['faltas'] as $item)
-              <div class="rounded-xl bg-slate-50 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
-              </div>
-            @empty
-              <p class="text-sm text-slate-400">No hay faltas injustificadas en el rango.</p>
-            @endforelse
-          </div>
-        </div>
-        <div class="diagnostic-card xl:col-span-2">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-base font-semibold text-slate-900">Olvidos de marcar</h4>
-            <span class="status-badge status-danger">{{ count($incidents['olvidos']) }}</span>
-          </div>
-          <div class="report-scroll-list mt-4 grid gap-4 md:grid-cols-2">
-            @forelse($incidents['olvidos'] as $item)
-              <div class="rounded-xl bg-slate-50 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
-              </div>
-            @empty
-              <p class="text-sm text-slate-400">No existen olvidos de marcacion en el rango.</p>
-            @endforelse
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  {{-- ============================================================ --}}
-  {{-- TAB 2: ATRASOS                                               --}}
-  {{-- ============================================================ --}}
-  <div x-show="tab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel">
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Detalle de atrasos</p>
-          <h2 class="section-title">Registro de atrasos del mes</h2>
-          <p class="section-copy-sm">Todos los registros de llegada tarde en {{ $monthLabel }}.</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="status-badge status-warning">{{ count($detalleAtrasos) }} atrasos</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
-        </div>
-      </div>
-      <div class="history-table-shell mt-8">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Personal</th>
-              <th>Sucursal</th>
-              <th>Fecha</th>
-              <th>Hora prog.</th>
-              <th>Hora real</th>
-              <th>Retraso</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            @forelse($detalleAtrasos as $item)
-              <tr class="report-atraso-row">
-                <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
-                <td>{{ $item['sucursal'] }}</td>
-                <td>{{ $item['fecha'] }}</td>
-                <td>{{ $item['entrada_programada'] }}</td>
-                <td class="font-medium text-rose-700">{{ $item['entrada_real'] }}</td>
-                <td><span class="status-badge status-warning">{{ $item['retraso'] }}</span></td>
-                <td class="text-xs text-slate-500">{{ $item['estado'] }}</td>
-              </tr>
-            @empty
-              <tr>
-                <td colspan="7" class="py-12 text-center text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                  No hay atrasos registrados en el mes seleccionado.
-                </td>
-              </tr>
-            @endforelse
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  {{-- ============================================================ --}}
-  {{-- TAB 3: OMISIONES                                             --}}
-  {{-- ============================================================ --}}
-  <div x-show="tab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel">
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Olvidos de marcación</p>
-          <h2 class="section-title">Omisiones del mes</h2>
-          <p class="section-copy-sm">Registros con entrada o salida faltante en {{ $monthLabel }}.</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="status-badge status-danger">{{ count($detalleOmisiones) }} omisiones</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
-        </div>
-      </div>
-      <div class="history-table-shell mt-8">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Personal</th>
-              <th>Sucursal</th>
-              <th>Fecha</th>
-              <th>Entrada</th>
-              <th>Salida</th>
-              <th>Estado</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            @forelse($detalleOmisiones as $item)
-              <tr class="report-omision-row">
-                <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
-                <td>{{ $item['sucursal'] }}</td>
-                <td>{{ $item['fecha'] }}</td>
-                <td class="{{ blank($item['entrada'] ?? '') || ($item['entrada'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : '' }}">{{ $item['entrada'] ?? '--:--' }}</td>
-                <td class="{{ blank($item['salida'] ?? '') || ($item['salida'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : '' }}">{{ $item['salida'] ?? '--:--' }}</td>
-                <td><span class="status-badge status-danger">{{ $item['estado'] ?? 'Sin estado' }}</span></td>
-                <td class="text-xs text-slate-500">{{ $item['detalle'] ?? '' }}</td>
-              </tr>
-            @empty
-              <tr>
-                <td colspan="7" class="py-12 text-center text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/></svg>
-                  No hay omisiones de marcacion en el mes seleccionado.
-                </td>
-              </tr>
-            @endforelse
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  {{-- ============================================================ --}}
-  {{-- TAB 4: CUMPLEAÑOS                                            --}}
-  {{-- ============================================================ --}}
-  <div x-show="tab === 'cumpleanos'" x-transition.opacity.duration.200ms role="tabpanel">
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Celebraciones del mes</p>
-          <h2 class="section-title">Cumpleaños — {{ $monthLabel }}</h2>
-          <p class="section-copy-sm">Personal que cumple años durante este mes.</p>
-        </div>
-        <span class="status-badge status-available">{{ count($cumpleanos) }} cumpleañeros</span>
-      </div>
-
-      @if(count($cumpleanos) > 0)
-        {{-- Hoy --}}
-        @php $hoy = collect($cumpleanos)->where('es_hoy', true); @endphp
-        @if($hoy->count() > 0)
-          <div class="birthday-today-banner mt-8">
-            <div class="birthday-today-icon">🎂</div>
-            <div>
-              <p class="birthday-today-label">¡Hoy es el cumpleaños de!</p>
-              <p class="birthday-today-names">{{ $hoy->pluck('nombre')->join(', ') }}</p>
-            </div>
-          </div>
-        @endif
-
-        <div class="birthday-grid mt-8">
-          @foreach($cumpleanos as $persona)
-            <div class="birthday-card {{ $persona['es_hoy'] ? 'birthday-card-today' : ($persona['es_esta_semana'] ? 'birthday-card-week' : '') }}">
-              <div class="birthday-avatar {{ $persona['es_hoy'] ? 'birthday-avatar-today' : '' }}">
-                {{ $persona['inicial'] }}
-              </div>
-              <div class="birthday-info">
-                <p class="birthday-name">{{ $persona['nombre'] }}</p>
-                <p class="birthday-meta">{{ $persona['area'] }} · {{ $persona['sucursal'] }}</p>
-                <div class="birthday-date-row">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                  <span>{{ $persona['fecha_label'] }} · {{ $persona['edad'] }} años</span>
-                </div>
-              </div>
-              <div class="birthday-chips">
-                @if($persona['es_hoy'])
-                  <span class="birthday-chip birthday-chip-today">Hoy 🎉</span>
-                @elseif($persona['es_esta_semana'])
-                  <span class="birthday-chip birthday-chip-week">Esta semana</span>
-                @endif
-              </div>
+                <span class="attendance-bar-label {{ $bar['active'] ? 'attendance-bar-label-active' : '' }} block">{{ $bar['label'] }}</span>
+                <span class="attendance-bar-count block">{{ $bar['count'] }}</span>
+              </button>
             </div>
           @endforeach
         </div>
-      @else
-        <div class="py-16 text-center">
-          <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">🎂</div>
-          <p class="text-lg font-semibold text-slate-700">Sin cumpleaños este mes</p>
-          <p class="mt-2 text-sm text-slate-400">No hay empleados que cumplan años en {{ $monthLabel }}.</p>
-        </div>
-      @endif
-    </section>
-  </div>
-
-  {{-- ============================================================ --}}
-  {{-- TAB 5: RANKING                                               --}}
-  {{-- ============================================================ --}}
-  <div x-show="tab === 'ranking'" x-transition.opacity.duration.200ms role="tabpanel">
-
-    {{-- Ranking Mensual --}}
-    <div class="grid gap-6 xl:grid-cols-2">
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Mes · {{ $monthLabel }}</p>
-          <h2 class="section-title">Más puntuales del mes</h2>
-          <p class="section-copy-sm">Empleados con menor retraso acumulado.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingMensual['mas_puntuales'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }}">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🥇</span>
-                @elseif($i === 1) <span class="ranking-medal">🥈</span>
-                @elseif($i === 2) <span class="ranking-medal">🥉</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_marcados'] }} días marcados</p>
-              </div>
-              <div class="ranking-stat ranking-stat-green">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin datos suficientes para el mes seleccionado.</p>
-          @endforelse
-        </div>
-      </section>
-
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Mes · {{ $monthLabel }}</p>
-          <h2 class="section-title">Más atrasados del mes</h2>
-          <p class="section-copy-sm">Empleados con mayor retraso acumulado.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingMensual['mas_atrasados'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }} ranking-card-danger">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🔴</span>
-                @elseif($i === 1) <span class="ranking-medal">🟠</span>
-                @elseif($i === 2) <span class="ranking-medal">🟡</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar ranking-avatar-danger">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_tarde'] }} días tarde</p>
-              </div>
-              <div class="ranking-stat ranking-stat-red">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin atrasos registrados en el mes seleccionado.</p>
-          @endforelse
-        </div>
-      </section>
+      </div>
     </div>
 
-    {{-- Ranking Semanal --}}
-    <div class="grid gap-6 xl:grid-cols-2">
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Semana actual</p>
-          <h2 class="section-title">Más puntuales de la semana</h2>
-          <p class="section-copy-sm">Empleados con menor retraso acumulado esta semana.</p>
+    <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      @foreach($monthlyReport['metrics'] as $metric)
+        <div class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-5 py-4">
+          <p class="metric-label">{{ $metric['label'] }}</p>
+          <p class="mt-3 text-2xl font-semibold text-slate-900">{{ $metric['value'] }}</p>
         </div>
-        <div class="ranking-list">
-          @forelse($rankingSemanal['mas_puntuales'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }}">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🥇</span>
-                @elseif($i === 1) <span class="ranking-medal">🥈</span>
-                @elseif($i === 2) <span class="ranking-medal">🥉</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }}</p>
-              </div>
-              <div class="ranking-stat ranking-stat-green">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin datos suficientes para la semana actual.</p>
-          @endforelse
-        </div>
-      </section>
-
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Semana actual</p>
-          <h2 class="section-title">Más atrasados de la semana</h2>
-          <p class="section-copy-sm">Empleados con mayor retraso acumulado esta semana.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingSemanal['mas_atrasados'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }} ranking-card-danger">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🔴</span>
-                @elseif($i === 1) <span class="ranking-medal">🟠</span>
-                @elseif($i === 2) <span class="ranking-medal">🟡</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar ranking-avatar-danger">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_tarde'] }} días tarde</p>
-              </div>
-              <div class="ranking-stat ranking-stat-red">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin atrasos registrados esta semana.</p>
-          @endforelse
-        </div>
-      </section>
+      @endforeach
     </div>
-  </div>
 
-  {{-- ============================================================ --}}
-  {{-- TAB 6: MI REPORTE (solo usuarios con empleado vinculado)     --}}
-  {{-- ============================================================ --}}
-  @if($reportePersonal)
-  <div x-show="tab === 'mi-reporte'" x-transition.opacity.duration.200ms role="tabpanel">
-    <section class="surface-card">
-      <div class="history-header">
-        <div>
-          <p class="section-kicker">Reporte personal</p>
-          <h2 class="section-title">{{ $authEmpleadoNombre ?? $reportePersonal['empleado']['nombre'] }}</h2>
-          <p class="section-copy-sm">{{ $reportePersonal['empleado']['sucursal'] }} · Horario: {{ $reportePersonal['empleado']['horario'] }}</p>
-        </div>
-        <span class="status-badge status-info">{{ $monthLabel }}</span>
+    <div class="mt-8 rounded-[1.4rem] border border-slate-200 bg-white px-5 py-5">
+      <div class="flex items-center justify-between gap-4">
+        <h4 class="text-lg font-semibold text-slate-900">Personal con mayor retraso del mes</h4>
+        <span class="status-badge status-warning">{{ $monthlyReport['late_days'] }} dias tarde</span>
       </div>
 
-      {{-- KPIs personales --}}
-      <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        @foreach($reportePersonal['metrics'] as $metric)
-          <div class="personal-kpi-card">
-            <p class="metric-label">{{ $metric['label'] }}</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900">{{ $metric['value'] }}</p>
+      <div class="report-scroll-list mt-5 space-y-3">
+        @forelse($monthlyReport['top_employees'] as $employee)
+          <div class="rounded-xl bg-slate-50 px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-semibold text-slate-900">{{ $employee['nombre'] }}</p>
+                <p class="mt-1 text-sm text-slate-500">{{ $employee['sucursal'] }} | {{ $employee['dias_tarde'] }} dias tarde | {{ $employee['retraso'] }}</p>
+              </div>
+              <button type="button" wire:click="openEmployeeDetailModal({{ $employee['empleado_id'] }})" class="table-action-button">Ver detalle</button>
+            </div>
           </div>
-        @endforeach
+        @empty
+          <p class="text-sm text-slate-400">No hay retrasos acumulados en el mes seleccionado.</p>
+        @endforelse
       </div>
+    </div>
+  </section>
 
-      {{-- Listas de atrasos y omisiones personales --}}
-      <div class="mt-8 grid gap-6 xl:grid-cols-2">
-        <div class="rounded-[1.3rem] border border-amber-200 bg-amber-50/40 px-5 py-5">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <h3 class="text-base font-semibold text-slate-900">Mis atrasos del mes</h3>
-            <span class="status-badge status-warning">{{ count($reportePersonal['tardanzas']) }}</span>
-          </div>
-          <div class="report-scroll-list space-y-3">
-            @forelse($reportePersonal['tardanzas'] as $item)
-              <div class="rounded-xl bg-white border border-amber-100 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">Entrada: {{ $item['entrada'] }} · Retraso: <strong class="text-amber-700">{{ $item['retraso'] }}</strong></p>
-              </div>
-            @empty
-              <p class="text-sm text-slate-400">Sin atrasos en el mes. ¡Excelente puntualidad!</p>
-            @endforelse
-          </div>
+  <section class="surface-card">
+    <div class="history-header">
+      <div>
+        <p class="section-kicker">Incidencias filtradas</p>
+        <h3 class="section-title">Incidencias del mes seleccionado</h3>
+      </div>
+      <p class="section-copy-sm">{{ $monthLabel }}</p>
+    </div>
+
+    <div class="diagnostic-grid mt-8">
+      <div class="diagnostic-card">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-base font-semibold text-slate-900">Incidencias justificadas</h4>
+          <span class="status-badge status-available">{{ count($incidents['permisos']) }}</span>
         </div>
-
-        <div class="rounded-[1.3rem] border border-rose-200 bg-rose-50/40 px-5 py-5">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <h3 class="text-base font-semibold text-slate-900">Mis omisiones del mes</h3>
-            <span class="status-badge status-danger">{{ count($reportePersonal['no_marcados']) }}</span>
-          </div>
-          <div class="report-scroll-list space-y-3">
-            @forelse($reportePersonal['no_marcados'] as $item)
-              <div class="rounded-xl bg-white border border-rose-100 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">Entrada: {{ $item['entrada'] }} · Salida: {{ $item['salida'] }}</p>
-              </div>
-            @empty
-              <p class="text-sm text-slate-400">Sin omisiones de marcación. ¡Perfecto registro!</p>
-            @endforelse
-          </div>
+        <div class="report-scroll-list mt-4 space-y-3">
+          @forelse($incidents['permisos'] as $item)
+            <div class="rounded-xl bg-slate-50 px-4 py-3">
+              <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
+              <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
+            </div>
+          @empty
+            <p class="text-sm text-slate-400">No hay incidencias justificadas en el rango.</p>
+          @endforelse
         </div>
       </div>
 
-      {{-- Faltas personales --}}
-      @if(count($reportePersonal['faltas']) > 0)
-        <div class="mt-6 rounded-[1.3rem] border border-slate-200 bg-slate-50 px-5 py-5">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <h3 class="text-base font-semibold text-slate-900">Faltas registradas</h3>
-            <span class="status-badge status-danger">{{ count($reportePersonal['faltas']) }}</span>
-          </div>
-          <div class="report-scroll-list grid gap-3 md:grid-cols-2">
-            @foreach($reportePersonal['faltas'] as $item)
-              <div class="rounded-xl bg-white border border-slate-200 px-4 py-3">
-                <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
-              </div>
-            @endforeach
-          </div>
+      <div class="diagnostic-card">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-base font-semibold text-slate-900">Ausencias injustificadas</h4>
+          <span class="status-badge status-warning">{{ count($incidents['faltas']) }}</span>
         </div>
-      @endif
-    </section>
-  </div>
-  @endif
+        <div class="report-scroll-list mt-4 space-y-3">
+          @forelse($incidents['faltas'] as $item)
+            <div class="rounded-xl bg-slate-50 px-4 py-3">
+              <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
+              <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
+            </div>
+          @empty
+            <p class="text-sm text-slate-400">No hay faltas injustificadas en el rango.</p>
+          @endforelse
+        </div>
+      </div>
+
+      <div class="diagnostic-card xl:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-base font-semibold text-slate-900">Olvidos de marcar</h4>
+          <span class="status-badge status-danger">{{ count($incidents['olvidos']) }}</span>
+        </div>
+        <div class="report-scroll-list mt-4 grid gap-4 md:grid-cols-2">
+          @forelse($incidents['olvidos'] as $item)
+            <div class="rounded-xl bg-slate-50 px-4 py-3">
+              <p class="font-semibold text-slate-900">{{ $item['nombre'] }}</p>
+              <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
+            </div>
+          @empty
+            <p class="text-sm text-slate-400">No existen olvidos de marcacion en el rango.</p>
+          @endforelse
+        </div>
+      </div>
+    </div>
+  </section>
 
 </div>
