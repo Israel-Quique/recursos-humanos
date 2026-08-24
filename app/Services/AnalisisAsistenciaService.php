@@ -922,6 +922,141 @@ class AnalisisAsistenciaService
             ->all());
     }
 
+    public function cumpleaniosMes(Carbon $referenceMonth, ?string $branch = null): array
+    {
+        $mes = (int) $referenceMonth->format('m');
+        $hoy = now()->startOfDay();
+        $inicioSemana = now()->startOfWeek(Carbon::MONDAY);
+        $finSemana = now()->endOfWeek(Carbon::SUNDAY);
+
+        $empleados = Empleado::query()
+            ->whereNotNull('fecha_nacimiento')
+            ->whereMonth('fecha_nacimiento', $mes)
+            ->when(filled($branch), fn ($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch))
+            ->get()
+            ->sortBy(fn (Empleado $e) => (int) $e->fecha_nacimiento?->format('d'));
+
+        return $empleados->map(function (Empleado $empleado) use ($hoy, $inicioSemana, $finSemana, $referenceMonth) {
+            $diaCumple = (int) $empleado->fecha_nacimiento->format('d');
+            $fechaCumpleEsteAnio = Carbon::create($hoy->year, (int) $referenceMonth->format('m'), $diaCumple);
+
+            $esHoy = $fechaCumpleEsteAnio->isSameDay($hoy);
+            $esEstaSemana = !$esHoy
+                && $fechaCumpleEsteAnio->betweenIncluded($inicioSemana, $finSemana);
+
+            return [
+                'id'          => $empleado->id,
+                'nombre'      => $empleado->nombre_completo,
+                'area'        => $empleado->area ?: 'Sin área',
+                'sucursal'    => $empleado->sucursal ?: 'Sin sucursal',
+                'dia'         => $diaCumple,
+                'fecha_label' => $empleado->fecha_nacimiento->locale('es')->translatedFormat('d \de F'),
+                'edad'        => (int) $empleado->fecha_nacimiento->diffInYears($hoy),
+                'es_hoy'      => $esHoy,
+                'es_esta_semana' => $esEstaSemana,
+                'inicial'     => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+            ];
+        })->all();
+    }
+
+    public function rankingPuntualidad(Carbon $start, Carbon $end, ?string $branch = null, int $top = 5): array
+    {
+        $attendance = $this->filtrarAsistenciasPorSucursal(
+            RegistroAsistencia::query(),
+            $branch
+        )
+            ->with('empleado')
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
+            ->get()
+            ->filter(fn (RegistroAsistencia $r) => $r->empleado);
+
+        $perEmployee = [];
+
+        foreach ($attendance as $registro) {
+            $empleado = $registro->empleado;
+            $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
+
+            if (! $horario['laborable']) {
+                continue;
+            }
+
+            $delay = $this->calcularMinutosRetraso(
+                $registro->hora_entrada,
+                $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
+            );
+
+            $id = $empleado->id;
+            if (! isset($perEmployee[$id])) {
+                $perEmployee[$id] = [
+                    'empleado_id'    => $id,
+                    'nombre'         => $empleado->nombre_completo,
+                    'sucursal'       => $empleado->sucursal ?: 'Sin sucursal',
+                    'area'           => $empleado->area ?: 'Sin área',
+                    'dias_marcados'  => 0,
+                    'dias_tarde'     => 0,
+                    'minutos_tarde'  => 0,
+                    'inicial'        => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            $perEmployee[$id]['dias_marcados']++;
+
+            if ($delay > 0) {
+                $perEmployee[$id]['dias_tarde']++;
+                $perEmployee[$id]['minutos_tarde'] += $delay;
+            }
+        }
+
+        if (empty($perEmployee)) {
+            return ['mas_puntuales' => [], 'mas_atrasados' => []];
+        }
+
+        $collection = collect(array_values($perEmployee))
+            ->filter(fn (array $e) => $e['dias_marcados'] > 0);
+
+        $masAtrasados = $collection
+            ->sortByDesc('minutos_tarde')
+            ->take($top)
+            ->values()
+            ->map(fn (array $e) => [
+                ...$e,
+                'retraso_label' => $this->formatearMinutosEtiqueta($e['minutos_tarde']),
+            ])
+            ->all();
+
+        $masPuntuales = $collection
+            ->sortBy('minutos_tarde')
+            ->take($top)
+            ->values()
+            ->map(fn (array $e) => [
+                ...$e,
+                'retraso_label' => $this->formatearMinutosEtiqueta($e['minutos_tarde']),
+            ])
+            ->all();
+
+        return [
+            'mas_puntuales' => $masPuntuales,
+            'mas_atrasados' => $masAtrasados,
+        ];
+    }
+
+    public function rankingPuntualidadMensual(Carbon $referenceMonth, ?string $branch = null, int $top = 5): array
+    {
+        $start = $referenceMonth->copy()->startOfMonth();
+        $end   = $referenceMonth->copy()->endOfMonth();
+
+        return $this->rankingPuntualidad($start, $end, $branch, $top);
+    }
+
+    public function rankingPuntualidadSemanal(?string $branch = null, int $top = 5): array
+    {
+        $start = now()->startOfWeek(Carbon::MONDAY);
+        $end   = now()->endOfWeek(Carbon::SUNDAY)->min(now());
+
+        return $this->rankingPuntualidad($start, $end, $branch, $top);
+    }
+
     public function asistenciaPorDepartamento(): array
     {
         $base = collect([

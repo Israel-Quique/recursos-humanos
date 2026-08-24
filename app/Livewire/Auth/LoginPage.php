@@ -19,7 +19,7 @@ class LoginPage extends Component
     public function mount(): void
     {
         if (Auth::check()) {
-            $this->redirectRoute('dashboard');
+            $this->redirectRoute('dashboard', navigate: true);
         }
     }
 
@@ -51,9 +51,7 @@ class LoginPage extends Component
 
         session()->flash('status', 'Bienvenido al sistema de recursos humanos.');
 
-        // After regenerating the session, force a full redirect so Livewire
-        // boots with the fresh CSRF token instead of the guest-page token.
-        $this->redirectRoute('dashboard');
+        $this->redirectRoute('dashboard', navigate: true);
     }
 
     public function togglePassword(): void
