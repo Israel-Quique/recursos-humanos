@@ -488,15 +488,17 @@ class PersonalPage extends Component
             ->paginate(10, ['*'], 'registrosPage');
 
         $registros->getCollection()->transform(function (RegistroAsistencia $registro) {
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
             return (object) [
                 'id' => $registro->id,
                 'empleado' => $registro->empleado,
                 'fecha' => $registro->fecha,
                 'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
                 'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
-                'hora_entrada' => $registro->hora_entrada,
-                'hora_salida' => $registro->hora_salida,
-                'estado_marcacion' => $registro->estado_marcacion,
+                'hora_entrada' => $marcacion['entrada'],
+                'hora_salida' => $marcacion['salida'],
+                'estado_marcacion' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
             ];
         });
 
@@ -566,16 +568,17 @@ class PersonalPage extends Component
                 $registroHoy = $asistencia;
             }
 
-            $horaSalidaReal = $this->horaSalidaReal($asistencia);
+            $marcacion = $this->normalizarMarcacionAsistencia($asistencia);
+            $horaSalidaReal = $marcacion['salida'];
 
-            $minutosTrabajados += $this->calcularMinutosTrabajados($asistencia->hora_entrada, $horaSalidaReal);
+            $minutosTrabajados += $this->calcularMinutosTrabajados($marcacion['entrada'], $horaSalidaReal);
 
             if ($this->debeContarComoOlvidoMarcacion($asistencia, $empleado)) {
                 $olvidosMarcacion++;
             }
 
             $min = $this->calcularMinutosRetraso(
-                $asistencia->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
             $minutosRetraso += $min;
@@ -585,13 +588,15 @@ class PersonalPage extends Component
         }
 
         return [
-            'entrada_hoy' => $registroHoy?->hora_entrada ? substr($registroHoy->hora_entrada, 0, 5) : '--:--',
-            'salida_hoy' => $registroHoy && ($horaSalidaHoy = $this->horaSalidaReal($registroHoy))
-                ? substr($horaSalidaHoy, 0, 5)
+            'entrada_hoy' => ($registroHoy && ($marcacionHoy = $this->normalizarMarcacionAsistencia($registroHoy)) && $marcacionHoy['entrada'])
+                ? substr($marcacionHoy['entrada'], 0, 5)
+                : '--:--',
+            'salida_hoy' => ($registroHoy && ($marcacionHoy = $this->normalizarMarcacionAsistencia($registroHoy)) && $marcacionHoy['salida'])
+                ? substr($marcacionHoy['salida'], 0, 5)
                 : '--:--',
             'verificacion_hoy' => $registroHoy?->tipo_verificacion ?: 'Sin registro',
             'estado_hoy' => $registroHoy
-                ? ($this->tieneSoloEntradaMarcada($registroHoy) ? 'En su puesto' : ($registroHoy->estado_marcacion ?: 'Sin registro'))
+                ? ($this->normalizarMarcacionAsistencia($registroHoy)['solo_entrada'] ? 'En su puesto' : ($registroHoy->estado_marcacion ?: 'Sin registro'))
                 : 'Sin registro',
             'evento_hoy' => $registroHoy?->evento_biometrico ?: 'Sin evento',
             'horas_mes' => $this->formatearMinutos($minutosTrabajados),
@@ -652,13 +657,14 @@ class PersonalPage extends Component
             })
             ->map(function (RegistroAsistencia $registro) use ($empleado) {
                 $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
+                $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $minutosRetraso = $this->calcularMinutosRetraso(
-                    $registro->hora_entrada,
+                    $marcacion['entrada'],
                     $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
                 );
-                $olvidoEntrada = blank($registro->hora_entrada);
-                $soloEntrada = $this->tieneSoloEntradaMarcada($registro);
-                $horaSalidaReal = $this->horaSalidaReal($registro);
+                $olvidoEntrada = blank($marcacion['entrada']);
+                $soloEntrada = $marcacion['solo_entrada'];
+                $horaSalidaReal = $marcacion['salida'];
                 $olvidoSalida = blank($horaSalidaReal);
 
                 if ($olvidoEntrada && $olvidoSalida) {
@@ -678,11 +684,11 @@ class PersonalPage extends Component
                 return [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'dia' => ucfirst($registro->fecha?->locale('es')->isoFormat('dddd') ?? 'Sin dia'),
-                    'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'retraso' => $this->formatearMinutosEtiqueta($minutosRetraso),
                     'estado' => $estadoRegistro,
-                    'estado_biometrico' => $soloEntrada ? 'En su puesto' : ($registro->estado_marcacion ?: 'Sin registro'),
+                    'estado_biometrico' => $soloEntrada ? 'En su puesto' : $this->resolverEstadoMarcacionVisible($registro, $marcacion),
                 ];
             })
             ->filter(function (array $registro) {
@@ -796,33 +802,23 @@ class PersonalPage extends Component
 
     private function tieneSoloEntradaMarcada(RegistroAsistencia $registro): bool
     {
-        if (blank($registro->hora_entrada)) {
-            return false;
-        }
-
-        if (blank($registro->hora_salida)) {
-            return true;
-        }
-
-        return $this->normalizarHoraComparable($registro->hora_entrada) === $this->normalizarHoraComparable($registro->hora_salida);
+        return $this->normalizarMarcacionAsistencia($registro)['solo_entrada'];
     }
 
     private function horaSalidaReal(RegistroAsistencia $registro): ?string
     {
-        if ($this->tieneSoloEntradaMarcada($registro)) {
-            return null;
-        }
-
-        return blank($registro->hora_salida) ? null : $registro->hora_salida;
+        return $this->normalizarMarcacionAsistencia($registro)['salida'];
     }
 
     private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro, Empleado $empleado): bool
     {
-        if (blank($registro->hora_entrada)) {
+        $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
+        if (blank($marcacion['entrada'])) {
             return true;
         }
 
-        if (! blank($this->horaSalidaReal($registro))) {
+        if (! blank($marcacion['salida'])) {
             return false;
         }
 
@@ -866,6 +862,115 @@ class PersonalPage extends Component
         $parsed = $this->parseTimeToCarbon($hora);
 
         return $parsed?->format('H:i:s') ?: trim((string) $hora);
+    }
+
+    private function normalizarMarcacionAsistencia(RegistroAsistencia $registro): array
+    {
+        $entrada = $this->normalizarHoraComparable($registro->hora_entrada);
+        $salida = $this->normalizarHoraComparable($registro->hora_salida);
+        $estado = $this->normalizarTextoPerfil((string) ($registro->estado_marcacion ?? ''));
+        $evento = $this->normalizarTextoPerfil((string) ($registro->evento_biometrico ?? ''));
+
+        $entradaExplicita = $this->marcacionEsEntradaExplicita($estado, $evento);
+        $salidaExplicita = $this->marcacionEsSalidaExplicita($estado, $evento);
+
+        if ($salidaExplicita && ! $entradaExplicita && filled($entrada) && blank($salida)) {
+            $salida = $entrada;
+            $entrada = null;
+        }
+
+        if (filled($entrada) xor filled($salida)) {
+            [$entrada, $salida] = $this->inferirMarcacionPorHorario($registro, $entrada, $salida);
+        }
+
+        if (filled($entrada) && filled($salida) && $entrada === $salida) {
+            $salida = null;
+        }
+
+        return [
+            'entrada' => $entrada,
+            'salida' => $salida,
+            'solo_entrada' => filled($entrada) && blank($salida),
+        ];
+    }
+
+    private function marcacionEsEntradaExplicita(string $estado, string $evento): bool
+    {
+        return str_contains($estado, 'entrada')
+            || str_contains($estado, 'retorno')
+            || str_contains($estado, 'ingreso')
+            || str_contains($evento, 'retorno');
+    }
+
+    private function marcacionEsSalidaExplicita(string $estado, string $evento): bool
+    {
+        return str_contains($estado, 'salida')
+            || str_contains($evento, 'boton de salida');
+    }
+
+    private function inferirMarcacionPorHorario(RegistroAsistencia $registro, ?string $entrada, ?string $salida): array
+    {
+        $empleado = $registro->empleado;
+
+        if (! $empleado || ! $registro->fecha) {
+            return [$entrada, $salida];
+        }
+
+        $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
+
+        if (($horario['laborable'] ?? true) === false) {
+            return [$entrada, $salida];
+        }
+
+        $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
+        $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
+
+        if (! $horaEntrada || ! $horaSalida) {
+            return [$entrada, $salida];
+        }
+
+        $entradaReferencia = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
+        $salidaReferencia = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
+        $puntoMedio = (int) floor(($entradaReferencia + $salidaReferencia) / 2);
+
+        if (filled($entrada) && blank($salida)) {
+            $marca = $this->parseTimeToCarbon($entrada);
+
+            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) >= $puntoMedio) {
+                return [null, $entrada];
+            }
+        }
+
+        if (blank($entrada) && filled($salida)) {
+            $marca = $this->parseTimeToCarbon($salida);
+
+            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) < $puntoMedio) {
+                return [$salida, null];
+            }
+        }
+
+        return [$entrada, $salida];
+    }
+
+    private function resolverEstadoMarcacionVisible(RegistroAsistencia $registro, ?array $marcacion = null): string
+    {
+        $marcacion ??= $this->normalizarMarcacionAsistencia($registro);
+        $estado = $this->normalizarTextoPerfil((string) ($registro->estado_marcacion ?? ''));
+        $evento = $this->normalizarTextoPerfil((string) ($registro->evento_biometrico ?? ''));
+
+        if ($this->marcacionEsSalidaExplicita($estado, $evento) && ! $this->marcacionEsEntradaExplicita($estado, $evento)) {
+            return 'Salida';
+        }
+
+        if ($this->marcacionEsEntradaExplicita($estado, $evento) && ! $this->marcacionEsSalidaExplicita($estado, $evento)) {
+            return 'Entrada';
+        }
+
+        if ($marcacion['solo_entrada'] ?? false) {
+            return 'Entrada';
+        }
+
+        return $registro->estado_marcacion ?: 'Sin estado';
     }
 
     private function calcularMinutosRetraso(?string $horaEntrada, ?string $horaProgramada): int

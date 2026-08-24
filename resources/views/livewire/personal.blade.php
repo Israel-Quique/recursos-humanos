@@ -172,121 +172,254 @@
           </div>
         </div>
 
-        <div class="mt-5 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Mostrando resumen mensual de:
-          <strong class="text-slate-900">{{ $detailEmpleado['mes_referencia'] ?? '-' }}</strong>
-        </div>
+        @php
+          $detailMarcaciones = collect($detailEmpleado['marcaciones_mes'] ?? []);
+          $detailAtrasos = $detailMarcaciones->filter(function (array $item) {
+              $retraso = trim((string) ($item['retraso'] ?? '0 min'));
 
-        <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Codigo</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['codigo_biometrico'] ?? 'Sin asignar' }}</strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Sucursal</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['sucursal'] ?? 'Sin sucursal' }}</strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Horario</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['hora_entrada_programada'] ?? '--:--' }} - {{ $detailEmpleado['hora_salida_programada'] ?? '--:--' }}</strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Dias tarde</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['dias_tarde'] ?? 0 }}</strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Estado</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['estado_laboral'] ?? 'Activo' }}</strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Ultima marcacion</p>
-            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones' }}</strong>
-          </div>
-        </div>
+              return $retraso !== '' && $retraso !== '0 min' && $retraso !== '0';
+          })->values();
+          $detailOmisiones = $detailMarcaciones->filter(function (array $item) {
+              $entrada = trim((string) ($item['entrada'] ?? '--:--'));
+              $estado = mb_strtolower((string) ($item['estado'] ?? ''));
+              $estadoBiometrico = mb_strtolower((string) ($item['estado_biometrico'] ?? ''));
 
-        <div class="mt-8 grid gap-4 md:grid-cols-2">
-          <div class="detail-info-card">
-            <p class="metric-label">Area</p>
-            <p class="detail-info-value">{{ $detailEmpleado['area'] ?? 'Sin area' }}</p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Nacimiento</p>
-            <p class="detail-info-value">{{ $detailEmpleado['fecha_nacimiento'] ?? 'Sin fecha' }}</p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Horas del mes</p>
-            <p class="detail-info-value">{{ $detailEmpleado['horas_mes'] ?? '00:00' }}</p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Retraso del mes</p>
-            <p class="detail-info-value">{{ $detailEmpleado['retraso_mes'] ?? '0 min' }}</p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Olvidos del mes</p>
-            <p class="detail-info-value">{{ $detailEmpleado['olvidos_marcacion'] ?? 0 }}</p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Saldo de tolerancia</p>
-            <p class="detail-info-value">{{ $detailEmpleado['saldo_mes'] ?? '0 min' }}</p>
-          </div>
-        </div>
+              return $entrada === '--:--'
+                  || str_contains($estado, 'olvido')
+                  || str_contains($estadoBiometrico, 'olvido')
+                  || str_contains($estadoBiometrico, 'sin entrada');
+          })->values();
+        @endphp
 
-        <div class="detail-marking-filter-row">
-          <button
-            type="button"
-            wire:click="setDetailMarkingFilter('salida')"
-            class="detail-marking-filter-button {{ $detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : '' }}"
-          >
-            Salida
-          </button>
-          <button
-            type="button"
-            wire:click="setDetailMarkingFilter('entrada')"
-            class="detail-marking-filter-button {{ $detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : '' }}"
-          >
-            Entrada
-          </button>
-        </div>
+        <div
+          class="mt-5"
+          x-data="{ detailTab: 'resumen' }"
+        >
+          <div class="report-tab-nav" role="tablist" aria-label="Vista detallada del personal">
+            <button type="button" role="tab" :aria-selected="detailTab === 'resumen'" @click="detailTab = 'resumen'" :class="detailTab === 'resumen' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-resumen">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+              <span>Resumen</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'atrasos'" @click="detailTab = 'atrasos'" :class="detailTab === 'atrasos' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-atrasos">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              <span>Atrasos</span>
+              @if($detailAtrasos->count() > 0)
+                <span class="report-tab-badge report-tab-badge-amber">{{ $detailAtrasos->count() }}</span>
+              @endif
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'omisiones'" @click="detailTab = 'omisiones'" :class="detailTab === 'omisiones' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-omisiones">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
+              <span>Omisiones</span>
+              @if($detailOmisiones->count() > 0)
+                <span class="report-tab-badge report-tab-badge-rose">{{ $detailOmisiones->count() }}</span>
+              @endif
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'todo'" @click="detailTab = 'todo'" :class="detailTab === 'todo' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-todo">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+              <span>Todo</span>
+            </button>
+          </div>
 
-        <div class="mt-8">
-          <div class="section-head-row">
-            <div>
-              <p class="section-kicker">Marcaciones del mes</p>
-              <h4 class="section-title text-2xl">Detalle de Marcados</h4>
+          <div x-show="detailTab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel">
+            <div class="mt-5 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Mostrando resumen mensual de:
+              <strong class="text-slate-900">{{ $detailEmpleado['mes_referencia'] ?? '-' }}</strong>
+            </div>
+
+            <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Codigo</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['codigo_biometrico'] ?? 'Sin asignar' }}</strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Sucursal</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['sucursal'] ?? 'Sin sucursal' }}</strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Horario</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['hora_entrada_programada'] ?? '--:--' }} - {{ $detailEmpleado['hora_salida_programada'] ?? '--:--' }}</strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Dias tarde</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['dias_tarde'] ?? 0 }}</strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Estado</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['estado_laboral'] ?? 'Activo' }}</strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Ultima marcacion</p>
+                <strong class="metric-value metric-value-detail">{{ $detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones' }}</strong>
+              </div>
+            </div>
+
+            <div class="mt-8 grid gap-4 md:grid-cols-2">
+              <div class="detail-info-card">
+                <p class="metric-label">Area</p>
+                <p class="detail-info-value">{{ $detailEmpleado['area'] ?? 'Sin area' }}</p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Nacimiento</p>
+                <p class="detail-info-value">{{ $detailEmpleado['fecha_nacimiento'] ?? 'Sin fecha' }}</p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Horas del mes</p>
+                <p class="detail-info-value">{{ $detailEmpleado['horas_mes'] ?? '00:00' }}</p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Retraso del mes</p>
+                <p class="detail-info-value">{{ $detailEmpleado['retraso_mes'] ?? '0 min' }}</p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Olvidos del mes</p>
+                <p class="detail-info-value">{{ $detailEmpleado['olvidos_marcacion'] ?? 0 }}</p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Saldo de tolerancia</p>
+                <p class="detail-info-value">{{ $detailEmpleado['saldo_mes'] ?? '0 min' }}</p>
+              </div>
             </div>
           </div>
 
-          <div class="history-table-shell mt-4">
-            <table class="history-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Dia</th>
-                  <th>Entrada</th>
-                  <th>Salida</th>
-                  <th>Retraso</th>
-                  <th>Estado</th>
-                  <th>Biometrico</th>
-                </tr>
-              </thead>
-              <tbody>
-                @forelse (($detailEmpleado['marcaciones_mes'] ?? []) as $tardanza)
+          <div x-show="detailTab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="section-head-row">
+              <div>
+                <p class="section-kicker">Atrasos del mes</p>
+                <h4 class="section-title text-2xl">Dias que llegaron tarde</h4>
+              </div>
+            </div>
+
+            <div class="history-table-shell mt-4">
+              <table class="history-table">
+                <thead>
                   <tr>
-                    <td>{{ $tardanza['fecha'] }}</td>
-                    <td>{{ $tardanza['dia'] }}</td>
-                    <td>{{ $tardanza['entrada'] }}</td>
-                    <td>{{ $tardanza['salida'] }}</td>
-                    <td>{{ $tardanza['retraso'] }}</td>
-                    <td>{{ $tardanza['estado'] }}</td>
-                    <td>{{ $tardanza['estado_biometrico'] }}</td>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Retraso</th>
+                    <th>Estado</th>
                   </tr>
-                @empty
+                </thead>
+                <tbody>
+                  @forelse ($detailAtrasos as $tardanza)
+                    <tr>
+                      <td>{{ $tardanza['fecha'] }}</td>
+                      <td>{{ $tardanza['dia'] }}</td>
+                      <td>{{ $tardanza['entrada'] }}</td>
+                      <td>{{ $tardanza['salida'] }}</td>
+                      <td>{{ $tardanza['retraso'] }}</td>
+                      <td>{{ $tardanza['estado'] }}</td>
+                    </tr>
+                  @empty
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No se registraron atrasos en el mes de referencia.</td>
+                    </tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="detailTab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="section-head-row">
+              <div>
+                <p class="section-kicker">Omisiones del mes</p>
+                <h4 class="section-title text-2xl">Dias sin marcacion de entrada</h4>
+              </div>
+            </div>
+
+            <div class="history-table-shell mt-4">
+              <table class="history-table">
+                <thead>
                   <tr>
-                    <td colspan="7" class="text-center text-slate-400">No se registraron marcaciones en el mes de referencia.</td>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Estado</th>
+                    <th>Biometrico</th>
                   </tr>
-                @endforelse
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @forelse ($detailOmisiones as $omision)
+                    <tr>
+                      <td>{{ $omision['fecha'] }}</td>
+                      <td>{{ $omision['dia'] }}</td>
+                      <td>{{ $omision['entrada'] }}</td>
+                      <td>{{ $omision['salida'] }}</td>
+                      <td>{{ $omision['estado'] }}</td>
+                      <td>{{ $omision['estado_biometrico'] }}</td>
+                    </tr>
+                  @empty
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No se registraron omisiones en el mes de referencia.</td>
+                    </tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="detailTab === 'todo'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="detail-marking-filter-row">
+              <button
+                type="button"
+                wire:click="setDetailMarkingFilter('salida')"
+                class="detail-marking-filter-button {{ $detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : '' }}"
+              >
+                Salida
+              </button>
+              <button
+                type="button"
+                wire:click="setDetailMarkingFilter('entrada')"
+                class="detail-marking-filter-button {{ $detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : '' }}"
+              >
+                Entrada
+              </button>
+            </div>
+
+            <div class="mt-8">
+              <div class="section-head-row">
+                <div>
+                  <p class="section-kicker">Marcaciones del mes</p>
+                  <h4 class="section-title text-2xl">Detalle completo</h4>
+                </div>
+              </div>
+
+              <div class="history-table-shell mt-4">
+                <table class="history-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Dia</th>
+                      <th>Entrada</th>
+                      <th>Salida</th>
+                      <th>Retraso</th>
+                      <th>Estado</th>
+                      <th>Biometrico</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @forelse (($detailEmpleado['marcaciones_mes'] ?? []) as $tardanza)
+                      <tr>
+                        <td>{{ $tardanza['fecha'] }}</td>
+                        <td>{{ $tardanza['dia'] }}</td>
+                        <td>{{ $tardanza['entrada'] }}</td>
+                        <td>{{ $tardanza['salida'] }}</td>
+                        <td>{{ $tardanza['retraso'] }}</td>
+                        <td>{{ $tardanza['estado'] }}</td>
+                        <td>{{ $tardanza['estado_biometrico'] }}</td>
+                      </tr>
+                    @empty
+                      <tr>
+                        <td colspan="7" class="text-center text-slate-400">No se registraron marcaciones en el mes de referencia.</td>
+                      </tr>
+                    @endforelse
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -296,13 +429,13 @@
   @if ($showPdfModal)
     <div class="app-modal-backdrop" wire:click="closePdfModal">
       <div class="app-modal-card app-modal-card-detail" x-on:click.stop>
-        <div class="app-modal-head">
+        <div class="app-modal-head pdf-modal-head">
           <div>
             <p class="section-kicker">Exportacion del personal</p>
             <h3 class="section-title app-modal-title">Ficha lista para PDF</h3>
             <p class="section-copy-sm">Revisa la informacion consolidada del personal y usa el boton de PDF para guardarla o imprimirla.</p>
           </div>
-          <div class="flex flex-col gap-3 md:items-end">
+          <div class="flex flex-col gap-5 md:items-end pdf-modal-controls">
             <div class="w-full min-w-[16rem] md:w-auto">
               <label for="pdf-reference-month" class="form-label">Seleccionar mes</label>
               <select id="pdf-reference-month" wire:model.live="pdfReferenceMonth" class="form-input min-w-[16rem]">
@@ -325,7 +458,185 @@
           </div>
         </div>
 
-        <div id="employee-pdf-content" class="pdf-export-sheet mt-8 space-y-8">
+        @php
+          $pdfMarcaciones = collect($pdfEmpleado['marcaciones_mes'] ?? []);
+          $pdfAtrasos = $pdfMarcaciones->filter(function (array $item) {
+              $retraso = trim((string) ($item['retraso'] ?? '0 min'));
+
+              return $retraso !== '' && $retraso !== '0 min' && $retraso !== '0';
+          })->values();
+          $pdfOmisiones = $pdfMarcaciones->filter(function (array $item) {
+              $entrada = trim((string) ($item['entrada'] ?? '--:--'));
+              $estado = mb_strtolower((string) ($item['estado'] ?? ''));
+              $estadoBiometrico = mb_strtolower((string) ($item['estado_biometrico'] ?? ''));
+
+              return $entrada === '--:--'
+                  || str_contains($estado, 'olvido')
+                  || str_contains($estadoBiometrico, 'olvido')
+                  || str_contains($estadoBiometrico, 'sin entrada');
+          })->values();
+        @endphp
+
+        <div class="mt-8" x-data="{ pdfTab: 'resumen' }">
+          <div class="report-tab-nav pdf-tab-nav" role="tablist" aria-label="Vista de exportacion del personal">
+            <button type="button" role="tab" :aria-selected="pdfTab === 'resumen'" @click="pdfTab = 'resumen'" :class="pdfTab === 'resumen' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-resumen">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+              <span>Resumen</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'atrasos'" @click="pdfTab = 'atrasos'" :class="pdfTab === 'atrasos' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-atrasos">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              <span>Atrasos</span>
+              @if($pdfAtrasos->count() > 0)
+                <span class="report-tab-badge report-tab-badge-amber">{{ $pdfAtrasos->count() }}</span>
+              @endif
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'omisiones'" @click="pdfTab = 'omisiones'" :class="pdfTab === 'omisiones' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-omisiones">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
+              <span>Omisiones</span>
+              @if($pdfOmisiones->count() > 0)
+                <span class="report-tab-badge report-tab-badge-rose">{{ $pdfOmisiones->count() }}</span>
+              @endif
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'todo'" @click="pdfTab = 'todo'" :class="pdfTab === 'todo' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-todo">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+              <span>Todo</span>
+            </button>
+          </div>
+
+          <div x-show="pdfTab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="pdf-export-grid pdf-export-grid-primary">
+              <div class="pdf-export-card pdf-export-card-highlight">
+                <p class="pdf-export-label">Nombre</p>
+                <strong class="pdf-export-value">{{ $pdfEmpleado['nombre_completo'] ?? 'Sin nombre' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Codigo</p>
+                <strong class="pdf-export-value">{{ $pdfEmpleado['codigo_biometrico'] ?? 'Sin asignar' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Sucursal</p>
+                <strong class="pdf-export-value">{{ $pdfEmpleado['sucursal'] ?? 'Sin sucursal' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Estado mensual</p>
+                <strong class="pdf-export-value">{{ $pdfEmpleado['estado_retraso'] ?? 'Sin estado' }}</strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Estado laboral</p>
+                <strong class="pdf-export-value">{{ $pdfEmpleado['estado_laboral'] ?? 'Activo' }}</strong>
+              </div>
+            </div>
+
+            <div class="pdf-export-grid pdf-export-grid-secondary mt-6">
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Horas del mes</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['horas_mes'] ?? '00:00' }}</p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Retraso del mes</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['retraso_mes'] ?? '0 min' }}</p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Olvidos del mes</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['olvidos_marcacion'] ?? 0 }}</p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Saldo de tolerancia</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['saldo_mes'] ?? '0 min' }}</p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Dias tarde</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['dias_tarde'] ?? 0 }}</p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Verificacion hoy</p>
+                <p class="pdf-export-value-sm">{{ $pdfEmpleado['verificacion_hoy'] ?? 'Sin registro' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="history-table-shell pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Atrasos del mes</p>
+                  <h4 class="section-title text-2xl">Dias que llegaron tarde</h4>
+                </div>
+              </div>
+
+              <table class="history-table mt-4">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Retraso</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse ($pdfAtrasos as $tardanza)
+                    <tr>
+                      <td>{{ $tardanza['fecha'] }}</td>
+                      <td>{{ $tardanza['dia'] }}</td>
+                      <td>{{ $tardanza['entrada'] }}</td>
+                      <td>{{ $tardanza['salida'] }}</td>
+                      <td>{{ $tardanza['retraso'] }}</td>
+                      <td>{{ $tardanza['estado'] }}</td>
+                    </tr>
+                  @empty
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No existen atrasos registrados para exportar.</td>
+                    </tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="history-table-shell pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Omisiones del mes</p>
+                  <h4 class="section-title text-2xl">Dias sin marcacion de entrada</h4>
+                </div>
+              </div>
+
+              <table class="history-table mt-4">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Estado</th>
+                    <th>Biometrico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse ($pdfOmisiones as $omision)
+                    <tr>
+                      <td>{{ $omision['fecha'] }}</td>
+                      <td>{{ $omision['dia'] }}</td>
+                      <td>{{ $omision['entrada'] }}</td>
+                      <td>{{ $omision['salida'] }}</td>
+                      <td>{{ $omision['estado'] }}</td>
+                      <td>{{ $omision['estado_biometrico'] }}</td>
+                    </tr>
+                  @empty
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No existen omisiones registradas para exportar.</td>
+                    </tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'todo'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-8">
+            <div id="employee-pdf-content" class="pdf-export-sheet mt-8 space-y-8">
           <header class="pdf-export-header">
             <div>
               <p class="pdf-export-kicker">Correos de Bolivia</p>
@@ -446,6 +757,8 @@
                 @endforelse
               </tbody>
             </table>
+          </div>
+            </div>
           </div>
         </div>
       </div>

@@ -256,121 +256,254 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
         </div>
 
-        <div class="mt-5 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Mostrando resumen mensual de:
-          <strong class="text-slate-900"><?php echo e($detailEmpleado['mes_referencia'] ?? '-'); ?></strong>
-        </div>
+        <?php
+          $detailMarcaciones = collect($detailEmpleado['marcaciones_mes'] ?? []);
+          $detailAtrasos = $detailMarcaciones->filter(function (array $item) {
+              $retraso = trim((string) ($item['retraso'] ?? '0 min'));
 
-        <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Codigo</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['codigo_biometrico'] ?? 'Sin asignar'); ?></strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Sucursal</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['sucursal'] ?? 'Sin sucursal'); ?></strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Horario</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['hora_entrada_programada'] ?? '--:--'); ?> - <?php echo e($detailEmpleado['hora_salida_programada'] ?? '--:--'); ?></strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Dias tarde</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['dias_tarde'] ?? 0); ?></strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Estado</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['estado_laboral'] ?? 'Activo'); ?></strong>
-          </div>
-          <div class="metric-card metric-card-detail">
-            <p class="metric-label">Ultima marcacion</p>
-            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones'); ?></strong>
-          </div>
-        </div>
+              return $retraso !== '' && $retraso !== '0 min' && $retraso !== '0';
+          })->values();
+          $detailOmisiones = $detailMarcaciones->filter(function (array $item) {
+              $entrada = trim((string) ($item['entrada'] ?? '--:--'));
+              $estado = mb_strtolower((string) ($item['estado'] ?? ''));
+              $estadoBiometrico = mb_strtolower((string) ($item['estado_biometrico'] ?? ''));
 
-        <div class="mt-8 grid gap-4 md:grid-cols-2">
-          <div class="detail-info-card">
-            <p class="metric-label">Area</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['area'] ?? 'Sin area'); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Nacimiento</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['fecha_nacimiento'] ?? 'Sin fecha'); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Horas del mes</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['horas_mes'] ?? '00:00'); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Retraso del mes</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['retraso_mes'] ?? '0 min'); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Olvidos del mes</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['olvidos_marcacion'] ?? 0); ?></p>
-          </div>
-          <div class="detail-info-card">
-            <p class="metric-label">Saldo de tolerancia</p>
-            <p class="detail-info-value"><?php echo e($detailEmpleado['saldo_mes'] ?? '0 min'); ?></p>
-          </div>
-        </div>
+              return $entrada === '--:--'
+                  || str_contains($estado, 'olvido')
+                  || str_contains($estadoBiometrico, 'olvido')
+                  || str_contains($estadoBiometrico, 'sin entrada');
+          })->values();
+        ?>
 
-        <div class="detail-marking-filter-row">
-          <button
-            type="button"
-            wire:click="setDetailMarkingFilter('salida')"
-            class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : ''); ?>"
-          >
-            Salida
-          </button>
-          <button
-            type="button"
-            wire:click="setDetailMarkingFilter('entrada')"
-            class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : ''); ?>"
-          >
-            Entrada
-          </button>
-        </div>
+        <div
+          class="mt-5"
+          x-data="{ detailTab: 'resumen' }"
+        >
+          <div class="report-tab-nav" role="tablist" aria-label="Vista detallada del personal">
+            <button type="button" role="tab" :aria-selected="detailTab === 'resumen'" @click="detailTab = 'resumen'" :class="detailTab === 'resumen' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-resumen">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+              <span>Resumen</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'atrasos'" @click="detailTab = 'atrasos'" :class="detailTab === 'atrasos' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-atrasos">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              <span>Atrasos</span>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($detailAtrasos->count() > 0): ?>
+                <span class="report-tab-badge report-tab-badge-amber"><?php echo e($detailAtrasos->count()); ?></span>
+              <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'omisiones'" @click="detailTab = 'omisiones'" :class="detailTab === 'omisiones' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-omisiones">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
+              <span>Omisiones</span>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($detailOmisiones->count() > 0): ?>
+                <span class="report-tab-badge report-tab-badge-rose"><?php echo e($detailOmisiones->count()); ?></span>
+              <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </button>
+            <button type="button" role="tab" :aria-selected="detailTab === 'todo'" @click="detailTab = 'todo'" :class="detailTab === 'todo' ? 'report-tab-button-active' : ''" class="report-tab-button" id="detail-tab-todo">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+              <span>Todo</span>
+            </button>
+          </div>
 
-        <div class="mt-8">
-          <div class="section-head-row">
-            <div>
-              <p class="section-kicker">Marcaciones del mes</p>
-              <h4 class="section-title text-2xl">Detalle de Marcados</h4>
+          <div x-show="detailTab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel">
+            <div class="mt-5 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Mostrando resumen mensual de:
+              <strong class="text-slate-900"><?php echo e($detailEmpleado['mes_referencia'] ?? '-'); ?></strong>
+            </div>
+
+            <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Codigo</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['codigo_biometrico'] ?? 'Sin asignar'); ?></strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Sucursal</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['sucursal'] ?? 'Sin sucursal'); ?></strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Horario</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['hora_entrada_programada'] ?? '--:--'); ?> - <?php echo e($detailEmpleado['hora_salida_programada'] ?? '--:--'); ?></strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Dias tarde</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['dias_tarde'] ?? 0); ?></strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Estado</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['estado_laboral'] ?? 'Activo'); ?></strong>
+              </div>
+              <div class="metric-card metric-card-detail">
+                <p class="metric-label">Ultima marcacion</p>
+                <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones'); ?></strong>
+              </div>
+            </div>
+
+            <div class="mt-8 grid gap-4 md:grid-cols-2">
+              <div class="detail-info-card">
+                <p class="metric-label">Area</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['area'] ?? 'Sin area'); ?></p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Nacimiento</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['fecha_nacimiento'] ?? 'Sin fecha'); ?></p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Horas del mes</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['horas_mes'] ?? '00:00'); ?></p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Retraso del mes</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['retraso_mes'] ?? '0 min'); ?></p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Olvidos del mes</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['olvidos_marcacion'] ?? 0); ?></p>
+              </div>
+              <div class="detail-info-card">
+                <p class="metric-label">Saldo de tolerancia</p>
+                <p class="detail-info-value"><?php echo e($detailEmpleado['saldo_mes'] ?? '0 min'); ?></p>
+              </div>
             </div>
           </div>
 
-          <div class="history-table-shell mt-4">
-            <table class="history-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Dia</th>
-                  <th>Entrada</th>
-                  <th>Salida</th>
-                  <th>Retraso</th>
-                  <th>Estado</th>
-                  <th>Biometrico</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = ($detailEmpleado['marcaciones_mes'] ?? []); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tardanza): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+          <div x-show="detailTab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="section-head-row">
+              <div>
+                <p class="section-kicker">Atrasos del mes</p>
+                <h4 class="section-title text-2xl">Dias que llegaron tarde</h4>
+              </div>
+            </div>
+
+            <div class="history-table-shell mt-4">
+              <table class="history-table">
+                <thead>
                   <tr>
-                    <td><?php echo e($tardanza['fecha']); ?></td>
-                    <td><?php echo e($tardanza['dia']); ?></td>
-                    <td><?php echo e($tardanza['entrada']); ?></td>
-                    <td><?php echo e($tardanza['salida']); ?></td>
-                    <td><?php echo e($tardanza['retraso']); ?></td>
-                    <td><?php echo e($tardanza['estado']); ?></td>
-                    <td><?php echo e($tardanza['estado_biometrico']); ?></td>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Retraso</th>
+                    <th>Estado</th>
                   </tr>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                </thead>
+                <tbody>
+                  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $detailAtrasos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tardanza): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <tr>
+                      <td><?php echo e($tardanza['fecha']); ?></td>
+                      <td><?php echo e($tardanza['dia']); ?></td>
+                      <td><?php echo e($tardanza['entrada']); ?></td>
+                      <td><?php echo e($tardanza['salida']); ?></td>
+                      <td><?php echo e($tardanza['retraso']); ?></td>
+                      <td><?php echo e($tardanza['estado']); ?></td>
+                    </tr>
+                  <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No se registraron atrasos en el mes de referencia.</td>
+                    </tr>
+                  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="detailTab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="section-head-row">
+              <div>
+                <p class="section-kicker">Omisiones del mes</p>
+                <h4 class="section-title text-2xl">Dias sin marcacion de entrada</h4>
+              </div>
+            </div>
+
+            <div class="history-table-shell mt-4">
+              <table class="history-table">
+                <thead>
                   <tr>
-                    <td colspan="7" class="text-center text-slate-400">No se registraron marcaciones en el mes de referencia.</td>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Estado</th>
+                    <th>Biometrico</th>
                   </tr>
-                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $detailOmisiones; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $omision): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <tr>
+                      <td><?php echo e($omision['fecha']); ?></td>
+                      <td><?php echo e($omision['dia']); ?></td>
+                      <td><?php echo e($omision['entrada']); ?></td>
+                      <td><?php echo e($omision['salida']); ?></td>
+                      <td><?php echo e($omision['estado']); ?></td>
+                      <td><?php echo e($omision['estado_biometrico']); ?></td>
+                    </tr>
+                  <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No se registraron omisiones en el mes de referencia.</td>
+                    </tr>
+                  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="detailTab === 'todo'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="detail-marking-filter-row">
+              <button
+                type="button"
+                wire:click="setDetailMarkingFilter('salida')"
+                class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'salida' ? 'detail-marking-filter-button-active' : ''); ?>"
+              >
+                Salida
+              </button>
+              <button
+                type="button"
+                wire:click="setDetailMarkingFilter('entrada')"
+                class="detail-marking-filter-button <?php echo e($detailMarkingFilter === 'entrada' ? 'detail-marking-filter-button-active' : ''); ?>"
+              >
+                Entrada
+              </button>
+            </div>
+
+            <div class="mt-8">
+              <div class="section-head-row">
+                <div>
+                  <p class="section-kicker">Marcaciones del mes</p>
+                  <h4 class="section-title text-2xl">Detalle completo</h4>
+                </div>
+              </div>
+
+              <div class="history-table-shell mt-4">
+                <table class="history-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Dia</th>
+                      <th>Entrada</th>
+                      <th>Salida</th>
+                      <th>Retraso</th>
+                      <th>Estado</th>
+                      <th>Biometrico</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = ($detailEmpleado['marcaciones_mes'] ?? []); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tardanza): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                      <tr>
+                        <td><?php echo e($tardanza['fecha']); ?></td>
+                        <td><?php echo e($tardanza['dia']); ?></td>
+                        <td><?php echo e($tardanza['entrada']); ?></td>
+                        <td><?php echo e($tardanza['salida']); ?></td>
+                        <td><?php echo e($tardanza['retraso']); ?></td>
+                        <td><?php echo e($tardanza['estado']); ?></td>
+                        <td><?php echo e($tardanza['estado_biometrico']); ?></td>
+                      </tr>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                      <tr>
+                        <td colspan="7" class="text-center text-slate-400">No se registraron marcaciones en el mes de referencia.</td>
+                      </tr>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -380,13 +513,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
   <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showPdfModal): ?>
     <div class="app-modal-backdrop" wire:click="closePdfModal">
       <div class="app-modal-card app-modal-card-detail" x-on:click.stop>
-        <div class="app-modal-head">
+        <div class="app-modal-head pdf-modal-head">
           <div>
             <p class="section-kicker">Exportacion del personal</p>
             <h3 class="section-title app-modal-title">Ficha lista para PDF</h3>
             <p class="section-copy-sm">Revisa la informacion consolidada del personal y usa el boton de PDF para guardarla o imprimirla.</p>
           </div>
-          <div class="flex flex-col gap-3 md:items-end">
+          <div class="flex flex-col gap-5 md:items-end pdf-modal-controls">
             <div class="w-full min-w-[16rem] md:w-auto">
               <label for="pdf-reference-month" class="form-label">Seleccionar mes</label>
               <select id="pdf-reference-month" wire:model.live="pdfReferenceMonth" class="form-input min-w-[16rem]">
@@ -409,7 +542,185 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </div>
         </div>
 
-        <div id="employee-pdf-content" class="pdf-export-sheet mt-8 space-y-8">
+        <?php
+          $pdfMarcaciones = collect($pdfEmpleado['marcaciones_mes'] ?? []);
+          $pdfAtrasos = $pdfMarcaciones->filter(function (array $item) {
+              $retraso = trim((string) ($item['retraso'] ?? '0 min'));
+
+              return $retraso !== '' && $retraso !== '0 min' && $retraso !== '0';
+          })->values();
+          $pdfOmisiones = $pdfMarcaciones->filter(function (array $item) {
+              $entrada = trim((string) ($item['entrada'] ?? '--:--'));
+              $estado = mb_strtolower((string) ($item['estado'] ?? ''));
+              $estadoBiometrico = mb_strtolower((string) ($item['estado_biometrico'] ?? ''));
+
+              return $entrada === '--:--'
+                  || str_contains($estado, 'olvido')
+                  || str_contains($estadoBiometrico, 'olvido')
+                  || str_contains($estadoBiometrico, 'sin entrada');
+          })->values();
+        ?>
+
+        <div class="mt-8" x-data="{ pdfTab: 'resumen' }">
+          <div class="report-tab-nav pdf-tab-nav" role="tablist" aria-label="Vista de exportacion del personal">
+            <button type="button" role="tab" :aria-selected="pdfTab === 'resumen'" @click="pdfTab = 'resumen'" :class="pdfTab === 'resumen' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-resumen">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+              <span>Resumen</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'atrasos'" @click="pdfTab = 'atrasos'" :class="pdfTab === 'atrasos' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-atrasos">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              <span>Atrasos</span>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($pdfAtrasos->count() > 0): ?>
+                <span class="report-tab-badge report-tab-badge-amber"><?php echo e($pdfAtrasos->count()); ?></span>
+              <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'omisiones'" @click="pdfTab = 'omisiones'" :class="pdfTab === 'omisiones' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-omisiones">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
+              <span>Omisiones</span>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($pdfOmisiones->count() > 0): ?>
+                <span class="report-tab-badge report-tab-badge-rose"><?php echo e($pdfOmisiones->count()); ?></span>
+              <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </button>
+            <button type="button" role="tab" :aria-selected="pdfTab === 'todo'" @click="pdfTab = 'todo'" :class="pdfTab === 'todo' ? 'report-tab-button-active' : ''" class="report-tab-button" id="pdf-tab-todo">
+              <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+              <span>Todo</span>
+            </button>
+          </div>
+
+          <div x-show="pdfTab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="pdf-export-grid pdf-export-grid-primary">
+              <div class="pdf-export-card pdf-export-card-highlight">
+                <p class="pdf-export-label">Nombre</p>
+                <strong class="pdf-export-value"><?php echo e($pdfEmpleado['nombre_completo'] ?? 'Sin nombre'); ?></strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Codigo</p>
+                <strong class="pdf-export-value"><?php echo e($pdfEmpleado['codigo_biometrico'] ?? 'Sin asignar'); ?></strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Sucursal</p>
+                <strong class="pdf-export-value"><?php echo e($pdfEmpleado['sucursal'] ?? 'Sin sucursal'); ?></strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Estado mensual</p>
+                <strong class="pdf-export-value"><?php echo e($pdfEmpleado['estado_retraso'] ?? 'Sin estado'); ?></strong>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Estado laboral</p>
+                <strong class="pdf-export-value"><?php echo e($pdfEmpleado['estado_laboral'] ?? 'Activo'); ?></strong>
+              </div>
+            </div>
+
+            <div class="pdf-export-grid pdf-export-grid-secondary mt-6">
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Horas del mes</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['horas_mes'] ?? '00:00'); ?></p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Retraso del mes</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['retraso_mes'] ?? '0 min'); ?></p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Olvidos del mes</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['olvidos_marcacion'] ?? 0); ?></p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Saldo de tolerancia</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['saldo_mes'] ?? '0 min'); ?></p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Dias tarde</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['dias_tarde'] ?? 0); ?></p>
+              </div>
+              <div class="pdf-export-card">
+                <p class="pdf-export-label">Verificacion hoy</p>
+                <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['verificacion_hoy'] ?? 'Sin registro'); ?></p>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="history-table-shell pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Atrasos del mes</p>
+                  <h4 class="section-title text-2xl">Dias que llegaron tarde</h4>
+                </div>
+              </div>
+
+              <table class="history-table mt-4">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Retraso</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $pdfAtrasos; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tardanza): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <tr>
+                      <td><?php echo e($tardanza['fecha']); ?></td>
+                      <td><?php echo e($tardanza['dia']); ?></td>
+                      <td><?php echo e($tardanza['entrada']); ?></td>
+                      <td><?php echo e($tardanza['salida']); ?></td>
+                      <td><?php echo e($tardanza['retraso']); ?></td>
+                      <td><?php echo e($tardanza['estado']); ?></td>
+                    </tr>
+                  <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No existen atrasos registrados para exportar.</td>
+                    </tr>
+                  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-6">
+            <div class="history-table-shell pdf-export-table-shell">
+              <div class="section-head-row pdf-export-section-head">
+                <div>
+                  <p class="section-kicker">Omisiones del mes</p>
+                  <h4 class="section-title text-2xl">Dias sin marcacion de entrada</h4>
+                </div>
+              </div>
+
+              <table class="history-table mt-4">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Dia</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Estado</th>
+                    <th>Biometrico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $pdfOmisiones; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $omision): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <tr>
+                      <td><?php echo e($omision['fecha']); ?></td>
+                      <td><?php echo e($omision['dia']); ?></td>
+                      <td><?php echo e($omision['entrada']); ?></td>
+                      <td><?php echo e($omision['salida']); ?></td>
+                      <td><?php echo e($omision['estado']); ?></td>
+                      <td><?php echo e($omision['estado_biometrico']); ?></td>
+                    </tr>
+                  <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <tr>
+                      <td colspan="6" class="text-center text-slate-400">No existen omisiones registradas para exportar.</td>
+                    </tr>
+                  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div x-show="pdfTab === 'todo'" x-transition.opacity.duration.200ms role="tabpanel" class="mt-8">
+            <div id="employee-pdf-content" class="pdf-export-sheet mt-8 space-y-8">
           <header class="pdf-export-header">
             <div>
               <p class="pdf-export-kicker">Correos de Bolivia</p>
@@ -531,6 +842,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               </tbody>
             </table>
           </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -543,7 +856,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
         <div>
           <p class="section-kicker">Personal registrado</p>
           <h3 class="section-title">Plantilla activa de RRHH</h3>
-          <p class="section-copy-sm">Resumen calculado con las marcaciones de <?php echo e($mes_resumen); ?>.</p>
+          <p class="section-copy-sm">Aqui solo se muestra personal activo. Si una persona pasa 30 dias sin marcar, se mueve automaticamente a Inactivos.</p>
         </div>
         <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar personal</button>
       </div>
@@ -578,6 +891,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <th>Nombre</th>
               <th>Sucursal</th>
               <th>Codigo</th>
+              <th>Estado</th>
+              <th>Ultima marcacion</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -587,6 +902,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                 <td><?php echo e($empleado->nombre_completo); ?></td>
                 <td><?php echo e($empleado->sucursal); ?></td>
                 <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
+                <td>
+                  <span class="status-badge <?php echo e($empleado->estado_laboral === 'Activo' ? 'status-available' : 'status-warning'); ?>">
+                    <?php echo e($empleado->estado_laboral); ?>
+
+                  </span>
+                </td>
+                <td><?php echo e($empleado->ultima_marcacion_label ?? 'Sin marcaciones'); ?></td>
                 <td class="table-actions-cell">
                   <div class="table-actions-group">
                     <button
@@ -649,7 +971,176 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               </tr>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
               <tr>
-                <td colspan="4" class="text-center text-slate-400">Todavia no hay personal registrado.</td>
+                <td colspan="6" class="text-center text-slate-400">Todavia no hay personal activo para mostrar.</td>
+              </tr>
+            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+
+      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($empleados->hasPages()): ?>
+        <div class="table-pagination-shell">
+          <div class="table-pagination-bar">
+            <p class="table-pagination-copy">
+              Mostrando <?php echo e($empleados->firstItem()); ?> a <?php echo e($empleados->lastItem()); ?> de <?php echo e($empleados->total()); ?> registros
+            </p>
+
+            <div class="table-pagination-actions">
+              <button
+                type="button"
+                wire:click="previousPage"
+                <?php if($empleados->onFirstPage()): echo 'disabled'; endif; ?>
+                class="table-pagination-button <?php echo e($empleados->onFirstPage() ? 'table-pagination-button-disabled' : ''); ?>"
+              >
+                Anterior
+              </button>
+
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = range(max(1, $empleados->currentPage() - 2), min($empleados->lastPage(), $empleados->currentPage() + 2)); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $page): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <button
+                  type="button"
+                  wire:click="gotoPage(<?php echo e($page); ?>)"
+                  class="table-pagination-button <?php echo e($page === $empleados->currentPage() ? 'table-pagination-button-active' : ''); ?>"
+                >
+                  <?php echo e($page); ?>
+
+                </button>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+              <button
+                type="button"
+                wire:click="nextPage"
+                <?php if(! $empleados->hasMorePages()): echo 'disabled'; endif; ?>
+                class="table-pagination-button <?php echo e(! $empleados->hasMorePages() ? 'table-pagination-button-disabled' : ''); ?>"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </div>
+      <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+    </article>
+  </section>
+  <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+  <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($vista === 'inactivos'): ?>
+  <section>
+    <article class="surface-card">
+      <div class="section-head-row">
+        <div>
+          <p class="section-kicker">Personal inactivo</p>
+          <h3 class="section-title">Sin marcaciones en los ultimos 30 dias</h3>
+          <p class="section-copy-sm">Este modulo se actualiza automaticamente segun la ultima marcacion registrada de cada persona.</p>
+        </div>
+      </div>
+
+      <div class="history-table-shell history-table-shell-personal">
+        <div class="mb-6 grid gap-4 px-6 pt-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="inactivos-search" class="form-label">Buscar por codigo o nombre</label>
+            <input
+              id="inactivos-search"
+              type="text"
+              wire:model.live.debounce.300ms="search"
+              class="form-input"
+              placeholder="Escribe un codigo, nombre o apellido"
+              autocomplete="off"
+            >
+          </div>
+          <div class="space-y-2">
+            <label for="inactivos-sucursal" class="form-label">Filtrar por sucursal</label>
+            <select id="inactivos-sucursal" wire:model.live="sucursalFiltro" class="form-input">
+              <option value="">Todas las sucursales</option>
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sucursales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sucursalOption): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($sucursalOption); ?>"><?php echo e($sucursalOption); ?></option>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </select>
+          </div>
+        </div>
+
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Sucursal</th>
+              <th>Codigo</th>
+              <th>Estado</th>
+              <th>Ultima marcacion</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $empleados; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $empleado): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+              <tr>
+                <td><?php echo e($empleado->nombre_completo); ?></td>
+                <td><?php echo e($empleado->sucursal); ?></td>
+                <td><?php echo e($empleado->codigo_biometrico ?: 'Sin asignar'); ?></td>
+                <td>
+                  <span class="status-badge status-warning"><?php echo e($empleado->estado_laboral); ?></span>
+                </td>
+                <td><?php echo e($empleado->ultima_marcacion_label ?? 'Sin marcaciones'); ?></td>
+                <td class="table-actions-cell">
+                  <div class="table-actions-group">
+                    <button
+                      type="button"
+                      wire:click="openDetailModal(<?php echo e($empleado->id); ?>)"
+                      class="table-action-button"
+                      aria-label="Ver detalle del personal inactivo"
+                      title="Ver detalle"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"/>
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span>Ver</span>
+                    </button>
+                    <button
+                      type="button"
+                      wire:click="openEditModal(<?php echo e($empleado->id); ?>)"
+                      class="table-action-button"
+                      aria-label="Editar personal inactivo"
+                      title="Editar"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/>
+                      </svg>
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      wire:click="openPdfModal(<?php echo e($empleado->id); ?>)"
+                      class="table-action-button"
+                      aria-label="Exportar ficha del personal inactivo en PDF"
+                      title="PDF"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 13h8M8 17h5"/>
+                      </svg>
+                      <span>PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      wire:click="openDeleteModal(<?php echo e($empleado->id); ?>)"
+                      class="table-action-button table-action-button-danger"
+                      aria-label="Eliminar personal inactivo"
+                      title="Eliminar"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 6V4h8v2"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14H6L5 6"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
+                      </svg>
+                      <span>Eliminar</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+              <tr>
+                <td colspan="6" class="text-center text-slate-400">No hay personal inactivo en este momento.</td>
               </tr>
             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
           </tbody>

@@ -277,8 +277,7 @@ class ImportacionBiometricaService
                 continue;
             }
 
-            $entrada = $this->resolverHoraEntrada($horas);
-            $salida = $this->resolverHoraSalida($horas);
+            [$entrada, $salida] = $this->resolverHorasJornada($empleado, $horas);
             $ultimaMarca = $horas->last();
 
             if (! $salida) {
@@ -314,7 +313,7 @@ class ImportacionBiometricaService
                 'hora_entrada' => $mergedEntrada,
                 'hora_salida' => $mergedSalida,
                 'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
-                'estado_marcacion' => $ultimaMarca['estado_original'] ?? $registro->estado_marcacion ?? null,
+                'estado_marcacion' => $this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null),
                 'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
                 'observacion' => $this->observacionDesdeFila($primeraMarca) ?: $registro->observacion,
                 'created_by' => $registro->exists ? $registro->created_by : $usuario?->id,
@@ -922,45 +921,109 @@ class ImportacionBiometricaService
         return now()->toDateString();
     }
 
-    private function resolverHoraEntrada(Collection $horas): ?string
+    private function resolverHorasJornada(Empleado $empleado, Collection $horas): array
     {
-        $entrada = $horas->first(function (array $mark) {
-            return str_contains($mark['estado'], 'entrada');
-        });
+        $entradaExplicita = $horas->first(fn (array $mark) => $this->marcaEsEntrada($mark));
+        $salidaExplicita = $horas->filter(fn (array $mark) => $this->marcaEsSalida($mark))->last();
 
-        if ($entrada) {
-            return $entrada['fecha_hora']->format('H:i:s');
+        $entrada = ($entradaExplicita['fecha_hora'] ?? null)?->format('H:i:s');
+        $salida = ($salidaExplicita['fecha_hora'] ?? null)?->format('H:i:s');
+
+        if ($entrada && $salida) {
+            return [$entrada, $salida];
         }
 
-        return $horas->first()['fecha_hora']->format('H:i:s');
+        if ($horas->count() === 1) {
+            $unica = $horas->first();
+            return $this->resolverMarcacionUnicaPorHorario($empleado, $unica['fecha_hora']);
+        }
+
+        if (! $entrada) {
+            $primera = $horas->first();
+            $entrada = $primera['fecha_hora']->format('H:i:s');
+        }
+
+        if (! $salida) {
+            $ultima = $horas->last();
+            $ultimaHora = $ultima['fecha_hora']->format('H:i:s');
+
+            $salida = $entrada && $this->esPosterior($ultimaHora, $entrada)
+                ? $ultimaHora
+                : null;
+        }
+
+        return [$entrada, $salida];
     }
 
-    private function resolverHoraSalida(Collection $horas): ?string
+    private function marcaEsEntrada(array $mark): bool
     {
-        if ($horas->count() <= 1) {
-            return null;
+        $estado = $mark['estado'] ?? '';
+        $evento = $mark['evento'] ?? '';
+
+        return str_contains($estado, 'entrada')
+            || str_contains($estado, 'retorno')
+            || str_contains($estado, 'ingreso')
+            || str_contains($evento, 'retorno');
+    }
+
+    private function marcaEsSalida(array $mark): bool
+    {
+        $estado = $mark['estado'] ?? '';
+        $evento = $mark['evento'] ?? '';
+
+        return str_contains($estado, 'salida')
+            || str_contains($evento, 'boton de salida')
+            || str_contains($evento, 'salida');
+    }
+
+    private function resolverMarcacionUnicaPorHorario(Empleado $empleado, Carbon $fechaHora): array
+    {
+        $horario = app(ProgramacionLaboralService::class)->resolverHorario($empleado, $fechaHora);
+
+        if (($horario['laborable'] ?? true) === false) {
+            return [$fechaHora->format('H:i:s'), null];
         }
 
-        $entrada = $this->resolverHoraEntrada($horas);
-        $ultimaMarca = $horas->last();
-        $ultimaHora = $ultimaMarca['fecha_hora']->format('H:i:s');
-        $salidaExplicita = $horas->filter(function (array $mark) {
-            return str_contains($mark['estado'], 'salida');
-        })->last();
+        $horaEntrada = $this->parseTimeStringToCarbon((string) ($horario['hora_entrada'] ?? ''));
+        $horaSalida = $this->parseTimeStringToCarbon((string) ($horario['hora_salida'] ?? ''));
 
-        if ($salidaExplicita) {
-            $horaSalidaExplicita = $salidaExplicita['fecha_hora']->format('H:i:s');
-
-            // Si la ultima marca del dia es posterior, la usamos como cierre real
-            // aunque el biometrico la haya etiquetado con un estado tecnico.
-            if ($this->esPosterior($ultimaHora, $horaSalidaExplicita) && $this->esPosterior($ultimaHora, $entrada)) {
-                return $ultimaHora;
-            }
-
-            return $horaSalidaExplicita;
+        if (! $horaEntrada || ! $horaSalida) {
+            return [$fechaHora->format('H:i:s'), null];
         }
 
-        return $this->esPosterior($ultimaHora, $entrada) ? $ultimaHora : null;
+        $marcaMinutos = ((int) $fechaHora->format('H')) * 60 + (int) $fechaHora->format('i');
+        $entradaMinutos = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
+        $salidaMinutos = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
+        $puntoMedio = (int) floor(($entradaMinutos + $salidaMinutos) / 2);
+
+        if ($marcaMinutos >= $puntoMedio) {
+            return [null, $fechaHora->format('H:i:s')];
+        }
+
+        return [$fechaHora->format('H:i:s'), null];
+    }
+
+    private function resolverEstadoMarcacionHumano(array $mark): string
+    {
+        $estadoOriginal = trim((string) ($mark['estado_original'] ?? ''));
+        $estado = $mark['estado'] ?? '';
+        $evento = $mark['evento'] ?? '';
+        $esEntrada = $this->marcaEsEntrada($mark);
+        $esSalida = $this->marcaEsSalida($mark);
+
+        if ($esSalida && ! $esEntrada) {
+            return 'Salida';
+        }
+
+        if ($esEntrada && ! $esSalida) {
+            return 'Entrada';
+        }
+
+        if ($estadoOriginal !== '') {
+            return $estadoOriginal;
+        }
+
+        return trim((string) ($mark['estado'] ?? '')) !== '' ? (string) $mark['estado'] : 'Sin estado';
     }
 
     private function normalizarMarcaDesdeBiometrico(array $device, array $row): array

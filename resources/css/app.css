@@ -348,6 +348,14 @@ body{
   @apply flex flex-col gap-4 border-b border-slate-100 pb-6 xl:flex-row xl:items-start xl:justify-between;
 }
 
+.pdf-modal-head{
+  @apply gap-6 pb-8 xl:gap-10;
+}
+
+.pdf-modal-controls{
+  @apply min-w-[14rem];
+}
+
 .app-modal-title{
   @apply md:text-[2.3rem];
 }
@@ -682,11 +690,11 @@ body{
 }
 
 .pdf-export-table-shell{
-  @apply mt-0 border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.05)];
+  @apply mt-0 border-slate-200 bg-white pt-6 shadow-[0_12px_28px_rgba(15,23,42,0.05)];
 }
 
 .pdf-export-section-head{
-  @apply mb-4;
+  @apply mb-6 px-6;
 }
 
 .metric-copy{
@@ -1887,6 +1895,10 @@ body{
 .report-tab-nav{
   @apply flex gap-2 overflow-x-auto rounded-[1.6rem] border border-white/80 bg-white/90 p-2 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur;
   scrollbar-width: none;
+}
+
+.pdf-tab-nav{
+  @apply mt-1;
 }
 
 .report-tab-nav::-webkit-scrollbar{

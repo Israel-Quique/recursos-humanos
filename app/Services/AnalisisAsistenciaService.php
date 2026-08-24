@@ -236,13 +236,17 @@ class AnalisisAsistenciaService
                 'sucursal' => $event['branch'],
                 'tone' => $event['tone'],
             ])->values()->all(),
-            'marcaciones' => $registrosDia->map(fn (RegistroAsistencia $registro) => [
-                'nombre' => $registro->empleado?->nombre_completo,
-                'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
-                'salida' => $registro->hora_salida ? substr($registro->hora_salida, 0, 5) : '--:--',
-                'estado' => $registro->estado_marcacion ?: 'Sin estado',
-                'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
-            ])->all(),
+            'marcaciones' => $registrosDia->map(function (RegistroAsistencia $registro) {
+                $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
+                return [
+                    'nombre' => $registro->empleado?->nombre_completo,
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
+                    'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
+                    'estado' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
+                    'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                ];
+            })->all(),
         ];
     }
 
@@ -437,10 +441,14 @@ class AnalisisAsistenciaService
             ],
             'olvidos' => $attendance
                 ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
-                ->map(fn (RegistroAsistencia $registro) => [
-                    'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
-                    'detalle' => $registro->fecha?->format('d/m/Y').' - Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.(($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--'),
-                ])->values()->all(),
+                ->map(function (RegistroAsistencia $registro) {
+                    $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
+                    return [
+                        'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
+                        'detalle' => $registro->fecha?->format('d/m/Y').' - Entrada: '.($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--').' / Salida: '.($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
+                    ];
+                })->values()->all(),
         ];
     }
 
@@ -475,7 +483,7 @@ class AnalisisAsistenciaService
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
             $workedMinutes += $this->calcularMinutosTrabajados($registro->hora_entrada, $registro->hora_salida);
             $delay = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $this->normalizarMarcacionAsistencia($registro)['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
             $lateMinutes += $delay;
@@ -542,27 +550,28 @@ class AnalisisAsistenciaService
                 continue;
             }
 
-            $soloEntrada = $this->tieneSoloEntradaMarcada($registro);
-            $horaSalidaReal = $this->horaSalidaReal($registro);
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+            $soloEntrada = $marcacion['solo_entrada'];
+            $horaSalidaReal = $marcacion['salida'];
             $delay = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
 
             if ($delay > 0) {
                 $lateRows[] = [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
-                    'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'retraso' => $this->formatearMinutosEtiqueta($delay),
                     'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
                 ];
             }
 
-            if (blank($registro->hora_entrada) || blank($horaSalidaReal)) {
+            if (blank($marcacion['entrada']) || blank($horaSalidaReal)) {
                 $forgotRows[] = [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
-                    'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
                 ];
@@ -629,18 +638,22 @@ class AnalisisAsistenciaService
 
         $forgotMarks = $attendance
             ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
-            ->map(fn (RegistroAsistencia $registro) => [
-                'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
-                'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
-                'codigo' => $registro->empleado?->codigo_biometrico ?? '',
-                'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
-                'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
-                'salida' => ($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--',
-                'estado' => $registro->estado_marcacion ?: 'Sin estado',
-                'detalle' => blank($registro->hora_entrada)
-                    ? 'Falta marcacion de entrada'
-                    : 'Falta marcacion de salida',
-            ])
+            ->map(function (RegistroAsistencia $registro) {
+                $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
+                return [
+                    'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
+                    'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
+                    'codigo' => $registro->empleado?->codigo_biometrico ?? '',
+                    'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
+                    'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
+                    'estado' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
+                    'detalle' => blank($marcacion['entrada'])
+                        ? 'Falta marcacion de entrada'
+                        : 'Falta marcacion de salida',
+                ];
+            })
             ->values();
 
         $lateRows = [];
@@ -670,7 +683,7 @@ class AnalisisAsistenciaService
                 'codigo' => $empleado->codigo_biometrico ?? '',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'entrada_programada' => $horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--',
-                'entrada_real' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
+                'entrada_real' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
                 'minutos_retraso' => $delay,
                 'estado' => $registro->estado_marcacion ?: 'Sin estado',
@@ -775,11 +788,12 @@ class AnalisisAsistenciaService
                 continue;
             }
 
-            $soloEntrada = $this->tieneSoloEntradaMarcada($registro);
-            $horaSalidaReal = $this->horaSalidaReal($registro);
-            $worked = $this->calcularMinutosTrabajados($registro->hora_entrada, $horaSalidaReal);
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+            $soloEntrada = $marcacion['solo_entrada'];
+            $horaSalidaReal = $marcacion['salida'];
+            $worked = $this->calcularMinutosTrabajados($marcacion['entrada'], $horaSalidaReal);
             $delay = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
             $workedMinutes += $worked;
@@ -788,17 +802,17 @@ class AnalisisAsistenciaService
                 $lateDays++;
             }
 
-            $missingMark = blank($registro->hora_entrada) || blank($horaSalidaReal);
+            $missingMark = blank($marcacion['entrada']) || blank($horaSalidaReal);
 
             $rows[] = [
                 'raw_date' => $registro->fecha?->toDateString(),
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
-                'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
+                'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                 'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                 'horas' => $this->formatearMinutos($worked),
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
                 'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
-                'estado_biometrico' => $registro->estado_marcacion ?: 'Sin estado',
+                'estado_biometrico' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
                 'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
                 'row_tone' => $missingMark ? 'warning' : 'default',
             ];
@@ -1184,10 +1198,14 @@ class AnalisisAsistenciaService
                 ])->values()->all(),
             'olvidos' => $attendanceToday
                 ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
-                ->map(fn (RegistroAsistencia $registro) => [
-                    'nombre' => $registro->empleado?->nombre_completo,
-                    'detalle' => 'Entrada: '.($registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--').' / Salida: '.(($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--'),
-                ])->values()->all(),
+                ->map(function (RegistroAsistencia $registro) {
+                    $marcacion = $this->normalizarMarcacionAsistencia($registro);
+
+                    return [
+                        'nombre' => $registro->empleado?->nombre_completo,
+                        'detalle' => 'Entrada: '.($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--').' / Salida: '.($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
+                    ];
+                })->values()->all(),
         ];
     }
 
@@ -1357,8 +1375,8 @@ class AnalisisAsistenciaService
                 'label' => $empleado->nombre_completo,
                 'detail' => $this->formatearMinutosEtiqueta($minutosRetraso).' de atraso',
                 'minutes_late' => $minutosRetraso,
-                'entry_time' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
-                'status' => $registro->estado_marcacion ?: 'Sin estado',
+                'entry_time' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
+                'status' => $this->resolverEstadoMarcacionVisible($registro),
                 'branch' => $empleado->sucursal ?: 'Sin sucursal',
                 'tone' => $acumuladoActual > $toleranciaMensual ? 'black' : 'red',
             ];
@@ -1493,24 +1511,12 @@ class AnalisisAsistenciaService
 
     private function tieneSoloEntradaMarcada(RegistroAsistencia $registro): bool
     {
-        if (blank($registro->hora_entrada)) {
-            return false;
-        }
-
-        if (blank($registro->hora_salida)) {
-            return true;
-        }
-
-        return $this->normalizarHoraSimple($registro->hora_entrada) === $this->normalizarHoraSimple($registro->hora_salida);
+        return $this->normalizarMarcacionAsistencia($registro)['solo_entrada'];
     }
 
     private function horaSalidaReal(RegistroAsistencia $registro): ?string
     {
-        if ($this->tieneSoloEntradaMarcada($registro)) {
-            return null;
-        }
-
-        return blank($registro->hora_salida) ? null : $registro->hora_salida;
+        return $this->normalizarMarcacionAsistencia($registro)['salida'];
     }
 
     private function resolverEstadoRegistroPersonalizado(
@@ -1519,7 +1525,8 @@ class AnalisisAsistenciaService
         ?string $horaSalidaReal,
         int $delay
     ): string {
-        $olvidoEntrada = blank($registro->hora_entrada) || $this->esEntradaOmisionPorHoraTardia($registro->hora_entrada);
+        $marcacion = $this->normalizarMarcacionAsistencia($registro);
+        $olvidoEntrada = blank($marcacion['entrada']) || $this->esEntradaOmisionPorHoraTardia($marcacion['entrada']);
         $olvidoSalida = blank($horaSalidaReal);
 
         if ($olvidoEntrada && $olvidoSalida) {
@@ -1654,6 +1661,113 @@ class AnalisisAsistenciaService
         } catch (\Throwable) {
             return trim((string) $hora) !== '' ? trim((string) $hora) : null;
         }
+    }
+
+    private function normalizarMarcacionAsistencia(RegistroAsistencia $registro): array
+    {
+        $entrada = $this->normalizarHoraSimple($registro->hora_entrada);
+        $salida = $this->normalizarHoraSimple($registro->hora_salida);
+        $estado = $this->normalizarTextoDepartamento((string) ($registro->estado_marcacion ?? ''));
+        $evento = $this->normalizarTextoDepartamento((string) ($registro->evento_biometrico ?? ''));
+
+        $entradaExplicita = $this->marcacionEsEntradaExplicita($estado, $evento);
+        $salidaExplicita = $this->marcacionEsSalidaExplicita($estado, $evento);
+
+        if ($salidaExplicita && ! $entradaExplicita && filled($entrada) && blank($salida)) {
+            $salida = $entrada;
+            $entrada = null;
+        }
+
+        if (filled($entrada) xor filled($salida)) {
+            [$entrada, $salida] = $this->inferirMarcacionPorHorario($registro, $entrada, $salida);
+        }
+
+        if (filled($entrada) && filled($salida) && $entrada === $salida) {
+            $salida = null;
+        }
+
+        return [
+            'entrada' => $entrada,
+            'salida' => $salida,
+            'solo_entrada' => filled($entrada) && blank($salida),
+        ];
+    }
+
+    private function marcacionEsEntradaExplicita(string $estado, string $evento): bool
+    {
+        return str_contains($estado, 'entrada')
+            || str_contains($estado, 'retorno')
+            || str_contains($estado, 'ingreso')
+            || str_contains($evento, 'retorno');
+    }
+
+    private function marcacionEsSalidaExplicita(string $estado, string $evento): bool
+    {
+        return str_contains($estado, 'salida')
+            || str_contains($evento, 'boton de salida');
+    }
+
+    private function inferirMarcacionPorHorario(RegistroAsistencia $registro, ?string $entrada, ?string $salida): array
+    {
+        $empleado = $registro->empleado;
+
+        if (! $empleado || ! $registro->fecha) {
+            return [$entrada, $salida];
+        }
+
+        $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
+
+        if (($horario['laborable'] ?? true) === false) {
+            return [$entrada, $salida];
+        }
+
+        $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
+        $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
+
+        if (! $horaEntrada || ! $horaSalida) {
+            return [$entrada, $salida];
+        }
+
+        $entradaReferencia = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
+        $salidaReferencia = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
+        $puntoMedio = (int) floor(($entradaReferencia + $salidaReferencia) / 2);
+
+        if (filled($entrada) && blank($salida)) {
+            $marca = $this->parseTimeToCarbon($entrada);
+
+            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) >= $puntoMedio) {
+                return [null, $entrada];
+            }
+        }
+
+        if (blank($entrada) && filled($salida)) {
+            $marca = $this->parseTimeToCarbon($salida);
+
+            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) < $puntoMedio) {
+                return [$salida, null];
+            }
+        }
+
+        return [$entrada, $salida];
+    }
+
+    private function resolverEstadoMarcacionVisible(RegistroAsistencia $registro, ?array $marcacion = null): string
+    {
+        $marcacion ??= $this->normalizarMarcacionAsistencia($registro);
+
+        if ($marcacion['solo_entrada'] ?? false) {
+            return 'Entrada';
+        }
+
+        if (blank($marcacion['entrada']) && filled($marcacion['salida'])) {
+            return 'Salida';
+        }
+
+        if (filled($marcacion['entrada']) && blank($marcacion['salida'])) {
+            return 'Entrada';
+        }
+
+        return $registro->estado_marcacion ?: 'Sin estado';
     }
 
     private function formatearMinutosEtiqueta(int $minutos): string
