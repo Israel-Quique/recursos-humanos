@@ -7033,3 +7033,21 @@ Did you mean one of these?
 #5 {main}
 "} 
 [2026-08-12 10:07:39] local.INFO: Extraccion biometrico Python process ejecutado {"probe_only":false,"python":"C:\\Users\\israe\\OneDrive\\Desktop\\Pasantia\\Proyectos\\recursos-humanos\\.venv/Scripts/python.exe","device_ip":"172.65.14.108","device_port":4370,"successful":true,"exit_code":0,"output":"OK","error_output":""} 
+[2026-08-24 10:51:41] local.ERROR: Command "server" is not defined.
+
+Did you mean one of these?
+    make:observer
+    serve {"exception":"[object] (Symfony\\Component\\Console\\Exception\\CommandNotFoundException(code: 0): Command \"server\" is not defined.
+
+Did you mean one of these?
+    make:observer
+    serve at C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/vendor/symfony/console/Application.php:759)
+[stacktrace]
+#0 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/vendor/symfony/console/Application.php(298): Symfony/Component/Console/Application->find()
+#1 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/vendor/symfony/console/Application.php(195): Symfony/Component/Console/Application->doRun()
+#2 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony/Component/Console/Application->run()
+#3 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate/Foundation/Console/Kernel->handle()
+#4 C:/Users/israe/OneDrive/Desktop/Pasantia/Proyectos/recursos-humanos/artisan(13): Illuminate/Foundation/Application->handleCommand()
+#5 {main}
+"} 
+[2026-08-24 11:02:12] local.INFO: Extraccion biometrico Python process ejecutado {"probe_only":false,"python":"C:\\Users\\israe\\OneDrive\\Desktop\\Pasantia\\Proyectos\\recursos-humanos\\.venv/Scripts/python.exe","device_ip":"172.65.14.108","device_port":4370,"successful":true,"exit_code":0,"output":"OK","error_output":""} 
