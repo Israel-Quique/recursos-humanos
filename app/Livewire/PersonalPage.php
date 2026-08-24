@@ -24,6 +24,7 @@ class PersonalPage extends Component
     public string $vista = 'personal';
     public string $search = '';
     public string $sucursalFiltro = '';
+    public string $toleranciaFiltro = '';
     public string $ordenMarcaciones = 'fecha_reciente';
     public int $registrosPage = 1;
     public ?int $detailEmpleadoId = null;
@@ -403,6 +404,12 @@ class PersonalPage extends Component
         $this->resetPage('registrosPage');
     }
 
+    public function updatingToleranciaFiltro(): void
+    {
+        $this->resetPage();
+        $this->resetPage('registrosPage');
+    }
+
     public function updatingOrdenMarcaciones(): void
     {
         $this->resetPage('registrosPage');
@@ -454,6 +461,18 @@ class PersonalPage extends Component
 
         $empleadosFiltrados = $empleadosResumen
             ->filter(fn (Empleado $empleado) => $this->employeeMatchesVista($empleado))
+            ->when($this->vista === 'control' && filled($this->toleranciaFiltro), function ($items) {
+                return $items->filter(function (Empleado $empleado) {
+                    $estadoTolerancia = $empleado->resumen_asistencia['estado_retraso'] ?? 'Dentro de tolerancia';
+
+                    return match ($this->toleranciaFiltro) {
+                        'dentro' => $estadoTolerancia === 'Dentro de tolerancia',
+                        'excedido' => $estadoTolerancia === 'Excedido',
+                        default => true,
+                    };
+                });
+            })
+            ->when($this->vista === 'control', fn ($items) => $items->sortByDesc(fn (Empleado $empleado) => $empleado->resumen_asistencia['retraso_mes'] ?? 0))
             ->values();
 
         $totalMinutosMes = $empleadosFiltrados->sum(function (Empleado $empleado) {

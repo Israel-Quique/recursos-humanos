@@ -1371,7 +1371,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
       </div>
 
       <div class="history-table-shell history-table-shell-personal">
-        <div class="history-filters-grid md:grid-cols-2">
+        <div class="history-filters-grid md:grid-cols-3">
           <div>
             <label for="control-search" class="form-label">Buscar por codigo o nombre</label>
             <input
@@ -1389,6 +1389,14 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sucursales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sucursal): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                 <option value="<?php echo e($sucursal); ?>"><?php echo e($sucursal); ?></option>
               <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </select>
+          </div>
+          <div>
+            <label for="control-tolerancia" class="form-label">Filtrar por tolerancia</label>
+            <select id="control-tolerancia" wire:model.live="toleranciaFiltro" class="form-input">
+              <option value="">Todas las tolerancias</option>
+              <option value="dentro">Dentro de tolerancia</option>
+              <option value="excedido">Excedido</option>
             </select>
           </div>
         </div>
@@ -1471,6 +1479,47 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
           </tbody>
         </table>
       </div>
+
+      <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($empleados->hasPages()): ?>
+        <div class="table-pagination-shell mt-4">
+          <div class="table-pagination-bar">
+            <p class="table-pagination-copy">
+              Mostrando <?php echo e($empleados->firstItem()); ?> a <?php echo e($empleados->lastItem()); ?> de <?php echo e($empleados->total()); ?> registros
+            </p>
+
+            <div class="table-pagination-actions">
+              <button
+                type="button"
+                wire:click="previousPage"
+                <?php if($empleados->onFirstPage()): echo 'disabled'; endif; ?>
+                class="table-pagination-button <?php echo e($empleados->onFirstPage() ? 'table-pagination-button-disabled' : ''); ?>"
+              >
+                Anterior
+              </button>
+
+              <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = range(max(1, $empleados->currentPage() - 2), min($empleados->lastPage(), $empleados->currentPage() + 2)); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $page): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <button
+                  type="button"
+                  wire:click="gotoPage(<?php echo e($page); ?>)"
+                  class="table-pagination-button <?php echo e($page === $empleados->currentPage() ? 'table-pagination-button-active' : ''); ?>"
+                >
+                  <?php echo e($page); ?>
+
+                </button>
+              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+              <button
+                type="button"
+                wire:click="nextPage"
+                <?php if(! $empleados->hasMorePages()): echo 'disabled'; endif; ?>
+                class="table-pagination-button <?php echo e(! $empleados->hasMorePages() ? 'table-pagination-button-disabled' : ''); ?>"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </div>
+      <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
     </article>
   </section>
   <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>

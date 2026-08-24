@@ -67,25 +67,20 @@
                   <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'marcaciones'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'marcaciones' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Marcaciones</a>
                   <a wire:navigate href="<?php echo e(route('personal', ['vista' => 'control'])); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('personal') && $personalVista === 'control' ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Control mensual</a>
                 </div>
+              <div x-data="{ open: <?php echo e((request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias')) ? 'true' : 'false'); ?> }">
+                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left <?php echo e((request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias')) ? 'app-sidebar-link-active' : ''); ?>" x-bind:aria-expanded="open.toString()">
+                  <span class="app-sidebar-link-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                  </span>
+                  <span class="app-sidebar-link-label">Operación Laboral</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-sidebar-chevron" :class="{ 'app-sidebar-chevron-open': open }"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
+                  <a wire:navigate href="<?php echo e(route('horarios')); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('horarios') ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Horarios por sucursal</a>
+                  <a wire:navigate href="<?php echo e(route('fechas-especiales')); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('fechas-especiales') ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Fechas especiales</a>
+                  <a wire:navigate href="<?php echo e(route('incidencias')); ?>" class="app-sidebar-sublink <?php echo e(request()->routeIs('incidencias') ? 'app-sidebar-sublink-active' : ''); ?>"><span class="app-sidebar-subdot"></span>Incidencias y permisos</a>
+                </div>
               </div>
-              <a wire:navigate href="<?php echo e(route('horarios')); ?>" class="app-sidebar-link <?php echo e(request()->routeIs('horarios') ? 'app-sidebar-link-active' : ''); ?>">
-                <span class="app-sidebar-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.25"/><path d="M12 7.5V12l3 2"/></svg>
-                </span>
-                <span class="app-sidebar-link-label">Horarios</span>
-              </a>
-              <a wire:navigate href="<?php echo e(route('fechas-especiales')); ?>" class="app-sidebar-link <?php echo e(request()->routeIs('fechas-especiales') ? 'app-sidebar-link-active' : ''); ?>">
-                <span class="app-sidebar-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="m12 12.6 1 2 2.2.3-1.6 1.5.4 2.2-2-1.1-2 1.1.4-2.2-1.6-1.5 2.2-.3 1-2Z"/></svg>
-                </span>
-                <span class="app-sidebar-link-label">Fechas</span>
-              </a>
-              <a wire:navigate href="<?php echo e(route('incidencias')); ?>" class="app-sidebar-link <?php echo e(request()->routeIs('incidencias') ? 'app-sidebar-link-active' : ''); ?>">
-                <span class="app-sidebar-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 3 19h18Z"/><path d="M12 10v4M12 16.6h.01"/></svg>
-                </span>
-                <span class="app-sidebar-link-label">Incidencias</span>
-              </a>
             <?php endif; ?>
             <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('importar biometria')): ?>
               <a wire:navigate href="<?php echo e(route('importar')); ?>" class="app-sidebar-link <?php echo e(request()->routeIs('importar') ? 'app-sidebar-link-active' : ''); ?>">

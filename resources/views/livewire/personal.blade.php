@@ -1283,7 +1283,7 @@
       </div>
 
       <div class="history-table-shell history-table-shell-personal">
-        <div class="history-filters-grid md:grid-cols-2">
+        <div class="history-filters-grid md:grid-cols-3">
           <div>
             <label for="control-search" class="form-label">Buscar por codigo o nombre</label>
             <input
@@ -1301,6 +1301,14 @@
               @foreach ($sucursales as $sucursal)
                 <option value="{{ $sucursal }}">{{ $sucursal }}</option>
               @endforeach
+            </select>
+          </div>
+          <div>
+            <label for="control-tolerancia" class="form-label">Filtrar por tolerancia</label>
+            <select id="control-tolerancia" wire:model.live="toleranciaFiltro" class="form-input">
+              <option value="">Todas las tolerancias</option>
+              <option value="dentro">Dentro de tolerancia</option>
+              <option value="excedido">Excedido</option>
             </select>
           </div>
         </div>
@@ -1382,6 +1390,46 @@
           </tbody>
         </table>
       </div>
+
+      @if ($empleados->hasPages())
+        <div class="table-pagination-shell mt-4">
+          <div class="table-pagination-bar">
+            <p class="table-pagination-copy">
+              Mostrando {{ $empleados->firstItem() }} a {{ $empleados->lastItem() }} de {{ $empleados->total() }} registros
+            </p>
+
+            <div class="table-pagination-actions">
+              <button
+                type="button"
+                wire:click="previousPage"
+                @disabled($empleados->onFirstPage())
+                class="table-pagination-button {{ $empleados->onFirstPage() ? 'table-pagination-button-disabled' : '' }}"
+              >
+                Anterior
+              </button>
+
+              @foreach (range(max(1, $empleados->currentPage() - 2), min($empleados->lastPage(), $empleados->currentPage() + 2)) as $page)
+                <button
+                  type="button"
+                  wire:click="gotoPage({{ $page }})"
+                  class="table-pagination-button {{ $page === $empleados->currentPage() ? 'table-pagination-button-active' : '' }}"
+                >
+                  {{ $page }}
+                </button>
+              @endforeach
+
+              <button
+                type="button"
+                wire:click="nextPage"
+                @disabled(! $empleados->hasMorePages())
+                class="table-pagination-button {{ ! $empleados->hasMorePages() ? 'table-pagination-button-disabled' : '' }}"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </div>
+      @endif
     </article>
   </section>
   @endif
