@@ -7,14 +7,52 @@ use Illuminate\Support\Str;
 use App\Services\AnalisisAsistenciaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class ReportesPage extends Component
 {
+    use WithPagination;
+
     public string $referenceMonth = '';
     public string $selectedBranch = '';
+    public string $search = '';
+    public string $sortOrder = 'fecha_desc'; // fecha_desc, fecha_asc, nombre_asc, retraso_desc, retraso_asc
+    public int $perPage = 15; // 10, 15, 20, 25, 30
     public bool $showEmployeeDetailModal = false;
     public ?int $detailEmployeeId = null;
     public array $detailEmployeeReport = [];
+
+    public function updatingReferenceMonth(): void
+    {
+        $this->resetPage('atrasosPage');
+        $this->resetPage('omisionesPage');
+    }
+
+    public function updatingSelectedBranch(): void
+    {
+        $this->resetPage('atrasosPage');
+        $this->resetPage('omisionesPage');
+    }
+
+    public function updatingSearch(): void
+    {
+        $this->resetPage('atrasosPage');
+        $this->resetPage('omisionesPage');
+    }
+
+    public function updatingSortOrder(): void
+    {
+        $this->resetPage('atrasosPage');
+        $this->resetPage('omisionesPage');
+    }
+
+    public function updatingPerPage(): void
+    {
+        // Validar min 10 max 30
+        $this->perPage = max(10, min(30, (int) $this->perPage));
+        $this->resetPage('atrasosPage');
+        $this->resetPage('omisionesPage');
+    }
 
     public function mount(): void
     {
@@ -116,6 +154,80 @@ class ReportesPage extends Component
         // Datos de atrasos y omisiones del mes
         $reporteAtrasoOmision = $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch);
 
+        // --- FILTRADO Y ORDENACIÓN DE ATRASOS ---
+        $atrasosItems = collect($reporteAtrasoOmision['atrasos'] ?? []);
+        if (filled($this->search)) {
+            $term = Str::ascii(Str::lower(trim($this->search)));
+            $atrasosItems = $atrasosItems->filter(function ($item) use ($term) {
+                $nombre = Str::ascii(Str::lower($item['nombre'] ?? ''));
+                $codigo = Str::ascii(Str::lower($item['codigo'] ?? ''));
+                return str_contains($nombre, $term) || str_contains($codigo, $term);
+            });
+        }
+
+        switch ($this->sortOrder) {
+            case 'nombre_asc':
+                $atrasosItems = $atrasosItems->sortBy('nombre');
+                break;
+            case 'retraso_desc':
+                $atrasosItems = $atrasosItems->sortByDesc('minutos_retraso');
+                break;
+            case 'retraso_asc':
+                $atrasosItems = $atrasosItems->sortBy('minutos_retraso');
+                break;
+            case 'fecha_asc':
+                $atrasosItems = $atrasosItems->sortBy('fecha');
+                break;
+            case 'fecha_desc':
+            default:
+                $atrasosItems = $atrasosItems->sortByDesc('fecha');
+                break;
+        }
+
+        $perPageVal = max(10, min(30, (int) $this->perPage));
+
+        $atrasosPage = $this->getPage('atrasosPage');
+        $atrasosPaginados = new \Illuminate\Pagination\LengthAwarePaginator(
+            $atrasosItems->forPage($atrasosPage, $perPageVal)->values(),
+            $atrasosItems->count(),
+            $perPageVal,
+            $atrasosPage,
+            ['pageName' => 'atrasosPage']
+        );
+
+        // --- FILTRADO Y ORDENACIÓN DE OMISIONES ---
+        $omisionesItems = collect($reporteAtrasoOmision['no_marcados'] ?? []);
+        if (filled($this->search)) {
+            $term = Str::ascii(Str::lower(trim($this->search)));
+            $omisionesItems = $omisionesItems->filter(function ($item) use ($term) {
+                $nombre = Str::ascii(Str::lower($item['nombre'] ?? ''));
+                $codigo = Str::ascii(Str::lower($item['codigo'] ?? ''));
+                return str_contains($nombre, $term) || str_contains($codigo, $term);
+            });
+        }
+
+        switch ($this->sortOrder) {
+            case 'nombre_asc':
+                $omisionesItems = $omisionesItems->sortBy('nombre');
+                break;
+            case 'fecha_asc':
+                $omisionesItems = $omisionesItems->sortBy('fecha');
+                break;
+            case 'fecha_desc':
+            default:
+                $omisionesItems = $omisionesItems->sortByDesc('fecha');
+                break;
+        }
+
+        $omisionesPage = $this->getPage('omisionesPage');
+        $omisionesPaginadas = new \Illuminate\Pagination\LengthAwarePaginator(
+            $omisionesItems->forPage($omisionesPage, $perPageVal)->values(),
+            $omisionesItems->count(),
+            $perPageVal,
+            $omisionesPage,
+            ['pageName' => 'omisionesPage']
+        );
+
         return view('livewire.reportes', [
             'metrics'              => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch),
             'frequency'            => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch),
@@ -124,12 +236,14 @@ class ReportesPage extends Component
             'branches'             => $analysis->sucursalesParaReportes(),
             'monthLabel'           => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'detailEmployeeReport' => $this->detailEmployeeReport,
-            // Nuevos reportes
+            // Reportes
             'cumpleanos'           => $analysis->cumpleaniosMes($referenceMonth, $this->selectedBranch),
             'rankingMensual'       => $analysis->rankingPuntualidadMensual($referenceMonth, $this->selectedBranch, 5),
             'rankingSemanal'       => $analysis->rankingPuntualidadSemanal($this->selectedBranch, 5),
-            'detalleAtrasos'       => $reporteAtrasoOmision['atrasos'] ?? [],
-            'detalleOmisiones'     => $reporteAtrasoOmision['no_marcados'] ?? [],
+            'detalleAtrasos'       => $atrasosPaginados,
+            'totalAtrasos'         => $atrasosItems->count(),
+            'detalleOmisiones'     => $omisionesPaginadas,
+            'totalOmisiones'       => $omisionesItems->count(),
             'reportePersonal'      => $reportePersonal,
             'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,
         ])->layout('layouts.app', ['title' => 'Reportes de asistencia']);

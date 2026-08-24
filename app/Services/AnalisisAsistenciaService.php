@@ -632,6 +632,7 @@ class AnalisisAsistenciaService
             ->map(fn (RegistroAsistencia $registro) => [
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                 'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
+                'codigo' => $registro->empleado?->codigo_biometrico ?? '',
                 'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                 'entrada' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
                 'salida' => ($horaSalidaReal = $this->horaSalidaReal($registro)) ? substr($horaSalidaReal, 0, 5) : '--:--',
@@ -666,10 +667,12 @@ class AnalisisAsistenciaService
             $lateRows[] = [
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                 'nombre' => $empleado->nombre_completo,
+                'codigo' => $empleado->codigo_biometrico ?? '',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'entrada_programada' => $horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--',
                 'entrada_real' => $registro->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '--:--',
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
+                'minutos_retraso' => $delay,
                 'estado' => $registro->estado_marcacion ?: 'Sin estado',
             ];
 
@@ -1391,9 +1394,31 @@ class AnalisisAsistenciaService
         return substr_count((string) file_get_contents($file), $needle);
     }
 
+    private function esEntradaOmisionPorHoraTardia(?string $horaEntrada): bool
+    {
+        if (blank($horaEntrada)) {
+            return true;
+        }
+
+        $entrada = $this->parseTimeToCarbon($horaEntrada);
+        if (! $entrada) {
+            return false;
+        }
+
+        // Si marca a las 12:30:00 PM o después (ej: 12:30, 16:00), se considera omisión de entrada
+        $corteOmision = Carbon::createFromTime(12, 30, 0);
+
+        return $entrada->greaterThanOrEqualTo($corteOmision);
+    }
+
     private function calcularMinutosRetraso(?string $horaEntrada, ?string $horaProgramada): int
     {
         if (blank($horaEntrada) || blank($horaProgramada)) {
+            return 0;
+        }
+
+        // Si la marcación de entrada es a las 12:30 PM o posterior, se considera omisión de entrada y no un retraso de 8 horas
+        if ($this->esEntradaOmisionPorHoraTardia($horaEntrada)) {
             return 0;
         }
 
@@ -1425,7 +1450,7 @@ class AnalisisAsistenciaService
 
     private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro): bool
     {
-        if (blank($registro->hora_entrada)) {
+        if (blank($registro->hora_entrada) || $this->esEntradaOmisionPorHoraTardia($registro->hora_entrada)) {
             return true;
         }
 
@@ -1494,7 +1519,7 @@ class AnalisisAsistenciaService
         ?string $horaSalidaReal,
         int $delay
     ): string {
-        $olvidoEntrada = blank($registro->hora_entrada);
+        $olvidoEntrada = blank($registro->hora_entrada) || $this->esEntradaOmisionPorHoraTardia($registro->hora_entrada);
         $olvidoSalida = blank($horaSalidaReal);
 
         if ($olvidoEntrada && $olvidoSalida) {

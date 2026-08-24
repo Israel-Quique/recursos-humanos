@@ -191,19 +191,43 @@
       </div>
     </div>
 
-    {{-- Filtros --}}
-    <div class="report-filter-bar">
+    {{-- Filtros Avanzados --}}
+    <div class="report-filter-bar grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <div class="report-filter-field">
         <label class="report-filter-label" for="hero-reference-month">Periodo</label>
         <input id="hero-reference-month" type="month" wire:model.live="referenceMonth" class="report-filter-input">
       </div>
       <div class="report-filter-field">
-        <label class="report-filter-label" for="hero-branch">Sucursal</label>
+        <label class="report-filter-label" for="hero-branch">Ciudad / Sucursal</label>
         <select id="hero-branch" wire:model.live="selectedBranch" class="report-filter-input">
           <option value="">Todas las sucursales</option>
           @foreach($branches as $branch)
             <option value="{{ $branch }}">{{ $branch }}</option>
           @endforeach
+        </select>
+      </div>
+      <div class="report-filter-field">
+        <label class="report-filter-label" for="hero-search">Buscar Personal / CI</label>
+        <input id="hero-search" type="text" wire:model.live.debounce.300ms="search" placeholder="Nombre o Carnet..." class="report-filter-input">
+      </div>
+      <div class="report-filter-field">
+        <label class="report-filter-label" for="hero-sort">Ordenamiento</label>
+        <select id="hero-sort" wire:model.live="sortOrder" class="report-filter-input">
+          <option value="fecha_desc">Fecha (más reciente)</option>
+          <option value="fecha_asc">Fecha (más antigua)</option>
+          <option value="nombre_asc">Nombre (A-Z)</option>
+          <option value="retraso_desc">Mayor a menor retraso</option>
+          <option value="retraso_asc">Menor a mayor retraso</option>
+        </select>
+      </div>
+      <div class="report-filter-field">
+        <label class="report-filter-label" for="hero-perpage">Mostrar por pág.</label>
+        <select id="hero-perpage" wire:model.live="perPage" class="report-filter-input">
+          <option value="10">10 por página</option>
+          <option value="15">15 por página</option>
+          <option value="20">20 por página</option>
+          <option value="25">25 por página</option>
+          <option value="30">30 por página</option>
         </select>
       </div>
     </div>
@@ -224,8 +248,8 @@
       class="report-tab-button" id="tab-atrasos">
       <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       <span>Atrasos</span>
-      @if(count($detalleAtrasos) > 0)
-        <span class="report-tab-badge report-tab-badge-amber">{{ count($detalleAtrasos) }}</span>
+      @if(($totalAtrasos ?? 0) > 0)
+        <span class="report-tab-badge report-tab-badge-amber">{{ $totalAtrasos }}</span>
       @endif
     </button>
     <button type="button" role="tab" :aria-selected="tab === 'omisiones'" @click="tab = 'omisiones'"
@@ -233,8 +257,8 @@
       class="report-tab-button" id="tab-omisiones">
       <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/><circle cx="12" cy="16" r="1.5"/></svg>
       <span>Omisiones</span>
-      @if(count($detalleOmisiones) > 0)
-        <span class="report-tab-badge report-tab-badge-rose">{{ count($detalleOmisiones) }}</span>
+      @if(($totalOmisiones ?? 0) > 0)
+        <span class="report-tab-badge report-tab-badge-rose">{{ $totalOmisiones }}</span>
       @endif
     </button>
     <button type="button" role="tab" :aria-selected="tab === 'cumpleanos'" @click="tab = 'cumpleanos'"
@@ -433,7 +457,7 @@
           <p class="section-copy-sm">Todos los registros de llegada tarde en {{ $monthLabel }}.</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="status-badge status-warning">{{ count($detalleAtrasos) }} atrasos</span>
+          <span class="status-badge status-warning">{{ $totalAtrasos }} atrasos</span>
           <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
         </div>
       </div>
@@ -441,7 +465,9 @@
         <table class="history-table">
           <thead>
             <tr>
+              <th class="w-12 text-center">#</th>
               <th>Personal</th>
+              <th>CI / Código</th>
               <th>Sucursal</th>
               <th>Fecha</th>
               <th>Hora prog.</th>
@@ -451,9 +477,11 @@
             </tr>
           </thead>
           <tbody>
-            @forelse($detalleAtrasos as $item)
+            @forelse($detalleAtrasos as $index => $item)
               <tr class="report-atraso-row">
+                <td class="text-center font-bold text-slate-400">{{ ($detalleAtrasos->currentPage() - 1) * $detalleAtrasos->perPage() + $index + 1 }}</td>
                 <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
+                <td><span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
                 <td>{{ $item['sucursal'] }}</td>
                 <td>{{ $item['fecha'] }}</td>
                 <td>{{ $item['entrada_programada'] }}</td>
@@ -463,15 +491,20 @@
               </tr>
             @empty
               <tr>
-                <td colspan="7" class="py-12 text-center text-slate-400">
+                <td colspan="9" class="py-12 text-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                  No hay atrasos registrados en el mes seleccionado.
+                  No hay atrasos registrados que coincidan con los filtros.
                 </td>
               </tr>
             @endforelse
           </tbody>
         </table>
       </div>
+      @if($detalleAtrasos->hasPages())
+        <div class="mt-6">
+          {{ $detalleAtrasos->links() }}
+        </div>
+      @endif
     </section>
   </div>
 
@@ -487,7 +520,7 @@
           <p class="section-copy-sm">Registros con entrada o salida faltante en {{ $monthLabel }}.</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="status-badge status-danger">{{ count($detalleOmisiones) }} omisiones</span>
+          <span class="status-badge status-danger">{{ $totalOmisiones }} omisiones</span>
           <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
         </div>
       </div>
@@ -495,7 +528,9 @@
         <table class="history-table">
           <thead>
             <tr>
+              <th class="w-12 text-center">#</th>
               <th>Personal</th>
+              <th>CI / Código</th>
               <th>Sucursal</th>
               <th>Fecha</th>
               <th>Entrada</th>
@@ -505,9 +540,11 @@
             </tr>
           </thead>
           <tbody>
-            @forelse($detalleOmisiones as $item)
+            @forelse($detalleOmisiones as $index => $item)
               <tr class="report-omision-row">
+                <td class="text-center font-bold text-slate-400">{{ ($detalleOmisiones->currentPage() - 1) * $detalleOmisiones->perPage() + $index + 1 }}</td>
                 <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
+                <td><span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
                 <td>{{ $item['sucursal'] }}</td>
                 <td>{{ $item['fecha'] }}</td>
                 <td class="{{ blank($item['entrada'] ?? '') || ($item['entrada'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : '' }}">{{ $item['entrada'] ?? '--:--' }}</td>
@@ -517,15 +554,20 @@
               </tr>
             @empty
               <tr>
-                <td colspan="7" class="py-12 text-center text-slate-400">
+                <td colspan="9" class="py-12 text-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/></svg>
-                  No hay omisiones de marcacion en el mes seleccionado.
+                  No hay omisiones de marcacion que coincidan con los filtros.
                 </td>
               </tr>
             @endforelse
           </tbody>
         </table>
       </div>
+      @if($detalleOmisiones->hasPages())
+        <div class="mt-6">
+          {{ $detalleOmisiones->links() }}
+        </div>
+      @endif
     </section>
   </div>
 
