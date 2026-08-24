@@ -65,6 +65,8 @@ function initBoliviaMap() {
   const canvas = root.querySelector('[data-bolivia-map-canvas]');
   const dataScript = root.querySelector('[data-departments-json]');
   const bubbleName = root.querySelector('[data-department-name]');
+  const bubbleSubregionShell = root.querySelector('[data-department-subregion-shell]');
+  const bubbleSubregionSelect = root.querySelector('[data-department-subregion-select]');
   const bubbleBranch = root.querySelector('[data-department-branch]');
   const bubbleMarked = root.querySelector('[data-department-marked]');
   const bubbleWorking = root.querySelector('[data-department-working]');
@@ -111,30 +113,101 @@ function initBoliviaMap() {
     tarija: '#9ccf54',
   };
 
+  let activePayload = null;
+  let activeSubregionKey = '';
+
+  const resolveBubblePayload = (payload) => {
+    if (!payload) {
+      return null;
+    }
+
+    const subregions = payload.subregions || {};
+    const selectedSubregionKey = bubbleSubregionSelect?.value || activeSubregionKey;
+
+    if (selectedSubregionKey && subregions[selectedSubregionKey]) {
+      activeSubregionKey = selectedSubregionKey;
+      return subregions[selectedSubregionKey];
+    }
+
+    const fallbackKey = payload.default_subregion && subregions[payload.default_subregion]
+      ? payload.default_subregion
+      : Object.keys(subregions)[0];
+
+    if (fallbackKey && subregions[fallbackKey]) {
+      activeSubregionKey = fallbackKey;
+      return subregions[fallbackKey];
+    }
+
+    activeSubregionKey = '';
+    return payload;
+  };
+
+  const syncSubregionSelect = (payload) => {
+    if (!bubbleSubregionShell || !bubbleSubregionSelect) {
+      return;
+    }
+
+    const subregions = payload?.subregions || {};
+    const entries = Object.entries(subregions);
+
+    bubbleSubregionSelect.innerHTML = '';
+
+    if (!entries.length) {
+      bubbleSubregionShell.hidden = true;
+      return;
+    }
+
+    bubbleSubregionShell.hidden = false;
+
+    entries.forEach(([key, value]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = value?.label || value?.name || key;
+      bubbleSubregionSelect.appendChild(option);
+    });
+
+    if (!activeSubregionKey || !subregions[activeSubregionKey]) {
+      activeSubregionKey = payload.default_subregion && subregions[payload.default_subregion]
+        ? payload.default_subregion
+        : entries[0][0];
+    }
+
+    bubbleSubregionSelect.value = activeSubregionKey;
+  };
+
   const updateBubble = (payload) => {
     if (!payload) {
       return;
     }
 
-    bubbleName.textContent = payload.name;
-    bubbleBranch.textContent = payload.branch;
-    bubbleMarked.textContent = payload.marked;
-    bubbleWorking.textContent = payload.working;
-    if (bubbleEmployees) {
-      bubbleEmployees.textContent = payload.employees ?? 0;
+    activePayload = payload;
+
+    const resolvedPayload = resolveBubblePayload(payload);
+    syncSubregionSelect(payload);
+
+    if (!resolvedPayload) {
+      return;
     }
-    bubbleMissing.textContent = payload.missing;
+
+    bubbleName.textContent = resolvedPayload.label || resolvedPayload.name || payload.name;
+    bubbleBranch.textContent = resolvedPayload.branch;
+    bubbleMarked.textContent = resolvedPayload.marked;
+    bubbleWorking.textContent = resolvedPayload.working;
+    if (bubbleEmployees) {
+      bubbleEmployees.textContent = resolvedPayload.employees ?? 0;
+    }
+    bubbleMissing.textContent = resolvedPayload.missing;
     if (bubbleUpdatedAt) {
-      bubbleUpdatedAt.textContent = payload.updated_at || '--:--';
+      bubbleUpdatedAt.textContent = resolvedPayload.updated_at || '--:--';
     }
     if (bubbleSyncLabel) {
-      bubbleSyncLabel.textContent = payload.sync_label || 'Sin sincronizacion automatica registrada';
+      bubbleSyncLabel.textContent = resolvedPayload.sync_label || 'Sin sincronizacion automatica registrada';
     }
     if (bubblePresenceTotal) {
-      bubblePresenceTotal.textContent = payload.people_in_agency_total ?? 0;
+      bubblePresenceTotal.textContent = resolvedPayload.people_in_agency_total ?? 0;
     }
     if (bubblePresenceList) {
-      const people = Array.isArray(payload.people_in_agency) ? payload.people_in_agency : [];
+      const people = Array.isArray(resolvedPayload.people_in_agency) ? resolvedPayload.people_in_agency : [];
 
       bubblePresenceList.innerHTML = '';
 
@@ -163,6 +236,16 @@ function initBoliviaMap() {
       });
     }
   };
+
+  if (bubbleSubregionSelect && !bubbleSubregionSelect.dataset.bound) {
+    bubbleSubregionSelect.addEventListener('change', (event) => {
+      activeSubregionKey = event.target.value || '';
+      if (activePayload) {
+        updateBubble(activePayload);
+      }
+    });
+    bubbleSubregionSelect.dataset.bound = 'true';
+  }
 
   const renderToken = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   root.dataset.mapRenderToken = renderToken;

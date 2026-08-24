@@ -20,6 +20,10 @@
         <aside class="department-bubble" data-department-bubble>
           <p class="department-bubble-kicker">Departamento seleccionado</p>
           <h4 class="department-bubble-title" data-department-name>{{ $initialDepartment['name'] }}</h4>
+          <div class="mt-3" data-department-subregion-shell hidden>
+            <label for="department-subregion-select" class="form-label">Regional</label>
+            <select id="department-subregion-select" class="form-input" data-department-subregion-select></select>
+          </div>
           <p class="department-bubble-copy" data-department-branch>{{ $initialDepartment['branch'] }}</p>
           <p class="department-bubble-copy mt-1">
             Actualizado a las <strong data-department-updated-at>{{ $initialDepartment['updated_at'] ?? now()->format('H:i') }}</strong>

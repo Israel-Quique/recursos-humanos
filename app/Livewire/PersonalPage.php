@@ -417,7 +417,12 @@ class PersonalPage extends Component
         $registrosPorNombre = $this->registrosPorNombre($monthStart, $monthEnd);
         $searchOperator = $this->caseInsensitiveLikeOperator();
 
+<<<<<<< Updated upstream
         $empleadosQuery = Empleado::query()
+=======
+        $empleadosBaseQuery = Empleado::query()
+            ->withUltimaMarcacion()
+>>>>>>> Stashed changes
             ->with(['asistencias' => function ($query) use ($monthStart, $monthEnd) {
                 $query->whereBetween('fecha', [$monthStart, $monthEnd])
                     ->orderByDesc('fecha');
@@ -620,6 +625,11 @@ class PersonalPage extends Component
             new EloquentCollection($registrosUnificados->all()),
             $referenceMonth
         );
+<<<<<<< Updated upstream
+=======
+        $empleado->estado_laboral = $empleado->estadoLaboral(now());
+        $empleado->ultima_marcacion_label = $empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones';
+>>>>>>> Stashed changes
 
         return $empleado;
     }
@@ -1077,6 +1087,47 @@ class PersonalPage extends Component
         ];
     }
 
+<<<<<<< Updated upstream
+=======
+    private function employeeMatchesVista(Empleado $empleado): bool
+    {
+        return match ($this->vista) {
+            'inactivos' => $empleado->estado_laboral === 'Inactivo',
+            'personal', 'control' => $empleado->estado_laboral === 'Activo',
+            default => true,
+        };
+    }
+
+    private function paginarColeccion(\Illuminate\Support\Collection $items, int $perPage): \Illuminate\Pagination\LengthAwarePaginator
+    {
+        $page = $this->getPage();
+        $total = $items->count();
+        $results = $items->forPage($page, $perPage)->values();
+
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $results,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'pageName' => 'page',
+                'query' => request()->query(),
+            ]
+        );
+    }
+
+    private function pageTitle(): string
+    {
+        return match ($this->vista) {
+            'inactivos' => 'Personal inactivo',
+            'marcaciones' => 'Marcaciones del personal',
+            'control' => 'Control mensual del personal',
+            default => 'Registro de personal',
+        };
+    }
+
+>>>>>>> Stashed changes
     private function snapshotRegistro(RegistroAsistencia $registro): array
     {
         return [

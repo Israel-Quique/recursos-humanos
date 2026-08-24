@@ -194,6 +194,14 @@
             <p class="metric-label">Dias tarde</p>
             <strong class="metric-value metric-value-detail">{{ $detailEmpleado['dias_tarde'] ?? 0 }}</strong>
           </div>
+          <div class="metric-card metric-card-detail">
+            <p class="metric-label">Estado</p>
+            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['estado_laboral'] ?? 'Activo' }}</strong>
+          </div>
+          <div class="metric-card metric-card-detail">
+            <p class="metric-label">Ultima marcacion</p>
+            <strong class="metric-value metric-value-detail">{{ $detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones' }}</strong>
+          </div>
         </div>
 
         <div class="mt-8 grid gap-4 md:grid-cols-2">
@@ -347,13 +355,13 @@
               <p class="pdf-export-label">Estado mensual</p>
               <strong class="pdf-export-value">{{ $pdfEmpleado['estado_retraso'] ?? 'Sin estado' }}</strong>
             </div>
+            <div class="pdf-export-card">
+              <p class="pdf-export-label">Estado laboral</p>
+              <strong class="pdf-export-value">{{ $pdfEmpleado['estado_laboral'] ?? 'Activo' }}</strong>
+            </div>
           </div>
 
           <div class="pdf-export-grid pdf-export-grid-secondary">
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Area</p>
-              <p class="pdf-export-value-sm">{{ $pdfEmpleado['area'] ?? 'Sin area' }}</p>
-            </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Contratacion</p>
               <p class="pdf-export-value-sm">{{ $pdfEmpleado['fecha_contratacion'] ?? 'Sin fecha' }}</p>
@@ -363,8 +371,8 @@
               <p class="pdf-export-value-sm">{{ $pdfEmpleado['fecha_nacimiento'] ?? 'Sin fecha' }}</p>
             </div>
             <div class="pdf-export-card">
-              <p class="pdf-export-label">Despido</p>
-              <p class="pdf-export-value-sm">{{ $pdfEmpleado['fecha_despido'] ?? 'Activo' }}</p>
+              <p class="pdf-export-label">Ultima marcacion</p>
+              <p class="pdf-export-value-sm">{{ $pdfEmpleado['ultima_marcacion'] ?? 'Sin marcaciones' }}</p>
             </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Horario regional</p>
@@ -393,14 +401,6 @@
             <div class="pdf-export-card">
               <p class="pdf-export-label">Dias tarde</p>
               <p class="pdf-export-value-sm">{{ $pdfEmpleado['dias_tarde'] ?? 0 }}</p>
-            </div>
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Entrada hoy</p>
-              <p class="pdf-export-value-sm">{{ $pdfEmpleado['entrada_hoy'] ?? '--:--' }}</p>
-            </div>
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Salida hoy</p>
-              <p class="pdf-export-value-sm">{{ $pdfEmpleado['salida_hoy'] ?? '--:--' }}</p>
             </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Verificacion hoy</p>

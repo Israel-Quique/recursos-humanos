@@ -887,11 +887,17 @@ class AnalisisAsistenciaService
         $normalizedSearch = $this->normalizarTexto((string) ($search ?? ''));
 
         return Empleado::query()
+            ->withUltimaMarcacion()
+            ->laboralVigente(now())
             ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->orderBy('nombre')
             ->orderBy('apellido')
             ->get()
             ->filter(function (Empleado $empleado) use ($normalizedSearch) {
+                if (! $empleado->estaActivoLaboralmente(now())) {
+                    return false;
+                }
+
                 if ($normalizedSearch === '') {
                     return true;
                 }
@@ -1086,62 +1092,55 @@ class AnalisisAsistenciaService
             $departmentEmployees = $employees->filter(fn (Empleado $empleado) => $this->departamentoDesdeTexto($empleado->sucursal) === $key);
             $departmentAttendance = $attendances->filter(fn (RegistroAsistencia $registro) => $this->departamentoDesdeTexto($registro->empleado?->sucursal) === $key);
             $departmentDevices = $deviceStatuses->get($key, collect());
-            $latestAttendanceByEmployee = $departmentAttendance
-                ->filter(fn (RegistroAsistencia $registro) => $registro->empleado_id)
-                ->groupBy('empleado_id')
-                ->map(function (Collection $rows) {
-                    return $rows->sortByDesc(function (RegistroAsistencia $registro) {
-                        return implode('|', [
-                            $registro->hora_salida ?? '',
-                            $registro->hora_entrada ?? '',
-                            optional($registro->updated_at)->timestamp ?? 0,
-                            $registro->id ?? 0,
-                        ]);
-                    })->first();
-                });
-            $insideEmployees = $latestAttendanceByEmployee
-                ->filter(fn (RegistroAsistencia $registro) => $this->estaDentroDeAgencia($registro))
-                ->map(function (RegistroAsistencia $registro) {
-                    $empleado = $registro->empleado;
-                    $departmentKey = $this->departamentoDesdeTexto($empleado?->sucursal);
+            $payload = $this->construirPayloadDepartamento(
+                $department['name'],
+                $this->etiquetaSucursalDepartamento($key, $departmentEmployees->pluck('sucursal')->filter()->first()),
+                $departmentEmployees,
+                $departmentAttendance,
+                $departmentDevices,
+                $key
+            );
+
+            if ($key === 'la-paz') {
+                $departmentName = $department['name'];
+                $subregions = collect([
+                    'la-paz' => [
+                        'label' => 'La Paz',
+                        'employee_filter' => fn (Empleado $empleado) => ! $this->esSucursalElAlto($empleado->sucursal),
+                        'attendance_filter' => fn (RegistroAsistencia $registro) => ! $this->esSucursalElAlto($registro->empleado?->sucursal),
+                        'device_filter' => fn (BiometricoDispositivo $device) => ! $this->esSucursalElAlto($device->branch),
+                    ],
+                    'el-alto' => [
+                        'label' => 'El Alto',
+                        'employee_filter' => fn (Empleado $empleado) => $this->esSucursalElAlto($empleado->sucursal),
+                        'attendance_filter' => fn (RegistroAsistencia $registro) => $this->esSucursalElAlto($registro->empleado?->sucursal),
+                        'device_filter' => fn (BiometricoDispositivo $device) => $this->esSucursalElAlto($device->branch),
+                    ],
+                ])->mapWithKeys(function (array $subregion, string $subregionKey) use ($departmentName, $departmentEmployees, $departmentAttendance, $departmentDevices, $key) {
+                    $employeesSubset = $departmentEmployees->filter($subregion['employee_filter'])->values();
+                    $attendanceSubset = $departmentAttendance->filter($subregion['attendance_filter'])->values();
+                    $devicesSubset = $departmentDevices->filter($subregion['device_filter'])->values();
+                    $branchLabel = $subregionKey === 'el-alto'
+                        ? 'Regional El Alto'
+                        : 'Oficina Central La Paz';
 
                     return [
-                        'name' => $empleado?->nombre_completo ?? 'Sin personal',
-                        'branch' => $this->etiquetaSucursalDepartamento($departmentKey, $empleado?->sucursal),
-                        'area' => $empleado?->area ?: 'Sin area',
-                        'status' => $registro->estado_marcacion ?: 'Dentro de agencia',
+                        $subregionKey => $this->construirPayloadDepartamento(
+                            $departmentName,
+                            $branchLabel,
+                            $employeesSubset,
+                            $attendanceSubset,
+                            $devicesSubset,
+                            $key
+                        ) + ['label' => $subregion['label']],
                     ];
-                })
-                ->sortBy('name')
-                ->values();
+                })->all();
 
-            $marked = $departmentAttendance->pluck('empleado_id')->unique()->count();
-            $working = $insideEmployees->count();
-            $missing = max($departmentEmployees->count() - $marked, 0);
-            $latestSync = $departmentDevices
-                ->flatMap(function (BiometricoDispositivo $device) {
-                    return collect([$device->last_synced_mark_at, $device->last_seen_at])->filter();
-                })
-                ->sortByDesc(fn (Carbon $date) => $date->timestamp)
-                ->first();
-            $hasConnectedDevice = $departmentDevices->contains(function (BiometricoDispositivo $device) {
-                return $device->last_seen_at !== null || $device->last_synced_mark_at !== null;
-            });
+                $payload['subregions'] = $subregions;
+                $payload['default_subregion'] = 'la-paz';
+            }
 
-            return [
-                'name' => $department['name'],
-                'branch' => $this->etiquetaSucursalDepartamento($key, $departmentEmployees->pluck('sucursal')->filter()->first()),
-                'marked' => $marked,
-                'working' => $working,
-                'missing' => $missing,
-                'employees' => $departmentEmployees->count(),
-                'people_in_agency' => $insideEmployees->take(18)->all(),
-                'people_in_agency_total' => $insideEmployees->count(),
-                'updated_at' => $latestSync?->format('H:i') ?? 'Sin sync',
-                'sync_label' => $hasConnectedDevice && $latestSync
-                    ? 'Ultima sincronizacion '.strtolower($latestSync->translatedFormat('d/m/Y H:i'))
-                    : 'Sin sincronizacion automatica registrada',
-            ];
+            return $payload;
         })->all();
     }
 
@@ -1192,12 +1191,12 @@ class AnalisisAsistenciaService
     private function empleadosActivos(string $fecha, ?string $branch = null): Collection
     {
         return Empleado::query()
+            ->withUltimaMarcacion()
+            ->laboralVigente($fecha)
             ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
-            ->where(function ($query) use ($fecha) {
-                $query->whereNull('fecha_despido')
-                    ->orWhereDate('fecha_despido', '>=', $fecha);
-            })
-            ->get();
+            ->get()
+            ->filter(fn (Empleado $empleado) => $empleado->estaActivoLaboralmente($fecha))
+            ->values();
     }
 
     private function contarFaltasEnRango(Carbon $start, Carbon $end, ?string $branch = null): int
@@ -1690,7 +1689,7 @@ class AnalisisAsistenciaService
     private function etiquetaSucursalDepartamento(?string $departmentKey, ?string $branch): string
     {
         return match ($departmentKey) {
-            'la-paz' => 'Oficina Central La Paz',
+            'la-paz' => $this->esSucursalElAlto($branch) ? 'Regional El Alto' : 'Oficina Central La Paz',
             'oruro' => 'Sucursal Oruro',
             'potosi' => 'Sucursal Potosi',
             'cochabamba' => 'Sucursal Cochabamba',
@@ -1701,5 +1700,79 @@ class AnalisisAsistenciaService
             'pando' => 'Sucursal Cobija',
             default => trim((string) $branch) !== '' ? trim((string) $branch) : 'Sin sucursal',
         };
+    }
+
+    private function construirPayloadDepartamento(
+        string $name,
+        string $branch,
+        Collection $departmentEmployees,
+        Collection $departmentAttendance,
+        Collection $departmentDevices,
+        ?string $departmentKey = null
+    ): array {
+        $latestAttendanceByEmployee = $departmentAttendance
+            ->filter(fn (RegistroAsistencia $registro) => $registro->empleado_id)
+            ->groupBy('empleado_id')
+            ->map(function (Collection $rows) {
+                return $rows->sortByDesc(function (RegistroAsistencia $registro) {
+                    return implode('|', [
+                        $registro->hora_salida ?? '',
+                        $registro->hora_entrada ?? '',
+                        optional($registro->updated_at)->timestamp ?? 0,
+                        $registro->id ?? 0,
+                    ]);
+                })->first();
+            });
+
+        $insideEmployees = $latestAttendanceByEmployee
+            ->filter(fn (RegistroAsistencia $registro) => $this->estaDentroDeAgencia($registro))
+            ->map(function (RegistroAsistencia $registro) use ($departmentKey) {
+                $empleado = $registro->empleado;
+                $employeeDepartmentKey = $this->departamentoDesdeTexto($empleado?->sucursal) ?? $departmentKey;
+
+                return [
+                    'name' => $empleado?->nombre_completo ?? 'Sin personal',
+                    'branch' => $this->etiquetaSucursalDepartamento($employeeDepartmentKey, $empleado?->sucursal),
+                    'area' => $empleado?->area ?: 'Sin area',
+                    'status' => $registro->estado_marcacion ?: 'Dentro de agencia',
+                ];
+            })
+            ->sortBy('name')
+            ->values();
+
+        $marked = $departmentAttendance->pluck('empleado_id')->filter()->unique()->count();
+        $working = $insideEmployees->count();
+        $missing = max($departmentEmployees->count() - $marked, 0);
+        $latestSync = $departmentDevices
+            ->flatMap(function (BiometricoDispositivo $device) {
+                return collect([$device->last_synced_mark_at, $device->last_seen_at])->filter();
+            })
+            ->sortByDesc(fn (Carbon $date) => $date->timestamp)
+            ->first();
+        $hasConnectedDevice = $departmentDevices->contains(function (BiometricoDispositivo $device) {
+            return $device->last_seen_at !== null || $device->last_synced_mark_at !== null;
+        });
+
+        return [
+            'name' => $name,
+            'branch' => $branch,
+            'marked' => $marked,
+            'working' => $working,
+            'missing' => $missing,
+            'employees' => $departmentEmployees->count(),
+            'people_in_agency' => $insideEmployees->take(18)->all(),
+            'people_in_agency_total' => $insideEmployees->count(),
+            'updated_at' => $latestSync?->format('H:i') ?? 'Sin sync',
+            'sync_label' => $hasConnectedDevice && $latestSync
+                ? 'Ultima sincronizacion '.strtolower($latestSync->translatedFormat('d/m/Y H:i'))
+                : 'Sin sincronizacion automatica registrada',
+        ];
+    }
+
+    private function esSucursalElAlto(?string $texto): bool
+    {
+        $normalized = $this->normalizarTextoDepartamento((string) $texto);
+
+        return str_contains($normalized, 'el alto');
     }
 }

@@ -1758,7 +1758,16 @@ body{
 /* -------------------------------------------------------------------------- */
 @media (max-width: 1023px) {
   .app-sidebar-panel{
-    @apply static min-h-0 rounded-b-[2rem] rounded-t-none px-5 py-6;
+    @apply static rounded-b-[2rem] rounded-t-none px-5 py-6;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-sidebar-nav{
+    @apply pr-0;
+    padding-bottom: 1rem;
   }
 
   .app-toast{

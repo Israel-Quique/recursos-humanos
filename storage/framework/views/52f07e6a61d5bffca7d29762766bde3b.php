@@ -278,6 +278,14 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <p class="metric-label">Dias tarde</p>
             <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['dias_tarde'] ?? 0); ?></strong>
           </div>
+          <div class="metric-card metric-card-detail">
+            <p class="metric-label">Estado</p>
+            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['estado_laboral'] ?? 'Activo'); ?></strong>
+          </div>
+          <div class="metric-card metric-card-detail">
+            <p class="metric-label">Ultima marcacion</p>
+            <strong class="metric-value metric-value-detail"><?php echo e($detailEmpleado['ultima_marcacion'] ?? 'Sin marcaciones'); ?></strong>
+          </div>
         </div>
 
         <div class="mt-8 grid gap-4 md:grid-cols-2">
@@ -431,13 +439,13 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <p class="pdf-export-label">Estado mensual</p>
               <strong class="pdf-export-value"><?php echo e($pdfEmpleado['estado_retraso'] ?? 'Sin estado'); ?></strong>
             </div>
+            <div class="pdf-export-card">
+              <p class="pdf-export-label">Estado laboral</p>
+              <strong class="pdf-export-value"><?php echo e($pdfEmpleado['estado_laboral'] ?? 'Activo'); ?></strong>
+            </div>
           </div>
 
           <div class="pdf-export-grid pdf-export-grid-secondary">
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Area</p>
-              <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['area'] ?? 'Sin area'); ?></p>
-            </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Contratacion</p>
               <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['fecha_contratacion'] ?? 'Sin fecha'); ?></p>
@@ -447,8 +455,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
               <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['fecha_nacimiento'] ?? 'Sin fecha'); ?></p>
             </div>
             <div class="pdf-export-card">
-              <p class="pdf-export-label">Despido</p>
-              <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['fecha_despido'] ?? 'Activo'); ?></p>
+              <p class="pdf-export-label">Ultima marcacion</p>
+              <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['ultima_marcacion'] ?? 'Sin marcaciones'); ?></p>
             </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Horario regional</p>
@@ -477,14 +485,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <div class="pdf-export-card">
               <p class="pdf-export-label">Dias tarde</p>
               <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['dias_tarde'] ?? 0); ?></p>
-            </div>
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Entrada hoy</p>
-              <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['entrada_hoy'] ?? '--:--'); ?></p>
-            </div>
-            <div class="pdf-export-card">
-              <p class="pdf-export-label">Salida hoy</p>
-              <p class="pdf-export-value-sm"><?php echo e($pdfEmpleado['salida_hoy'] ?? '--:--'); ?></p>
             </div>
             <div class="pdf-export-card">
               <p class="pdf-export-label">Verificacion hoy</p>
