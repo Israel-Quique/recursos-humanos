@@ -52,11 +52,14 @@ class PermisoLaboral extends Model
     public function getAlcanceLabelAttribute(): string
     {
         return match ($this->alcance) {
-            'manana' => 'Toda la mañana',
-            'tarde' => 'Toda la tarde',
-            'dia_completo' => 'Todo el día',
-            'medio_dia' => 'Medio día',
+            'dias' => 'Por días',
+            'dia_completo' => 'Por días',
             'horas' => 'Por horas',
+            'llegada_tarde' => 'Llegada tarde (Ingreso posterior)',
+            'salida_temprana' => 'Salida temprana (Retiro anticipado)',
+            'manana' => 'Mañana',
+            'tarde' => 'Tarde',
+            'medio_dia' => 'Medio día',
             default => ucfirst((string) $this->alcance),
         };
     }

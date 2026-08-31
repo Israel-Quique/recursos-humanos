@@ -76,7 +76,7 @@ class ImportarExcelPage extends Component
     {
         $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
 
-        if (! isset($devices[$deviceIndex])) {
+        if (!isset($devices[$deviceIndex])) {
             throw new \RuntimeException('No se encontro el biometrico seleccionado para editar.');
         }
 
@@ -135,7 +135,7 @@ class ImportarExcelPage extends Component
             app(AuditoriaService::class)->registrar(
                 'Biometricos',
                 'Actualizar',
-                'Se actualizo la conexion del biometrico '.$device->branch.'.',
+                'Se actualizo la conexion del biometrico ' . $device->branch . '.',
                 $device,
                 $before,
                 $this->auditableBiometricoPayload($device->fresh()),
@@ -147,7 +147,7 @@ class ImportarExcelPage extends Component
             app(AuditoriaService::class)->registrar(
                 'Biometricos',
                 'Crear',
-                'Se registro el biometrico '.$device->branch.'.',
+                'Se registro el biometrico ' . $device->branch . '.',
                 $device,
                 null,
                 $this->auditableBiometricoPayload($device),
@@ -171,7 +171,7 @@ class ImportarExcelPage extends Component
         app(AuditoriaService::class)->registrar(
             'Biometricos',
             'Eliminar',
-            'Se elimino el biometrico '.$before['branch'].'.',
+            'Se elimino el biometrico ' . $before['branch'] . '.',
             null,
             $before,
             null,
@@ -186,7 +186,7 @@ class ImportarExcelPage extends Component
         try {
             $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
 
-            if (! isset($devices[$deviceIndex])) {
+            if (!isset($devices[$deviceIndex])) {
                 throw new \RuntimeException('No se encontro el biometrico seleccionado para probar la conexion.');
             }
 
@@ -195,12 +195,12 @@ class ImportarExcelPage extends Component
 
             session()->flash(
                 'status',
-                'Conexion TCP/IP verificada correctamente con '.$device['branch'].'. '.$probe['last_sync'].'.'
+                'Conexion TCP/IP verificada correctamente con ' . $device['branch'] . '. ' . $probe['last_sync'] . '.'
             );
         } catch (\Throwable $exception) {
             report($exception);
             $this->actualizarEstadoBiometrico($devices[$deviceIndex] ?? null, false, $exception->getMessage());
-            session()->flash('status', 'Error al probar la conexion del biometrico: '.$exception->getMessage());
+            session()->flash('status', 'Error al probar la conexion del biometrico: ' . $exception->getMessage());
         }
     }
 
@@ -212,7 +212,7 @@ class ImportarExcelPage extends Component
         try {
             $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
 
-            if (! isset($devices[$deviceIndex])) {
+            if (!isset($devices[$deviceIndex])) {
                 throw new \RuntimeException('No se encontro el biometrico seleccionado para exportar.');
             }
 
@@ -226,7 +226,7 @@ class ImportarExcelPage extends Component
             return response()->download($path, basename($path))->deleteFileAfterSend(true);
         } catch (\Throwable $exception) {
             report($exception);
-            session()->flash('status', 'No se pudo extraer el Excel del biometrico: '.$exception->getMessage());
+            session()->flash('status', 'No se pudo extraer el Excel del biometrico: ' . $exception->getMessage());
 
             return null;
         }
@@ -240,7 +240,7 @@ class ImportarExcelPage extends Component
         try {
             $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
 
-            if (! isset($devices[$deviceIndex])) {
+            if (!isset($devices[$deviceIndex])) {
                 throw new \RuntimeException('No se encontro el biometrico seleccionado para exportar.');
             }
 
@@ -250,7 +250,7 @@ class ImportarExcelPage extends Component
             return response()->download($path, basename($path))->deleteFileAfterSend(true);
         } catch (\Throwable $exception) {
             report($exception);
-            session()->flash('status', 'No se pudo extraer todo el Excel del biometrico: '.$exception->getMessage());
+            session()->flash('status', 'No se pudo extraer todo el Excel del biometrico: ' . $exception->getMessage());
 
             return null;
         }
@@ -327,7 +327,7 @@ class ImportarExcelPage extends Component
             try {
                 $storedPath = $archivo->store('importaciones');
                 $importacion = app(ImportacionBiometricaService::class)->importarArchivo(
-                    storage_path('app/'.$storedPath),
+                    storage_path('app/' . $storedPath),
                     $fileName,
                     auth()->user(),
                     $storedPath
@@ -361,7 +361,7 @@ class ImportarExcelPage extends Component
         }
 
         if ($processedCount > 0) {
-            session()->flash('status', 'Se completaron '.$processedCount.' archivos y algunos presentaron error.');
+            session()->flash('status', 'Se completaron ' . $processedCount . ' archivos y algunos presentaron error.');
 
             return;
         }
@@ -373,7 +373,7 @@ class ImportarExcelPage extends Component
     {
         $this->resetErrorBag('archivos');
         $this->uploadBatchStatus = collect($this->archivos)
-            ->map(fn ($archivo) => [
+            ->map(fn($archivo) => [
                 'name' => $archivo->getClientOriginalName(),
                 'status' => 'pending',
                 'message' => 'Listo para importar.',
@@ -397,7 +397,7 @@ class ImportarExcelPage extends Component
 
     public function deleteImportacion(): void
     {
-        if (! $this->pendingDeleteImportacionId) {
+        if (!$this->pendingDeleteImportacionId) {
             return;
         }
 
@@ -413,7 +413,7 @@ class ImportarExcelPage extends Component
 
         if ($importacion->ruta_archivo) {
             $relativePath = str_replace('\\', '/', $importacion->ruta_archivo);
-            $absolutePath = storage_path('app/'.$relativePath);
+            $absolutePath = storage_path('app/' . $relativePath);
 
             if (Storage::exists($relativePath)) {
                 Storage::delete($relativePath);
@@ -451,7 +451,7 @@ class ImportarExcelPage extends Component
                 (int) $this->historyYear,
                 (int) $this->historyMonth
             ),
-            'connections' => array_values($analysis->estadoBiometricos()),
+            'connections' => array_values($analysis->estadoBiometricos(false)),
             'connectionModes' => $this->connectionModes(),
             'exportYearOptions' => $this->yearOptions(),
             'exportMonthOptions' => $this->monthOptions(),
@@ -504,7 +504,7 @@ class ImportarExcelPage extends Component
 
     private function auditableBiometricoPayload(?BiometricoDispositivo $device): ?array
     {
-        if (! $device) {
+        if (!$device) {
             return null;
         }
 
@@ -529,7 +529,7 @@ class ImportarExcelPage extends Component
 
     private function actualizarEstadoBiometrico(?array $device, bool $connected, ?string $error = null): void
     {
-        if (! $device) {
+        if (!$device) {
             return;
         }
 
@@ -540,7 +540,7 @@ class ImportarExcelPage extends Component
             ? BiometricoDispositivo::query()->find($deviceId)
             : BiometricoDispositivo::query()->where('ip', $ip)->first();
 
-        if (! $storedDevice) {
+        if (!$storedDevice) {
             return;
         }
 

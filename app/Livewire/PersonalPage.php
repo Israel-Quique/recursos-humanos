@@ -7,6 +7,7 @@ use App\Models\RegistroAsistencia;
 use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
 use App\Support\SucursalNormalizer;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -15,6 +16,11 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PersonalPage extends Component
 {
@@ -26,6 +32,38 @@ class PersonalPage extends Component
     public string $sucursalFiltro = '';
     public string $ordenMarcaciones = 'fecha_reciente';
     public int $registrosPage = 1;
+
+    // Búsqueda explícita para la vista de Marcaciones (personal?vista=marcaciones)
+    public bool $marcacionesSearchPerformed = false;
+    public string $inputMarcacionesSearch = '';
+    public string $inputMarcacionesTipoFecha = 'rango'; // 'rango', 'mes'
+    public string $inputMarcacionesFechaInicio = '';
+    public string $inputMarcacionesFechaFin = '';
+    public string $inputMarcacionesMes = '';
+    public string $appliedMarcacionesSearch = '';
+    public string $appliedMarcacionesTipoFecha = 'rango';
+    public string $appliedMarcacionesFechaInicio = '';
+    public string $appliedMarcacionesFechaFin = '';
+    public string $appliedMarcacionesMes = '';
+    public string $filterEstadoMarcaciones = 'todos'; // 'todos', 'completo', 'faltante'
+    public ?array $marcacionesEmpleadoInfo = null;
+    public array $marcacionesStats = [];
+    public bool $showModalAtrasos = false;
+    public bool $showModalOmisiones = false;
+    public bool $showModalFaltas = false;
+    public bool $showModalGlobal = false;
+
+    // Búsqueda explícita para la vista de Control / Marcaciones por Sucursal (personal?vista=control)
+    public bool $controlSearchPerformed = false;
+    public string $inputControlSearch = '';
+    public string $inputControlSucursal = '';
+    public string $inputControlMesNumero = '';
+    public string $inputControlAnio = '';
+    public string $appliedControlSearch = '';
+    public string $appliedControlSucursal = '';
+    public string $appliedControlMesNumero = '';
+    public string $appliedControlAnio = '';
+    public string $ordenControl = 'nombre_asc'; // nombre_asc, nombre_desc, horas_desc, horas_asc, retraso_desc, retraso_asc, excedido_primero
     public ?int $detailEmpleadoId = null;
     public ?int $editingEmpleadoId = null;
     public bool $showCreateModal = false;
@@ -67,17 +105,22 @@ class PersonalPage extends Component
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
-        if (! in_array($this->vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
+        if (!in_array($this->vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
             $this->vista = 'personal';
         }
 
-        $this->detailReferenceMonth = $this->referenceMonth()->format('Y-m');
-        $this->pdfReferenceMonth = $this->referenceMonth()->format('Y-m');
+        $refMonth = $this->referenceMonth();
+        $this->detailReferenceMonth = $refMonth->format('Y-m');
+        $this->pdfReferenceMonth = $refMonth->format('Y-m');
+        $this->inputControlMesNumero = (string) $refMonth->month;
+        $this->inputControlAnio = (string) $refMonth->year;
+        $this->appliedControlMesNumero = (string) $refMonth->month;
+        $this->appliedControlAnio = (string) $refMonth->year;
     }
 
     public function setVista(string $vista): void
     {
-        if (! in_array($vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
+        if (!in_array($vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
             return;
         }
 
@@ -260,7 +303,7 @@ class PersonalPage extends Component
 
     public function setDetailMarkingFilter(string $filter): void
     {
-        if (! in_array($filter, ['entrada', 'salida'], true)) {
+        if (!in_array($filter, ['entrada', 'salida'], true)) {
             return;
         }
 
@@ -270,7 +313,7 @@ class PersonalPage extends Component
 
     private function refreshDetailEmpleado(): void
     {
-        if (! $this->showDetailModal || ! $this->detailEmpleadoId) {
+        if (!$this->showDetailModal || !$this->detailEmpleadoId) {
             return;
         }
 
@@ -279,7 +322,7 @@ class PersonalPage extends Component
 
     private function refreshPdfEmpleado(): void
     {
-        if (! $this->showPdfModal || ! $this->pdfEmpleadoId) {
+        if (!$this->showPdfModal || !$this->pdfEmpleadoId) {
             return;
         }
 
@@ -343,7 +386,7 @@ class PersonalPage extends Component
 
     public function deleteEmpleado(): void
     {
-        if (! $this->pendingDeleteEmpleadoId) {
+        if (!$this->pendingDeleteEmpleadoId) {
             return;
         }
 
@@ -369,7 +412,7 @@ class PersonalPage extends Component
 
     public function deleteRegistroAsistencia(): void
     {
-        if (! $this->pendingDeleteRegistroId) {
+        if (!$this->pendingDeleteRegistroId) {
             return;
         }
 
@@ -408,21 +451,797 @@ class PersonalPage extends Component
         $this->resetPage('registrosPage');
     }
 
+    public function aplicarBusquedaControl(): void
+    {
+        $this->appliedControlSearch = trim($this->inputControlSearch);
+        $this->appliedControlSucursal = trim($this->inputControlSucursal);
+        $this->appliedControlMesNumero = trim($this->inputControlMesNumero) ?: (string) now()->month;
+        $this->appliedControlAnio = trim($this->inputControlAnio) ?: (string) now()->year;
+        $this->controlSearchPerformed = true;
+        $this->resetPage();
+    }
+
+    public function seleccionarSucursal(string $sucursal): void
+    {
+        $this->inputControlSucursal = $sucursal;
+        $this->appliedControlSucursal = $sucursal;
+        $this->appliedControlSearch = trim($this->inputControlSearch);
+        $this->appliedControlMesNumero = trim($this->inputControlMesNumero) ?: (string) now()->month;
+        $this->appliedControlAnio = trim($this->inputControlAnio) ?: (string) now()->year;
+        $this->controlSearchPerformed = true;
+        $this->resetPage();
+    }
+
+    public function limpiarFiltrosControl(): void
+    {
+        $refMonth = $this->referenceMonth();
+        $this->inputControlSearch = '';
+        $this->inputControlSucursal = '';
+        $this->inputControlMesNumero = (string) $refMonth->month;
+        $this->inputControlAnio = (string) $refMonth->year;
+        $this->appliedControlSearch = '';
+        $this->appliedControlSucursal = '';
+        $this->appliedControlMesNumero = (string) $refMonth->month;
+        $this->appliedControlAnio = (string) $refMonth->year;
+        $this->controlSearchPerformed = false;
+        $this->ordenControl = 'nombre_asc';
+        $this->resetPage();
+    }
+
+    public function sortByControl(string $column): void
+    {
+        $this->ordenControl = match ($column) {
+            'nombre' => ($this->ordenControl === 'nombre_asc' ? 'nombre_desc' : 'nombre_asc'),
+            'horas' => ($this->ordenControl === 'horas_desc' ? 'horas_asc' : 'horas_desc'),
+            'retraso' => ($this->ordenControl === 'retraso_desc' ? 'retraso_asc' : 'retraso_desc'),
+            'excedido' => 'excedido_primero',
+            default => $column,
+        };
+        $this->resetPage();
+    }
+
+    public function aplicarBusquedaMarcaciones(): void
+    {
+        $this->appliedMarcacionesSearch = trim($this->inputMarcacionesSearch);
+        $this->appliedMarcacionesTipoFecha = $this->inputMarcacionesTipoFecha;
+        $this->appliedMarcacionesFechaInicio = trim($this->inputMarcacionesFechaInicio);
+        $this->appliedMarcacionesFechaFin = trim($this->inputMarcacionesFechaFin);
+        $this->appliedMarcacionesMes = trim($this->inputMarcacionesMes);
+        $this->marcacionesSearchPerformed = true;
+
+        if (filled($this->appliedMarcacionesSearch)) {
+            $term = "%{$this->appliedMarcacionesSearch}%";
+            $searchOperator = config('database.default') === 'pgsql' ? 'ilike' : 'like';
+            $empleado = Empleado::query()
+                ->where('codigo_biometrico', $searchOperator, $term)
+                ->orWhere('nombre', $searchOperator, $term)
+                ->orWhere('apellido', $searchOperator, $term)
+                ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term])
+                ->first();
+
+            if ($empleado) {
+                $this->marcacionesEmpleadoInfo = [
+                    'id' => $empleado->id,
+                    'nombre_completo' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: 'Sin asignar',
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'area' => $empleado->area ?: 'Sin área',
+                    'estado_laboral' => $empleado->estado_laboral ?: 'Activo',
+                ];
+
+                // Determinar rango para estadísticas
+                if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
+                    try {
+                        $cMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
+                        $statStart = $cMes->copy()->startOfMonth();
+                        $statEnd = $cMes->copy()->endOfMonth();
+                    } catch (\Exception $e) {
+                        $statStart = now()->startOfMonth();
+                        $statEnd = now()->endOfMonth();
+                    }
+                } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
+                    $statStart = Carbon::parse(min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin));
+                    $statEnd = Carbon::parse(max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin));
+                } elseif (filled($this->appliedMarcacionesFechaInicio)) {
+                    $statStart = Carbon::parse($this->appliedMarcacionesFechaInicio);
+                    $statEnd = now();
+                } elseif (filled($this->appliedMarcacionesFechaFin)) {
+                    $statStart = Carbon::parse($this->appliedMarcacionesFechaFin)->startOfMonth();
+                    $statEnd = Carbon::parse($this->appliedMarcacionesFechaFin);
+                } else {
+                    $statStart = now()->startOfMonth();
+                    $statEnd = now()->endOfMonth();
+                }
+
+                $this->marcacionesStats = $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
+            } else {
+                $this->marcacionesEmpleadoInfo = null;
+                $this->marcacionesStats = [];
+            }
+        } else {
+            $this->marcacionesEmpleadoInfo = null;
+            $this->marcacionesStats = [];
+        }
+
+        $this->resetPage('registrosPage');
+    }
+
+    public function limpiarFiltrosMarcaciones(): void
+    {
+        $this->inputMarcacionesSearch = '';
+        $this->inputMarcacionesTipoFecha = 'rango';
+        $this->inputMarcacionesFechaInicio = '';
+        $this->inputMarcacionesFechaFin = '';
+        $this->inputMarcacionesMes = '';
+        $this->appliedMarcacionesSearch = '';
+        $this->appliedMarcacionesTipoFecha = 'rango';
+        $this->appliedMarcacionesFechaInicio = '';
+        $this->appliedMarcacionesFechaFin = '';
+        $this->appliedMarcacionesMes = '';
+        $this->marcacionesEmpleadoInfo = null;
+        $this->marcacionesStats = [];
+        $this->showModalAtrasos = false;
+        $this->showModalOmisiones = false;
+        $this->showModalFaltas = false;
+        $this->showModalGlobal = false;
+        $this->marcacionesSearchPerformed = false;
+        $this->ordenMarcaciones = 'fecha_reciente';
+        $this->filterEstadoMarcaciones = 'todos';
+        $this->resetPage('registrosPage');
+    }
+
+    public function openModalAtrasos(): void
+    {
+        $this->showModalAtrasos = true;
+    }
+
+    public function closeModalAtrasos(): void
+    {
+        $this->showModalAtrasos = false;
+    }
+
+    public function openModalOmisiones(): void
+    {
+        $this->showModalOmisiones = true;
+    }
+
+    public function closeModalOmisiones(): void
+    {
+        $this->showModalOmisiones = false;
+    }
+
+    public function openModalFaltas(): void
+    {
+        $this->showModalFaltas = true;
+    }
+
+    public function closeModalFaltas(): void
+    {
+        $this->showModalFaltas = false;
+    }
+
+    public function openModalGlobal(): void
+    {
+        $this->showModalGlobal = true;
+    }
+
+    public function closeModalGlobal(): void
+    {
+        $this->showModalGlobal = false;
+    }
+
+    public function sortByMarcaciones(string $column): void
+    {
+        $this->ordenMarcaciones = match ($column) {
+            'nombre' => ($this->ordenMarcaciones === 'nombre_asc' ? 'nombre_desc' : 'nombre_asc'),
+            'sucursal' => ($this->ordenMarcaciones === 'sucursal_asc' ? 'sucursal_desc' : 'sucursal_asc'),
+            'fecha' => ($this->ordenMarcaciones === 'fecha_reciente' ? 'fecha_antigua' : 'fecha_reciente'),
+            'entrada' => ($this->ordenMarcaciones === 'hora_asc' ? 'hora_desc' : 'hora_asc'),
+            'salida' => ($this->ordenMarcaciones === 'salida_asc' ? 'salida_desc' : 'salida_asc'),
+            default => $column,
+        };
+        $this->resetPage('registrosPage');
+    }
+
+    public function setFilterEstadoMarcaciones(string $estado): void
+    {
+        $this->filterEstadoMarcaciones = $estado;
+        $this->resetPage('registrosPage');
+    }
+
+    private function obtenerColeccionMarcacionesReporte(): array
+    {
+        $searchOperator = $this->caseInsensitiveLikeOperator();
+
+        $registrosQuery = RegistroAsistencia::query()
+            ->with('empleado')
+            ->whereHas('empleado')
+            ->where($this->excludeSaturdayRecords());
+
+        $periodoLabel = 'Todas las fechas';
+
+        if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
+            try {
+                $carbonMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
+                $registrosQuery->whereBetween('fecha', [
+                    $carbonMes->copy()->startOfMonth()->toDateString(),
+                    $carbonMes->copy()->endOfMonth()->toDateString(),
+                ]);
+                $periodoLabel = ucfirst($carbonMes->locale('es')->translatedFormat('F Y'));
+            } catch (\Exception $e) {
+                // ignorar
+            }
+        } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
+            $fInicio = min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
+            $fFin = max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
+            $registrosQuery->whereBetween('fecha', [$fInicio, $fFin]);
+            $periodoLabel = Carbon::parse($fInicio)->format('d/m/Y') . ' al ' . Carbon::parse($fFin)->format('d/m/Y');
+        } elseif (filled($this->appliedMarcacionesFechaInicio)) {
+            $registrosQuery->whereDate('fecha', '>=', $this->appliedMarcacionesFechaInicio);
+            $periodoLabel = 'Desde ' . Carbon::parse($this->appliedMarcacionesFechaInicio)->format('d/m/Y');
+        } elseif (filled($this->appliedMarcacionesFechaFin)) {
+            $registrosQuery->whereDate('fecha', '<=', $this->appliedMarcacionesFechaFin);
+            $periodoLabel = 'Hasta ' . Carbon::parse($this->appliedMarcacionesFechaFin)->format('d/m/Y');
+        }
+
+        if (filled($this->appliedMarcacionesSearch)) {
+            $term = "%{$this->appliedMarcacionesSearch}%";
+            $registrosQuery->whereHas('empleado', function ($empleadoQuery) use ($searchOperator, $term) {
+                $empleadoQuery->where(function ($nestedQuery) use ($searchOperator, $term) {
+                    $nestedQuery->where('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term]);
+                });
+            });
+        }
+
+        if ($this->filterEstadoMarcaciones === 'completo') {
+            $registrosQuery->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
+                ->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
+        } elseif ($this->filterEstadoMarcaciones === 'faltante') {
+            $registrosQuery->where(function ($q) {
+                $q->where(function ($sub) {
+                    $sub->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
+                        ->where(function ($sub2) {
+                            $sub2->whereNull('hora_salida')->orWhere('hora_salida', '');
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where(function ($sub2) {
+                        $sub2->whereNull('hora_entrada')->orWhere('hora_entrada', '');
+                    })->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
+                });
+            });
+        }
+
+        $allRegistros = $registrosQuery
+            ->tap(fn($query) => $this->aplicarOrdenMarcaciones($query))
+            ->get();
+
+        $progService = $this->programacionLaboral();
+
+        $rows = $allRegistros->map(function (RegistroAsistencia $registro) use ($progService) {
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+            $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
+            $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
+            $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
+            $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
+
+            $empleado = $registro->empleado;
+            $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+            $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
+            $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
+
+            $minutosRetraso = 0;
+            if ($tieneEntrada && $horaLimite) {
+                $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
+            }
+
+            $minutosTrabajados = 0;
+            $horasTrabajadas = '--:--';
+            if ($tieneEntrada && $tieneSalida) {
+                $minutosTrabajados = $this->calcularMinutosTrabajados($entradaVal, $salidaVal);
+                $horasTrabajadas = sprintf('%dh %02dm', intdiv($minutosTrabajados, 60), $minutosTrabajados % 60);
+            }
+
+            if ($tieneEntrada && $tieneSalida) {
+                $estado = 'Completo';
+                $tipoEstado = 'completo';
+            } elseif ($tieneEntrada || $tieneSalida) {
+                $estado = 'Sin completar';
+                $tipoEstado = 'faltante';
+            } else {
+                $estado = 'Sin marcación';
+                $tipoEstado = 'sin_marcacion';
+            }
+
+            $codigoBio = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
+
+            return (object) [
+                'id' => $registro->id,
+                'empleado' => $registro->empleado,
+                'codigo' => $codigoBio,
+                'fecha' => $registro->fecha,
+                'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
+                'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
+                'hora_entrada' => $entradaVal ?: '--:--',
+                'hora_salida' => $salidaVal ?: '--:--',
+                'horas_trabajadas' => $horasTrabajadas,
+                'minutos_retraso' => $minutosRetraso,
+                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--',
+                'estado_marcacion' => $estado,
+                'tipo_estado' => $tipoEstado,
+                'observacion' => $registro->observacion,
+            ];
+        });
+
+        return [
+            'periodoLabel' => $periodoLabel,
+            'rows' => $rows,
+        ];
+    }
+
+    public function descargarPdfMarcaciones()
+    {
+        $reporteData = $this->obtenerColeccionMarcacionesReporte();
+        $periodoLabel = $reporteData['periodoLabel'];
+        $rows = $reporteData['rows'];
+
+        $pdf = Pdf::loadView('pdf.marcaciones-personal', [
+            'periodoLabel' => $periodoLabel,
+            'empleadoInfo' => $this->marcacionesEmpleadoInfo,
+            'stats' => $this->marcacionesStats,
+            'registros' => $rows,
+            'filterEstado' => $this->filterEstadoMarcaciones,
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = 'Reporte_Marcaciones_' . ($this->marcacionesEmpleadoInfo ? Str::slug($this->marcacionesEmpleadoInfo['nombre_completo']) : 'General') . '_' . now()->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(fn () => print($pdf->output()), $fileName);
+    }
+
+    public function descargarExcelMarcaciones()
+    {
+        $reporteData = $this->obtenerColeccionMarcacionesReporte();
+        $periodoLabel = $reporteData['periodoLabel'];
+        $rows = $reporteData['rows'];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Marcaciones');
+
+        $currentRow = 1;
+
+        // Título del reporte
+        $sheet->setCellValue("A{$currentRow}", 'EMPRESA DE CORREOS DE BOLIVIA - REPORTE DE MARCACIONES DE ASISTENCIA');
+        $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+        $currentRow++;
+
+        // Metadata de emisión
+        $sheet->setCellValue("A{$currentRow}", "Período: {$periodoLabel} | Emisión: " . now()->format('d/m/Y H:i') . " | Filtro Estado: " . ucfirst($this->filterEstadoMarcaciones));
+        $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9.5)->getColor()->setRGB('475569');
+        $currentRow++;
+
+        // Si hay empleado filtrado
+        $isSingleEmployee = (bool) $this->marcacionesEmpleadoInfo;
+
+        if ($isSingleEmployee) {
+            $info = $this->marcacionesEmpleadoInfo;
+            $sheet->setCellValue("A{$currentRow}", "Personal: {$info['nombre_completo']} | Código Biométrico: {$info['codigo']} | Sucursal: {$info['sucursal']} | Área: " . ($info['area'] ?: 'General'));
+            $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(9.5);
+            $currentRow++;
+
+            if (!empty($this->marcacionesStats)) {
+                $st = $this->marcacionesStats;
+                $sheet->setCellValue(
+                    "A{$currentRow}",
+                    "Horas Acumuladas: " . ($st['horas_trabajadas_formateado'] ?? '0h 00m') . " (" . ($st['dias_con_marcacion'] ?? 0) . " días) | " .
+                    "Retraso Total: " . ($st['retraso_acumulado_formateado'] ?? '0 min') . " (" . ($st['total_atrasos'] ?? 0) . " días tarde) | " .
+                    "Omisiones: " . ($st['total_omisiones'] ?? 0) . " | Faltas: " . ($st['total_faltas'] ?? 0)
+                );
+                $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9)->getColor()->setRGB('334155');
+                $currentRow++;
+            }
+        }
+
+        $currentRow++; // Línea en blanco antes de los encabezados de tabla
+
+        $headerRow = $currentRow;
+
+        if ($isSingleEmployee) {
+            $headers = ['Fecha', 'Día', 'Hora Entrada', 'Hora Salida', 'Horas Trabajadas', 'Retraso'];
+            $cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+        } else {
+            $headers = ['Personal', 'Código', 'Sucursal', 'Fecha', 'Día', 'Hora Entrada', 'Hora Salida', 'Horas Trabajadas', 'Retraso'];
+            $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+        }
+
+        foreach ($headers as $index => $headerText) {
+            $colLetter = $cols[$index];
+            $sheet->setCellValue("{$colLetter}{$headerRow}", $headerText);
+        }
+
+        $lastCol = end($cols);
+        $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->setSize(9.5);
+        $sheet->getStyle($headerRange)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('E2E8F0');
+        $sheet->getStyle($headerRange)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+
+        if (!$isSingleEmployee) {
+            $sheet->getStyle("A{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+        }
+
+        $currentRow++;
+
+        foreach ($rows as $row) {
+            $c = 0;
+            if (!$isSingleEmployee) {
+                $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->nombre_completo ?? 'Sin nombre');
+                $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->codigo ?? $row->empleado?->codigo_biometrico ?? '');
+                $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->sucursal ?? '');
+            }
+
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->fecha_formateada ?? (\Carbon\Carbon::parse($row->fecha)->format('d/m/Y')));
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", ucfirst($row->dia ?? ''));
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_entrada);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_salida);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->horas_trabajadas);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->retraso_formateado);
+
+            // Centrar los datos numéricos y de fechas
+            if ($isSingleEmployee) {
+                $sheet->getStyle("A{$currentRow}:{$lastCol}{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            } else {
+                $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("B{$currentRow}:{$lastCol}{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
+
+            $currentRow++;
+        }
+
+        // Bordes finos en toda la tabla
+        $dataEndRow = max($headerRow, $currentRow - 1);
+        $tableRange = "A{$headerRow}:{$lastCol}{$dataEndRow}";
+        $sheet->getStyle($tableRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
+
+        // Auto-ajustar ancho de columnas
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $fileName = 'Reporte_Marcaciones_' . ($this->marcacionesEmpleadoInfo ? Str::slug($this->marcacionesEmpleadoInfo['nombre_completo']) : 'General') . '_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    private function obtenerColeccionControlReporte(): array
+    {
+        $referenceMonth = $this->referenceMonth();
+        $targetYear = (int) ($this->appliedControlAnio ?: $referenceMonth->year);
+        $targetMonthNum = (int) ($this->appliedControlMesNumero ?: $referenceMonth->month);
+        $targetMonth = Carbon::createFromDate($targetYear, $targetMonthNum, 1);
+        $controlMonthStart = $targetMonth->copy()->startOfMonth()->toDateString();
+        $controlMonthEnd = $targetMonth->copy()->endOfMonth()->toDateString();
+        $searchOperator = $this->caseInsensitiveLikeOperator();
+
+        $controlQuery = Empleado::query()
+            ->withUltimaMarcacion()
+            ->with(['asistencias' => function ($query) use ($controlMonthStart, $controlMonthEnd) {
+                $query->whereBetween('fecha', [$controlMonthStart, $controlMonthEnd])->orderByDesc('fecha');
+            }]);
+
+        if (filled($this->appliedControlSearch)) {
+            $term = "%{$this->appliedControlSearch}%";
+            $controlQuery->where(function ($q) use ($searchOperator, $term) {
+                $q->where('codigo_biometrico', $searchOperator, $term)
+                    ->orWhere('nombre', $searchOperator, $term)
+                    ->orWhere('apellido', $searchOperator, $term);
+            });
+        }
+
+        if (filled($this->appliedControlSucursal) && $this->appliedControlSucursal !== 'todas') {
+            SucursalNormalizer::applyFilter($controlQuery, 'sucursal', $this->appliedControlSucursal);
+        }
+
+        $registrosPorNombre = $this->registrosPorNombre($controlMonthStart, $controlMonthEnd);
+
+        $listaControl = $controlQuery->get()
+            ->filter(fn (Empleado $e) => ! $e->trashed())
+            ->filter(fn (Empleado $e) => $e->fecha_despido === null || $e->fecha_despido > now()->toDateString())
+            ->values();
+
+        $listaControl->transform(function (Empleado $empleado) use ($registrosPorNombre, $targetMonth) {
+            return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $targetMonth);
+        });
+
+        // KPIs y porcentajes de la sucursal
+        $sucursalKpis = $this->calcularKpisSucursal($listaControl);
+
+        // Ordenar la colección según $ordenControl
+        $listaControl = match ($this->ordenControl) {
+            'nombre_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->nombre . ' ' . $e->apellido)->values(),
+            'horas_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0)->values(),
+            'horas_asc' => $listaControl->sortBy(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0)->values(),
+            'retraso_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values(),
+            'retraso_asc' => $listaControl->sortBy(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values(),
+            'excedido_primero' => $listaControl->sortByDesc(fn (Empleado $e) => ($e->resumen_asistencia['estado_retraso'] ?? '') === 'Excedido' ? 1 : 0)->values(),
+            default => $listaControl->sortBy(fn (Empleado $e) => $e->nombre . ' ' . $e->apellido)->values(), // nombre_asc
+        };
+
+        $mesLabel = ucfirst($targetMonth->locale('es')->translatedFormat('F Y'));
+        $sucursalLabel = filled($this->appliedControlSucursal) && $this->appliedControlSucursal !== 'todas'
+            ? $this->appliedControlSucursal
+            : 'Todas las sucursales';
+
+        return [
+            'mesLabel' => $mesLabel,
+            'sucursalLabel' => $sucursalLabel,
+            'sucursalKpis' => $sucursalKpis,
+            'empleados' => $listaControl,
+        ];
+    }
+
+    public function descargarPdfControl()
+    {
+        $reporteData = $this->obtenerColeccionControlReporte();
+
+        $pdf = Pdf::loadView('pdf.control-sucursal', [
+            'mesLabel' => $reporteData['mesLabel'],
+            'sucursalLabel' => $reporteData['sucursalLabel'],
+            'sucursalKpis' => $reporteData['sucursalKpis'],
+            'empleados' => $reporteData['empleados'],
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = 'Reporte_Control_' . Str::slug($reporteData['sucursalLabel']) . '_' . now()->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(fn () => print($pdf->output()), $fileName);
+    }
+
+    public function descargarExcelControl()
+    {
+        $reporteData = $this->obtenerColeccionControlReporte();
+        $mesLabel = $reporteData['mesLabel'];
+        $sucursalLabel = $reporteData['sucursalLabel'];
+        $sucursalKpis = $reporteData['sucursalKpis'];
+        $empleados = $reporteData['empleados'];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Control Sucursal');
+
+        $currentRow = 1;
+
+        // Título del reporte
+        $sheet->setCellValue("A{$currentRow}", 'EMPRESA DE CORREOS DE BOLIVIA - CONTROL MENSUAL DE ASISTENCIA');
+        $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+        $currentRow++;
+
+        // Metadata de emisión
+        $sheet->setCellValue("A{$currentRow}", "Mes: {$mesLabel} | Sucursal: {$sucursalLabel} | Emisión: " . now()->format('d/m/Y H:i') . " | Total Personal: " . count($empleados));
+        $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9.5)->getColor()->setRGB('475569');
+        $currentRow++;
+
+        // Resumen KPIs si existen
+        if (!empty($sucursalKpis)) {
+            $sheet->setCellValue(
+                "A{$currentRow}",
+                "Puntualidad: " . ($sucursalKpis['porcentaje_sin_atrasos'] ?? 0) . "% (" . ($sucursalKpis['sin_atrasos'] ?? 0) . "/" . ($sucursalKpis['total_empleados'] ?? 0) . " puntuales) | " .
+                "Cumplimiento: " . ($sucursalKpis['porcentaje_sin_omisiones'] ?? 0) . "% | " .
+                "En Tolerancia: " . ($sucursalKpis['porcentaje_dentro_tolerancia'] ?? 0) . "% | " .
+                "Horas Totales: " . ($sucursalKpis['total_horas_trabajadas'] ?? '0h 0m') . " (Promedio: " . ($sucursalKpis['promedio_horas_empleado'] ?? '0h 0m') . ")"
+            );
+            $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9)->getColor()->setRGB('334155');
+            $currentRow++;
+        }
+
+        $currentRow++; // Línea en blanco antes de los encabezados de tabla
+
+        $headerRow = $currentRow;
+        $headers = ['Personal', 'Código', 'Sucursal', 'Horas Trabajadas', 'Retraso Mes', 'Días Tarde', 'Omisiones', 'Saldo Tolerancia', 'Estado'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers as $index => $headerText) {
+            $colLetter = $cols[$index];
+            $sheet->setCellValue("{$colLetter}{$headerRow}", $headerText);
+        }
+
+        $lastCol = end($cols);
+        $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->setSize(9.5);
+        $sheet->getStyle($headerRange)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('E2E8F0');
+        $sheet->getStyle($headerRange)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+        $currentRow++;
+
+        foreach ($empleados as $emp) {
+            $res = $emp->resumen_asistencia ?? [];
+            $retrasoMin = $res['retraso_mes'] ?? 0;
+            $retrasoFormateado = $res['retraso_mes_formateado'] ?? ($retrasoMin . ' min');
+            $diasTarde = $res['dias_tarde'] ?? 0;
+            $olvidos = $res['olvidos_marcacion'] ?? 0;
+            $horasMes = $res['horas_mes'] ?? '0h 0m';
+            $saldoMin = $res['saldo_retraso_formateado'] ?? '0 min';
+            $estadoRetraso = $res['estado_retraso'] ?? 'Dentro de tolerancia';
+
+            $c = 0;
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $emp->nombre_completo);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $emp->codigo_biometrico ?: '—');
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $emp->sucursal ?? '—');
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $horasMes);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $retrasoFormateado);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $diasTarde);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $olvidos);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $saldoMin);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $estadoRetraso);
+
+            // Alineaciones
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getStyle("B{$currentRow}:{$lastCol}{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            $currentRow++;
+        }
+
+        // Bordes finos en toda la tabla
+        $dataEndRow = max($headerRow, $currentRow - 1);
+        $tableRange = "A{$headerRow}:{$lastCol}{$dataEndRow}";
+        $sheet->getStyle($tableRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
+
+        // Auto-ajustar ancho de columnas
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $fileName = 'Reporte_Control_' . Str::slug($sucursalLabel) . '_' . now()->format('Ymd_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
     public function render()
     {
         $referenceMonth = $this->referenceMonth();
         $monthStart = $referenceMonth->copy()->startOfMonth()->toDateString();
         $monthEnd = $referenceMonth->copy()->endOfMonth()->toDateString();
 
-        $registrosPorNombre = $this->registrosPorNombre($monthStart, $monthEnd);
         $searchOperator = $this->caseInsensitiveLikeOperator();
 
         $empleadosBaseQuery = Empleado::query()
-            ->withUltimaMarcacion()
-            ->with(['asistencias' => function ($query) use ($monthStart, $monthEnd) {
-                $query->whereBetween('fecha', [$monthStart, $monthEnd])
-                    ->orderByDesc('fecha');
-            }]);
+            ->withUltimaMarcacion();
+
+        // ─── Vista Control / Marcaciones por Sucursal ───
+        if ($this->vista === 'control') {
+            $sucursales = SucursalNormalizer::optionsFromValues(Empleado::query()
+                ->select('sucursal')->whereNotNull('sucursal')->where('sucursal', '!=', '')
+                ->distinct()->orderBy('sucursal')->pluck('sucursal'));
+
+            $resumenSucursalesConteo = Empleado::query()
+                ->whereNotNull('sucursal')->where('sucursal', '!=', '')
+                ->where(function ($q) {
+                    $q->whereNull('fecha_despido')->orWhere('fecha_despido', '>', now()->toDateString());
+                })
+                ->select('sucursal')
+                ->get()
+                ->groupBy(fn ($e) => SucursalNormalizer::normalize($e->sucursal))
+                ->map(fn ($group) => $group->count())
+                ->all();
+
+            $targetYear = (int) ($this->appliedControlAnio ?: $referenceMonth->year);
+            $targetMonthNum = (int) ($this->appliedControlMesNumero ?: $referenceMonth->month);
+            $targetMonth = Carbon::createFromDate($targetYear, $targetMonthNum, 1);
+            $controlMonthStart = $targetMonth->copy()->startOfMonth()->toDateString();
+            $controlMonthEnd = $targetMonth->copy()->endOfMonth()->toDateString();
+
+            $departmentStats = app(\App\Services\AnalisisAsistenciaService::class)->asistenciaPorDepartamento();
+
+            if (! $this->controlSearchPerformed) {
+                $empleados = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
+                    'path' => request()->url(),
+                    'pageName' => 'page',
+                ]);
+                $totalHorasMes = '0h 0m';
+                $sucursalKpis = [];
+
+                $registros = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
+                    'path' => request()->url(), 'pageName' => 'registrosPage',
+                ]);
+
+                return view('livewire.personal', [
+                    'empleados' => $empleados,
+                    'registros' => $registros,
+                    'mes_resumen' => ucfirst($targetMonth->locale('es')->translatedFormat('F Y')),
+                    'sucursales' => $sucursales,
+                    'resumenSucursalesConteo' => $resumenSucursalesConteo,
+                    'departmentStats' => $departmentStats,
+                    'sucursalKpis' => $sucursalKpis,
+                    'totalHorasMes' => $totalHorasMes,
+                ])->layout('layouts.app', ['title' => $this->pageTitle()]);
+            }
+
+            // Búsqueda activa: aplicar filtros y calcular resúmenes
+            $controlQuery = Empleado::query()
+                ->withUltimaMarcacion()
+                ->with(['asistencias' => function ($query) use ($controlMonthStart, $controlMonthEnd) {
+                    $query->whereBetween('fecha', [$controlMonthStart, $controlMonthEnd])->orderByDesc('fecha');
+                }]);
+
+            if (filled($this->appliedControlSearch)) {
+                $term = "%{$this->appliedControlSearch}%";
+                $controlQuery->where(function ($q) use ($searchOperator, $term) {
+                    $q->where('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term);
+                });
+            }
+
+            if (filled($this->appliedControlSucursal) && $this->appliedControlSucursal !== 'todas') {
+                SucursalNormalizer::applyFilter($controlQuery, 'sucursal', $this->appliedControlSucursal);
+            }
+
+            $registrosPorNombre = $this->registrosPorNombre($controlMonthStart, $controlMonthEnd);
+
+            $listaControl = $controlQuery->get()
+                ->filter(fn (Empleado $e) => ! $e->trashed())
+                ->filter(fn (Empleado $e) => $e->fecha_despido === null || $e->fecha_despido > now()->toDateString())
+                ->values();
+
+            $listaControl->transform(function (Empleado $empleado) use ($registrosPorNombre, $targetMonth) {
+                return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $targetMonth);
+            });
+
+            // KPIs y porcentajes de la sucursal
+            $sucursalKpis = $this->calcularKpisSucursal($listaControl);
+
+            // Ordenar la colección según $ordenControl
+            $listaControl = match ($this->ordenControl) {
+                'nombre_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->nombre . ' ' . $e->apellido)->values(),
+                'horas_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0)->values(),
+                'horas_asc' => $listaControl->sortBy(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0)->values(),
+                'retraso_desc' => $listaControl->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values(),
+                'retraso_asc' => $listaControl->sortBy(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values(),
+                'excedido_primero' => $listaControl->sortByDesc(fn (Empleado $e) => ($e->resumen_asistencia['estado_retraso'] ?? '') === 'Excedido' ? 1 : 0)->values(),
+                default => $listaControl->sortBy(fn (Empleado $e) => $e->nombre . ' ' . $e->apellido)->values(), // nombre_asc
+            };
+
+            $totalMinutosMes = $listaControl->sum(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0);
+            $totalHorasMes = $this->formatearMinutos((int) $totalMinutosMes);
+            $empleados = $this->paginarColeccion($listaControl, 10);
+
+            $registros = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
+                'path' => request()->url(), 'pageName' => 'registrosPage',
+            ]);
+
+            return view('livewire.personal', [
+                'empleados' => $empleados,
+                'registros' => $registros,
+                'mes_resumen' => ucfirst($targetMonth->locale('es')->translatedFormat('F Y')),
+                'sucursales' => $sucursales,
+                'resumenSucursalesConteo' => $resumenSucursalesConteo,
+                'departmentStats' => $departmentStats,
+                'sucursalKpis' => $sucursalKpis,
+                'totalHorasMes' => $totalHorasMes,
+            ])->layout('layouts.app', ['title' => $this->pageTitle()]);
+        }
+
+        // ─── Resto de vistas (personal, inactivos, marcaciones) ───
+        $calcularResumen = false; // No se usa resumen en estas vistas
 
         if (filled($this->search)) {
             $empleadosBaseQuery->where(function ($query) use ($searchOperator) {
@@ -448,65 +1267,134 @@ class PersonalPage extends Component
             ->orderByDesc('created_at')
             ->get();
 
-        $empleadosResumen->transform(function (Empleado $empleado) use ($registrosPorNombre, $referenceMonth) {
-            return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $referenceMonth);
+        $empleadosResumen->each(function (Empleado $empleado) {
+            $empleado->estado_laboral = $empleado->estadoLaboral(now());
+            $empleado->ultima_marcacion_label = $empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones';
         });
 
         $empleadosFiltrados = $empleadosResumen
             ->filter(fn (Empleado $empleado) => $this->employeeMatchesVista($empleado))
             ->values();
 
-        $totalMinutosMes = $empleadosFiltrados->sum(function (Empleado $empleado) {
-            return $empleado->resumen_asistencia['minutos_mes'] ?? 0;
-        });
-
+        $totalMinutosMes = 0;
         $empleados = $this->paginarColeccion($empleadosFiltrados, 10);
+        $totalHorasMes = '0h 0m';
 
-        $totalHorasMes = $this->formatearMinutos((int) $totalMinutosMes);
+        // Lógica de registros de marcaciones:
+        if ($this->vista === 'marcaciones') {
+            if (!$this->marcacionesSearchPerformed) {
+                $registros = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
+                    'path' => request()->url(),
+                    'pageName' => 'registrosPage',
+                ]);
+            } else {
+                $registrosQuery = RegistroAsistencia::query()
+                    ->with('empleado')
+                    ->whereHas('empleado')
+                    ->where($this->excludeSaturdayRecords());
 
-        $registros = RegistroAsistencia::query()
-            ->with('empleado')
-            ->whereHas('empleado')
-            ->where($this->excludeSaturdayRecords())
-            ->when(filled($this->search), function ($query) {
-                $searchOperator = $this->caseInsensitiveLikeOperator();
+                if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
+                    try {
+                        $carbonMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
+                        $registrosQuery->whereBetween('fecha', [
+                            $carbonMes->copy()->startOfMonth()->toDateString(),
+                            $carbonMes->copy()->endOfMonth()->toDateString(),
+                        ]);
+                    } catch (\Exception $e) {
+                        // ignorar formato inválido
+                    }
+                } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
+                    $registrosQuery->whereBetween('fecha', [
+                        min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin),
+                        max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin),
+                    ]);
+                } elseif (filled($this->appliedMarcacionesFechaInicio)) {
+                    $registrosQuery->whereDate('fecha', '>=', $this->appliedMarcacionesFechaInicio);
+                } elseif (filled($this->appliedMarcacionesFechaFin)) {
+                    $registrosQuery->whereDate('fecha', '<=', $this->appliedMarcacionesFechaFin);
+                }
 
-                $query->whereHas('empleado', function ($empleadoQuery) use ($searchOperator) {
-                    $empleadoQuery->where(function ($nestedQuery) use ($searchOperator) {
-                        $nestedQuery->where('codigo_biometrico', $searchOperator, "%{$this->search}%")
-                            ->orWhere('nombre', $searchOperator, "%{$this->search}%")
-                            ->orWhere('apellido', $searchOperator, "%{$this->search}%");
+                if (filled($this->appliedMarcacionesSearch)) {
+                    $term = "%{$this->appliedMarcacionesSearch}%";
+                    $registrosQuery->whereHas('empleado', function ($empleadoQuery) use ($searchOperator, $term) {
+                        $empleadoQuery->where(function ($nestedQuery) use ($searchOperator, $term) {
+                            $nestedQuery->where('codigo_biometrico', $searchOperator, $term)
+                                ->orWhere('nombre', $searchOperator, $term)
+                                ->orWhere('apellido', $searchOperator, $term)
+                                ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term]);
+                        });
                     });
-                });
-            })
-            ->when(filled($this->sucursalFiltro), function ($query) {
-                $query->whereHas('empleado', function ($empleadoQuery) {
-                    SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->sucursalFiltro);
-                });
-            })
-            ->tap(fn ($query) => $this->aplicarOrdenMarcaciones($query))
-            ->paginate(10, ['*'], 'registrosPage');
+                }
 
-        $registros->getCollection()->transform(function (RegistroAsistencia $registro) {
-            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+                if ($this->filterEstadoMarcaciones === 'completo') {
+                    $registrosQuery->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
+                        ->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
+                } elseif ($this->filterEstadoMarcaciones === 'faltante') {
+                    $registrosQuery->where(function ($q) {
+                        $q->where(function ($sub) {
+                            $sub->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
+                                ->where(function ($sub2) {
+                                    $sub2->whereNull('hora_salida')->orWhere('hora_salida', '');
+                                });
+                        })->orWhere(function ($sub) {
+                            $sub->where(function ($sub2) {
+                                $sub2->whereNull('hora_entrada')->orWhere('hora_entrada', '');
+                            })->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
+                        });
+                    });
+                }
 
-            return (object) [
-                'id' => $registro->id,
-                'empleado' => $registro->empleado,
-                'fecha' => $registro->fecha,
-                'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
-                'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
-                'hora_entrada' => $marcacion['entrada'],
-                'hora_salida' => $marcacion['salida'],
-                'estado_marcacion' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
-            ];
-        });
+                $registros = $registrosQuery
+                    ->tap(fn($query) => $this->aplicarOrdenMarcaciones($query))
+                    ->paginate(10, ['*'], 'registrosPage');
+
+                $registros->getCollection()->transform(function (RegistroAsistencia $registro) {
+                    $marcacion = $this->normalizarMarcacionAsistencia($registro);
+                    $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
+                    $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
+                    $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
+                    $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
+
+                    if ($tieneEntrada && $tieneSalida) {
+                        $estado = 'Completo';
+                        $tipoEstado = 'completo';
+                    } elseif ($tieneEntrada || $tieneSalida) {
+                        $estado = 'Sin completar';
+                        $tipoEstado = 'faltante';
+                    } else {
+                        $estado = 'Sin marcación';
+                        $tipoEstado = 'sin_marcacion';
+                    }
+
+                    $codigoBio = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
+
+                    return (object) [
+                        'id' => $registro->id,
+                        'empleado' => $registro->empleado,
+                        'codigo' => $codigoBio,
+                        'fecha' => $registro->fecha,
+                        'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
+                        'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
+                        'hora_entrada' => $entradaVal ?: '--:--',
+                        'hora_salida' => $salidaVal ?: '--:--',
+                        'estado_marcacion' => $estado,
+                        'tipo_estado' => $tipoEstado,
+                    ];
+                });
+            }
+        } else {
+            $registros = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
+                'path' => request()->url(),
+                'pageName' => 'registrosPage',
+            ]);
+        }
 
         return view('livewire.personal', [
             'empleados' => $empleados,
             'registros' => $registros,
             'mes_resumen' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'sucursales' => $sucursales,
+            'totalHorasMes' => $totalHorasMes,
         ])->layout('layouts.app', ['title' => $this->pageTitle()]);
     }
 
@@ -514,30 +1402,43 @@ class PersonalPage extends Component
     {
         return match ($this->ordenMarcaciones) {
             'fecha_antigua' => $query
-                ->orderBy('fecha')
-                ->orderBy('created_at'),
+                ->orderBy('fecha', 'asc')
+                ->orderBy('hora_entrada', 'asc')
+                ->orderBy('created_at', 'asc'),
             'hora_asc' => $query
-                ->orderBy('hora_entrada')
-                ->orderByDesc('fecha')
-                ->orderByDesc('created_at'),
+                ->orderByRaw('CASE WHEN hora_entrada IS NULL OR hora_entrada = "" THEN 1 ELSE 0 END, hora_entrada ASC')
+                ->orderByDesc('fecha'),
             'hora_desc' => $query
-                ->orderByDesc('hora_entrada')
-                ->orderByDesc('fecha')
-                ->orderByDesc('created_at'),
+                ->orderByRaw('CASE WHEN hora_entrada IS NULL OR hora_entrada = "" THEN 1 ELSE 0 END, hora_entrada DESC')
+                ->orderByDesc('fecha'),
+            'salida_asc' => $query
+                ->orderByRaw('CASE WHEN hora_salida IS NULL OR hora_salida = "" THEN 1 ELSE 0 END, hora_salida ASC')
+                ->orderByDesc('fecha'),
+            'salida_desc' => $query
+                ->orderByRaw('CASE WHEN hora_salida IS NULL OR hora_salida = "" THEN 1 ELSE 0 END, hora_salida DESC')
+                ->orderByDesc('fecha'),
             'nombre_asc' => $query
                 ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
                 ->select('registros_asistencia.*')
-                ->orderBy('empleados.nombre')
-                ->orderBy('empleados.apellido')
-                ->orderByDesc('registros_asistencia.fecha')
-                ->orderByDesc('registros_asistencia.created_at'),
+                ->orderBy('empleados.nombre', 'asc')
+                ->orderBy('empleados.apellido', 'asc')
+                ->orderByDesc('registros_asistencia.fecha'),
             'nombre_desc' => $query
                 ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
                 ->select('registros_asistencia.*')
-                ->orderByDesc('empleados.nombre')
-                ->orderByDesc('empleados.apellido')
-                ->orderByDesc('registros_asistencia.fecha')
-                ->orderByDesc('registros_asistencia.created_at'),
+                ->orderByDesc('empleados.nombre', 'desc')
+                ->orderByDesc('empleados.apellido', 'desc')
+                ->orderByDesc('registros_asistencia.fecha'),
+            'sucursal_asc' => $query
+                ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
+                ->select('registros_asistencia.*')
+                ->orderBy('empleados.sucursal', 'asc')
+                ->orderByDesc('registros_asistencia.fecha'),
+            'sucursal_desc' => $query
+                ->join('empleados', 'empleados.id', '=', 'registros_asistencia.empleado_id')
+                ->select('registros_asistencia.*')
+                ->orderBy('empleados.sucursal', 'desc')
+                ->orderByDesc('registros_asistencia.fecha'),
             default => $query
                 ->orderByDesc('fecha')
                 ->orderByDesc('created_at'),
@@ -560,7 +1461,7 @@ class PersonalPage extends Component
         foreach ($registrosAsistencia as $asistencia) {
             $horario = $this->programacionLaboral()->resolverHorario($empleado, $asistencia->fecha);
 
-            if (! $horario['laborable']) {
+            if (!$horario['laborable']) {
                 continue;
             }
 
@@ -639,12 +1540,14 @@ class PersonalPage extends Component
         );
 
         $empleado = Empleado::query()
-            ->with(['asistencias' => function ($query) use ($referenceMonth) {
-                $query->whereBetween('fecha', [
-                    $referenceMonth->copy()->startOfMonth()->toDateString(),
-                    $referenceMonth->copy()->endOfMonth()->toDateString(),
-                ])->orderByDesc('fecha');
-            }])
+            ->with([
+                'asistencias' => function ($query) use ($referenceMonth) {
+                    $query->whereBetween('fecha', [
+                        $referenceMonth->copy()->startOfMonth()->toDateString(),
+                        $referenceMonth->copy()->endOfMonth()->toDateString(),
+                    ])->orderByDesc('fecha');
+                }
+            ])
             ->findOrFail($empleadoId);
 
         $empleado = $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $referenceMonth);
@@ -789,7 +1692,7 @@ class PersonalPage extends Component
         $entrada = $this->parseTimeToCarbon($horaEntrada);
         $salida = $this->parseTimeToCarbon($horaSalida);
 
-        if (! $entrada || ! $salida) {
+        if (!$entrada || !$salida) {
             return 0;
         }
 
@@ -818,20 +1721,20 @@ class PersonalPage extends Component
             return true;
         }
 
-        if (! blank($marcacion['salida'])) {
+        if (!blank($marcacion['salida'])) {
             return false;
         }
 
-        return ! $this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
+        return !$this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
     }
 
     private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, Empleado $empleado): bool
     {
-        if (! $this->tieneSoloEntradaMarcada($registro)) {
+        if (!$this->tieneSoloEntradaMarcada($registro)) {
             return false;
         }
 
-        if (! $registro->fecha?->isToday()) {
+        if (!$registro->fecha?->isToday()) {
             return false;
         }
 
@@ -846,7 +1749,7 @@ class PersonalPage extends Component
             $horario['hora_salida'] ?? config('asistencia.hora_salida')
         );
 
-        if (! $salidaProgramada) {
+        if (!$salidaProgramada) {
             return true;
         }
 
@@ -874,7 +1777,7 @@ class PersonalPage extends Component
         $entradaExplicita = $this->marcacionEsEntradaExplicita($estado, $evento);
         $salidaExplicita = $this->marcacionEsSalidaExplicita($estado, $evento);
 
-        if ($salidaExplicita && ! $entradaExplicita && filled($entrada) && blank($salida)) {
+        if ($salidaExplicita && !$entradaExplicita && filled($entrada) && blank($salida)) {
             $salida = $entrada;
             $entrada = null;
         }
@@ -912,7 +1815,7 @@ class PersonalPage extends Component
     {
         $empleado = $registro->empleado;
 
-        if (! $empleado || ! $registro->fecha) {
+        if (!$empleado || !$registro->fecha) {
             return [$entrada, $salida];
         }
 
@@ -925,7 +1828,7 @@ class PersonalPage extends Component
         $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
         $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
 
-        if (! $horaEntrada || ! $horaSalida) {
+        if (!$horaEntrada || !$horaSalida) {
             return [$entrada, $salida];
         }
 
@@ -958,11 +1861,11 @@ class PersonalPage extends Component
         $estado = $this->normalizarTextoPerfil((string) ($registro->estado_marcacion ?? ''));
         $evento = $this->normalizarTextoPerfil((string) ($registro->evento_biometrico ?? ''));
 
-        if ($this->marcacionEsSalidaExplicita($estado, $evento) && ! $this->marcacionEsEntradaExplicita($estado, $evento)) {
+        if ($this->marcacionEsSalidaExplicita($estado, $evento) && !$this->marcacionEsEntradaExplicita($estado, $evento)) {
             return 'Salida';
         }
 
-        if ($this->marcacionEsEntradaExplicita($estado, $evento) && ! $this->marcacionEsSalidaExplicita($estado, $evento)) {
+        if ($this->marcacionEsEntradaExplicita($estado, $evento) && !$this->marcacionEsSalidaExplicita($estado, $evento)) {
             return 'Entrada';
         }
 
@@ -982,7 +1885,7 @@ class PersonalPage extends Component
         $entrada = $this->parseTimeToCarbon($horaEntrada);
         $programada = $this->parseTimeToCarbon($horaProgramada);
 
-        if (! $entrada || ! $programada) {
+        if (!$entrada || !$programada) {
             return 0;
         }
 
@@ -1016,7 +1919,7 @@ class PersonalPage extends Component
 
         $horaCarbon = $this->parseTimeToCarbon($hora);
 
-        if (! $horaCarbon) {
+        if (!$horaCarbon) {
             return null;
         }
 
@@ -1046,14 +1949,14 @@ class PersonalPage extends Component
         $restantes = $minutos % 60;
 
         if ($horas === 0) {
-            return $restantes.' min';
+            return $restantes . ' min';
         }
 
         if ($restantes === 0) {
-            return $horas.' h';
+            return $horas . ' h';
         }
 
-        return $horas.' h '.$restantes.' min';
+        return $horas . ' h ' . $restantes . ' min';
     }
 
     private function normalizarArea(?string $area): string
@@ -1147,8 +2050,8 @@ class PersonalPage extends Component
             ->whereBetween('fecha', [$monthStart, $monthEnd])
             ->orderByDesc('fecha')
             ->get()
-            ->filter(fn (RegistroAsistencia $registro) => filled($registro->empleado?->nombre_completo))
-            ->groupBy(fn (RegistroAsistencia $registro) => $this->normalizarTextoPerfil($registro->empleado?->nombre_completo));
+            ->filter(fn(RegistroAsistencia $registro) => filled($registro->empleado?->nombre_completo))
+            ->groupBy(fn(RegistroAsistencia $registro) => $this->normalizarTextoPerfil($registro->empleado?->nombre_completo));
     }
 
     private function registrosUnificadosEmpleado(Empleado $empleado, \Illuminate\Support\Collection $registrosPorNombre): \Illuminate\Support\Collection
@@ -1161,12 +2064,12 @@ class PersonalPage extends Component
 
         return $registrosPorRelacion
             ->concat($registrosPorNombrePerfil)
-            ->unique(fn (RegistroAsistencia $registro) => $registro->id ?: md5(
-                ($registro->fecha?->toDateString() ?? '').
-                '|'.($registro->hora_entrada ?? '').
-                '|'.($registro->hora_salida ?? '')
+            ->unique(fn(RegistroAsistencia $registro) => $registro->id ?: md5(
+                ($registro->fecha?->toDateString() ?? '') .
+                '|' . ($registro->hora_entrada ?? '') .
+                '|' . ($registro->hora_salida ?? '')
             ))
-            ->sortByDesc(fn (RegistroAsistencia $registro) => optional($registro->fecha)->timestamp ?? 0)
+            ->sortByDesc(fn(RegistroAsistencia $registro) => optional($registro->fecha)->timestamp ?? 0)
             ->values();
     }
 
@@ -1218,10 +2121,246 @@ class PersonalPage extends Component
         return match ($this->vista) {
             'inactivos' => 'Personal inactivo',
             'marcaciones' => 'Marcaciones del personal',
-            'control' => 'Control mensual del personal',
+            'control' => 'Marcaciones por sucursales',
             default => 'Registro de personal',
         };
     }
+    private function calcularEstadisticasMarcacionesEmpleado(int $empleadoId, Carbon $start, Carbon $end): array
+    {
+        $empleado = Empleado::query()->find($empleadoId);
+        if (!$empleado) {
+            return [];
+        }
+
+        $effectiveEnd = $end->copy();
+        if ($effectiveEnd->isFuture()) {
+            $effectiveEnd = now()->endOfDay();
+        }
+
+        $asistencias = RegistroAsistencia::query()
+            ->where('empleado_id', $empleadoId)
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $effectiveEnd->toDateString())
+            ->orderBy('fecha')
+            ->get();
+
+        $permisos = \App\Models\PermisoLaboral::query()
+            ->where('empleado_id', $empleadoId)
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $effectiveEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $start->toDateString())
+            ->get();
+
+        $asistenciaPorFecha = [];
+        foreach ($asistencias as $reg) {
+            $key = $reg->fecha?->toDateString();
+            if ($key) {
+                $asistenciaPorFecha[$key] = $reg;
+            }
+        }
+
+        $listaAtrasos = [];
+        $listaOmisiones = [];
+        $listaFaltas = [];
+        $desgloseGlobal = [];
+
+        $minutosTrabajadosTotales = 0;
+        $minutosRetrasoTotales = 0;
+        $diasConMarcacion = 0;
+
+        $current = $start->copy();
+        $progService = $this->programacionLaboral();
+
+        while ($current->lte($effectiveEnd)) {
+            $dateStr = $current->toDateString();
+            $horario = $progService->resolverHorario($empleado, $current);
+
+            if ($horario['laborable']) {
+                $tieneAsistencia = isset($asistenciaPorFecha[$dateStr]);
+                $tienePermiso = $permisos->contains(function ($p) use ($current) {
+                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                });
+
+                $diaNombre = ucfirst($current->locale('es')->isoFormat('dddd'));
+                $fechaFmt = $current->format('d/m/Y');
+
+                if ($tieneAsistencia) {
+                    $reg = $asistenciaPorFecha[$dateStr];
+                    $norm = $this->normalizarMarcacionAsistencia($reg);
+                    $entrada = filled($norm['entrada']) ? substr($norm['entrada'], 0, 5) : '--:--';
+                    $salida = filled($norm['salida']) ? substr($norm['salida'], 0, 5) : '--:--';
+                    $minutosRetraso = 0;
+
+                    if ($entrada !== '--:--') {
+                        $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada'];
+                        $minutosRetraso = $this->calcularMinutosRetraso($norm['entrada'], $horaLimite);
+                    }
+
+                    $minutosDiaTrabajados = 0;
+                    if ($entrada !== '--:--' && $salida !== '--:--') {
+                        $minutosDiaTrabajados = $this->calcularMinutosTrabajados($norm['entrada'], $norm['salida']);
+                    }
+
+                    $minutosTrabajadosTotales += $minutosDiaTrabajados;
+                    $minutosRetrasoTotales += $minutosRetraso;
+                    $diasConMarcacion++;
+
+                    // Atrasos
+                    if ($minutosRetraso > 0) {
+                        $listaAtrasos[] = [
+                            'fecha' => $fechaFmt,
+                            'dia' => $diaNombre,
+                            'entrada' => $entrada,
+                            'salida' => $salida,
+                            'minutos_retraso' => $minutosRetraso,
+                            'retraso_formateado' => $this->formatearMinutosEtiqueta($minutosRetraso),
+                            'hora_programada' => substr((string)$horario['hora_entrada'], 0, 5),
+                        ];
+                    }
+
+                    // Omisiones
+                    $olvidoEntrada = ($entrada === '--:--');
+                    $olvidoSalida = ($salida === '--:--');
+                    if ($olvidoEntrada || $olvidoSalida) {
+                        $tipoOmision = ($olvidoEntrada && $olvidoSalida) ? 'Sin entrada ni salida' : ($olvidoEntrada ? 'Falta marcar entrada' : 'Falta marcar salida');
+                        $listaOmisiones[] = [
+                            'fecha' => $fechaFmt,
+                            'dia' => $diaNombre,
+                            'entrada' => $entrada,
+                            'salida' => $salida,
+                            'tipo_omision' => $tipoOmision,
+                        ];
+                    }
+
+                    $desgloseGlobal[] = [
+                        'fecha' => $fechaFmt,
+                        'dia' => $diaNombre,
+                        'entrada' => $entrada,
+                        'salida' => $salida,
+                        'horas_trabajadas' => sprintf('%dh %02dm', intdiv($minutosDiaTrabajados, 60), $minutosDiaTrabajados % 60),
+                        'retraso' => $minutosRetraso > 0 ? $this->formatearMinutosEtiqueta($minutosRetraso) : 'Puntual',
+                        'estado' => ($entrada !== '--:--' && $salida !== '--:--') ? 'Completo' : 'Sin completar',
+                    ];
+                } else {
+                    // No marcó
+                    if (!$tienePermiso && !$current->isFuture() && !$current->isToday()) {
+                        $listaFaltas[] = [
+                            'fecha' => $fechaFmt,
+                            'dia' => $diaNombre,
+                            'horario_esperado' => substr((string)$horario['hora_entrada'], 0, 5) . ' - ' . substr((string)$horario['hora_salida'], 0, 5),
+                            'estado' => 'Falta no justificada',
+                        ];
+
+                        $desgloseGlobal[] = [
+                            'fecha' => $fechaFmt,
+                            'dia' => $diaNombre,
+                            'entrada' => '--:--',
+                            'salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'retraso' => '—',
+                            'estado' => 'Falta',
+                        ];
+                    } elseif ($tienePermiso) {
+                        $desgloseGlobal[] = [
+                            'fecha' => $fechaFmt,
+                            'dia' => $diaNombre,
+                            'entrada' => '--:--',
+                            'salida' => '--:--',
+                            'horas_trabajadas' => 'Permiso',
+                            'retraso' => '—',
+                            'estado' => 'Permiso justificado',
+                        ];
+                    }
+                }
+            }
+
+            $current->addDay();
+        }
+
+        $toleranciaMesMinutos = (int) config('asistencia.tolerancia_mensual_minutos', 30);
+        $excedido = $minutosRetrasoTotales > $toleranciaMesMinutos;
+
+        return [
+            'total_atrasos' => count($listaAtrasos),
+            'lista_atrasos' => $listaAtrasos,
+            'total_omisiones' => count($listaOmisiones),
+            'lista_omisiones' => $listaOmisiones,
+            'total_faltas' => count($listaFaltas),
+            'lista_faltas' => $listaFaltas,
+            'desglose_global' => $desgloseGlobal,
+            'horas_trabajadas_formateado' => sprintf('%dh %02dm', intdiv($minutosTrabajadosTotales, 60), $minutosTrabajadosTotales % 60),
+            'minutos_atraso_totales' => $minutosRetrasoTotales,
+            'retraso_acumulado_formateado' => $this->formatearMinutosEtiqueta($minutosRetrasoTotales),
+            'dias_con_marcacion' => $diasConMarcacion,
+            'tolerancia_mensual' => $toleranciaMesMinutos,
+            'estado_tolerancia' => $excedido ? 'Excedido' : 'Dentro de tolerancia',
+            'saldo_tolerancia' => $excedido
+                ? 'Excedido por ' . ($minutosRetrasoTotales - $toleranciaMesMinutos) . ' min'
+                : max(0, $toleranciaMesMinutos - $minutosRetrasoTotales) . ' min disponibles',
+        ];
+    }
+
+    private function calcularKpisSucursal(\Illuminate\Support\Collection $empleadosHydrated): array
+    {
+        $total = $empleadosHydrated->count();
+        if ($total === 0) {
+            return [
+                'total_empleados' => 0,
+                'sin_atrasos' => 0,
+                'porcentaje_sin_atrasos' => 100,
+                'con_atrasos' => 0,
+                'porcentaje_con_atrasos' => 0,
+                'sin_omisiones' => 0,
+                'porcentaje_sin_omisiones' => 100,
+                'con_omisiones' => 0,
+                'porcentaje_con_omisiones' => 0,
+                'dentro_tolerancia' => 0,
+                'porcentaje_dentro_tolerancia' => 100,
+                'excedidos_tolerancia' => 0,
+                'porcentaje_excedidos' => 0,
+                'total_minutos_trabajados' => 0,
+                'total_horas_trabajadas' => '0h 0m',
+                'promedio_horas_empleado' => '0h 0m',
+                'total_minutos_retraso' => 0,
+                'total_retraso_formateado' => '0 min',
+            ];
+        }
+
+        $sinAtrasos = $empleadosHydrated->filter(fn (Empleado $e) => ($e->resumen_asistencia['dias_tarde'] ?? 0) === 0 && ($e->resumen_asistencia['minutos_retraso'] ?? 0) === 0)->count();
+        $conAtrasos = $total - $sinAtrasos;
+
+        $sinOmisiones = $empleadosHydrated->filter(fn (Empleado $e) => ($e->resumen_asistencia['olvidos_marcacion'] ?? 0) === 0)->count();
+        $conOmisiones = $total - $sinOmisiones;
+
+        $excedidosTolerancia = $empleadosHydrated->filter(fn (Empleado $e) => ($e->resumen_asistencia['estado_retraso'] ?? '') === 'Excedido')->count();
+        $dentroTolerancia = $total - $excedidosTolerancia;
+
+        $totalMinutosTrabajados = $empleadosHydrated->sum(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0);
+        $totalMinutosRetraso = $empleadosHydrated->sum(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0);
+        $promedioMinutos = $total > 0 ? (int) round($totalMinutosTrabajados / $total) : 0;
+
+        return [
+            'total_empleados' => $total,
+            'sin_atrasos' => $sinAtrasos,
+            'porcentaje_sin_atrasos' => round(($sinAtrasos / $total) * 100, 1),
+            'con_atrasos' => $conAtrasos,
+            'porcentaje_con_atrasos' => round(($conAtrasos / $total) * 100, 1),
+            'sin_omisiones' => $sinOmisiones,
+            'porcentaje_sin_omisiones' => round(($sinOmisiones / $total) * 100, 1),
+            'con_omisiones' => $conOmisiones,
+            'porcentaje_con_omisiones' => round(($conOmisiones / $total) * 100, 1),
+            'dentro_tolerancia' => $dentroTolerancia,
+            'porcentaje_dentro_tolerancia' => round(($dentroTolerancia / $total) * 100, 1),
+            'excedidos_tolerancia' => $excedidosTolerancia,
+            'porcentaje_excedidos' => round(($excedidosTolerancia / $total) * 100, 1),
+            'total_minutos_trabajados' => $totalMinutosTrabajados,
+            'total_horas_trabajadas' => $this->formatearMinutos((int) $totalMinutosTrabajados),
+            'promedio_horas_empleado' => sprintf('%dh %02dm', intdiv($promedioMinutos, 60), $promedioMinutos % 60),
+            'total_minutos_retraso' => $totalMinutosRetraso,
+            'total_retraso_formateado' => $this->formatearMinutosEtiqueta((int) $totalMinutosRetraso),
+        ];
+    }
+
     private function snapshotRegistro(RegistroAsistencia $registro): array
     {
         return [

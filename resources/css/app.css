@@ -1251,6 +1251,86 @@ body{
   @apply bg-slate-900;
 }
 
+.calendar-top-detail{
+  @apply rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_12px_32px_rgba(15,23,42,0.05)];
+}
+
+.calendar-top-head{
+  @apply flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between;
+}
+
+.calendar-kpi-grid{
+  @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-4;
+}
+
+.calendar-kpi-card{
+  @apply rounded-[1.2rem] border p-4 shadow-sm transition hover:shadow;
+}
+
+.calendar-kpi-label{
+  @apply text-[11px] font-bold uppercase tracking-[0.16em];
+}
+
+.calendar-kpi-value{
+  @apply mt-1.5 block text-2xl font-black leading-tight sm:text-3xl;
+}
+
+.calendar-kpi-sub{
+  @apply mt-1 block text-xs;
+}
+
+.calendar-tab-btn{
+  @apply inline-flex items-center gap-1.5 rounded-xl border border-transparent px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100;
+}
+
+.calendar-tab-btn-active{
+  @apply border-slate-200 bg-white text-[#0f67c0] shadow-sm;
+}
+
+.calendar-tab-btn-active-rose{
+  @apply border-rose-200 bg-rose-50 text-rose-800 shadow-sm;
+}
+
+.calendar-tab-btn-active-amber{
+  @apply border-amber-200 bg-amber-50 text-amber-800 shadow-sm;
+}
+
+.calendar-tab-btn-active-dark{
+  @apply border-slate-300 bg-slate-100 text-slate-900 shadow-sm;
+}
+
+.calendar-tab-btn-active-purple{
+  @apply border-purple-200 bg-purple-50 text-purple-800 shadow-sm;
+}
+
+.calendar-tab-pill{
+  @apply inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-slate-100 px-1.5 text-[10px] font-bold;
+}
+
+.calendar-scroll-box{
+  max-height: 20.5rem;
+  overflow-y: auto;
+}
+
+.calendar-scroll-box::-webkit-scrollbar{
+  width: 6px;
+  height: 6px;
+}
+
+.calendar-scroll-box::-webkit-scrollbar-track{
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.calendar-scroll-box::-webkit-scrollbar-thumb{
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.calendar-scroll-box::-webkit-scrollbar-thumb:hover{
+  background: #94a3b8;
+}
+
 .calendar-side-panel{
   @apply rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)] xl:sticky xl:top-4 xl:self-start;
   max-height: calc(100vh - 7rem);
@@ -2174,4 +2254,53 @@ body{
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #e2e8f0 transparent;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Panel de Inicio — Custom Styles                                            */
+/* -------------------------------------------------------------------------- */
+.inicio-hero-card {
+  background: linear-gradient(135deg, #0a2f58 0%, #0f5298 50%, #1569c7 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 2rem !important;
+  box-shadow: 0 24px 60px rgba(10, 47, 88, 0.28) !important;
+  color: #ffffff !important;
+}
+
+.inicio-kpi-box {
+  background: rgba(4, 21, 41, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 1.4rem !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.inicio-action-card {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1.8rem !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.inicio-action-card:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 22px 50px rgba(15, 103, 192, 0.14) !important;
+}
+
+.inicio-icon-blue {
+  background-color: #0f67c0 !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(15, 103, 192, 0.25) !important;
+}
+
+.inicio-icon-emerald {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(5, 150, 105, 0.25) !important;
+}
+
+.inicio-icon-purple {
+  background-color: #7e22ce !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(126, 34, 206, 0.25) !important;
 }

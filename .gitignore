@@ -1,0 +1,40 @@
+# Laravel
+/vendor/
+/node_modules/
+
+# Environment
+.env
+.env.backup
+.env.production
+.env.local
+
+# Laravel storage - archivos generados y datos reales
+/storage/app/*
+/storage/framework/*
+/storage/logs/*
+
+# Mantener la estructura de storage
+!/storage/app/.gitignore
+!/storage/framework/.gitignore
+!/storage/logs/.gitignore
+
+# SQLite local
+/database/*.sqlite
+/database/*.sqlite3
+/database/*.db
+
+# Cache
+.phpunit.result.cache
+
+# Python
+.python-packages/
+__pycache__/
+*.py[cod]
+
+# IDE / sistema
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

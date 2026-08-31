@@ -4,6 +4,7 @@ use App\Livewire\Auth\LoginPage;
 use App\Livewire\CalendarioPage;
 use App\Livewire\ConsultaCarnetPage;
 use App\Livewire\DashboardPage;
+use App\Livewire\InicioPage;
 use App\Livewire\AuditoriaPage;
 use App\Livewire\FechasEspecialesPage;
 use App\Livewire\GestionAccesosPage;
@@ -36,6 +37,7 @@ Route::get('/perfil-horas/{empleado}', PerfilHorasPage::class)
     ->name('perfil-horas');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/inicio', InicioPage::class)->middleware('permission:ver panel')->name('inicio');
     Route::get('/panel', DashboardPage::class)->middleware('permission:ver panel')->name('dashboard');
     Route::get('/importar', ImportarExcelPage::class)->middleware('permission:importar biometria')->name('importar');
     Route::get('/calendario', CalendarioPage::class)->middleware('permission:ver calendario')->name('calendario');

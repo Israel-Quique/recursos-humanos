@@ -126,6 +126,80 @@ class PersonalPageTest extends TestCase
             ->assertSee('En su puesto');
     }
 
+    public function test_personal_page_descarga_excel_marcaciones_correctamente(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Gomez',
+            'codigo_biometrico' => 'CG-100',
+            'area' => 'Sistemas',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => now()->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        $component = Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->call('descargarExcelMarcaciones');
+
+        $component->assertFileDownloaded();
+    }
+
+    public function test_personal_page_descarga_pdf_y_excel_control_correctamente(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Laura',
+            'apellido' => 'Vargas',
+            'codigo_biometrico' => 'LV-200',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => now()->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test('personal-page')
+            ->set('vista', 'control')
+            ->call('descargarPdfControl')
+            ->assertFileDownloaded();
+
+        Livewire::test('personal-page')
+            ->set('vista', 'control')
+            ->call('descargarExcelControl')
+            ->assertFileDownloaded();
+    }
+
     private function crearUsuarioConPermisoPersonal(): User
     {
         $permission = Permission::findOrCreate('gestionar personal', 'web');

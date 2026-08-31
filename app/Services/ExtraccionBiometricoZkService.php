@@ -33,14 +33,14 @@ class ExtraccionBiometricoZkService
         return $this->exportarFilasComoCsv($device, $rows);
     }
 
-    public function extraerMarcaciones(array $device): array
+    public function extraerMarcaciones(array $device, ?int $timeout = null): array
     {
-        $payload = $this->ejecutarExtraccion($device, false);
+        $payload = $this->ejecutarExtraccion($device, false, $timeout);
 
         return array_values(array_filter($payload['rows'] ?? [], fn($row) => is_array($row)));
     }
 
-    private function ejecutarExtraccion(array $device, bool $probeOnly): array
+    private function ejecutarExtraccion(array $device, bool $probeOnly, ?int $requestedTimeout = null): array
     {
         $script = base_path('scripts/extract_zkteco_attendance.py');
 
@@ -49,10 +49,10 @@ class ExtraccionBiometricoZkService
         }
 
         $outputPath = storage_path('app/biometrico_extract_' . uniqid() . '.json');
-        $password = trim((string) config('biometrico.password', ''));
+        $password = trim((string) ($device['communication_password'] ?? config('biometrico.password', '')));
         $timeout = $probeOnly
             ? 20
-            : max(60, (int) config('biometrico.export_timeout', 180));
+            : max(5, $requestedTimeout ?? (int) config('biometrico.export_timeout', 180));
         $lockKey = 'biometrico:extract:' . preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['ip'] ?? 'sin-ip'));
         $lock = Cache::lock($lockKey, $timeout + 30);
 

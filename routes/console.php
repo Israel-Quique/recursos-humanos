@@ -27,12 +27,12 @@ Artisan::command('biometrico:sync {--force : Reprocesa todas las marcaciones enc
         $this->line("[{$status}] {$device} | {$imported} marcaciones | {$message}");
     }
 
-    return collect($results)->contains(fn (array $result) => ($result['status'] ?? null) === 'error')
+    return collect($results)->contains(fn(array $result) => ($result['status'] ?? null) === 'error')
         ? 1
         : 0;
 })->purpose('Sincroniza marcaciones nuevas desde biometricos ZKTeco sucursal por sucursal');
 
 Schedule::command('biometrico:sync')
-    ->dailyAt('00:00')
+    ->everyMinute()
     ->timezone(config('app.timezone'))
     ->withoutOverlapping();

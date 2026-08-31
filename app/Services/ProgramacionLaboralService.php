@@ -173,8 +173,8 @@ class ProgramacionLaboralService
 
         return match ($alcance) {
             'manana', 'tarde', 'medio_dia' => (int) floor($jornada / 2),
-            'dia_completo' => $jornada,
-            'horas' => $this->minutosEntreHoras($horaInicio, $horaFin),
+            'dias', 'dia_completo' => $jornada,
+            'horas', 'llegada_tarde', 'salida_temprana' => $this->minutosEntreHoras($horaInicio, $horaFin),
             default => 0,
         };
     }

@@ -25,14 +25,19 @@ function departmentKeyFromName(name) {
   const normalized = normalizeDepartmentName(name);
   const aliases = {
     'la paz': 'la-paz',
+    'lapaz': 'la-paz',
     'santa cruz': 'santa-cruz',
+    'santacruz': 'santa-cruz',
     cochabamba: 'cochabamba',
     chuquisaca: 'chuquisaca',
+    sucre: 'chuquisaca',
     potosi: 'potosi',
     oruro: 'oruro',
     tarija: 'tarija',
     beni: 'beni',
+    trinidad: 'beni',
     pando: 'pando',
+    cobija: 'pando',
   };
 
   return aliases[normalized] || normalized.replace(/\s+/g, '-');
@@ -56,8 +61,7 @@ function loadBoliviaTopology() {
   return window.__boliviaTopologyPromise;
 }
 
-function initBoliviaMap() {
-  const root = document.querySelector('[data-bolivia-map-root]');
+function initSingleBoliviaMap(root) {
   if (!root || !window.d3 || !window.topojson) {
     return;
   }
@@ -77,40 +81,53 @@ function initBoliviaMap() {
   const bubblePresenceTotal = root.querySelector('[data-department-presence-total]');
   const bubblePresenceList = root.querySelector('[data-department-presence-list]');
 
-  if (!canvas || !dataScript) {
+  if (!canvas) {
     return;
   }
 
   let departmentStats = {};
-  try {
-    departmentStats = JSON.parse(dataScript.textContent || '{}');
-  } catch (error) {
-    console.error('No se pudo leer la informacion de departamentos.', error);
-    return;
+  if (dataScript) {
+    try {
+      departmentStats = JSON.parse(dataScript.textContent || '{}');
+    } catch (error) {
+      console.error('No se pudo leer la informacion de departamentos.', error);
+    }
   }
 
   const palette = {
-    pando: '#ffe4a8',
-    beni: '#e5f2a6',
-    'la-paz': '#fff6b5',
-    oruro: '#ddee98',
-    cochabamba: '#d9b8eb',
-    'santa-cruz': '#fff6a3',
-    potosi: '#f8c0c4',
-    chuquisaca: '#ffdca0',
-    tarija: '#e5f3a8',
+    pando: '#c7e6c9',
+    beni: '#c1dbf5',
+    'la-paz': '#f8c7c9',
+    oruro: '#dac9eb',
+    cochabamba: '#fedbb0',
+    'santa-cruz': '#c0e3be',
+    potosi: '#faecc2',
+    chuquisaca: '#f9c5cc',
+    tarija: '#bde3f7',
   };
 
   const activePalette = {
-    pando: '#ffc04d',
-    beni: '#91c95d',
-    'la-paz': '#ffd95a',
-    oruro: '#9ccb53',
-    cochabamba: '#9e6ad6',
-    'santa-cruz': '#ffd038',
-    potosi: '#ef7c88',
-    chuquisaca: '#ffb95c',
-    tarija: '#9ccf54',
+    pando: '#81c784',
+    beni: '#64b5f6',
+    'la-paz': '#e57373',
+    oruro: '#ba68c8',
+    cochabamba: '#ffb74d',
+    'santa-cruz': '#81c784',
+    potosi: '#fbc02d',
+    chuquisaca: '#f06292',
+    tarija: '#4fc3f7',
+  };
+
+  const defaultDepartmentNames = {
+    'la-paz': 'La Paz',
+    'santa-cruz': 'Santa Cruz',
+    cochabamba: 'Cochabamba',
+    chuquisaca: 'Chuquisaca',
+    oruro: 'Oruro',
+    potosi: 'Potosi',
+    tarija: 'Tarija',
+    beni: 'Beni',
+    pando: 'Pando',
   };
 
   let activePayload = null;
@@ -176,7 +193,7 @@ function initBoliviaMap() {
   };
 
   const updateBubble = (payload) => {
-    if (!payload) {
+    if (!payload || (!bubbleName && !bubbleBranch && !bubbleMarked)) {
       return;
     }
 
@@ -189,14 +206,14 @@ function initBoliviaMap() {
       return;
     }
 
-    bubbleName.textContent = resolvedPayload.label || resolvedPayload.name || payload.name;
-    bubbleBranch.textContent = resolvedPayload.branch;
-    bubbleMarked.textContent = resolvedPayload.marked;
-    bubbleWorking.textContent = resolvedPayload.working;
+    if (bubbleName) bubbleName.textContent = resolvedPayload.label || resolvedPayload.name || payload.name;
+    if (bubbleBranch) bubbleBranch.textContent = resolvedPayload.branch;
+    if (bubbleMarked) bubbleMarked.textContent = resolvedPayload.marked ?? 0;
+    if (bubbleWorking) bubbleWorking.textContent = resolvedPayload.working ?? 0;
     if (bubbleEmployees) {
       bubbleEmployees.textContent = resolvedPayload.employees ?? 0;
     }
-    bubbleMissing.textContent = resolvedPayload.missing;
+    if (bubbleMissing) bubbleMissing.textContent = resolvedPayload.missing ?? 0;
     if (bubbleUpdatedAt) {
       bubbleUpdatedAt.textContent = resolvedPayload.updated_at || '--:--';
     }
@@ -216,7 +233,6 @@ function initBoliviaMap() {
         empty.className = 'department-presence-empty';
         empty.textContent = 'No hay personal dentro de la agencia en este momento.';
         bubblePresenceList.appendChild(empty);
-
         return;
       }
 
@@ -245,6 +261,33 @@ function initBoliviaMap() {
       }
     });
     bubbleSubregionSelect.dataset.bound = 'true';
+  }
+
+  const highlightKey = (targetKey) => {
+    if (!targetKey) return;
+    const normalizedKey = departmentKeyFromName(targetKey);
+    const activeNode = canvas.querySelector(`[data-department-key="${normalizedKey}"]`);
+    if (activeNode) {
+      canvas.querySelectorAll('.bolivia-map-region').forEach((r) => {
+        const k = r.dataset.departmentKey;
+        r.classList.remove('is-active');
+        r.setAttribute('fill', palette[k] || '#e5ecf5');
+      });
+      activeNode.classList.add('is-active');
+      activeNode.setAttribute('fill', activePalette[normalizedKey] || '#0f67c0');
+      root.dataset.activeDepartmentKey = normalizedKey;
+      if (departmentStats[normalizedKey]) {
+        updateBubble(departmentStats[normalizedKey]);
+      }
+    }
+  };
+
+  if (canvas.querySelector('svg.bolivia-map-svg')) {
+    const activeKey = root.dataset.activeDepartmentKey || '';
+    if (activeKey) {
+      highlightKey(activeKey);
+    }
+    return;
   }
 
   const renderToken = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -295,29 +338,42 @@ function initBoliviaMap() {
 
       const path = window.d3.geoPath(projection);
       const mapGroup = svg.append('g').attr('class', 'bolivia-map-layer');
-      let activeNode = null;
 
-      const activateFeature = (node, payload, key) => {
-        if (activeNode) {
-          const previousKey = activeNode.dataset.departmentKey;
-          activeNode.classList.remove('is-active');
-          activeNode.setAttribute('fill', palette[previousKey] || '#e5ecf5');
-        }
+      const activateFeature = (node, payload, key, shouldDispatch = true) => {
+        canvas.querySelectorAll('.bolivia-map-region').forEach((r) => {
+          const k = r.dataset.departmentKey;
+          r.classList.remove('is-active');
+          r.setAttribute('fill', palette[k] || '#e5ecf5');
+        });
 
-        activeNode = node;
         node.classList.add('is-active');
         node.setAttribute('fill', activePalette[key] || '#0f67c0');
+        root.dataset.activeDepartmentKey = key;
         updateBubble(payload);
+
+        if (shouldDispatch) {
+          window.dispatchEvent(new CustomEvent('bolivia-department-clicked', {
+            detail: {
+              key: key,
+              name: payload?.name || defaultDepartmentNames[key] || key,
+              branch: payload?.branch || payload?.name || defaultDepartmentNames[key] || key,
+            }
+          }));
+        }
       };
 
       features.forEach((feature) => {
         const departmentName = feature.properties?.name || '';
         const key = departmentKeyFromName(departmentName);
-        const payload = departmentStats[key];
-
-        if (!payload) {
-          return;
-        }
+        const fallbackName = defaultDepartmentNames[key] || departmentName;
+        const payload = departmentStats[key] || {
+          name: fallbackName,
+          branch: fallbackName,
+          marked: 0,
+          working: 0,
+          employees: 0,
+          missing: 0,
+        };
 
         const region = mapGroup
           .append('path')
@@ -328,7 +384,7 @@ function initBoliviaMap() {
           .attr('fill', palette[key] || '#e5ecf5')
           .attr('tabindex', 0)
           .attr('role', 'button')
-          .attr('aria-label', `${payload.name}: ${payload.marked} marcaron, ${payload.missing} sin marcar`);
+          .attr('aria-label', `${payload.name}: ${payload.marked || 0} marcaron, ${payload.missing || 0} sin marcar`);
 
         const regionNode = region.node();
 
@@ -337,11 +393,11 @@ function initBoliviaMap() {
         }
 
         regionNode.dataset.departmentKey = key;
-        regionNode.addEventListener('click', () => activateFeature(regionNode, payload, key));
+        regionNode.addEventListener('click', () => activateFeature(regionNode, payload, key, true));
         regionNode.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            activateFeature(regionNode, payload, key);
+            activateFeature(regionNode, payload, key, true);
           }
         });
 
@@ -352,14 +408,21 @@ function initBoliviaMap() {
             .attr('class', 'bolivia-map-label')
             .attr('x', centroid[0])
             .attr('y', centroid[1])
-            .text(payload.name);
+            .text(payload.name || fallbackName);
         }
       });
 
-      const firstKey = Object.keys(departmentStats).find((key) => canvas.querySelector(`[data-department-key="${key}"]`));
-      const firstNode = canvas.querySelector(`[data-department-key="${firstKey}"]`);
-      if (firstNode && departmentStats[firstKey]) {
-        activateFeature(firstNode, departmentStats[firstKey], firstKey);
+      const initialKey = root.dataset.activeDepartmentKey
+        ? departmentKeyFromName(root.dataset.activeDepartmentKey)
+        : (Object.keys(departmentStats)[0] || 'la-paz');
+
+      const selectedNode = canvas.querySelector(`[data-department-key="${initialKey}"]`);
+      if (selectedNode) {
+        const initialPayload = departmentStats[initialKey] || {
+          name: defaultDepartmentNames[initialKey] || initialKey,
+          branch: defaultDepartmentNames[initialKey] || initialKey,
+        };
+        activateFeature(selectedNode, initialPayload, initialKey, false);
       }
     })
     .catch((error) => {
@@ -370,6 +433,13 @@ function initBoliviaMap() {
       console.error(error);
       canvas.innerHTML = '<p class="map-fallback-copy">No se pudo cargar el mapa departamental.</p>';
     });
+}
+
+function initBoliviaMap() {
+  const roots = document.querySelectorAll('[data-bolivia-map-root]');
+  roots.forEach((root) => {
+    initSingleBoliviaMap(root);
+  });
 }
 
 function initHumanResourcesUi() {
@@ -541,12 +611,9 @@ document.addEventListener('livewire:init', () => {
   Livewire.on('print-empleado-pdf', printEmployeePdfFromModal);
   Livewire.on('print-reportes-pdf', printReportesPdf);
   Livewire.on('print-reporte-detalle-empleado-pdf', printReporteDetalleEmpleadoPdf);
-
-  if (typeof Livewire.hook === 'function') {
-    Livewire.hook('morph.updated', ({ el }) => {
-      if (el?.querySelector?.('[data-bolivia-map-root]') || el?.matches?.('[data-bolivia-map-root]')) {
-        initBoliviaMap();
-      }
+  if (window.Livewire?.hook) {
+    window.Livewire.hook('morph.updated', () => {
+      initBoliviaMap();
     });
   }
 });

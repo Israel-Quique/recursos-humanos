@@ -11,7 +11,8 @@
     @php
       $routeName = request()->route()?->getName() ?? 'dashboard';
       $routeTitles = [
-        'dashboard' => 'PANEL',
+        'dashboard' => 'CALENDAR',
+        'inicio' => 'INICIO',
         'importar' => 'IMPORT',
         'calendario' => 'CALENDAR',
         'reportes' => 'REPORTS',
@@ -44,30 +45,22 @@
 
           <nav class="app-sidebar-nav">
             @can('ver panel')
+              <a wire:navigate href="{{ route('inicio') }}" class="app-sidebar-link {{ request()->routeIs('inicio') ? 'app-sidebar-link-active' : '' }}">
+                <span class="app-sidebar-link-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <span class="app-sidebar-link-label">Panel de inicio</span>
+              </a>
               <a wire:navigate href="{{ route('dashboard') }}" class="app-sidebar-link {{ request()->routeIs('dashboard') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="9" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.6"/><rect x="3" y="16" width="7.5" height="5" rx="1.6"/></svg>
                 </span>
-                <span class="app-sidebar-link-label">Panel</span>
+                <span class="app-sidebar-link-label">Calendario laboral</span>
               </a>
             @endcan
             @can('gestionar personal')
-              <div x-data="{ open: {{ request()->routeIs('personal') ? 'true' : 'false' }} }">
-                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ request()->routeIs('personal') ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
-                  <span class="app-sidebar-link-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6"/><circle cx="17" cy="8.3" r="2.3"/><path d="M15.7 14.3c2.4.5 4.1 2.7 4.1 5.7"/></svg>
-                  </span>
-                  <span class="app-sidebar-link-label">Personal</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-sidebar-chevron" :class="{ 'app-sidebar-chevron-open': open }"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
-                  <a wire:navigate href="{{ route('personal', ['vista' => 'personal']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'personal' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Personal registrado</a>
-                  <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'inactivos' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Inactivos</a>
-                  <a wire:navigate href="{{ route('personal', ['vista' => 'marcaciones']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'marcaciones' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Marcaciones</a>
-                  <a wire:navigate href="{{ route('personal', ['vista' => 'control']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'control' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Control mensual</a>
-                </div>
-              <div x-data="{ open: {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias')) ? 'true' : 'false' }} }">
-                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias')) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
+              <div x-data="{ open: {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'true' : 'false' }} }">
+                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
                   <span class="app-sidebar-link-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
                   </span>
@@ -75,20 +68,35 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-sidebar-chevron" :class="{ 'app-sidebar-chevron-open': open }"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
                 <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
+                  <a wire:navigate href="{{ route('personal', ['vista' => 'personal']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'personal' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Personal registrado</a>
+                  <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'inactivos' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Inactivos</a>
                   <a wire:navigate href="{{ route('horarios') }}" class="app-sidebar-sublink {{ request()->routeIs('horarios') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Horarios por sucursal</a>
                   <a wire:navigate href="{{ route('fechas-especiales') }}" class="app-sidebar-sublink {{ request()->routeIs('fechas-especiales') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Fechas especiales</a>
                   <a wire:navigate href="{{ route('incidencias') }}" class="app-sidebar-sublink {{ request()->routeIs('incidencias') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Incidencias y permisos</a>
+                  @can('importar biometria')
+                    <a wire:navigate href="{{ route('importar') }}" class="app-sidebar-sublink {{ request()->routeIs('importar') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Importaciones</a>
+                  @endcan
+                </div>
+              </div>
+              <div x-data="{ open: {{ (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control'], true)) ? 'true' : 'false' }} }">
+                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control'], true)) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
+                  <span class="app-sidebar-link-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                      <path d="M9 12h6M9 16h6"/>
+                    </svg>
+                  </span>
+                  <span class="app-sidebar-link-label">Registros de asistencias</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-sidebar-chevron" :class="{ 'app-sidebar-chevron-open': open }"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
+                  <a wire:navigate href="{{ route('personal', ['vista' => 'marcaciones']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'marcaciones' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Marcaciones personales</a>
+                  <a wire:navigate href="{{ route('personal', ['vista' => 'control']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'control' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Marcaciones por sucursales</a>
                 </div>
               </div>
             @endcan
-            @can('importar biometria')
-              <a wire:navigate href="{{ route('importar') }}" class="app-sidebar-link {{ request()->routeIs('importar') ? 'app-sidebar-link-active' : '' }}">
-                <span class="app-sidebar-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-                </span>
-                <span class="app-sidebar-link-label">Importacion</span>
-              </a>
-            @endcan
+            {{-- Calendario oculto del sidebar (la ruta sigue disponible)
             @can('ver calendario')
               <a wire:navigate href="{{ route('calendario') }}" class="app-sidebar-link {{ request()->routeIs('calendario') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">
@@ -97,6 +105,7 @@
                 <span class="app-sidebar-link-label">Calendario</span>
               </a>
             @endcan
+            --}}
             @can('ver reportes')
               <a wire:navigate href="{{ route('reportes') }}" class="app-sidebar-link {{ request()->routeIs('reportes') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">
@@ -105,12 +114,6 @@
                 <span class="app-sidebar-link-label">Reportes</span>
               </a>
             @endcan
-            <a wire:navigate href="{{ route('consulta-carnet') }}" class="app-sidebar-link {{ request()->routeIs('consulta-carnet') ? 'app-sidebar-link-active' : '' }}">
-              <span class="app-sidebar-link-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 9.5h4.5"/><path d="M7.5 13h3"/><circle cx="16.5" cy="11.5" r="2.2"/><path d="M13.9 16.2c.8-1.4 2-2.1 3.1-2.1 1.2 0 2.4.7 3.1 2.1"/></svg>
-              </span>
-              <span class="app-sidebar-link-label">Consulta carnet</span>
-            </a>
             @can('gestionar accesos')
               <a wire:navigate href="{{ route('accesos') }}" class="app-sidebar-link {{ request()->routeIs('accesos') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">

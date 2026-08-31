@@ -36,6 +36,7 @@ return [
     'sync_window_days' => max(1, (int) env('BIOMETRICO_SYNC_WINDOW_DAYS', 2)),
     'timeout' => (float) env('BIOMETRICO_TIMEOUT', 2),
     'export_timeout' => max(60, (int) env('BIOMETRICO_EXPORT_TIMEOUT', 90)),
+    'sync_timeout' => max(5, (int) env('BIOMETRICO_SYNC_TIMEOUT', 15)),
     'status_timeout' => (float) env('BIOMETRICO_STATUS_TIMEOUT', 1),
     'devices' => is_array($devices) && $devices !== [] ? $devices : $fallbackDevices,
 ];

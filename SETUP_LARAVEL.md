@@ -41,6 +41,16 @@ Luego abre:
 http://127.0.0.1:8000
 ```
 
+## Sincronizacion automatica del biometrico
+
+El sistema consulta los relojes ZKTeco cada minuto y agrega las marcaciones nuevas sin importar archivos manualmente. Debe mantenerse una segunda terminal abierta ejecutando:
+
+```powershell
+.\scripts\start-scheduler.ps1
+```
+
+La sincronizacion es acumulativa: las marcaciones existentes se fusionan y no se duplican.
+
 ## Si quieres hacerlo manual
 
 ```powershell

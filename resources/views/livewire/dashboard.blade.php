@@ -1,4 +1,7 @@
 <div class="page-stack">
+  {{-- Vista Principal: Calendario de Asistencia al Inicio del Dashboard --}}
+  <livewire:calendario-page />
+
   <section wire:poll.60s>
     <article class="surface-card surface-card-map">
       <p class="section-kicker">Mapa operativo</p>

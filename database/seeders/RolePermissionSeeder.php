@@ -46,6 +46,10 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($legacyRoleMap as $legacyRole => $newRole) {
+            if (!Role::query()->where('name', $legacyRole)->where('guard_name', 'web')->exists()) {
+                continue;
+            }
+
             $legacyUsers = User::query()->role($legacyRole)->get();
 
             foreach ($legacyUsers as $user) {

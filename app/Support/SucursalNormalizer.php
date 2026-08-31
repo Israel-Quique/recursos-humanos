@@ -8,8 +8,15 @@ use Illuminate\Support\Collection;
 class SucursalNormalizer
 {
     private const ALIASES = [
-        'la-paz' => ['La Paz', 'LaPaz'],
-        'santa-cruz' => ['Santa Cruz', 'SantaCruz'],
+        'la-paz' => ['La Paz', 'LaPaz', 'Oficina Central La Paz', 'Regional La Paz', 'Sucursal La Paz', 'El Alto', 'Regional El Alto'],
+        'santa-cruz' => ['Santa Cruz', 'SantaCruz', 'Regional Santa Cruz', 'Sucursal Santa Cruz'],
+        'cochabamba' => ['Cochabamba', 'Regional Cochabamba', 'Sucursal Cochabamba'],
+        'chuquisaca' => ['Chuquisaca', 'Sucre', 'Sucursal Sucre', 'Sucursal Chuquisaca', 'Regional Sucre', 'Regional Chuquisaca'],
+        'oruro' => ['Oruro', 'Sucursal Oruro', 'Regional Oruro'],
+        'potosi' => ['Potosi', 'Potosí', 'Sucursal Potosi', 'Sucursal Potosí', 'Regional Potosi', 'Regional Potosí'],
+        'tarija' => ['Tarija', 'Sucursal Tarija', 'Regional Tarija'],
+        'beni' => ['Beni', 'Trinidad', 'Sucursal Trinidad', 'Sucursal Beni', 'Regional Trinidad', 'Regional Beni'],
+        'pando' => ['Pando', 'Cobija', 'Sucursal Cobija', 'Sucursal Pando', 'Regional Cobija', 'Regional Pando'],
     ];
 
     public static function canonicalKey(?string $value): ?string
@@ -29,6 +36,11 @@ class SucursalNormalizer
         }
 
         return null;
+    }
+
+    public static function normalize(?string $value): string
+    {
+        return self::canonicalLabel($value);
     }
 
     public static function canonicalLabel(?string $value): string

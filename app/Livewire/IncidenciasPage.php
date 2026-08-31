@@ -27,7 +27,7 @@ class IncidenciasPage extends Component
     public string $pendingDeleteIncidenciaLabel = '';
     public string $empleadoId = '';
     public string $tipo = 'permiso';
-    public string $alcance = 'dia_completo';
+    public string $alcance = 'dias';
     public string $estado = 'aprobado';
     public string $fechaInicio = '';
     public string $fechaFin = '';
@@ -39,7 +39,7 @@ class IncidenciasPage extends Component
     public string $editEmpleadoId = '';
     public string $editEmpleadoSearch = '';
     public string $editTipo = 'permiso';
-    public string $editAlcance = 'dia_completo';
+    public string $editAlcance = 'dias';
     public string $editEstado = 'aprobado';
     public string $editFechaInicio = '';
     public string $editFechaFin = '';
@@ -126,9 +126,7 @@ class IncidenciasPage extends Component
         $this->editingIncidenciaId = $incidencia->id;
         $this->editEmpleadoId = (string) $incidencia->empleado_id;
         $this->editTipo = $incidencia->tipo;
-        $this->editAlcance = $incidencia->tipo === 'cumpleanos' && $incidencia->alcance === 'medio_dia'
-            ? 'manana'
-            : ($incidencia->alcance ?: 'dia_completo');
+        $this->editAlcance = in_array($incidencia->alcance, ['dias', 'horas'], true) ? $incidencia->alcance : 'dias';
         $this->editEstado = $incidencia->estado;
         $this->editFechaInicio = $incidencia->fecha_inicio?->toDateString() ?? '';
         $this->editFechaFin = $incidencia->fecha_fin?->toDateString() ?? '';
@@ -156,7 +154,7 @@ class IncidenciasPage extends Component
 
         $this->pendingDeleteIncidenciaId = $incidencia->id;
         $this->pendingDeleteIncidenciaLabel = $incidencia->empleado?->nombre_completo
-            ? $incidencia->empleado->nombre_completo.' - '.$incidencia->tipo_label
+            ? $incidencia->empleado->nombre_completo . ' - ' . $incidencia->tipo_label
             : $incidencia->tipo_label;
         $this->showDeleteModal = true;
     }
@@ -256,7 +254,7 @@ class IncidenciasPage extends Component
 
     public function deleteIncidencia(): void
     {
-        if (! $this->pendingDeleteIncidenciaId) {
+        if (!$this->pendingDeleteIncidenciaId) {
             return;
         }
 
@@ -283,7 +281,7 @@ class IncidenciasPage extends Component
         $query = PermisoLaboral::query()->with('empleado');
 
         if (filled($this->search)) {
-            $term = '%'.mb_strtolower($this->search).'%';
+            $term = '%' . mb_strtolower($this->search) . '%';
             $query->whereHas('empleado', function ($empleados) use ($term) {
                 $empleados->whereRaw("LOWER(nombre || ' ' || COALESCE(apellido, '')) LIKE ?", [$term])
                     ->orWhereRaw("LOWER(COALESCE(codigo_biometrico, '')) LIKE ?", [$term]);
@@ -375,22 +373,19 @@ class IncidenciasPage extends Component
         ];
     }
 
-    private function alcancesDisponibles(): array
+    public function alcancesDisponibles(): array
     {
         return [
-            'manana' => 'Toda la manana',
-            'tarde' => 'Toda la tarde',
-            'dia_completo' => 'Todo el dia',
-            'medio_dia' => 'Medio dia',
-            'horas' => 'Por horas',
+            'dias' => 'Por días (Jornada completa / Licencias)',
+            'horas' => 'Por horas (Entrada/Salida personalizada)',
         ];
     }
 
-    private function alcancesCumpleanosDisponibles(): array
+    public function alcancesCumpleanosDisponibles(): array
     {
         return [
-            'manana' => 'Medio dia',
-            'tarde' => 'Medio dia en la tarde',
+            'manana' => 'Salida en la mañana (Medio día)',
+            'tarde' => 'Salida en la tarde (Medio día)',
         ];
     }
 
@@ -421,9 +416,7 @@ class IncidenciasPage extends Component
         }
 
         if ($editing) {
-            if (! in_array($this->editAlcance, array_keys($this->alcancesCumpleanosDisponibles()), true)) {
-                $this->editAlcance = 'manana';
-            }
+            $this->editAlcance = 'tarde';
             $this->editFechaFin = $this->editFechaInicio ?: $this->editFechaFin;
             $this->editHoraInicio = '';
             $this->editHoraFin = '';
@@ -431,9 +424,7 @@ class IncidenciasPage extends Component
             return;
         }
 
-        if (! in_array($this->alcance, array_keys($this->alcancesCumpleanosDisponibles()), true)) {
-            $this->alcance = 'manana';
-        }
+        $this->alcance = 'tarde';
         $this->fechaFin = $this->fechaInicio ?: $this->fechaFin;
         $this->horaInicio = '';
         $this->horaFin = '';
@@ -441,19 +432,88 @@ class IncidenciasPage extends Component
 
     private function sincronizarReglaAlcance(string $alcance, bool $editing): void
     {
-        if ($alcance === 'horas') {
+        $empleadoId = $editing ? $this->editEmpleadoId : $this->empleadoId;
+        $fecha = $editing ? $this->editFechaInicio : $this->fechaInicio;
+
+        if (blank($empleadoId) || blank($fecha)) {
+            if ($alcance !== 'horas') {
+                if ($editing) {
+                    $this->editHoraInicio = '';
+                    $this->editHoraFin = '';
+                } else {
+                    $this->horaInicio = '';
+                    $this->horaFin = '';
+                }
+            }
+
             return;
         }
 
-        if ($editing) {
-            $this->editHoraInicio = '';
-            $this->editHoraFin = '';
+        if ($alcance !== 'horas') {
+            if ($editing) {
+                $this->editHoraInicio = '';
+                $this->editHoraFin = '';
+            } else {
+                $this->horaInicio = '';
+                $this->horaFin = '';
+            }
+        }
+    }
 
+    public function updatedEmpleadoId(): void
+    {
+        $this->sincronizarReglaAlcance($this->alcance, false);
+    }
+
+    public function updatedEditEmpleadoId(): void
+    {
+        $this->sincronizarReglaAlcance($this->editAlcance, true);
+    }
+
+    public function updatedEmpleadoSearch(): void
+    {
+        $this->empleadoId = '';
+    }
+
+    public function updatedEditEmpleadoSearch(): void
+    {
+        $this->editEmpleadoId = '';
+    }
+
+    public function seleccionarEmpleado(int $empleadoId): void
+    {
+        $empleado = Empleado::query()->find($empleadoId);
+
+        if (!$empleado) {
             return;
         }
 
-        $this->horaInicio = '';
-        $this->horaFin = '';
+        $this->empleadoId = (string) $empleado->id;
+        $this->empleadoSearch = $this->etiquetaEmpleado($empleado);
+        $this->sincronizarReglaAlcance($this->alcance, false);
+    }
+
+    public function seleccionarEmpleadoEdicion(int $empleadoId): void
+    {
+        $empleado = Empleado::query()->find($empleadoId);
+
+        if (!$empleado) {
+            return;
+        }
+
+        $this->editEmpleadoId = (string) $empleado->id;
+        $this->editEmpleadoSearch = $this->etiquetaEmpleado($empleado);
+        $this->sincronizarReglaAlcance($this->editAlcance, true);
+    }
+
+    public function updatedFechaInicio(string $value): void
+    {
+        $this->sincronizarReglaAlcance($this->alcance, false);
+    }
+
+    public function updatedEditFechaInicio(string $value): void
+    {
+        $this->sincronizarReglaAlcance($this->editAlcance, true);
     }
 
     private function normalizarHora(string $alcance, ?string $hora): ?string
@@ -462,7 +522,7 @@ class IncidenciasPage extends Component
             return null;
         }
 
-        return $hora.':00';
+        return $hora . ':00';
     }
 
     private function calcularMinutosContabilizados(
@@ -475,9 +535,6 @@ class IncidenciasPage extends Component
         string $horaFin
     ): int {
         if ($tipo === 'cumpleanos') {
-            if (! in_array($alcance, array_keys($this->alcancesCumpleanosDisponibles()), true)) {
-                $alcance = 'manana';
-            }
             $fechaFin = $fechaInicio;
             $horaInicio = '';
             $horaFin = '';
@@ -509,7 +566,7 @@ class IncidenciasPage extends Component
         $this->empleadoId = '';
         $this->empleadoSearch = '';
         $this->tipo = 'permiso';
-        $this->alcance = 'dia_completo';
+        $this->alcance = 'dias';
         $this->estado = 'aprobado';
         $this->fechaInicio = now()->toDateString();
         $this->fechaFin = now()->toDateString();
@@ -552,14 +609,21 @@ class IncidenciasPage extends Component
                 }
 
                 $texto = mb_strtolower(
-                    $empleado->nombre_completo.' '.
-                    ($empleado->codigo_biometrico ?? '').' '.
+                    $empleado->nombre_completo . ' ' .
+                    ($empleado->codigo_biometrico ?? '') . ' ' .
                     ($empleado->sucursal ?? '')
                 );
 
                 return str_contains($texto, $term);
             })
             ->values();
+    }
+
+    private function etiquetaEmpleado(Empleado $empleado): string
+    {
+        $codigo = trim((string) ($empleado->codigo_biometrico ?? ''));
+
+        return $empleado->nombre_completo . ($codigo !== '' ? ' | ' . $codigo : '');
     }
 
     private function resolverTipoPermisoDesdeMotivo(string $motivo): string

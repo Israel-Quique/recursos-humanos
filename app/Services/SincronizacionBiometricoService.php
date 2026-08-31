@@ -34,8 +34,24 @@ class SincronizacionBiometricoService
         $syncCutoff = $force ? null : $this->resolveSyncCutoff($storedDevice);
 
         try {
-            $rows = $this->extraccionBiometricoZkService->extraerMarcaciones($device);
+            $rows = $this->extraccionBiometricoZkService->extraerMarcaciones(
+                $device,
+                max(5, (int) config('biometrico.sync_timeout', 15))
+            );
             $newRows = $this->filterRowsAfter($rows, $syncCutoff);
+            $today = now()->toDateString();
+            $todayRows = collect($newRows)
+                ->filter(fn (array $row) => $this->parseTimestamp($row['fecha_hora'] ?? null)?->toDateString() === $today)
+                ->count();
+
+            Log::info('Sincronizacion biometrica completada para dispositivo.', [
+                'device_ip' => $device['ip'] ?? null,
+                'device_branch' => $device['branch'] ?? null,
+                'rows_received' => count($rows),
+                'rows_new' => count($newRows),
+                'rows_today' => $todayRows,
+                'sync_cutoff' => $syncCutoff?->toIso8601String(),
+            ]);
 
             $storedDevice?->forceFill([
                 'last_seen_at' => now(),
@@ -62,9 +78,9 @@ class SincronizacionBiometricoService
             );
 
             $maxTimestamp = collect($newRows)
-                ->map(fn (array $row) => $this->parseTimestamp($row['fecha_hora'] ?? null))
+                ->map(fn(array $row) => $this->parseTimestamp($row['fecha_hora'] ?? null))
                 ->filter()
-                ->sortBy(fn (Carbon $date) => $date->timestamp)
+                ->sortBy(fn(Carbon $date) => $date->timestamp)
                 ->last();
 
             if ($storedDevice && $maxTimestamp) {
@@ -79,7 +95,7 @@ class SincronizacionBiometricoService
                 'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
                 'status' => 'sincronizado',
                 'imported' => (int) ($importacion->registros_total ?? count($newRows)),
-                'message' => 'Marcaciones sincronizadas correctamente. CSV generado en '.basename($csvPath).'.',
+                'message' => 'Marcaciones sincronizadas correctamente. CSV generado en ' . basename($csvPath) . '.',
             ];
         } catch (\Throwable $exception) {
             if ($storedDevice) {
@@ -124,10 +140,10 @@ class SincronizacionBiometricoService
         $validRows = array_values(array_filter($rows, function (array $row) {
             $timestamp = $this->parseTimestamp($row['fecha_hora'] ?? null);
 
-            return $timestamp && ! $this->isFutureTimestamp($timestamp);
+            return $timestamp && !$this->isFutureTimestamp($timestamp);
         }));
 
-        if (! $lastSyncedAt) {
+        if (!$lastSyncedAt) {
             return $this->sortRowsByTimestamp($validRows);
         }
 
@@ -150,7 +166,7 @@ class SincronizacionBiometricoService
 
     private function parseTimestamp(mixed $value): ?Carbon
     {
-        if (! filled($value)) {
+        if (!filled($value)) {
             return null;
         }
 
@@ -163,11 +179,11 @@ class SincronizacionBiometricoService
 
     private function resolveLastSyncedAt(?BiometricoDispositivo $storedDevice): ?Carbon
     {
-        if (! $storedDevice?->last_synced_mark_at) {
+        if (!$storedDevice?->last_synced_mark_at) {
             return null;
         }
 
-        if (! $this->isFutureTimestamp($storedDevice->last_synced_mark_at)) {
+        if (!$this->isFutureTimestamp($storedDevice->last_synced_mark_at)) {
             return $storedDevice->last_synced_mark_at;
         }
 
@@ -190,7 +206,7 @@ class SincronizacionBiometricoService
         $windowStart = now()->copy()->subDays($this->syncWindowDays());
         $lastSyncedAt = $this->resolveLastSyncedAt($storedDevice);
 
-        if (! $lastSyncedAt) {
+        if (!$lastSyncedAt) {
             return $windowStart;
         }
 

@@ -17,6 +17,8 @@ class HorariosPage extends Component
     public string $search = '';
     public ?string $editingSucursal = null;
     public ?string $selectedSucursal = null;
+    public ?string $activeSucursal = null;
+    public int $globalTolerancia = 35;
     public bool $showEditModal = false;
     public bool $showSucursalEmployeesModal = false;
     public string $editHoraEntrada = '';
@@ -25,6 +27,33 @@ class HorariosPage extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
+        $this->globalTolerancia = (int) cache()->get('asistencia_tolerancia_min', config('asistencia.tolerancia_mensual_min', 35));
+        if (empty($this->activeSucursal)) {
+            $this->activeSucursal = 'La Paz';
+        }
+    }
+
+    public function selectSucursal(string $sucursal): void
+    {
+        $this->activeSucursal = SucursalNormalizer::canonicalLabel($sucursal);
+    }
+
+    public function saveGlobalTolerancia(): void
+    {
+        $this->validate([
+            'globalTolerancia' => ['required', 'integer', 'min:0', 'max:300'],
+        ], [
+            'globalTolerancia.required' => 'Ingresa los minutos de tolerancia.',
+            'globalTolerancia.integer' => 'Los minutos deben ser un número entero.',
+            'globalTolerancia.min' => 'La tolerancia no puede ser menor a 0.',
+            'globalTolerancia.max' => 'La tolerancia no puede ser mayor a 300 minutos.',
+        ]);
+
+        cache()->forever('asistencia_tolerancia_min', $this->globalTolerancia);
+        config(['asistencia.tolerancia_mensual_min' => $this->globalTolerancia]);
+        config(['asistencia.tolerancia_mensual_minutos' => $this->globalTolerancia]);
+
+        session()->flash('status', "Tolerancia mensual global actualizada a {$this->globalTolerancia} minutos para todas las sucursales.");
     }
 
     public function updatingSearch(): void
@@ -34,13 +63,14 @@ class HorariosPage extends Component
 
     public function openEditModal(string $sucursal): void
     {
+        $canonical = SucursalNormalizer::canonicalLabel($sucursal);
         $horario = HorarioRegional::query()
-            ->where(function ($query) use ($sucursal) {
-                SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+            ->where(function ($query) use ($canonical) {
+                SucursalNormalizer::applyFilter($query, 'sucursal', $canonical);
             })
             ->first();
 
-        $this->editingSucursal = $sucursal;
+        $this->editingSucursal = $canonical;
         $this->editHoraEntrada = $horario?->hora_entrada
             ? substr((string) $horario->hora_entrada, 0, 5)
             : substr((string) config('asistencia.hora_entrada'), 0, 5);
@@ -60,7 +90,7 @@ class HorariosPage extends Component
 
     public function openSucursalEmployeesModal(string $sucursal): void
     {
-        $this->selectedSucursal = $sucursal;
+        $this->selectedSucursal = SucursalNormalizer::canonicalLabel($sucursal);
         $this->showSucursalEmployeesModal = true;
     }
 
@@ -82,16 +112,19 @@ class HorariosPage extends Component
             'editHoraSalida.date_format' => 'La hora de salida debe tener formato HH:MM.',
         ]);
 
+        $canonicalSucursal = SucursalNormalizer::canonicalLabel($data['editingSucursal']);
+
         $horario = HorarioRegional::query()
-            ->where(function ($query) use ($data) {
-                SucursalNormalizer::applyFilter($query, 'sucursal', $data['editingSucursal']);
+            ->where(function ($query) use ($canonicalSucursal) {
+                SucursalNormalizer::applyFilter($query, 'sucursal', $canonicalSucursal);
             })
             ->first() ?? new HorarioRegional([
-                'sucursal' => $data['editingSucursal'],
+                'sucursal' => $canonicalSucursal,
             ]);
         $antes = $horario->exists ? $this->snapshotHorario($horario) : null;
 
         $horario->fill([
+            'sucursal' => $canonicalSucursal,
             'hora_entrada' => $data['editHoraEntrada'].':00',
             'hora_salida' => filled($data['editHoraSalida']) ? $data['editHoraSalida'].':00' : null,
             'created_by' => $horario->exists ? $horario->created_by : auth()->id(),
@@ -107,8 +140,9 @@ class HorariosPage extends Component
             $this->snapshotHorario($horario->fresh())
         );
 
+        $this->activeSucursal = $canonicalSucursal;
         $this->closeEditModal();
-        session()->flash('status', 'Horario regional actualizado correctamente.');
+        session()->flash('status', "Horario de {$canonicalSucursal} actualizado correctamente.");
     }
 
     public function render()
@@ -157,8 +191,39 @@ class HorariosPage extends Component
             ['path' => request()->url(), 'pageName' => 'page']
         );
 
+        $activeSucursalData = null;
+        if (filled($this->activeSucursal)) {
+            $activeSucursalLabel = $this->activeSucursal;
+            $activeHorario = HorarioRegional::query()
+                ->where(function ($query) use ($activeSucursalLabel) {
+                    SucursalNormalizer::applyFilter($query, 'sucursal', $activeSucursalLabel);
+                })
+                ->first();
+            $activeEmployeesCount = Empleado::query()
+                ->where(function ($query) use ($activeSucursalLabel) {
+                    SucursalNormalizer::applyFilter($query, 'sucursal', $activeSucursalLabel);
+                })
+                ->count();
+
+            $activeSucursalData = (object) [
+                'sucursal' => $activeSucursalLabel,
+                'key' => SucursalNormalizer::canonicalKey($activeSucursalLabel) ?? \Illuminate\Support\Str::slug($activeSucursalLabel),
+                'empleados' => $activeEmployeesCount,
+                'hora_entrada' => $activeHorario?->hora_entrada ? substr($activeHorario->hora_entrada, 0, 5) : substr((string) config('asistencia.hora_entrada'), 0, 5),
+                'hora_salida' => $activeHorario?->hora_salida ? substr($activeHorario->hora_salida, 0, 5) : substr((string) config('asistencia.hora_salida'), 0, 5),
+            ];
+        }
+
+        $departmentStats = app(\App\Services\AnalisisAsistenciaService::class)->asistenciaPorDepartamento();
+
         return view('livewire.horarios', [
             'horarios' => $paginated,
+            'generalHoraEntrada' => substr((string) config('asistencia.hora_entrada', '08:30:00'), 0, 5),
+            'generalHoraSalida' => substr((string) config('asistencia.hora_salida', '16:30:00'), 0, 5),
+            'globalTolerancia' => $this->globalTolerancia,
+            'activeSucursalData' => $activeSucursalData,
+            'departmentStats' => $departmentStats,
+            'allSucursales' => $sucursales,
             'sucursalEmployees' => $this->selectedSucursal
                 ? Empleado::query()
                     ->where(function ($query) {

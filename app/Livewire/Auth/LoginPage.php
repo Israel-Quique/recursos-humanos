@@ -19,7 +19,7 @@ class LoginPage extends Component
     public function mount(): void
     {
         if (Auth::check()) {
-            $this->redirectRoute('dashboard', navigate: true);
+            $this->redirectRoute('inicio', navigate: true);
         }
     }
 
@@ -51,7 +51,7 @@ class LoginPage extends Component
 
         session()->flash('status', 'Bienvenido al sistema de recursos humanos.');
 
-        $this->redirectRoute('dashboard', navigate: true);
+        $this->redirectRoute('inicio', navigate: true);
     }
 
     public function togglePassword(): void

@@ -37,9 +37,7 @@ class ConsultaCarnetPage extends Component
 
     public function render()
     {
-        $layout = auth()->check() ? 'layouts.app' : 'layouts.guest';
-
         return view('livewire.consulta-carnet')
-            ->layout($layout, ['title' => 'Consulta por carnet']);
+            ->layout('layouts.guest', ['title' => 'Consulta por carnet']);
     }
 }

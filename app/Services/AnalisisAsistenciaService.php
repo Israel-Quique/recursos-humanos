@@ -14,6 +14,8 @@ use Illuminate\Support\Collection;
 
 class AnalisisAsistenciaService
 {
+    private array $detalleFaltasCache = [];
+
     public function __construct(private ProgramacionLaboralService $programacionLaboral)
     {
     }
@@ -81,18 +83,18 @@ class AnalisisAsistenciaService
 
     public function modulosFuente(): array
     {
-        $sourceRoot = dirname(base_path()).DIRECTORY_SEPARATOR.'sistema-asistencia';
+        $sourceRoot = dirname(base_path()) . DIRECTORY_SEPARATOR . 'sistema-asistencia';
 
         $modules = [
-            ['label' => 'Dashboard completo', 'path' => $sourceRoot.'\app\Livewire\DashboardPage.php'],
-            ['label' => 'Importacion Excel', 'path' => $sourceRoot.'\app\Livewire\ImportarExcelPage.php'],
-            ['label' => 'Calendario', 'path' => $sourceRoot.'\app\Livewire\CalendarioPage.php'],
-            ['label' => 'Reportes', 'path' => $sourceRoot.'\app\Livewire\ReportesPage.php'],
-            ['label' => 'Historial de importaciones', 'path' => $sourceRoot.'\app\Livewire\HistorialImportacionesPage.php'],
-            ['label' => 'Perfil', 'path' => $sourceRoot.'\app\Livewire\PerfilPage.php'],
+            ['label' => 'Dashboard completo', 'path' => $sourceRoot . '\app\Livewire\DashboardPage.php'],
+            ['label' => 'Importacion Excel', 'path' => $sourceRoot . '\app\Livewire\ImportarExcelPage.php'],
+            ['label' => 'Calendario', 'path' => $sourceRoot . '\app\Livewire\CalendarioPage.php'],
+            ['label' => 'Reportes', 'path' => $sourceRoot . '\app\Livewire\ReportesPage.php'],
+            ['label' => 'Historial de importaciones', 'path' => $sourceRoot . '\app\Livewire\HistorialImportacionesPage.php'],
+            ['label' => 'Perfil', 'path' => $sourceRoot . '\app\Livewire\PerfilPage.php'],
         ];
 
-        return array_map(fn (array $module) => [
+        return array_map(fn(array $module) => [
             'label' => $module['label'],
             'available' => file_exists($module['path']),
         ], $modules);
@@ -160,14 +162,30 @@ class AnalisisAsistenciaService
         $weeks = [];
         $events = $this->eventosTardanzaPorFecha($reference);
 
-        // Cargar feriados nacionales e institucionales (DB y API Nager)
+        // Pre-cargar registros de asistencia en el rango completo del calendario
+        $registrosMes = RegistroAsistencia::query()
+            ->with('empleado')
+            ->whereDate('fecha', '>=', $start->toDateString())
+            ->whereDate('fecha', '<=', $end->toDateString())
+            ->get()
+            ->filter(fn(RegistroAsistencia $registro) => $registro->empleado)
+            ->groupBy(fn($r) => $r->fecha?->format('Y-m-d'));
+
+        // Cargar fechas especiales institucionales desde la base de datos
         $fechasEspecialesDB = FechaEspecialLaboral::query()
             ->whereDate('fecha', '>=', $start->toDateString())
             ->whereDate('fecha', '<=', $end->toDateString())
             ->get()
-            ->groupBy(fn ($f) => $f->fecha?->format('Y-m-d'));
+            ->groupBy(fn($f) => $f->fecha?->format('Y-m-d'));
 
-        $apiHolidays = $this->obtenerFeriadosApiBolivia((int) $reference->year);
+        // Cargar permisos aprobados en el rango
+        $permisosRango = PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $end->toDateString())
+            ->whereDate('fecha_fin', '>=', $start->toDateString())
+            ->get();
+
+        $today = now()->startOfDay();
 
         while ($current->lte($end)) {
             $week = [];
@@ -175,16 +193,35 @@ class AnalisisAsistenciaService
                 $day = $current->copy();
                 $dateStr = $day->format('Y-m-d');
                 $dayEvents = collect($events[$dateStr] ?? []);
-
-                // Verificar feche especial DB o API
+                $dayRegistros = collect($registrosMes->get($dateStr, collect()));
                 $especialesDB = $fechasEspecialesDB->get($dateStr, collect());
-                $apiHoliday = $apiHolidays[$dateStr] ?? null;
 
-                $esFeriado = $especialesDB->contains(fn ($f) => in_array($f->tipo, ['feriado', 'paro'], true))
-                    || ($apiHoliday !== null);
+                $esFeriado = $especialesDB->contains(fn($f) => in_array($f->tipo, ['feriado', 'paro'], true));
+                $nombreFeriado = $especialesDB->first(fn($f) => in_array($f->tipo, ['feriado', 'paro'], true))?->nombre;
 
-                $nombreFeriado = $especialesDB->first()?->nombre
-                    ?? ($apiHoliday['nombre'] ?? null);
+                // Contar omisiones (olvidos de entrada / salida)
+                $omisionesCount = $dayRegistros
+                    ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+                    ->count();
+
+                // Contar asistencias y tardanzas
+                $marcacionesCount = $dayRegistros->count();
+                $tardanzasRed = $dayEvents->where('tone', 'red')->count();
+                $tardanzasBlack = $dayEvents->where('tone', 'black')->count();
+                $tardanzasCount = $tardanzasRed + $tardanzasBlack;
+
+                // Faltas (solo si es fecha pasada o de hoy y no es feriado ni fin de semana)
+                $faltasCount = 0;
+                if ($day->lte($today) && !$esFeriado && !$day->isWeekend()) {
+                    $markedIds = $dayRegistros->pluck('empleado_id')->unique();
+                    $activeEmployees = $this->empleadosActivos($dateStr);
+                    $permisosDelDia = $permisosRango->filter(fn($p) => $day->betweenIncluded($p->fecha_inicio, $p->fecha_fin));
+                    $permissionIds = $permisosDelDia->where('tipo', '!=', 'falta')->pluck('empleado_id')->unique();
+                    $permisoFaltasCount = $permisosDelDia->where('tipo', 'falta')->pluck('empleado_id')->unique()->count();
+
+                    $injustificadas = $activeEmployees->filter(fn(Empleado $e) => !$markedIds->contains($e->id) && !$permissionIds->contains($e->id))->count();
+                    $faltasCount = $injustificadas + $permisoFaltasCount;
+                }
 
                 $week[] = [
                     'date' => $dateStr,
@@ -194,11 +231,17 @@ class AnalisisAsistenciaService
                     'is_weekend' => $day->isWeekend(),
                     'is_holiday' => $esFeriado,
                     'holiday_name' => $nombreFeriado,
-                    'has_special_schedule' => $especialesDB->contains(fn ($f) => $f->tipo === 'horario_especial'),
+                    'has_special_schedule' => $especialesDB->contains(fn($f) => $f->tipo === 'horario_especial'),
                     'events' => $dayEvents->all(),
                     'summary' => [
-                        'red' => $dayEvents->where('tone', 'red')->count(),
-                        'black' => $dayEvents->where('tone', 'black')->count(),
+                        'marcaciones' => $marcacionesCount,
+                        'asistencias' => $marcacionesCount,
+                        'puntuales' => max(0, $marcacionesCount - $tardanzasCount - $omisionesCount),
+                        'red' => $tardanzasRed,
+                        'black' => $tardanzasBlack,
+                        'tardanzas' => $tardanzasCount,
+                        'omisiones' => $omisionesCount,
+                        'faltas' => $faltasCount,
                     ],
                 ];
                 $current->addDay();
@@ -208,6 +251,7 @@ class AnalisisAsistenciaService
 
         return [
             'month_label' => ucfirst($reference->locale('es')->translatedFormat('F Y')),
+            'reference_month' => $reference->format('Y-m'),
             'entry_time' => config('asistencia.hora_entrada'),
             'exit_time' => config('asistencia.hora_salida'),
             'hours' => (int) config('asistencia.horas_jornada'),
@@ -217,10 +261,12 @@ class AnalisisAsistenciaService
             'prev_label' => ucfirst($reference->copy()->subMonth()->locale('es')->translatedFormat('F Y')),
             'next_label' => ucfirst($reference->copy()->addMonth()->locale('es')->translatedFormat('F Y')),
             'milestones' => [
-                'Punto rojo: llego tarde en el dia',
+                'Punto verde: marcación puntual',
+                'Punto rojo: llegó tarde en el día',
                 'Punto negro: ese atraso hizo que exceda su tolerancia mensual',
-                'Punto morado/dorado: Feriado o Fecha Especial programada',
-                'Los sabados, domingos y feriados no se consideran para el control de tardanzas',
+                'Punto naranja: omisión u olvido de marcación (falta de entrada o salida)',
+                'Punto morado: Feriado o Paro registrado en el sistema',
+                'Los sábados, domingos y feriados no entran al conteo mensual de tardanzas',
             ],
         ];
     }
@@ -236,125 +282,199 @@ class AnalisisAsistenciaService
             ->whereDate('fecha', $selectedDate->toDateString())
             ->orderBy('hora_entrada')
             ->get()
-            ->filter(fn (RegistroAsistencia $registro) => $registro->empleado)
+            ->filter(fn(RegistroAsistencia $registro) => $registro->empleado)
             ->values();
 
-        // Fechas especiales en la fecha
         $fechasEspeciales = FechaEspecialLaboral::query()
             ->whereDate('fecha', $selectedDate->toDateString())
             ->get();
 
-        $apiHolidays = $this->obtenerFeriadosApiBolivia((int) $selectedDate->year);
-        $apiHoliday = $apiHolidays[$selectedDate->format('Y-m-d')] ?? null;
+        $permisosDia = PermisoLaboral::query()
+            ->with('empleado')
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $selectedDate->toDateString())
+            ->whereDate('fecha_fin', '>=', $selectedDate->toDateString())
+            ->get();
+
+        $markedIds = $registrosDia->pluck('empleado_id')->unique();
+        $permissionIds = $permisosDia->where('tipo', '!=', 'falta')->pluck('empleado_id')->unique();
+        $isDiaNoLaborable = $this->programacionLaboral->esDiaNoLaborable($selectedDate);
+        $activeEmployees = $this->empleadosActivos($selectedDate->toDateString());
+
+        // Faltas (Ausencias injustificadas + Permisos tipo falta)
+        $faltas = collect();
+        if (!$isDiaNoLaborable && $selectedDate->lte(now()->endOfDay())) {
+            // Ausencias injustificadas
+            foreach ($activeEmployees as $empleado) {
+                if ($this->programacionLaboral->esDiaNoLaborable($selectedDate, $empleado->sucursal)) {
+                    continue;
+                }
+                if ($markedIds->contains($empleado->id) || $permissionIds->contains($empleado->id)) {
+                    continue;
+                }
+                $faltas->push([
+                    'empleado_id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'carnet' => $empleado->numero_documento,
+                    'cargo' => $empleado->cargo ?: 'Personal',
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'tipo' => 'injustificada',
+                    'detalle' => 'Ausencia injustificada sin marcación ni permiso registrado',
+                    'badge' => 'Falta injustificada',
+                ]);
+            }
+            // Permisos registrados explícitamente como falta
+            foreach ($permisosDia->where('tipo', 'falta') as $permisoFalta) {
+                $faltas->push([
+                    'empleado_id' => $permisoFalta->empleado_id,
+                    'nombre' => $permisoFalta->empleado?->nombre_completo,
+                    'carnet' => $permisoFalta->empleado?->numero_documento,
+                    'cargo' => $permisoFalta->empleado?->cargo ?: 'Personal',
+                    'sucursal' => $permisoFalta->empleado?->sucursal ?: 'Sin sucursal',
+                    'tipo' => 'permiso_falta',
+                    'detalle' => 'Falta registrada: ' . $permisoFalta->motivo . ' (' . $permisoFalta->alcance_label . ')',
+                    'badge' => 'Falta registrada',
+                ]);
+            }
+        }
+
+        // Omisiones de marcación (olvido de entrada o salida)
+        $omisiones = $registrosDia
+            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->map(function (RegistroAsistencia $registro) {
+                $marcacion = $this->normalizarMarcacionAsistencia($registro);
+                $horaSalidaReal = $this->horaSalidaReal($registro);
+                $olvidoEntrada = blank($marcacion['entrada']) || $this->esEntradaOmisionPorHoraTardia($marcacion['entrada']);
+                $olvidoSalida = blank($horaSalidaReal);
+
+                $detalle = 'Marcación incompleta';
+                if ($olvidoEntrada && $olvidoSalida) {
+                    $detalle = 'Sin marcación de entrada ni de salida';
+                } elseif ($olvidoEntrada) {
+                    $detalle = 'Olvido / Falta de marcación de entrada';
+                } elseif ($olvidoSalida) {
+                    $detalle = 'Olvido / Falta de marcación de salida';
+                }
+
+                return [
+                    'empleado_id' => $registro->empleado_id,
+                    'nombre' => $registro->empleado?->nombre_completo,
+                    'carnet' => $registro->empleado?->numero_documento,
+                    'cargo' => $registro->empleado?->cargo ?: 'Personal',
+                    'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
+                    'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
+                    'detalle' => $detalle,
+                    'estado' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
+                ];
+            })->values();
+
+        // Mapear todas las marcaciones con info completa
+        $marcaciones = $registrosDia->map(function (RegistroAsistencia $registro) use ($dayEvents) {
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+            $event = $dayEvents->firstWhere('empleado_id', $registro->empleado_id);
+
+            $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
+            $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
+            $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
+            $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
+
+            if ($tieneEntrada && $tieneSalida) {
+                $estado = 'Completo';
+                $tipoEstado = 'completo';
+            } elseif ($tieneEntrada || $tieneSalida) {
+                $estado = 'Sin completar';
+                $tipoEstado = 'faltante';
+            } else {
+                $estado = 'Sin marcación';
+                $tipoEstado = 'sin_marcacion';
+            }
+
+            $codigoBiometrico = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
+
+            return [
+                'empleado_id' => $registro->empleado_id,
+                'nombre' => $registro->empleado?->nombre_completo,
+                'codigo' => $codigoBiometrico,
+                'carnet' => $codigoBiometrico,
+                'cargo' => $registro->empleado?->cargo ?: 'Personal',
+                'entrada' => $entradaVal ?: '--:--',
+                'salida' => $salidaVal ?: '--:--',
+                'estado' => $estado,
+                'tipo_estado' => $tipoEstado,
+                'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                'minutos_retraso' => $event['minutes_late'] ?? 0,
+            ];
+        });
+
+        // Tardanzas
+        $tardanzas = $dayEvents->map(fn(array $event) => [
+            'empleado_id' => $event['empleado_id'],
+            'nombre' => $event['label'],
+            'detalle' => $event['detail'],
+            'minutos_retraso' => $event['minutes_late'] ?? 0,
+            'entrada' => $event['entry_time'],
+            'estado' => $event['status'],
+            'sucursal' => $event['branch'],
+            'tone' => $event['tone'],
+        ])->values();
+
+        // Permisos justificados
+        $permisosJustificados = $permisosDia->where('tipo', '!=', 'falta')->map(fn(PermisoLaboral $p) => [
+            'empleado_id' => $p->empleado_id,
+            'nombre' => $p->empleado?->nombre_completo,
+            'carnet' => $p->empleado?->numero_documento,
+            'sucursal' => $p->empleado?->sucursal ?: 'Sin sucursal',
+            'tipo' => $p->tipo,
+            'tipo_label' => $p->tipo_label,
+            'motivo' => $p->motivo,
+            'alcance' => $p->alcance_label,
+            'detalle' => $p->tipo_label . ' | ' . $p->alcance_label . ($p->minutos_contabilizados ? ' | ' . $this->formatearMinutosEtiqueta((int) $p->minutos_contabilizados) : ''),
+        ])->values();
+
+        $totalMarcaciones = $registrosDia->count();
+        $totalTardanzas = $tardanzas->count();
+        $totalExcedidos = $tardanzas->where('tone', 'black')->count();
+        $totalOmisiones = $omisiones->count();
+        $totalFaltas = $faltas->count();
+        $totalPuntuales = max(0, $totalMarcaciones - $totalTardanzas - $totalOmisiones);
 
         return [
             'date' => $selectedDate->toDateString(),
             'date_label' => $selectedDate->format('d/m/Y'),
-            'day_label' => ucfirst($selectedDate->locale('es')->isoFormat('dddd')),
+            'day_label' => ucfirst($selectedDate->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY')),
+            'day_name' => ucfirst($selectedDate->locale('es')->isoFormat('dddd')),
             'is_today' => $selectedDate->isToday(),
+            'is_weekend' => $selectedDate->isWeekend(),
             'is_saturday' => $selectedDate->dayOfWeek === Carbon::SATURDAY,
-            'fechas_especiales' => $fechasEspeciales->map(fn ($f) => [
+            'is_sunday' => $selectedDate->dayOfWeek === Carbon::SUNDAY,
+            'fechas_especiales' => $fechasEspeciales->map(fn($f) => [
                 'id' => $f->id,
                 'nombre' => $f->nombre,
                 'tipo' => $f->tipo,
                 'sucursal' => $f->sucursal,
-                'horario' => $f->hora_entrada ? (substr($f->hora_entrada, 0, 5).' - '.substr((string) $f->hora_salida, 0, 5)) : null,
+                'horario' => $f->hora_entrada ? (substr($f->hora_entrada, 0, 5) . ' - ' . substr((string) $f->hora_salida, 0, 5)) : null,
             ])->all(),
-            'api_holiday' => $apiHoliday,
             'totals' => [
-                'marcaciones' => $registrosDia->count(),
-                'tardanzas' => $dayEvents->count(),
-                'excedidos' => $dayEvents->where('tone', 'black')->count(),
+                'marcaciones' => $totalMarcaciones,
+                'puntuales' => $totalPuntuales,
+                'tardanzas' => $totalTardanzas,
+                'excedidos' => $totalExcedidos,
+                'omisiones' => $totalOmisiones,
+                'faltas' => $totalFaltas,
                 'minutos_retraso' => $dayEvents->sum('minutes_late'),
                 'minutos_retraso_formateado' => $this->formatearMinutosEtiqueta((int) $dayEvents->sum('minutes_late')),
             ],
-            'events' => $dayEvents->map(fn (array $event) => [
-                'empleado_id' => $event['empleado_id'],
-                'nombre' => $event['label'],
-                'detalle' => $event['detail'],
-                'entrada' => $event['entry_time'],
-                'estado' => $event['status'],
-                'sucursal' => $event['branch'],
-                'tone' => $event['tone'],
-            ])->values()->all(),
-            'marcaciones' => $registrosDia->map(function (RegistroAsistencia $registro) {
-                $marcacion = $this->normalizarMarcacionAsistencia($registro);
-
-                return [
-                    'nombre' => $registro->empleado?->nombre_completo,
-                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
-                    'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
-                    'estado' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
-                    'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
-                ];
-            })->all(),
+            'events' => $tardanzas->all(),
+            'tardanzas' => $tardanzas->all(),
+            'omisiones' => $omisiones->all(),
+            'faltas' => $faltas->all(),
+            'permisos' => $permisosJustificados->all(),
+            'marcaciones' => $marcaciones->all(),
         ];
     }
 
-    public function obtenerFeriadosApiBolivia(int $year): array
-    {
-        return \Illuminate\Support\Facades\Cache::remember('holidays_bo_v2_'.$year, 86400, function () use ($year) {
-            try {
-                $response = \Illuminate\Support\Facades\Http::timeout(5)
-                    ->get("https://nagerholidays.com/api/v4/Holidays/BO/{$year}");
 
-                if (! $response->successful()) {
-                    return $this->feriadosOficialesFallbackBolivia($year);
-                }
-
-                $data = $response->json();
-                $holidays = [];
-
-                $traducciones = [
-                    "New Year's Day" => "Año Nuevo",
-                    "Plurinational State Foundation Day" => "Día del Estado Plurinacional",
-                    "Feast of the Virgin of Candelaria" => "Virgen de la Candelaria",
-                    "Carnival" => "Carnaval",
-                    "Good Friday" => "Viernes Santo",
-                    "Labour Day" => "Día del Trabajo",
-                    "Corpus Christi" => "Corpus Christi",
-                    "Andean New Year" => "Año Nuevo Andino Amazónico",
-                    "Agrarian Reform Day" => "Día de la Revolución Agraria",
-                    "Independence Day" => "Día de la Independencia de Bolivia",
-                    "All Saints' Day" => "Día de Todos los Santos",
-                    "Christmas Day" => "Navidad",
-                ];
-
-                foreach ($data as $item) {
-                    if (isset($item['date'])) {
-                        $rawName = $item['name'] ?? '';
-                        $localName = $item['localName'] ?? '';
-                        $nombreEspanol = $traducciones[$rawName] ?? ($localName ?: $rawName);
-
-                        $holidays[$item['date']] = [
-                            'date' => $item['date'],
-                            'nombre' => $nombreEspanol ?: 'Feriado Nacional',
-                            'tipo' => 'feriado',
-                        ];
-                    }
-                }
-
-                return $holidays;
-            } catch (\Throwable $e) {
-                return $this->feriadosOficialesFallbackBolivia($year);
-            }
-        });
-    }
-
-    private function feriadosOficialesFallbackBolivia(int $year): array
-    {
-        return [
-            "{$year}-01-01" => ['date' => "{$year}-01-01", 'nombre' => "Año Nuevo", 'tipo' => 'feriado'],
-            "{$year}-01-22" => ['date' => "{$year}-01-22", 'nombre' => "Día del Estado Plurinacional", 'tipo' => 'feriado'],
-            "{$year}-02-02" => ['date' => "{$year}-02-02", 'nombre' => "Virgen de la Candelaria", 'tipo' => 'feriado'],
-            "{$year}-05-01" => ['date' => "{$year}-05-01", 'nombre' => "Día del Trabajo", 'tipo' => 'feriado'],
-            "{$year}-06-21" => ['date' => "{$year}-06-21", 'nombre' => "Año Nuevo Andino Amazónico", 'tipo' => 'feriado'],
-            "{$year}-08-02" => ['date' => "{$year}-08-02", 'nombre' => "Día de la Revolución Agraria", 'tipo' => 'feriado'],
-            "{$year}-08-06" => ['date' => "{$year}-08-06", 'nombre' => "Día de la Independencia de Bolivia", 'tipo' => 'feriado'],
-            "{$year}-11-02" => ['date' => "{$year}-11-02", 'nombre' => "Día de Todos los Santos", 'tipo' => 'feriado'],
-            "{$year}-12-25" => ['date' => "{$year}-12-25", 'nombre' => "Navidad", 'tipo' => 'feriado'],
-        ];
-    }
 
     public function historialImportaciones(?int $year = null, ?int $month = null): array
     {
@@ -372,10 +492,10 @@ class AnalisisAsistenciaService
             ->latest()
             ->limit(10)
             ->get()
-            ->map(fn (Importacion $importacion) => [
+            ->map(fn(Importacion $importacion) => [
                 'id' => $importacion->id,
                 'file' => $importacion->nombre_archivo,
-                'records' => number_format($importacion->registros_generados).' asistencias',
+                'records' => number_format($importacion->registros_generados) . ' asistencias',
                 'date' => $importacion->created_at?->format('d/m/Y H:i'),
                 'status' => ucfirst($importacion->estado),
             ])
@@ -394,7 +514,7 @@ class AnalisisAsistenciaService
             ->get();
 
         $forgotMarks = $attendanceToday
-            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->count();
 
         $markedIds = $attendanceToday->pluck('empleado_id')->unique();
@@ -407,7 +527,7 @@ class AnalisisAsistenciaService
                 return false;
             }
 
-            return ! PermisoLaboral::query()
+            return !PermisoLaboral::query()
                 ->where('empleado_id', $empleado->id)
                 ->where('estado', 'aprobado')
                 ->whereDate('fecha_inicio', '<=', $today)
@@ -443,14 +563,14 @@ class AnalisisAsistenciaService
             ->get();
 
         $forgotMarks = $attendanceRange
-            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->count();
 
         $faltas = $this->contarFaltasEnRango($start, $end, $branch);
         $horasIncidencia = (int) $incidentsRange->sum('minutos_contabilizados');
 
         return [
-            ['label' => 'Incidencias en rango', 'value' => (string) $incidentsRange->count(), 'detail' => 'Horas justificadas: '.$this->formatearMinutosEtiqueta($horasIncidencia), 'tone' => 'emerald'],
+            ['label' => 'Incidencias en rango', 'value' => (string) $incidentsRange->count(), 'detail' => 'Horas justificadas: ' . $this->formatearMinutosEtiqueta($horasIncidencia), 'tone' => 'emerald'],
             ['label' => 'Ausencias injustificadas', 'value' => (string) $faltas, 'detail' => 'Dias sin permiso ni marcacion en el rango seleccionado', 'tone' => 'amber'],
             ['label' => 'Olvidos de marcar', 'value' => (string) $forgotMarks, 'detail' => 'Registros incompletos dentro del rango filtrado', 'tone' => 'rose'],
         ];
@@ -475,7 +595,7 @@ class AnalisisAsistenciaService
 
             return [
                 'label' => $offset === 0
-                    ? ucfirst($date->locale('es')->translatedFormat('M')).' (Actual)'
+                    ? ucfirst($date->locale('es')->translatedFormat('M')) . ' (Actual)'
                     : ucfirst($date->locale('es')->translatedFormat('M')),
                 'value' => $date->format('Y-m'),
                 'count' => $count,
@@ -499,10 +619,10 @@ class AnalisisAsistenciaService
                 'peak_count' => (int) ($peakMonth['count'] ?? 0),
                 'peak_label' => $peakMonth['label'] ?? '-',
             ],
-            'bars' => $months->map(fn (array $month) => [
+            'bars' => $months->map(fn(array $month) => [
                 'label' => $month['label'],
                 'value' => $month['value'],
-                'height' => max(18, (int) round(($month['count'] / $max) * 100)).'%',
+                'height' => max(18, (int) round(($month['count'] / $max) * 100)) . '%',
                 'active' => $month['active'],
                 'count' => $month['count'],
                 'is_peak' => $month['count'] === $max && $month['count'] > 0,
@@ -534,25 +654,25 @@ class AnalisisAsistenciaService
             ->get();
 
         return [
-            'permisos' => $permissions->where('tipo', '!=', 'falta')->map(fn (PermisoLaboral $permiso) => [
+            'permisos' => $permissions->where('tipo', '!=', 'falta')->map(fn(PermisoLaboral $permiso) => [
                 'nombre' => $permiso->empleado?->nombre_completo ?? 'Sin personal',
-                'detalle' => $permiso->tipo_label.' | '.$permiso->alcance_label.' | '.$this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)).' | '.$permiso->fecha_inicio?->format('d/m/Y').' al '.$permiso->fecha_fin?->format('d/m/Y'),
+                'detalle' => $permiso->tipo_label . ' | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)) . ' | ' . $permiso->fecha_inicio?->format('d/m/Y') . ' al ' . $permiso->fecha_fin?->format('d/m/Y'),
             ])->values()->all(),
             'faltas' => [
-                ...$permissions->where('tipo', 'falta')->map(fn (PermisoLaboral $permiso) => [
+                ...$permissions->where('tipo', 'falta')->map(fn(PermisoLaboral $permiso) => [
                     'nombre' => $permiso->empleado?->nombre_completo ?? 'Sin personal',
-                    'detalle' => 'Falta registrada | '.$permiso->alcance_label.' | '.$this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)).' | '.$permiso->fecha_inicio?->format('d/m/Y').' al '.$permiso->fecha_fin?->format('d/m/Y'),
+                    'detalle' => 'Falta registrada | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)) . ' | ' . $permiso->fecha_inicio?->format('d/m/Y') . ' al ' . $permiso->fecha_fin?->format('d/m/Y'),
                 ])->values()->all(),
                 ...$this->detalleFaltasEnRango($start, $end, $branch),
             ],
             'olvidos' => $attendance
-                ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+                ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
                 ->map(function (RegistroAsistencia $registro) {
                     $marcacion = $this->normalizarMarcacionAsistencia($registro);
 
                     return [
                         'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
-                        'detalle' => $registro->fecha?->format('d/m/Y').' - Entrada: '.($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--').' / Salida: '.($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
+                        'detalle' => $registro->fecha?->format('d/m/Y') . ' - Entrada: ' . ($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--') . ' / Salida: ' . ($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
                     ];
                 })->values()->all(),
         ];
@@ -572,7 +692,7 @@ class AnalisisAsistenciaService
             ->orderBy('fecha')
             ->get()
             ->filter(function (RegistroAsistencia $registro) {
-                if (! $registro->empleado) {
+                if (!$registro->empleado) {
                     return false;
                 }
 
@@ -635,7 +755,7 @@ class AnalisisAsistenciaService
         $end = $referenceMonth->copy()->endOfMonth();
         $empleado = Empleado::query()->find($employeeId);
 
-        if (! $empleado || ($branch && ! SucursalNormalizer::matches($empleado->sucursal, $branch))) {
+        if (!$empleado || ($branch && !SucursalNormalizer::matches($empleado->sucursal, $branch))) {
             return null;
         }
 
@@ -652,7 +772,7 @@ class AnalisisAsistenciaService
         foreach ($attendance as $registro) {
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
 
-            if (! $horario['laborable']) {
+            if (!$horario['laborable']) {
                 continue;
             }
 
@@ -692,13 +812,13 @@ class AnalisisAsistenciaService
             ->get();
 
         $faltas = [
-            ...$permissions->where('tipo', 'falta')->map(fn (PermisoLaboral $permiso) => [
+            ...$permissions->where('tipo', 'falta')->map(fn(PermisoLaboral $permiso) => [
                 'fecha' => $permiso->fecha_inicio?->format('d/m/Y') ?? 'Sin fecha',
-                'detalle' => 'Falta registrada | '.$permiso->alcance_label.' | '.$this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
+                'detalle' => 'Falta registrada | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
             ])->values()->all(),
             ...collect($this->detalleFaltasEnRango($start, $end, $branch))
-                ->filter(fn (array $item) => ($item['nombre'] ?? null) === $empleado->nombre_completo)
-                ->map(fn (array $item) => [
+                ->filter(fn(array $item) => ($item['nombre'] ?? null) === $empleado->nombre_completo)
+                ->map(fn(array $item) => [
                     'fecha' => str((string) ($item['detalle'] ?? ''))->before(' -')->toString(),
                     'detalle' => $item['detalle'],
                 ])->values()->all(),
@@ -711,7 +831,7 @@ class AnalisisAsistenciaService
                 'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
-                    .' - '.
+                    . ' - ' .
                     ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
             ],
             'metrics' => [
@@ -740,10 +860,10 @@ class AnalisisAsistenciaService
             ->orderBy('fecha')
             ->orderBy('hora_entrada')
             ->get()
-            ->filter(fn (RegistroAsistencia $registro) => $registro->empleado);
+            ->filter(fn(RegistroAsistencia $registro) => $registro->empleado);
 
         $forgotMarks = $attendance
-            ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
 
@@ -770,7 +890,7 @@ class AnalisisAsistenciaService
             $empleado = $registro->empleado;
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
 
-            if (! $horario['laborable']) {
+            if (!$horario['laborable']) {
                 continue;
             }
 
@@ -804,7 +924,7 @@ class AnalisisAsistenciaService
         $lateSummary = collect($lateEmployees)
             ->sortByDesc('minutos_tarde')
             ->values()
-            ->map(fn (array $item) => [
+            ->map(fn(array $item) => [
                 'nombre' => $item['nombre'],
                 'sucursal' => $item['sucursal'],
                 'dias_tarde' => $item['dias_tarde'],
@@ -827,25 +947,25 @@ class AnalisisAsistenciaService
 
     public function reportePersonalizado(?int $employeeId, Carbon $start, Carbon $end, ?string $branch = null): ?array
     {
-        if (! $employeeId) {
+        if (!$employeeId) {
             return null;
         }
 
         $empleado = Empleado::query()->find($employeeId);
-        if (! $empleado || ($branch && ! SucursalNormalizer::matches($empleado->sucursal, $branch))) {
+        if (!$empleado || ($branch && !SucursalNormalizer::matches($empleado->sucursal, $branch))) {
             return null;
         }
 
         $effectiveEnd = $this->limitarFinDeReporteHastaHoy($start, $end);
 
-        if (! $effectiveEnd) {
+        if (!$effectiveEnd) {
             return [
                 'empleado' => [
                     'nombre' => $empleado->nombre_completo,
                     'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
                     'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                     'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
-                        .' - '.
+                        . ' - ' .
                         ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
                 ],
                 'metrics' => [
@@ -853,8 +973,8 @@ class AnalisisAsistenciaService
                     ['label' => 'Horas acumuladas', 'value' => '00:00'],
                     ['label' => 'Dias tarde', 'value' => '0'],
                     ['label' => 'Retraso acumulado', 'value' => '0 min'],
-                    ['label' => 'Incidencias aprobadas', 'value' => '0'],
-                    ['label' => 'Horas justificadas', 'value' => '0 min'],
+                    ['label' => 'Omisiones', 'value' => '0'],
+                    ['label' => 'Faltas', 'value' => '0'],
                 ],
                 'rows' => [],
             ];
@@ -890,7 +1010,7 @@ class AnalisisAsistenciaService
         foreach ($attendance as $registro) {
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
 
-            if (! $horario['laborable']) {
+            if (!$horario['laborable']) {
                 continue;
             }
 
@@ -909,24 +1029,35 @@ class AnalisisAsistenciaService
             }
 
             $missingMark = blank($marcacion['entrada']) || blank($horaSalidaReal);
+            $dateCarbon = $registro->fecha ? $registro->fecha->copy() : null;
+            $diaSemana = $dateCarbon ? ucfirst($dateCarbon->locale('es')->shortDayName) : '';
+
+            $rowTone = $missingMark ? 'warning' : ($delay > 0 ? 'late' : 'default');
 
             $rows[] = [
                 'raw_date' => $registro->fecha?->toDateString(),
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
+                'dia_semana' => $diaSemana,
                 'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                 'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
+                'horario_programado' => ($horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--')
+                    . ' - ' . ($horario['hora_salida'] ? substr($horario['hora_salida'], 0, 5) : '--:--'),
                 'horas' => $this->formatearMinutos($worked),
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
+                'retraso_minutos' => $delay,
                 'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
                 'estado_biometrico' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
                 'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
-                'row_tone' => $missingMark ? 'warning' : 'default',
+                'row_tone' => $rowTone,
+                'es_retraso' => $delay > 0,
+                'es_omision' => $missingMark,
+                'es_falta' => false,
             ];
         }
 
         $permissionDays = [];
         foreach ($incidents as $incident) {
-            if (! $incident->fecha_inicio || ! $incident->fecha_fin) {
+            if (!$incident->fecha_inicio || !$incident->fecha_fin) {
                 continue;
             }
 
@@ -944,62 +1075,83 @@ class AnalisisAsistenciaService
             $dateKey = $cursor->toDateString();
             $isLaborable = $this->programacionLaboral->resolverHorario($empleado, $cursor)['laborable'];
 
-            if (! $isLaborable || isset($attendanceByDate[$dateKey])) {
+            if (!$isLaborable || isset($attendanceByDate[$dateKey])) {
                 $cursor->addDay();
                 continue;
             }
 
             $dayIncidents = collect($permissionDays[$dateKey] ?? []);
-            $hasJustifiedPermission = $dayIncidents->contains(fn (PermisoLaboral $incident) => $incident->tipo !== 'falta');
-            $hasFaltaPermission = $dayIncidents->contains(fn (PermisoLaboral $incident) => $incident->tipo === 'falta');
+            $hasJustifiedPermission = $dayIncidents->contains(fn(PermisoLaboral $incident) => $incident->tipo !== 'falta');
+            $hasFaltaPermission = $dayIncidents->contains(fn(PermisoLaboral $incident) => $incident->tipo === 'falta');
 
             if ($hasJustifiedPermission) {
                 $cursor->addDay();
                 continue;
             }
 
+            $dateCarbon = Carbon::parse($dateKey);
+            $diaSemana = ucfirst($dateCarbon->locale('es')->shortDayName);
+
             $rows[] = [
                 'raw_date' => $dateKey,
                 'fecha' => $cursor->format('d/m/Y'),
+                'dia_semana' => $diaSemana,
                 'entrada' => '--:--',
                 'salida' => '--:--',
+                'horario_programado' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
+                    . ' - ' . ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
                 'horas' => '00:00',
                 'retraso' => '0 min',
+                'retraso_minutos' => 0,
                 'estado' => $hasFaltaPermission ? 'Falta registrada' : 'Falta',
                 'estado_biometrico' => 'Sin marcacion',
                 'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Ausencia injustificada',
                 'row_tone' => 'danger',
+                'es_retraso' => false,
+                'es_omision' => false,
+                'es_falta' => true,
             ];
 
             $cursor->addDay();
         }
 
         $rows = collect($rows)
-            ->sortBy(fn (array $row) => $row['raw_date'] ?? '9999-12-31')
+            ->sortBy(fn(array $row) => $row['raw_date'] ?? '9999-12-31')
             ->values()
-            ->map(function (array $row) {
-                unset($row['raw_date']);
-
-                return $row;
-            })
             ->all();
+
+        $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 30);
+        $excesoTolerancia = max(0, $lateMinutes - $toleranciaMensual);
 
         return [
             'empleado' => [
+                'id' => $empleado->id,
                 'nombre' => $empleado->nombre_completo,
                 'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
+                'carnet' => $empleado->codigo_biometrico ?: (string) $empleado->id,
+                'cargo' => $empleado->cargo ?: 'Personal',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
-                    .' - '.
+                    . ' - ' .
                     ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+            ],
+            'retraso_resumen' => [
+                'total_minutos' => $lateMinutes,
+                'total_formateado' => $this->formatearMinutosEtiqueta($lateMinutes),
+                'dias_tarde' => $lateDays,
+                'tolerancia_minutos' => $toleranciaMensual,
+                'exceso_minutos' => $excesoTolerancia,
+                'exceso_formateado' => $this->formatearMinutosEtiqueta($excesoTolerancia),
+                'excedio_tolerancia' => $lateMinutes > $toleranciaMensual,
+                'porcentaje_uso' => $toleranciaMensual > 0 ? min(100, (int) round(($lateMinutes / $toleranciaMensual) * 100)) : 100,
             ],
             'metrics' => [
                 ['label' => 'Dias con marcacion', 'value' => (string) count($rows)],
                 ['label' => 'Horas acumuladas', 'value' => $this->formatearMinutos($workedMinutes)],
                 ['label' => 'Dias tarde', 'value' => (string) $lateDays],
                 ['label' => 'Retraso acumulado', 'value' => $this->formatearMinutosEtiqueta($lateMinutes)],
-                ['label' => 'Incidencias aprobadas', 'value' => (string) $incidents->count()],
-                ['label' => 'Horas justificadas', 'value' => $this->formatearMinutosEtiqueta((int) $incidents->sum('minutos_contabilizados'))],
+                ['label' => 'Omisiones', 'value' => (string) collect($rows)->filter(fn ($r) => $r['es_omision'] ?? false)->count()],
+                ['label' => 'Faltas', 'value' => (string) collect($rows)->filter(fn ($r) => $r['es_falta'] ?? false)->count()],
             ],
             'rows' => $rows,
         ];
@@ -1012,12 +1164,12 @@ class AnalisisAsistenciaService
         return Empleado::query()
             ->withUltimaMarcacion()
             ->laboralVigente(now())
-            ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
+            ->when(filled($branch), fn($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->orderBy('nombre')
             ->orderBy('apellido')
             ->get()
             ->filter(function (Empleado $empleado) use ($normalizedSearch) {
-                if (! $empleado->estaActivoLaboralmente(now())) {
+                if (!$empleado->estaActivoLaboralmente(now())) {
                     return false;
                 }
 
@@ -1032,11 +1184,11 @@ class AnalisisAsistenciaService
                     || ($code !== '' && str_contains($code, $normalizedSearch));
             })
             ->take(max(1, $limit))
-            ->map(fn (Empleado $empleado) => [
+            ->map(fn(Empleado $empleado) => [
                 'id' => $empleado->id,
                 'nombre' => $empleado->nombre_completo,
                 'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
-                'label' => $empleado->nombre_completo.' | '.$empleado->codigo_biometrico,
+                'label' => $empleado->nombre_completo . ' | ' . $empleado->codigo_biometrico,
             ])->all();
     }
 
@@ -1057,7 +1209,7 @@ class AnalisisAsistenciaService
 
         $query = Empleado::query()
             ->whereNotNull('fecha_contratacion')
-            ->when(filled($branch), fn ($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch));
+            ->when(filled($branch), fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch));
 
         // Empleados más antiguos (contratación más antigua)
         $masAntiguos = (clone $query)
@@ -1073,9 +1225,12 @@ class AnalisisAsistenciaService
                 $dias = $diff->d;
 
                 $antiguedadTexto = [];
-                if ($anios > 0) $antiguedadTexto[] = $anios.($anios === 1 ? ' año' : ' años');
-                if ($meses > 0) $antiguedadTexto[] = $meses.($meses === 1 ? ' mes' : ' meses');
-                if ($dias > 0 && $anios === 0) $antiguedadTexto[] = $dias.($dias === 1 ? ' día' : ' días');
+                if ($anios > 0)
+                    $antiguedadTexto[] = $anios . ($anios === 1 ? ' año' : ' años');
+                if ($meses > 0)
+                    $antiguedadTexto[] = $meses . ($meses === 1 ? ' mes' : ' meses');
+                if ($dias > 0 && $anios === 0)
+                    $antiguedadTexto[] = $dias . ($dias === 1 ? ' día' : ' días');
 
                 return [
                     'id' => $empleado->id,
@@ -1104,9 +1259,12 @@ class AnalisisAsistenciaService
                 $dias = $diff->d;
 
                 $antiguedadTexto = [];
-                if ($anios > 0) $antiguedadTexto[] = $anios.($anios === 1 ? ' año' : ' años');
-                if ($meses > 0) $antiguedadTexto[] = $meses.($meses === 1 ? ' mes' : ' meses');
-                if ($dias > 0 && $anios === 0) $antiguedadTexto[] = $dias.($dias === 1 ? ' día' : ' días');
+                if ($anios > 0)
+                    $antiguedadTexto[] = $anios . ($anios === 1 ? ' año' : ' años');
+                if ($meses > 0)
+                    $antiguedadTexto[] = $meses . ($meses === 1 ? ' mes' : ' meses');
+                if ($dias > 0 && $anios === 0)
+                    $antiguedadTexto[] = $dias . ($dias === 1 ? ' día' : ' días');
 
                 return [
                     'id' => $empleado->id,
@@ -1137,9 +1295,9 @@ class AnalisisAsistenciaService
         $empleados = Empleado::query()
             ->whereNotNull('fecha_nacimiento')
             ->whereMonth('fecha_nacimiento', $mes)
-            ->when(filled($branch), fn ($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch))
+            ->when(filled($branch), fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch))
             ->get()
-            ->sortBy(fn (Empleado $e) => (int) $e->fecha_nacimiento?->format('d'));
+            ->sortBy(fn(Empleado $e) => (int) $e->fecha_nacimiento?->format('d'));
 
         return $empleados->map(function (Empleado $empleado) use ($hoy, $inicioSemana, $finSemana, $referenceMonth) {
             $diaCumple = (int) $empleado->fecha_nacimiento->format('d');
@@ -1150,16 +1308,16 @@ class AnalisisAsistenciaService
                 && $fechaCumpleEsteAnio->betweenIncluded($inicioSemana, $finSemana);
 
             return [
-                'id'          => $empleado->id,
-                'nombre'      => $empleado->nombre_completo,
-                'area'        => $empleado->area ?: 'Sin área',
-                'sucursal'    => $empleado->sucursal ?: 'Sin sucursal',
-                'dia'         => $diaCumple,
+                'id' => $empleado->id,
+                'nombre' => $empleado->nombre_completo,
+                'area' => $empleado->area ?: 'Sin área',
+                'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                'dia' => $diaCumple,
                 'fecha_label' => $empleado->fecha_nacimiento->locale('es')->translatedFormat('d \de F'),
-                'edad'        => (int) $empleado->fecha_nacimiento->diffInYears($hoy),
-                'es_hoy'      => $esHoy,
+                'edad' => (int) $empleado->fecha_nacimiento->diffInYears($hoy),
+                'es_hoy' => $esHoy,
                 'es_esta_semana' => $esEstaSemana,
-                'inicial'     => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
             ];
         })->all();
     }
@@ -1174,7 +1332,7 @@ class AnalisisAsistenciaService
             ->whereDate('fecha', '>=', $start->toDateString())
             ->whereDate('fecha', '<=', $end->toDateString())
             ->get()
-            ->filter(fn (RegistroAsistencia $r) => $r->empleado);
+            ->filter(fn(RegistroAsistencia $r) => $r->empleado);
 
         $perEmployee = [];
 
@@ -1182,7 +1340,7 @@ class AnalisisAsistenciaService
             $empleado = $registro->empleado;
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
 
-            if (! $horario['laborable']) {
+            if (!$horario['laborable']) {
                 continue;
             }
 
@@ -1192,16 +1350,16 @@ class AnalisisAsistenciaService
             );
 
             $id = $empleado->id;
-            if (! isset($perEmployee[$id])) {
+            if (!isset($perEmployee[$id])) {
                 $perEmployee[$id] = [
-                    'empleado_id'    => $id,
-                    'nombre'         => $empleado->nombre_completo,
-                    'sucursal'       => $empleado->sucursal ?: 'Sin sucursal',
-                    'area'           => $empleado->area ?: 'Sin área',
-                    'dias_marcados'  => 0,
-                    'dias_tarde'     => 0,
-                    'minutos_tarde'  => 0,
-                    'inicial'        => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                    'empleado_id' => $id,
+                    'nombre' => $empleado->nombre_completo,
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'area' => $empleado->area ?: 'Sin área',
+                    'dias_marcados' => 0,
+                    'dias_tarde' => 0,
+                    'minutos_tarde' => 0,
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
                 ];
             }
 
@@ -1218,13 +1376,13 @@ class AnalisisAsistenciaService
         }
 
         $collection = collect(array_values($perEmployee))
-            ->filter(fn (array $e) => $e['dias_marcados'] > 0);
+            ->filter(fn(array $e) => $e['dias_marcados'] > 0);
 
         $masAtrasados = $collection
             ->sortByDesc('minutos_tarde')
             ->take($top)
             ->values()
-            ->map(fn (array $e) => [
+            ->map(fn(array $e) => [
                 ...$e,
                 'retraso_label' => $this->formatearMinutosEtiqueta($e['minutos_tarde']),
             ])
@@ -1234,7 +1392,7 @@ class AnalisisAsistenciaService
             ->sortBy('minutos_tarde')
             ->take($top)
             ->values()
-            ->map(fn (array $e) => [
+            ->map(fn(array $e) => [
                 ...$e,
                 'retraso_label' => $this->formatearMinutosEtiqueta($e['minutos_tarde']),
             ])
@@ -1249,7 +1407,7 @@ class AnalisisAsistenciaService
     public function rankingPuntualidadMensual(Carbon $referenceMonth, ?string $branch = null, int $top = 5): array
     {
         $start = $referenceMonth->copy()->startOfMonth();
-        $end   = $referenceMonth->copy()->endOfMonth();
+        $end = $referenceMonth->copy()->endOfMonth();
 
         return $this->rankingPuntualidad($start, $end, $branch, $top);
     }
@@ -1257,7 +1415,7 @@ class AnalisisAsistenciaService
     public function rankingPuntualidadSemanal(?string $branch = null, int $top = 5): array
     {
         $start = now()->startOfWeek(Carbon::MONDAY);
-        $end   = now()->endOfWeek(Carbon::SUNDAY)->min(now());
+        $end = now()->endOfWeek(Carbon::SUNDAY)->min(now());
 
         return $this->rankingPuntualidad($start, $end, $branch, $top);
     }
@@ -1285,11 +1443,11 @@ class AnalisisAsistenciaService
         $deviceStatuses = BiometricoDispositivo::query()
             ->where('is_active', true)
             ->get()
-            ->groupBy(fn (BiometricoDispositivo $device) => $this->departamentoDesdeTexto($device->department.' '.$device->branch) ?? '__unknown__');
+            ->groupBy(fn(BiometricoDispositivo $device) => $this->departamentoDesdeTexto($device->department . ' ' . $device->branch) ?? '__unknown__');
 
         return $base->map(function (array $department, string $key) use ($employees, $attendances, $deviceStatuses) {
-            $departmentEmployees = $employees->filter(fn (Empleado $empleado) => $this->departamentoDesdeTexto($empleado->sucursal) === $key);
-            $departmentAttendance = $attendances->filter(fn (RegistroAsistencia $registro) => $this->departamentoDesdeTexto($registro->empleado?->sucursal) === $key);
+            $departmentEmployees = $employees->filter(fn(Empleado $empleado) => $this->departamentoDesdeTexto($empleado->sucursal) === $key);
+            $departmentAttendance = $attendances->filter(fn(RegistroAsistencia $registro) => $this->departamentoDesdeTexto($registro->empleado?->sucursal) === $key);
             $departmentDevices = $deviceStatuses->get($key, collect());
             $payload = $this->construirPayloadDepartamento(
                 $department['name'],
@@ -1305,15 +1463,15 @@ class AnalisisAsistenciaService
                 $subregions = collect([
                     'la-paz' => [
                         'label' => 'La Paz',
-                        'employee_filter' => fn (Empleado $empleado) => ! $this->esSucursalElAlto($empleado->sucursal),
-                        'attendance_filter' => fn (RegistroAsistencia $registro) => ! $this->esSucursalElAlto($registro->empleado?->sucursal),
-                        'device_filter' => fn (BiometricoDispositivo $device) => ! $this->esSucursalElAlto($device->branch),
+                        'employee_filter' => fn(Empleado $empleado) => !$this->esSucursalElAlto($empleado->sucursal),
+                        'attendance_filter' => fn(RegistroAsistencia $registro) => !$this->esSucursalElAlto($registro->empleado?->sucursal),
+                        'device_filter' => fn(BiometricoDispositivo $device) => !$this->esSucursalElAlto($device->branch),
                     ],
                     'el-alto' => [
                         'label' => 'El Alto',
-                        'employee_filter' => fn (Empleado $empleado) => $this->esSucursalElAlto($empleado->sucursal),
-                        'attendance_filter' => fn (RegistroAsistencia $registro) => $this->esSucursalElAlto($registro->empleado?->sucursal),
-                        'device_filter' => fn (BiometricoDispositivo $device) => $this->esSucursalElAlto($device->branch),
+                        'employee_filter' => fn(Empleado $empleado) => $this->esSucursalElAlto($empleado->sucursal),
+                        'attendance_filter' => fn(RegistroAsistencia $registro) => $this->esSucursalElAlto($registro->empleado?->sucursal),
+                        'device_filter' => fn(BiometricoDispositivo $device) => $this->esSucursalElAlto($device->branch),
                     ],
                 ])->mapWithKeys(function (array $subregion, string $subregionKey) use ($departmentName, $departmentEmployees, $departmentAttendance, $departmentDevices, $key) {
                     $employeesSubset = $departmentEmployees->filter($subregion['employee_filter'])->values();
@@ -1343,9 +1501,9 @@ class AnalisisAsistenciaService
         })->all();
     }
 
-    public function estadoBiometricos(): array
+    public function estadoBiometricos(bool $probe = true): array
     {
-        return app(ConexionBiometricoService::class)->estadoDispositivos();
+        return app(ConexionBiometricoService::class)->estadoDispositivos($probe);
     }
 
     public function incidenciasDelDia(): array
@@ -1368,24 +1526,24 @@ class AnalisisAsistenciaService
         $permissionIds = $permissionsToday->pluck('empleado_id')->unique();
 
         return [
-            'permisos' => $permissionsToday->map(fn (PermisoLaboral $permiso) => [
+            'permisos' => $permissionsToday->map(fn(PermisoLaboral $permiso) => [
                 'nombre' => $permiso->empleado?->nombre_completo,
-                'detalle' => $permiso->tipo_label.' | '.$permiso->alcance_label.' | '.$this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
+                'detalle' => $permiso->tipo_label . ' | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
             ])->values()->all(),
             'faltas' => $activeEmployees
-                ->filter(fn (Empleado $empleado) => ! $this->programacionLaboral->esDiaNoLaborable($today, $empleado->sucursal) && ! $markedIds->contains($empleado->id) && ! $permissionIds->contains($empleado->id))
-                ->map(fn (Empleado $empleado) => [
+                ->filter(fn(Empleado $empleado) => !$this->programacionLaboral->esDiaNoLaborable($today, $empleado->sucursal) && !$markedIds->contains($empleado->id) && !$permissionIds->contains($empleado->id))
+                ->map(fn(Empleado $empleado) => [
                     'nombre' => $empleado->nombre_completo,
-                    'detalle' => $empleado->sucursal.' - ausencia injustificada en la fecha',
+                    'detalle' => $empleado->sucursal . ' - ausencia injustificada en la fecha',
                 ])->values()->all(),
             'olvidos' => $attendanceToday
-                ->filter(fn (RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+                ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
                 ->map(function (RegistroAsistencia $registro) {
                     $marcacion = $this->normalizarMarcacionAsistencia($registro);
 
                     return [
                         'nombre' => $registro->empleado?->nombre_completo,
-                        'detalle' => 'Entrada: '.($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--').' / Salida: '.($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
+                        'detalle' => 'Entrada: ' . ($marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--') . ' / Salida: ' . ($marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--'),
                     ];
                 })->values()->all(),
         ];
@@ -1396,9 +1554,9 @@ class AnalisisAsistenciaService
         return Empleado::query()
             ->withUltimaMarcacion()
             ->laboralVigente($fecha)
-            ->when(filled($branch), fn ($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
+            ->when(filled($branch), fn($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->get()
-            ->filter(fn (Empleado $empleado) => $empleado->estaActivoLaboralmente($fecha))
+            ->filter(fn(Empleado $empleado) => $empleado->estaActivoLaboralmente($fecha))
             ->values();
     }
 
@@ -1409,10 +1567,20 @@ class AnalisisAsistenciaService
 
     private function detalleFaltasEnRango(Carbon $start, Carbon $end, ?string $branch = null): array
     {
+        $cacheKey = implode('|', [
+            $start->toDateString(),
+            $end->toDateString(),
+            (string) $branch,
+        ]);
+
+        if (array_key_exists($cacheKey, $this->detalleFaltasCache)) {
+            return $this->detalleFaltasCache[$cacheKey];
+        }
+
         $effectiveEnd = $this->limitarFinDeReporteHastaHoy($start, $end);
 
-        if (! $effectiveEnd) {
-            return [];
+        if (!$effectiveEnd) {
+            return $this->detalleFaltasCache[$cacheKey] = [];
         }
 
         $attendance = $this->filtrarAsistenciasPorSucursal(
@@ -1422,7 +1590,7 @@ class AnalisisAsistenciaService
             ->whereDate('fecha', '>=', $start->toDateString())
             ->whereDate('fecha', '<=', $effectiveEnd->toDateString())
             ->get()
-            ->groupBy(fn (RegistroAsistencia $registro) => $registro->empleado_id.'|'.$registro->fecha?->toDateString());
+            ->groupBy(fn(RegistroAsistencia $registro) => $registro->empleado_id . '|' . $registro->fecha?->toDateString());
 
         $permissions = $this->filtrarIncidenciasPorSucursal(
             PermisoLaboral::query(),
@@ -1434,17 +1602,29 @@ class AnalisisAsistenciaService
             ->whereDate('fecha_fin', '>=', $start->toDateString())
             ->get();
 
+        $employees = Empleado::query()
+            ->withUltimaMarcacion()
+            ->when(filled($branch), fn($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
+            ->get();
+
         $details = [];
         $current = $start->copy();
 
         while ($current->lte($effectiveEnd)) {
-            $activeEmployees = $this->empleadosActivos($current->toDateString(), $branch);
+            $activeEmployees = $employees
+                ->filter(function (Empleado $empleado) use ($current) {
+                    $fecha = $current->toDateString();
+
+                    return ($empleado->fecha_despido === null || $empleado->fecha_despido->toDateString() >= $fecha)
+                        && $empleado->estaActivoLaboralmente($current);
+                })
+                ->values();
             foreach ($activeEmployees as $empleado) {
                 if ($this->programacionLaboral->esDiaNoLaborable($current, $empleado->sucursal)) {
                     continue;
                 }
 
-                $key = $empleado->id.'|'.$current->toDateString();
+                $key = $empleado->id . '|' . $current->toDateString();
                 if ($attendance->has($key)) {
                     continue;
                 }
@@ -1463,14 +1643,14 @@ class AnalisisAsistenciaService
 
                 $details[] = [
                     'nombre' => $empleado->nombre_completo,
-                    'detalle' => $current->format('d/m/Y').' - '.$empleado->sucursal.' - ausencia injustificada',
+                    'detalle' => $current->format('d/m/Y') . ' - ' . $empleado->sucursal . ' - ausencia injustificada',
                 ];
             }
 
             $current->addDay();
         }
 
-        return $details;
+        return $this->detalleFaltasCache[$cacheKey] = $details;
     }
 
     private function limitarFinDeReporteHastaHoy(Carbon $start, Carbon $end): ?Carbon
@@ -1487,7 +1667,7 @@ class AnalisisAsistenciaService
 
     private function filtrarAsistenciasPorSucursal($query, ?string $branch = null)
     {
-        if (! filled($branch)) {
+        if (!filled($branch)) {
             return $query;
         }
 
@@ -1498,7 +1678,7 @@ class AnalisisAsistenciaService
 
     private function filtrarIncidenciasPorSucursal($query, ?string $branch = null)
     {
-        if (! filled($branch)) {
+        if (!filled($branch)) {
             return $query;
         }
 
@@ -1521,7 +1701,7 @@ class AnalisisAsistenciaService
             ->orderBy('hora_entrada')
             ->get()
             ->filter(function (RegistroAsistencia $registro) {
-                if (! $registro->empleado) {
+                if (!$registro->empleado) {
                     return false;
                 }
 
@@ -1548,14 +1728,14 @@ class AnalisisAsistenciaService
             $retrasoAcumuladoPorEmpleado[$empleado->id] = $acumuladoActual;
 
             $fecha = $registro->fecha?->format('Y-m-d');
-            if (! $fecha) {
+            if (!$fecha) {
                 continue;
             }
 
             $eventos[$fecha][] = [
                 'empleado_id' => $empleado->id,
                 'label' => $empleado->nombre_completo,
-                'detail' => $this->formatearMinutosEtiqueta($minutosRetraso).' de atraso',
+                'detail' => $this->formatearMinutosEtiqueta($minutosRetraso) . ' de atraso',
                 'minutes_late' => $minutosRetraso,
                 'entry_time' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
                 'status' => $this->resolverEstadoMarcacionVisible($registro),
@@ -1577,7 +1757,7 @@ class AnalisisAsistenciaService
             base_path('app/Http/Middleware'),
             base_path('database/migrations'),
         ] as $path) {
-            if (! is_dir($path) || count(glob($path.DIRECTORY_SEPARATOR.'*') ?: []) === 0) {
+            if (!is_dir($path) || count(glob($path . DIRECTORY_SEPARATOR . '*') ?: []) === 0) {
                 $pending++;
             }
         }
@@ -1587,7 +1767,7 @@ class AnalisisAsistenciaService
 
     private function countOccurrences(string $file, string $needle): int
     {
-        if (! file_exists($file)) {
+        if (!file_exists($file)) {
             return 0;
         }
 
@@ -1601,7 +1781,7 @@ class AnalisisAsistenciaService
         }
 
         $entrada = $this->parseTimeToCarbon($horaEntrada);
-        if (! $entrada) {
+        if (!$entrada) {
             return false;
         }
 
@@ -1625,7 +1805,7 @@ class AnalisisAsistenciaService
         $entrada = $this->parseTimeToCarbon($horaEntrada);
         $programada = $this->parseTimeToCarbon($horaProgramada);
 
-        if (! $entrada || ! $programada || $entrada->lessThanOrEqualTo($programada)) {
+        if (!$entrada || !$programada || $entrada->lessThanOrEqualTo($programada)) {
             return 0;
         }
 
@@ -1641,7 +1821,7 @@ class AnalisisAsistenciaService
         $entrada = $this->parseTimeToCarbon($horaEntrada);
         $salida = $this->parseTimeToCarbon($horaSalida);
 
-        if (! $entrada || ! $salida || $salida->lessThanOrEqualTo($entrada)) {
+        if (!$entrada || !$salida || $salida->lessThanOrEqualTo($entrada)) {
             return 0;
         }
 
@@ -1654,20 +1834,20 @@ class AnalisisAsistenciaService
             return true;
         }
 
-        if (! blank($this->horaSalidaReal($registro))) {
+        if (!blank($this->horaSalidaReal($registro))) {
             return false;
         }
 
-        return ! $this->salidaSiguePendienteDentroDeJornada($registro, $registro->empleado);
+        return !$this->salidaSiguePendienteDentroDeJornada($registro, $registro->empleado);
     }
 
     private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, ?Empleado $empleado = null): bool
     {
-        if (! $this->tieneSoloEntradaMarcada($registro)) {
+        if (!$this->tieneSoloEntradaMarcada($registro)) {
             return false;
         }
 
-        if (! $registro->fecha?->isToday()) {
+        if (!$registro->fecha?->isToday()) {
             return false;
         }
 
@@ -1684,7 +1864,7 @@ class AnalisisAsistenciaService
             $horario['hora_salida'] ?? config('asistencia.hora_salida')
         );
 
-        if (! $salidaProgramada) {
+        if (!$salidaProgramada) {
             return true;
         }
 
@@ -1756,7 +1936,7 @@ class AnalisisAsistenciaService
         try {
             $horaCarbon = $this->parseTimeToCarbon($hora);
 
-            if (! $horaCarbon) {
+            if (!$horaCarbon) {
                 return null;
             }
 
@@ -1855,7 +2035,7 @@ class AnalisisAsistenciaService
         $entradaExplicita = $this->marcacionEsEntradaExplicita($estado, $evento);
         $salidaExplicita = $this->marcacionEsSalidaExplicita($estado, $evento);
 
-        if ($salidaExplicita && ! $entradaExplicita && filled($entrada) && blank($salida)) {
+        if ($salidaExplicita && !$entradaExplicita && filled($entrada) && blank($salida)) {
             $salida = $entrada;
             $entrada = null;
         }
@@ -1893,7 +2073,7 @@ class AnalisisAsistenciaService
     {
         $empleado = $registro->empleado;
 
-        if (! $empleado || ! $registro->fecha) {
+        if (!$empleado || !$registro->fecha) {
             return [$entrada, $salida];
         }
 
@@ -1906,7 +2086,7 @@ class AnalisisAsistenciaService
         $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
         $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
 
-        if (! $horaEntrada || ! $horaSalida) {
+        if (!$horaEntrada || !$horaSalida) {
             return [$entrada, $salida];
         }
 
@@ -1962,14 +2142,14 @@ class AnalisisAsistenciaService
         $restantes = $minutos % 60;
 
         if ($horas === 0) {
-            return $restantes.' min';
+            return $restantes . ' min';
         }
 
         if ($restantes === 0) {
-            return $horas.' h';
+            return $horas . ' h';
         }
 
-        return $horas.' h '.$restantes.' min';
+        return $horas . ' h ' . $restantes . ' min';
     }
 
     private function formatearMinutos(int $minutos): string
@@ -2032,7 +2212,7 @@ class AnalisisAsistenciaService
         ?string $departmentKey = null
     ): array {
         $latestAttendanceByEmployee = $departmentAttendance
-            ->filter(fn (RegistroAsistencia $registro) => $registro->empleado_id)
+            ->filter(fn(RegistroAsistencia $registro) => $registro->empleado_id)
             ->groupBy('empleado_id')
             ->map(function (Collection $rows) {
                 return $rows->sortByDesc(function (RegistroAsistencia $registro) {
@@ -2046,7 +2226,7 @@ class AnalisisAsistenciaService
             });
 
         $insideEmployees = $latestAttendanceByEmployee
-            ->filter(fn (RegistroAsistencia $registro) => $this->estaDentroDeAgencia($registro))
+            ->filter(fn(RegistroAsistencia $registro) => $this->estaDentroDeAgencia($registro))
             ->map(function (RegistroAsistencia $registro) use ($departmentKey) {
                 $empleado = $registro->empleado;
                 $employeeDepartmentKey = $this->departamentoDesdeTexto($empleado?->sucursal) ?? $departmentKey;
@@ -2068,7 +2248,7 @@ class AnalisisAsistenciaService
             ->flatMap(function (BiometricoDispositivo $device) {
                 return collect([$device->last_synced_mark_at, $device->last_seen_at])->filter();
             })
-            ->sortByDesc(fn (Carbon $date) => $date->timestamp)
+            ->sortByDesc(fn(Carbon $date) => $date->timestamp)
             ->first();
         $hasConnectedDevice = $departmentDevices->contains(function (BiometricoDispositivo $device) {
             return $device->last_seen_at !== null || $device->last_synced_mark_at !== null;
@@ -2085,7 +2265,7 @@ class AnalisisAsistenciaService
             'people_in_agency_total' => $insideEmployees->count(),
             'updated_at' => $latestSync?->format('H:i') ?? 'Sin sync',
             'sync_label' => $hasConnectedDevice && $latestSync
-                ? 'Ultima sincronizacion '.strtolower($latestSync->translatedFormat('d/m/Y H:i'))
+                ? 'Ultima sincronizacion ' . strtolower($latestSync->translatedFormat('d/m/Y H:i'))
                 : 'Sin sincronizacion automatica registrada',
         ];
     }
