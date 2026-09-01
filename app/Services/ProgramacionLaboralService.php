@@ -110,7 +110,7 @@ class ProgramacionLaboralService
             'laborable' => true,
             'es_feriado' => false,
             'hora_entrada' => $horaEntrada,
-            'hora_entrada_tolerancia' => $this->resolverHoraEntradaTolerancia($fecha, $horaEntrada),
+            'hora_entrada_tolerancia' => $this->resolverHoraEntradaTolerancia($fecha, $horaEntrada, $horarioRegional),
             'hora_salida' => $fechaEspecial?->hora_salida ?: $horaSalidaBase,
         ];
     }
@@ -197,38 +197,79 @@ class ProgramacionLaboralService
         return SucursalNormalizer::canonicalLabel($value);
     }
 
-    private function resolverHoraEntradaTolerancia(Carbon|string|null $fecha, ?string $horaEntrada): ?string
-    {
-        if (blank($fecha) || blank($horaEntrada)) {
-            return $horaEntrada;
+    public function resolverHoraEntradaTolerancia(
+        Carbon|string|null $fecha,
+        ?string $horaEntrada,
+        ?HorarioRegional $horarioRegional = null
+    ): ?string {
+        if (blank($horaEntrada)) {
+            return null;
         }
 
-        $carbon = $fecha instanceof Carbon ? $fecha->copy() : Carbon::parse($fecha);
-        $diasToleranciaExtendida = collect(config('asistencia.dias_tolerancia_extendida', []))
-            ->map(fn ($day) => (int) $day)
-            ->filter(fn (int $day) => $day > 0 && $day <= 31)
-            ->all();
-
-        if (! in_array($carbon->day, $diasToleranciaExtendida, true)) {
-            return $horaEntrada;
-        }
-
-        $horaExtendida = config('asistencia.hora_entrada_tolerancia_extendida', '09:00:00');
-
+        $horaEntradaCarbon = null;
         foreach (['H:i:s', 'H:i'] as $format) {
             try {
-                $entrada = Carbon::createFromFormat($format, $horaEntrada);
-                $extendida = Carbon::createFromFormat($format, $horaExtendida);
-
-                return $extendida->greaterThan($entrada)
-                    ? $extendida->format('H:i:s')
-                    : $entrada->format('H:i:s');
-            } catch (\Exception $exception) {
+                $horaEntradaCarbon = Carbon::createFromFormat($format, $horaEntrada);
+                break;
+            } catch (\Exception $e) {
                 continue;
             }
         }
 
-        return $horaEntrada;
+        if (! $horaEntradaCarbon) {
+            return $horaEntrada;
+        }
+
+        // 1. Determinar hora límite de tolerancia diaria para la sucursal o global
+        $horaToleranciaDiaria = null;
+        if ($horarioRegional?->hora_tolerancia) {
+            foreach (['H:i:s', 'H:i'] as $format) {
+                try {
+                    $horaToleranciaDiaria = Carbon::createFromFormat($format, $horarioRegional->hora_tolerancia);
+                    break;
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
+
+        if (! $horaToleranciaDiaria) {
+            $minutosGracia = $horarioRegional?->tolerancia_minutos !== null
+                ? (int) $horarioRegional->tolerancia_minutos
+                : (int) cache()->get('asistencia_tolerancia_diaria_min', config('asistencia.tolerancia_diaria_min', 5));
+
+            $horaToleranciaDiaria = $horaEntradaCarbon->copy()->addMinutes($minutosGracia);
+        }
+
+        $horaFinal = $horaToleranciaDiaria->greaterThan($horaEntradaCarbon)
+            ? $horaToleranciaDiaria
+            : $horaEntradaCarbon;
+
+        // 2. Si es día de tolerancia extendida (días 1 al 4 de cada mes)
+        if (! blank($fecha)) {
+            $carbon = $fecha instanceof Carbon ? $fecha->copy() : Carbon::parse($fecha);
+            $diasToleranciaExtendida = collect(config('asistencia.dias_tolerancia_extendida', []))
+                ->map(fn ($day) => (int) $day)
+                ->filter(fn (int $day) => $day > 0 && $day <= 31)
+                ->all();
+
+            if (in_array($carbon->day, $diasToleranciaExtendida, true)) {
+                $horaExtendida = config('asistencia.hora_entrada_tolerancia_extendida', '09:00:00');
+                foreach (['H:i:s', 'H:i'] as $format) {
+                    try {
+                        $extendidaCarbon = Carbon::createFromFormat($format, $horaExtendida);
+                        if ($extendidaCarbon->greaterThan($horaFinal)) {
+                            $horaFinal = $extendidaCarbon;
+                        }
+                        break;
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        return $horaFinal->format('H:i:s');
     }
 
     private function fechasEspecialesPorDia(string $fecha): Collection

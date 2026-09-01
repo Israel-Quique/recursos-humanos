@@ -11,6 +11,9 @@ return [
     // Requerir que los modelos usen created_by en auditoría
     'enforce_created_by' => true,
 
+    // Política de tolerancia diaria en minutos (por defecto 5 min después de la hora de entrada)
+    'tolerancia_diaria_min' => (int) env('ASISTENCIA_TOLERANCIA_DIARIA_MIN', 5),
+
     // Política de tolerancia mensual en minutos
     'tolerancia_mensual_min' => env('ASISTENCIA_TOLERANCIA_MIN', 30),
 ];

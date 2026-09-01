@@ -120,4 +120,64 @@ class AnalisisAsistenciaServiceTest extends TestCase
         $this->assertSame('--:--', $filaHoy['salida']);
         $this->assertSame('En su puesto', $filaHoy['estado']);
     }
+
+    public function test_detalle_calendario_dia_no_marca_falta_a_empleados_inactivos(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-10 10:00:00'));
+
+        // Empleado activo
+        $activo = Empleado::query()->create([
+            'nombre' => 'Juan',
+            'apellido' => 'Perez',
+            'codigo_biometrico' => 'ACT-001',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-08-01',
+        ]);
+
+        // Empleado inactivo por despido
+        $despedido = Empleado::query()->create([
+            'nombre' => 'Pedro',
+            'apellido' => 'Gomez',
+            'codigo_biometrico' => 'DES-002',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-01-01',
+            'fecha_despido' => '2026-07-31',
+        ]);
+
+        // Empleado inactivo por más de 30 días sin marcaciones
+        $inactivoTiempo = Empleado::query()->create([
+            'nombre' => 'Maria',
+            'apellido' => 'Lopez',
+            'codigo_biometrico' => 'INA-003',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-01',
+        ]);
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $inactivoTiempo->id,
+            'fecha' => '2026-05-01',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+        ]);
+
+        $service = app(AnalisisAsistenciaService::class);
+        $detalle = $service->detalleCalendarioDia('2026-08-10');
+
+        $faltasNombres = collect($detalle['faltas'])->pluck('nombre')->all();
+
+        // El activo sin marcación debe aparecer como falta
+        $this->assertContains('Juan Perez', $faltasNombres);
+        // Los inactivos no deben aparecer como falta
+        $this->assertNotContains('Pedro Gomez', $faltasNombres);
+        $this->assertNotContains('Maria Lopez', $faltasNombres);
+    }
 }
+

@@ -47,16 +47,16 @@
         <button type="button" wire:click="closeEditModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
         <div class="app-modal-head">
           <div>
-            <p class="section-kicker">Horario regional</p>
-            <h3 class="section-title app-modal-title">Actualizar entrada y salida</h3>
-            <p class="section-copy-sm">Configura el horario general que se aplicará a todo el personal de la sucursal seleccionada.</p>
+            <p class="section-kicker">Horario regional y tolerancia</p>
+            <h3 class="section-title app-modal-title">Actualizar horario y tolerancia</h3>
+            <p class="section-copy-sm">Configura la hora de entrada, el límite de tolerancia diaria y la salida para la sucursal seleccionada.</p>
           </div>
         </div>
 
         <form wire:submit="saveHorario" class="mt-8 grid gap-5 md:grid-cols-2">
           <div class="md:col-span-2">
             <label class="form-label">Sucursal</label>
-            <input type="text" value="{{ $editingSucursal }}" class="form-input font-bold" disabled>
+            <input type="text" value="{{ $editingSucursal }}" class="form-input font-bold bg-slate-50" disabled>
           </div>
           <div>
             <label class="form-label">Hora de entrada</label>
@@ -64,71 +64,93 @@
             @error('editHoraEntrada') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
+            <label class="form-label">Límite tolerancia diaria</label>
+            <input type="time" wire:model="editHoraTolerancia" class="form-input">
+            <p class="text-[11px] text-slate-500 mt-1">Los atrasos se contabilizan recién a partir de esta hora.</p>
+            @error('editHoraTolerancia') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div class="md:col-span-2">
             <label class="form-label">Hora de salida</label>
             <input type="time" wire:model="editHoraSalida" class="form-input">
             @error('editHoraSalida') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
           <div class="md:col-span-2 app-modal-actions">
-            <button type="submit" class="login-submit app-modal-submit">Guardar horario</button>
+            <button type="submit" class="login-submit app-modal-submit">Guardar horario y tolerancia</button>
           </div>
         </form>
       </div>
     </div>
   @endif
 
-  {{-- 1. FILA SUPERIOR: 3 TARJETAS LADO A LADO (HORA DE ENTRADA, HORA DE SALIDA, TOLERANCIA) --}}
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+  {{-- 1. FILA SUPERIOR: 4 TARJETAS LADO A LADO (ENTRADA, TOLERANCIA DIARIA, SALIDA, TOLERANCIA MENSUAL) --}}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
     
     {{-- Tarjeta 1: HORA DE ENTRADA --}}
-    <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4 transition hover:shadow-md">
-      <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-100/70 text-[#1e60c6]">
-        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3.5 transition hover:shadow-md">
+      <div class="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-blue-100/70 text-[#1e60c6]">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
           <polyline points="10 17 15 12 10 7"/>
           <line x1="15" y1="12" x2="3" y2="12"/>
         </svg>
       </div>
       <div>
-        <p class="text-xs font-black uppercase tracking-wider text-slate-800">HORA DE ENTRADA</p>
-        <div class="mt-1 flex items-baseline gap-1.5">
-          <span class="text-3xl font-black text-[#1e60c6] tracking-tight">{{ $generalHoraEntrada }}</span>
-          <span class="text-xs font-bold text-[#1e60c6] uppercase">AM</span>
+        <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">HORA DE ENTRADA</p>
+        <div class="mt-0.5 flex items-baseline gap-1">
+          <span class="text-2xl font-black text-[#1e60c6] tracking-tight">{{ $generalHoraEntrada }}</span>
+          <span class="text-[10px] font-bold text-[#1e60c6] uppercase">AM</span>
         </div>
       </div>
     </div>
 
-    {{-- Tarjeta 2: HORA DE SALIDA --}}
-    <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4 transition hover:shadow-md">
-      <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-100/70 text-emerald-600">
-        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    {{-- Tarjeta 2: TOLERANCIA DIARIA --}}
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3.5 transition hover:shadow-md">
+      <div class="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-cyan-100/70 text-cyan-600">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 14 14"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">TOLERANCIA DIARIA</p>
+        <div class="mt-0.5 flex items-baseline gap-1">
+          <span class="text-2xl font-black text-cyan-700 tracking-tight">{{ $generalHoraTolerancia }}</span>
+          <span class="text-[10px] font-bold text-cyan-600">AM (+{{ $globalToleranciaDiaria }}m)</span>
+        </div>
+      </div>
+    </div>
+
+    {{-- Tarjeta 3: HORA DE SALIDA --}}
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3.5 transition hover:shadow-md">
+      <div class="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-emerald-100/70 text-emerald-600">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>
           <line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
       </div>
       <div>
-        <p class="text-xs font-black uppercase tracking-wider text-slate-800">HORA DE SALIDA</p>
-        <div class="mt-1 flex items-baseline gap-1.5">
-          <span class="text-3xl font-black text-emerald-600 tracking-tight">{{ $generalHoraSalida }}</span>
-          <span class="text-xs font-bold text-emerald-600 uppercase">PM</span>
+        <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">HORA DE SALIDA</p>
+        <div class="mt-0.5 flex items-baseline gap-1">
+          <span class="text-2xl font-black text-emerald-600 tracking-tight">{{ $generalHoraSalida }}</span>
+          <span class="text-[10px] font-bold text-emerald-600 uppercase">PM</span>
         </div>
       </div>
     </div>
 
-    {{-- Tarjeta 3: TOLERANCIA --}}
-    <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4 transition hover:shadow-md">
-      <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-amber-100/70 text-amber-600">
-        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
+    {{-- Tarjeta 4: TOLERANCIA MENSUAL --}}
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3.5 transition hover:shadow-md">
+      <div class="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-amber-100/70 text-amber-600">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
       </div>
       <div>
-        <p class="text-xs font-black uppercase tracking-wider text-slate-800">TOLERANCIA</p>
-        <div class="mt-1 flex items-baseline gap-1.5">
-          <span class="text-3xl font-black text-amber-600 tracking-tight">{{ $globalTolerancia }}</span>
-          <span class="text-xs font-bold text-amber-600">min</span>
+        <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">TOL. MENSUAL</p>
+        <div class="mt-0.5 flex items-baseline gap-1">
+          <span class="text-2xl font-black text-amber-600 tracking-tight">{{ $globalTolerancia }}</span>
+          <span class="text-[10px] font-bold text-amber-600">min/mes</span>
         </div>
       </div>
     </div>
@@ -155,6 +177,8 @@
       
       @php
         $displayEntrada = $activeSucursalData?->hora_entrada ?? $generalHoraEntrada;
+        $displayTolerancia = $activeSucursalData?->hora_tolerancia ?? $generalHoraTolerancia;
+        $displayToleranciaMin = $activeSucursalData?->tolerancia_minutos ?? $globalToleranciaDiaria;
         $displaySalida = $activeSucursalData?->hora_salida ?? $generalHoraSalida;
         $displayPersonal = $activeSucursalData?->empleados ?? array_sum(array_column($departmentStats ?? [], 'employees'));
       @endphp
@@ -169,44 +193,51 @@
         </div>
       @endif
 
-      {{-- 1. HORA DE ENTRADA --}}
-      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-5 transition hover:shadow-md">
-        <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-100/70 text-[#1e60c6]">
-          <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 14 14"/>
-          </svg>
-        </div>
-        <div>
-          <p class="text-xs font-black uppercase tracking-wider text-slate-800">HORA DE ENTRADA</p>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-3xl font-black text-[#1e60c6] tracking-tight">{{ $displayEntrada }}</span>
-            <span class="text-xs font-bold text-[#1e60c6] uppercase">AM</span>
+      {{-- 1. HORA DE ENTRADA Y TOLERANCIA DIARIA --}}
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center justify-between gap-4 transition hover:shadow-md">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-100/70 text-[#1e60c6]">
+            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 14 14"/>
+            </svg>
           </div>
+          <div>
+            <p class="text-xs font-black uppercase tracking-wider text-slate-800">HORA DE ENTRADA</p>
+            <div class="mt-0.5 flex items-baseline gap-1.5">
+              <span class="text-2xl font-black text-[#1e60c6] tracking-tight">{{ $displayEntrada }}</span>
+              <span class="text-xs font-bold text-[#1e60c6] uppercase">AM</span>
+            </div>
+          </div>
+        </div>
+        <div class="text-right border-l border-slate-100 pl-4">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Tolerancia diaria</span>
+          <p class="text-sm font-black text-cyan-700 mt-0.5">{{ $displayTolerancia }} <span class="text-[11px] font-bold text-slate-500">(+{{ $displayToleranciaMin }}m)</span></p>
+          <span class="text-[10px] text-slate-400">Atraso desde min {{ substr($displayTolerancia, 3, 2) }}</span>
         </div>
       </div>
 
       {{-- 2. HORA DE SALIDA --}}
-      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-5 transition hover:shadow-md">
-        <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-100/70 text-emerald-600">
-          <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-4 transition hover:shadow-md">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-100/70 text-emerald-600">
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 14 14"/>
           </svg>
         </div>
         <div>
           <p class="text-xs font-black uppercase tracking-wider text-slate-800">HORA DE SALIDA</p>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-3xl font-black text-emerald-600 tracking-tight">{{ $displaySalida }}</span>
+          <div class="mt-0.5 flex items-baseline gap-1.5">
+            <span class="text-2xl font-black text-emerald-600 tracking-tight">{{ $displaySalida }}</span>
             <span class="text-xs font-bold text-emerald-600 uppercase">PM</span>
           </div>
         </div>
       </div>
 
       {{-- 3. PERSONAL REGISTRADO --}}
-      <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-5 transition hover:shadow-md">
-        <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-purple-100/70 text-purple-700">
-          <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-4 transition hover:shadow-md">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-100/70 text-purple-700">
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
             <circle cx="9" cy="7" r="4"/>
             <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
@@ -215,8 +246,8 @@
         </div>
         <div>
           <p class="text-xs font-black uppercase tracking-wider text-slate-800">PERSONAL REGISTRADO</p>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-3xl font-black text-purple-700 tracking-tight">{{ $displayPersonal }}</span>
+          <div class="mt-0.5 flex items-baseline gap-1.5">
+            <span class="text-2xl font-black text-purple-700 tracking-tight">{{ $displayPersonal }}</span>
             <span class="text-xs font-bold text-purple-700">personas</span>
           </div>
         </div>

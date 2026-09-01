@@ -13,7 +13,7 @@ class BiometricoAutoSyncService
 
     public function triggerIfDue(): void
     {
-        if (! config('biometrico.web_auto_sync_enabled', false)) {
+        if (!config('biometrico.web_auto_sync_enabled', false)) {
             return;
         }
 
@@ -29,7 +29,7 @@ class BiometricoAutoSyncService
 
         $lock = Cache::lock(self::LOCK_CACHE_KEY, 30);
 
-        if (! $lock->get()) {
+        if (!$lock->get()) {
             return;
         }
 
@@ -40,11 +40,16 @@ class BiometricoAutoSyncService
                 return;
             }
 
-            $this->spawnBackgroundSync();
-            Cache::put(self::LAST_TRIGGER_CACHE_KEY, now(), now()->addMinutes($this->intervalMinutes() + 5));
+            $this->triggerNow();
         } finally {
             optional($lock)->release();
         }
+    }
+
+    public function triggerNow(): void
+    {
+        $this->spawnBackgroundSync();
+        Cache::put(self::LAST_TRIGGER_CACHE_KEY, now(), now()->addMinutes($this->intervalMinutes() + 5));
     }
 
     private function spawnBackgroundSync(): void
@@ -84,9 +89,9 @@ class BiometricoAutoSyncService
             dirname(PHP_BINARY),
             base_path(),
             $systemRoot,
-            $systemRoot.DIRECTORY_SEPARATOR.'System32',
-            $systemRoot.DIRECTORY_SEPARATOR.'System32'.DIRECTORY_SEPARATOR.'Wbem',
-            $systemRoot.DIRECTORY_SEPARATOR.'System32'.DIRECTORY_SEPARATOR.'WindowsPowerShell'.DIRECTORY_SEPARATOR.'v1.0',
+            $systemRoot . DIRECTORY_SEPARATOR . 'System32',
+            $systemRoot . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'Wbem',
+            $systemRoot . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'WindowsPowerShell' . DIRECTORY_SEPARATOR . 'v1.0',
             getenv('PATH') ?: '',
         ]));
 

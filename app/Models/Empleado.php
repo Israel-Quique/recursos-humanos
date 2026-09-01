@@ -68,7 +68,10 @@ class Empleado extends Model
 
         return $query->where(function ($nestedQuery) use ($fechaReferencia) {
             $nestedQuery->whereNull('fecha_despido')
-                ->orWhereDate('fecha_despido', '>=', $fechaReferencia);
+                ->orWhereDate('fecha_despido', '>', $fechaReferencia);
+        })->where(function ($nestedQuery) use ($fechaReferencia) {
+            $nestedQuery->whereNull('fecha_contratacion')
+                ->orWhereDate('fecha_contratacion', '<=', $fechaReferencia);
         });
     }
 
@@ -96,6 +99,31 @@ class Empleado extends Model
         $fechaReferencia = $fecha instanceof Carbon
             ? $fecha->copy()
             : Carbon::parse($fecha ?: now());
+
+        if ($this->trashed()) {
+            return 'Inactivo';
+        }
+
+        if ($this->fecha_despido !== null) {
+            $fechaDespido = $this->fecha_despido instanceof Carbon
+                ? $this->fecha_despido->copy()->startOfDay()
+                : Carbon::parse((string) $this->fecha_despido)->startOfDay();
+
+            if ($fechaReferencia->copy()->startOfDay()->gte($fechaDespido)) {
+                return 'Inactivo';
+            }
+        }
+
+        if ($this->fecha_contratacion !== null) {
+            $fechaContratacion = $this->fecha_contratacion instanceof Carbon
+                ? $this->fecha_contratacion->copy()->startOfDay()
+                : Carbon::parse((string) $this->fecha_contratacion)->startOfDay();
+
+            if ($fechaReferencia->copy()->startOfDay()->lt($fechaContratacion)) {
+                return 'Inactivo';
+            }
+        }
+
         $umbralInactividad = $fechaReferencia->copy()->subDays($diasInactividad)->startOfDay();
         $ultimaMarcacion = $this->ultimaMarcacion();
 
@@ -106,6 +134,10 @@ class Empleado extends Model
         $fechaContratacion = $this->fecha_contratacion?->copy()?->startOfDay();
 
         if ($fechaContratacion && $fechaContratacion->lt($umbralInactividad)) {
+            return 'Inactivo';
+        }
+
+        if (!$fechaContratacion && !$ultimaMarcacion) {
             return 'Inactivo';
         }
 

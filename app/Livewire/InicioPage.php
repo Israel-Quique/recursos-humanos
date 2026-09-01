@@ -3,7 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Empleado;
-use App\Models\Marcacion;
+use App\Services\BiometricoAutoSyncService;
 use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
@@ -12,6 +12,17 @@ use Livewire\Component;
 #[Layout('layouts.app', ['title' => 'Panel de inicio'])]
 class InicioPage extends Component
 {
+    public function sincronizarBiometrico(): void
+    {
+        try {
+            app(BiometricoAutoSyncService::class)->triggerNow();
+            session()->flash('status', 'Sincronización iniciada en segundo plano. El proceso continúa sin bloquear la página.');
+        } catch (\Throwable $exception) {
+            report($exception);
+            session()->flash('status', 'No se pudo iniciar la sincronización biométrica: ' . $exception->getMessage());
+        }
+    }
+
     public function render()
     {
         $user = auth()->user();

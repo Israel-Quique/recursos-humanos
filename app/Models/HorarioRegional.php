@@ -17,6 +17,8 @@ class HorarioRegional extends Model
         'sucursal',
         'hora_entrada',
         'hora_salida',
+        'tolerancia_minutos',
+        'hora_tolerancia',
         'created_by',
         'updated_by',
         'deleted_by',

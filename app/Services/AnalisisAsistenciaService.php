@@ -1556,7 +1556,7 @@ class AnalisisAsistenciaService
             ->laboralVigente($fecha)
             ->when(filled($branch), fn($query) => SucursalNormalizer::applyFilter($query, 'sucursal', $branch))
             ->get()
-            ->filter(fn(Empleado $empleado) => $empleado->estaActivoLaboralmente($fecha))
+            ->filter(fn(Empleado $empleado) => $empleado->estaActivoLaboralmente($fecha) && $empleado->estaActivoLaboralmente(now()))
             ->values();
     }
 
@@ -1615,8 +1615,10 @@ class AnalisisAsistenciaService
                 ->filter(function (Empleado $empleado) use ($current) {
                     $fecha = $current->toDateString();
 
-                    return ($empleado->fecha_despido === null || $empleado->fecha_despido->toDateString() >= $fecha)
-                        && $empleado->estaActivoLaboralmente($current);
+                    return ($empleado->fecha_despido === null || $empleado->fecha_despido->toDateString() > $fecha)
+                        && ($empleado->fecha_contratacion === null || $empleado->fecha_contratacion->toDateString() <= $fecha)
+                        && $empleado->estaActivoLaboralmente($current)
+                        && $empleado->estaActivoLaboralmente(now());
                 })
                 ->values();
             foreach ($activeEmployees as $empleado) {
