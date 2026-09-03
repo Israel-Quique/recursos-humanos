@@ -40,3 +40,4 @@ __pycache__/
 Thumbs.db
 BOLETA.xlsx
 marcaciones_Oficina_Central_La_Paz_20260818_112117.csv
+/database/migrations/2026_09_01_000001_fix_fechas_especiales_unique_constraint_soft_deletes.php

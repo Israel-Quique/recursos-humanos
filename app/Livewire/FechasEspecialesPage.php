@@ -8,6 +8,7 @@ use App\Models\HorarioRegional;
 use App\Services\AuditoriaService;
 use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -213,28 +214,45 @@ class FechasEspecialesPage extends Component
             $this->incluirSabados
         );
 
+        if (empty($fechasACrear)) {
+            $this->addError('fecha', 'El rango seleccionado no incluye ningun dia habil (se excluyen los domingos).');
+            return;
+        }
+
+        $duplicados = $this->fechasDuplicadas($data['sucursal'], $fechasACrear);
+
+        if (! empty($duplicados)) {
+            $this->addError('fecha', 'Ya existe una fecha especial para "'.$data['sucursal'].'" en: '.implode(', ', $duplicados).'. Edita o elimina el registro existente antes de continuar.');
+            return;
+        }
+
         $auditoria = app(AuditoriaService::class);
 
-        foreach ($fechasACrear as $fechaDia) {
-            $fechaEspecial = FechaEspecialLaboral::query()->create([
-                'fecha'       => $fechaDia,
-                'sucursal'    => $data['sucursal'],
-                'nombre'      => $data['nombre'],
-                'descripcion' => $data['descripcion'] ?: null,
-                'tipo'        => $data['tipo'],
-                'hora_entrada' => $this->normalizarHora($data['tipo'], $data['horaEntrada']),
-                'hora_salida'  => $this->normalizarHora($data['tipo'], $data['horaSalida']),
-                'created_by'  => auth()->id(),
-            ]);
+        try {
+            foreach ($fechasACrear as $fechaDia) {
+                $fechaEspecial = FechaEspecialLaboral::query()->create([
+                    'fecha'       => $fechaDia,
+                    'sucursal'    => $data['sucursal'],
+                    'nombre'      => $data['nombre'],
+                    'descripcion' => $data['descripcion'] ?: null,
+                    'tipo'        => $data['tipo'],
+                    'hora_entrada' => $this->normalizarHora($data['tipo'], $data['horaEntrada']),
+                    'hora_salida'  => $this->normalizarHora($data['tipo'], $data['horaSalida']),
+                    'created_by'  => auth()->id(),
+                ]);
 
-            $auditoria->registrar(
-                'Fechas especiales',
-                'crear',
-                'Se programo una nueva fecha especial.',
-                $fechaEspecial,
-                null,
-                $this->snapshotFechaEspecial($fechaEspecial)
-            );
+                $auditoria->registrar(
+                    'Fechas especiales',
+                    'crear',
+                    'Se programo una nueva fecha especial.',
+                    $fechaEspecial,
+                    null,
+                    $this->snapshotFechaEspecial($fechaEspecial)
+                );
+            }
+        } catch (UniqueConstraintViolationException $e) {
+            $this->addError('fecha', 'Ya existe una fecha especial para esa sucursal en una de las fechas seleccionadas.');
+            return;
         }
 
         $this->closeCreateModal();
@@ -257,6 +275,17 @@ class FechasEspecialesPage extends Component
         $fechaEspecial = FechaEspecialLaboral::query()->findOrFail((int) $data['editingFechaId']);
         $antes = $this->snapshotFechaEspecial($fechaEspecial);
 
+        $conflicto = FechaEspecialLaboral::query()
+            ->where('sucursal', $data['editSucursal'])
+            ->where('fecha', $data['editFecha'])
+            ->where('id', '!=', $fechaEspecial->id)
+            ->exists();
+
+        if ($conflicto) {
+            $this->addError('editFecha', 'Ya existe otra fecha especial para "'.$data['editSucursal'].'" en '.$data['editFecha'].'.');
+            return;
+        }
+
         $fechaFinReal = filled($data['editFechaFin']) ? $data['editFechaFin'] : $data['editFecha'];
 
         // Si el rango cubre múltiples días, creamos registros adicionales
@@ -267,36 +296,55 @@ class FechasEspecialesPage extends Component
                 $this->incluirSabados
             );
 
+            $fechasNuevas = array_values(array_filter(
+                $fechasExtra,
+                fn ($fechaDia) => $fechaDia !== $data['editFecha']
+            ));
+
+            $duplicados = $this->fechasDuplicadas($data['editSucursal'], $fechasNuevas);
+
+            if (! empty($duplicados)) {
+                $this->addError('editFecha', 'Ya existe una fecha especial para "'.$data['editSucursal'].'" en: '.implode(', ', $duplicados).'.');
+                return;
+            }
+
             $auditoria = app(AuditoriaService::class);
 
-            foreach ($fechasExtra as $fechaDia) {
-                if ($fechaDia === $data['editFecha']) {
-                    continue; // el día base se actualiza abajo
-                }
-                $nuevo = FechaEspecialLaboral::query()->create([
-                    'fecha'       => $fechaDia,
-                    'sucursal'    => $data['editSucursal'],
-                    'nombre'      => $data['editNombre'],
-                    'descripcion' => $data['editDescripcion'] ?: null,
-                    'tipo'        => $data['editTipo'],
-                    'hora_entrada' => $this->normalizarHora($data['editTipo'], $data['editHoraEntrada']),
-                    'hora_salida'  => $this->normalizarHora($data['editTipo'], $data['editHoraSalida']),
-                    'created_by'  => auth()->id(),
-                ]);
+            try {
+                foreach ($fechasNuevas as $fechaDia) {
+                    $nuevo = FechaEspecialLaboral::query()->create([
+                        'fecha'       => $fechaDia,
+                        'sucursal'    => $data['editSucursal'],
+                        'nombre'      => $data['editNombre'],
+                        'descripcion' => $data['editDescripcion'] ?: null,
+                        'tipo'        => $data['editTipo'],
+                        'hora_entrada' => $this->normalizarHora($data['editTipo'], $data['editHoraEntrada']),
+                        'hora_salida'  => $this->normalizarHora($data['editTipo'], $data['editHoraSalida']),
+                        'created_by'  => auth()->id(),
+                    ]);
 
-                $auditoria->registrar('Fechas especiales', 'crear', 'Extensión de feriado.', $nuevo, null, $this->snapshotFechaEspecial($nuevo));
+                    $auditoria->registrar('Fechas especiales', 'crear', 'Extensión de feriado.', $nuevo, null, $this->snapshotFechaEspecial($nuevo));
+                }
+            } catch (UniqueConstraintViolationException $e) {
+                $this->addError('editFecha', 'Ya existe una fecha especial para esa sucursal en una de las fechas del rango.');
+                return;
             }
         }
 
-        $fechaEspecial->update([
-            'fecha'       => $data['editFecha'],
-            'sucursal'    => $data['editSucursal'],
-            'nombre'      => $data['editNombre'],
-            'descripcion' => $data['editDescripcion'] ?: null,
-            'tipo'        => $data['editTipo'],
-            'hora_entrada' => $this->normalizarHora($data['editTipo'], $data['editHoraEntrada']),
-            'hora_salida'  => $this->normalizarHora($data['editTipo'], $data['editHoraSalida']),
-        ]);
+        try {
+            $fechaEspecial->update([
+                'fecha'       => $data['editFecha'],
+                'sucursal'    => $data['editSucursal'],
+                'nombre'      => $data['editNombre'],
+                'descripcion' => $data['editDescripcion'] ?: null,
+                'tipo'        => $data['editTipo'],
+                'hora_entrada' => $this->normalizarHora($data['editTipo'], $data['editHoraEntrada']),
+                'hora_salida'  => $this->normalizarHora($data['editTipo'], $data['editHoraSalida']),
+            ]);
+        } catch (UniqueConstraintViolationException $e) {
+            $this->addError('editFecha', 'Ya existe otra fecha especial para esa sucursal en la fecha seleccionada.');
+            return;
+        }
 
         app(AuditoriaService::class)->registrar(
             'Fechas especiales', 'editar', 'Se actualizo una fecha especial.',
@@ -450,6 +498,27 @@ class FechasEspecialesPage extends Component
         }
 
         return $fechas;
+    }
+
+    /**
+     * Devuelve, de una lista de fechas candidatas, las que ya tienen
+     * una fecha especial registrada para la sucursal indicada.
+     */
+    private function fechasDuplicadas(string $sucursal, array $fechas): array
+    {
+        if (empty($fechas)) {
+            return [];
+        }
+
+        return FechaEspecialLaboral::query()
+            ->where('sucursal', $sucursal)
+            ->whereIn('fecha', $fechas)
+            ->pluck('fecha')
+            ->map(fn ($f) => $f->toDateString())
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     private function rules(): array

@@ -114,7 +114,12 @@
           </div>
           <strong class="calendar-kpi-value text-rose-950">{{ $selectedDay['totals']['tardanzas'] }}</strong>
           <span class="calendar-kpi-sub text-rose-700">
-            {{ $selectedDay['totals']['minutos_retraso_formateado'] }} de retraso ({{ $selectedDay['totals']['excedidos'] }} excedidos)
+            {{ $selectedDay['totals']['minutos_retraso_formateado'] }} de retraso
+            @if($selectedDay['totals']['excedidos'] > 0)
+              ({{ $selectedDay['totals']['excedidos'] }} excedieron tolerancia mensual)
+            @else
+              (dentro de tolerancia mensual de 30 min)
+            @endif
           </span>
         </div>
 
@@ -435,9 +440,16 @@
                       </td>
                       <td class="py-2.5 px-3 text-center whitespace-nowrap">
                         @if($registro['entrada'] !== '--:--')
-                          <span class="inline-block rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-800">
-                            {{ $registro['entrada'] }}
-                          </span>
+                          @if(($registro['minutos_retraso'] ?? 0) > 0)
+                            <span class="inline-flex items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-2 py-0.5 font-mono text-[11px] font-bold text-rose-800" title="{{ $registro['detalle_retraso'] ?? ($registro['minutos_retraso'].' min de atraso') }}">
+                              <span>{{ $registro['entrada'] }}</span>
+                              <span class="text-[10px] font-medium text-rose-600">(+{{ $registro['minutos_retraso'] }}m)</span>
+                            </span>
+                          @else
+                            <span class="inline-block rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-800" title="Entrada puntual dentro de tolerancia">
+                              {{ $registro['entrada'] }}
+                            </span>
+                          @endif
                         @else
                           <span class="inline-block rounded-md bg-slate-100 text-slate-400 px-2 py-0.5 font-mono text-[11px]">
                             --:--
@@ -456,17 +468,38 @@
                         @endif
                       </td>
                       <td class="py-2.5 px-4 text-right whitespace-nowrap">
-                        {{-- Estado: Completo vs Sin completar / Faltante --}}
+                        {{-- Estado: Puntual, Atraso, Excedió tolerancia vs Sin completar / Faltante --}}
                         @if($registro['tipo_estado'] === 'completo')
-                          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                            <svg class="h-3 w-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                            <span>Completo</span>
-                          </span>
+                          @if(($registro['minutos_retraso'] ?? 0) > 0)
+                            @if(($registro['tone'] ?? '') === 'black')
+                              <span class="inline-flex items-center gap-1 rounded-full bg-slate-900 text-white px-2.5 py-0.5 text-[11px] font-bold" title="Completo pero excedió los 30 min de tolerancia mensual">
+                                <span class="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                                <span>Excedió tolerancia</span>
+                              </span>
+                            @else
+                              <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-800" title="Completo con atraso diario de {{ $registro['minutos_retraso'] }} min (dentro de tolerancia mensual)">
+                                <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                                <span>Atraso (+{{ $registro['minutos_retraso'] }}m)</span>
+                              </span>
+                            @endif
+                          @else
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800" title="Entrada y salida completas, en horario puntual">
+                              <svg class="h-3 w-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                              <span>Puntual</span>
+                            </span>
+                          @endif
                         @elseif($registro['tipo_estado'] === 'faltante')
-                          <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-800" title="{{ $registro['entrada'] === '--:--' ? 'Falta marcar entrada' : 'Falta marcar salida' }}">
-                            <svg class="h-3 w-3 text-amber-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                            <span>Sin completar</span>
-                          </span>
+                          @if(($registro['minutos_retraso'] ?? 0) > 0)
+                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-900" title="Atraso de {{ $registro['minutos_retraso'] }}m y falta salida">
+                              <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                              <span>Sin salida (+{{ $registro['minutos_retraso'] }}m)</span>
+                            </span>
+                          @else
+                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-800" title="{{ $registro['entrada'] === '--:--' ? 'Falta marcar entrada' : 'Falta marcar salida' }}">
+                              <svg class="h-3 w-3 text-amber-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                              <span>Sin completar</span>
+                            </span>
+                          @endif
                         @else
                           <span class="inline-flex items-center rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
                             Sin marcación
@@ -501,11 +534,11 @@
                       <span class="calendar-event-dot calendar-event-dot-{{ $tardanza['tone'] }}"></span>
                       <strong class="truncate text-xs font-bold text-slate-900">{{ $tardanza['nombre'] }}</strong>
                     </div>
-                    <p class="text-xs text-slate-600 mt-1 font-medium">{{ $tardanza['detalle'] }}</p>
-                    <p class="text-[11px] text-slate-400 mt-0.5">{{ $tardanza['sucursal'] }} · Entrada {{ $tardanza['entrada'] }}</p>
+                    <p class="text-xs text-rose-800 mt-1 font-semibold">{{ $tardanza['detalle'] }}</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">{{ $tardanza['sucursal'] }} · Entrada {{ $tardanza['entrada'] }}</p>
                   </div>
-                  <span class="inline-flex shrink-0 items-center rounded-full {{ $tardanza['tone'] === 'black' ? 'bg-slate-900 text-white' : 'bg-rose-100 text-rose-800' }} px-2 py-0.5 text-[11px] font-bold">
-                    {{ $tardanza['tone'] === 'black' ? 'Tolerancia Excedida' : 'Atraso' }}
+                  <span class="inline-flex shrink-0 items-center rounded-full {{ $tardanza['tone'] === 'black' ? 'bg-slate-900 text-white' : 'bg-rose-100 text-rose-800' }} px-2 py-0.5 text-[11px] font-bold" title="{{ $tardanza['tone'] === 'black' ? 'Excedió la tolerancia mensual de 30 min' : 'Atraso diario (dentro de los 30 min mensuales)' }}">
+                    {{ $tardanza['tone'] === 'black' ? 'Tolerancia Excedida' : 'Atraso (dentro de 30m)' }}
                   </span>
                 </div>
               @empty

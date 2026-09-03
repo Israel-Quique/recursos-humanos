@@ -404,6 +404,9 @@ class AnalisisAsistenciaService
                 'tipo_estado' => $tipoEstado,
                 'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                 'minutos_retraso' => $event['minutes_late'] ?? 0,
+                'es_tardanza' => ($event['minutes_late'] ?? 0) > 0,
+                'tone' => $event['tone'] ?? null,
+                'detalle_retraso' => $event['detail'] ?? null,
             ];
         });
 
@@ -828,7 +831,7 @@ class AnalisisAsistenciaService
             'empleado' => [
                 'id' => $empleado->id,
                 'nombre' => $empleado->nombre_completo,
-                'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
+                'codigo' => $empleado->codigo_biometrico ?: ($empleado->es_especial ? 'Personal Especial' : 'Sin codigo'),
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
                     . ' - ' .
@@ -962,7 +965,7 @@ class AnalisisAsistenciaService
             return [
                 'empleado' => [
                     'nombre' => $empleado->nombre_completo,
-                    'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
+                    'codigo' => $empleado->codigo_biometrico ?: ($empleado->es_especial ? 'Personal Especial' : 'Sin codigo'),
                     'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                     'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
                         . ' - ' .
@@ -1127,7 +1130,7 @@ class AnalisisAsistenciaService
             'empleado' => [
                 'id' => $empleado->id,
                 'nombre' => $empleado->nombre_completo,
-                'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
+                'codigo' => $empleado->codigo_biometrico ?: ($empleado->es_especial ? 'Personal Especial' : 'Sin codigo'),
                 'carnet' => $empleado->codigo_biometrico ?: (string) $empleado->id,
                 'cargo' => $empleado->cargo ?: 'Personal',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
@@ -1187,8 +1190,8 @@ class AnalisisAsistenciaService
             ->map(fn(Empleado $empleado) => [
                 'id' => $empleado->id,
                 'nombre' => $empleado->nombre_completo,
-                'codigo' => $empleado->codigo_biometrico ?: 'Sin codigo',
-                'label' => $empleado->nombre_completo . ' | ' . $empleado->codigo_biometrico,
+                'codigo' => $empleado->codigo_biometrico ?: ($empleado->es_especial ? 'Personal Especial' : 'Sin codigo'),
+                'label' => $empleado->nombre_completo . ' | ' . ($empleado->codigo_biometrico ?: ($empleado->es_especial ? 'Personal Especial' : 'Sin codigo')),
             ])->all();
     }
 
@@ -1693,7 +1696,7 @@ class AnalisisAsistenciaService
     {
         $monthStart = $reference->copy()->startOfMonth()->toDateString();
         $monthEnd = $reference->copy()->endOfMonth()->toDateString();
-        $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 35);
+        $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 30);
 
         $registros = RegistroAsistencia::query()
             ->with('empleado')

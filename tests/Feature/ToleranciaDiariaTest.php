@@ -140,4 +140,49 @@ class ToleranciaDiariaTest extends TestCase
             'hora_salida' => '16:00:00',
         ]);
     }
+
+    public function test_detalle_calendario_cuenta_tardanza_cuando_excede_tolerancia_diaria_incluso_en_inicio_de_mes(): void
+    {
+        // 2 de septiembre (días 1-4 del mes)
+        $this->travelTo(Carbon::parse('2026-09-02 12:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Luis',
+            'apellido' => 'Paz',
+            'codigo_biometrico' => 'LP-999',
+            'area' => 'Ventas',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-08-01',
+        ]);
+
+        HorarioRegional::query()->create([
+            'sucursal' => 'La Paz',
+            'hora_entrada' => '08:30:00',
+            'hora_tolerancia' => '08:35:00',
+            'tolerancia_minutos' => 5,
+            'hora_salida' => '16:30:00',
+        ]);
+
+        // Marcó a las 08:38 (está dentro de 30 min, pero superó los 5 min de tolerancia diaria)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-09-02',
+            'hora_entrada' => '08:38:00',
+            'hora_salida' => '16:30:00',
+        ]);
+
+        $service = app(AnalisisAsistenciaService::class);
+        $detalle = $service->detalleCalendarioDia('2026-09-02');
+
+        $this->assertSame(1, $detalle['totals']['tardanzas']);
+        $this->assertSame(0, $detalle['totals']['puntuales']);
+        $this->assertSame(3, $detalle['totals']['minutos_retraso']);
+
+        $marcacion = collect($detalle['marcaciones'])->firstWhere('empleado_id', $empleado->id);
+        $this->assertNotNull($marcacion);
+        $this->assertTrue($marcacion['es_tardanza']);
+        $this->assertSame(3, $marcacion['minutos_retraso']);
+    }
 }

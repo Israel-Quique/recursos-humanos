@@ -22,6 +22,7 @@ class Empleado extends Model
         'codigo_biometrico',
         'area',
         'sucursal',
+        'es_especial',
         'hora_entrada_programada',
         'hora_salida_programada',
         'fecha_nacimiento',
@@ -34,6 +35,7 @@ class Empleado extends Model
     protected function casts(): array
     {
         return [
+            'es_especial' => 'boolean',
             'fecha_nacimiento' => 'date',
             'fecha_contratacion' => 'date',
             'fecha_despido' => 'date',
@@ -73,6 +75,16 @@ class Empleado extends Model
             $nestedQuery->whereNull('fecha_contratacion')
                 ->orWhereDate('fecha_contratacion', '<=', $fechaReferencia);
         });
+    }
+
+    public function scopeEspeciales(Builder $query): Builder
+    {
+        return $query->where('es_especial', true);
+    }
+
+    public function scopeNoEspeciales(Builder $query): Builder
+    {
+        return $query->where('es_especial', false);
     }
 
     public function ultimaMarcacion(): ?Carbon
@@ -122,6 +134,10 @@ class Empleado extends Model
             if ($fechaReferencia->copy()->startOfDay()->lt($fechaContratacion)) {
                 return 'Inactivo';
             }
+        }
+
+        if ($this->es_especial) {
+            return 'Activo';
         }
 
         $umbralInactividad = $fechaReferencia->copy()->subDays($diasInactividad)->startOfDay();

@@ -36,14 +36,43 @@
         : asset('images/correos-bolivia-brand.svg');
     @endphp
 
-    <div class="app-shell">
-      <aside class="app-sidebar">
+    <div class="app-shell" x-data="{ sidebarOpen: false }">
+      {{-- Backdrop para pantallas móviles/tablets --}}
+      <div
+        x-cloak
+        x-show="sidebarOpen"
+        x-transition:enter="transition-opacity ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition-opacity ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        x-on:click="sidebarOpen = false"
+        class="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs lg:hidden"
+        aria-hidden="true"
+      ></div>
+
+      <aside
+        class="app-sidebar"
+        :class="{ 'app-sidebar-open': sidebarOpen }"
+        x-on:keydown.escape.window="sidebarOpen = false"
+      >
         <div class="app-sidebar-panel">
-          <div class="app-sidebar-brandmark">
-            <img src="{{ $menuLogo }}" alt="Correos de Bolivia" class="app-sidebar-brandmark-image">
+          <div class="flex items-center justify-between gap-3">
+            <div class="app-sidebar-brandmark flex-1">
+              <img src="{{ $menuLogo }}" alt="Correos de Bolivia" class="app-sidebar-brandmark-image">
+            </div>
+            <button
+              type="button"
+              x-on:click="sidebarOpen = false"
+              class="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-colors font-bold text-lg"
+              aria-label="Cerrar menú lateral"
+            >
+              ✕
+            </button>
           </div>
 
-          <nav class="app-sidebar-nav">
+          <nav class="app-sidebar-nav" x-on:click="if (window.innerWidth < 1024) sidebarOpen = false">
             @can('ver panel')
               <a wire:navigate href="{{ route('inicio') }}" class="app-sidebar-link {{ request()->routeIs('inicio') ? 'app-sidebar-link-active' : '' }}">
                 <span class="app-sidebar-link-icon">
@@ -59,8 +88,8 @@
               </a>
             @endcan
             @can('gestionar personal')
-              <div x-data="{ open: {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'true' : 'false' }} }">
-                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
+              <div x-data="{ open: {{ (request()->routeIs('personal-especial') || request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'true' : 'false' }} }">
+                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('personal-especial') || request()->routeIs('horarios') || request()->routeIs('fechas-especiales') || request()->routeIs('incidencias') || request()->routeIs('importar') || (request()->routeIs('personal') && in_array($personalVista, ['personal', 'inactivos'], true))) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
                   <span class="app-sidebar-link-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
                   </span>
@@ -69,6 +98,7 @@
                 </button>
                 <div x-cloak x-show="open" x-transition.opacity.duration.150ms class="app-sidebar-submenu">
                   <a wire:navigate href="{{ route('personal', ['vista' => 'personal']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'personal' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Personal registrado</a>
+                  <a wire:navigate href="{{ route('personal-especial') }}" class="app-sidebar-sublink {{ request()->routeIs('personal-especial') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Personal especial</a>
                   <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'inactivos' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Inactivos</a>
                   <a wire:navigate href="{{ route('horarios') }}" class="app-sidebar-sublink {{ request()->routeIs('horarios') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Horarios por sucursal</a>
                   <a wire:navigate href="{{ route('fechas-especiales') }}" class="app-sidebar-sublink {{ request()->routeIs('fechas-especiales') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Fechas especiales</a>
@@ -143,11 +173,66 @@
       </aside>
 
       <main class="app-main">
+        {{-- Barra superior móvil fija con botón hamburguesa animado --}}
+        <header class="lg:hidden sticky top-0 z-30 -mt-3 mb-4 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white/95 px-4 py-2.5 shadow-sm backdrop-blur">
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="hamburger-button"
+              :class="{ 'is-active': sidebarOpen }"
+              x-on:click="sidebarOpen = !sidebarOpen"
+              aria-label="Abrir o cerrar menú lateral"
+              :aria-expanded="sidebarOpen.toString()"
+            >
+              <span class="hamburger-line"></span>
+              <span class="hamburger-line"></span>
+              <span class="hamburger-line"></span>
+            </button>
+
+            <div class="flex items-center gap-2">
+              <img src="{{ $menuLogo }}" alt="Correos de Bolivia" class="h-8 w-auto max-h-8 object-contain rounded-lg bg-[#f7c931] p-1 shadow-2xs">
+              <div>
+                <span class="text-xs font-black uppercase tracking-wider text-slate-900 block leading-tight">RRHH</span>
+                <span class="text-[10px] text-slate-400 font-medium block leading-none">Correos de Bolivia</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            @if($authUser?->empleado_id)
+              <a
+                wire:navigate
+                href="{{ route('mis-horas') }}"
+                class="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+                title="Ver mis horas"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+              </a>
+            @endif
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100" title="Sesión activa: {{ $authUser?->name }}"></span>
+          </div>
+        </header>
+
         <div class="app-main-header">
           <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p class="app-main-kicker">Recursos Humanos</p>
-              <h2 class="app-main-title">{{ $title ?? 'Panel de recursos humanos' }}</h2>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="hamburger-button lg:hidden shrink-0"
+                :class="{ 'is-active': sidebarOpen }"
+                x-on:click="sidebarOpen = !sidebarOpen"
+                aria-label="Abrir o cerrar menú lateral"
+                :aria-expanded="sidebarOpen.toString()"
+              >
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+              </button>
+
+              <div>
+                <p class="app-main-kicker">Recursos Humanos</p>
+                <h2 class="app-main-title">{{ $title ?? 'Panel de recursos humanos' }}</h2>
+              </div>
             </div>
 
             <div

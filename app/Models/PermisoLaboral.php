@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PermisoLaboral extends Model
 {
@@ -35,6 +37,16 @@ class PermisoLaboral extends Model
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
+    }
+
+    public function comprobantes(): HasMany
+    {
+        return $this->hasMany(PermisoComprobante::class, 'permiso_laboral_id');
+    }
+
+    public function comprobantePrincipal(): HasOne
+    {
+        return $this->hasOne(PermisoComprobante::class, 'permiso_laboral_id')->latestOfMany();
     }
 
     public function getTipoLabelAttribute(): string

@@ -3,18 +3,24 @@
 namespace App\Livewire;
 
 use App\Models\Empleado;
+use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
 use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class IncidenciasPage extends Component
 {
     use WithPagination;
+    use WithFileUploads;
 
     public string $search = '';
     public string $tipoFiltro = '';
@@ -48,11 +54,27 @@ class IncidenciasPage extends Component
     public string $editMotivo = '';
     public string $editTipoPermiso = '';
 
+    // Modal para ver imagen del comprobante
+    public bool $showComprobanteModal = false;
+    public ?string $modalComprobanteUrl = null;
+    public ?string $modalComprobanteTitulo = null;
+    public ?string $modalComprobanteDetalle = null;
+
+    // Popup modal de confirmación para aprobar / rechazar
+    public bool $showConfirmModal = false;
+    public ?int $confirmandoIncidenciaId = null;
+    public ?string $confirmandoNuevoEstado = null;
+    public ?string $confirmandoEmpleadoNombre = null;
+    public ?string $confirmandoDetalle = null;
+
+    // Carga opcional de comprobante desde panel RRHH
+    public $comprobante = null;
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
-        $this->mesFiltro = now()->format('Y-m');
+        $this->mesFiltro = ''; // Por defecto muestra lo más reciente
         $this->fechaInicio = now()->toDateString();
         $this->fechaFin = now()->toDateString();
     }
@@ -276,9 +298,166 @@ class IncidenciasPage extends Component
         session()->flash('status', 'Incidencia eliminada correctamente.');
     }
 
+    public function verComprobante(int $incidenciaId): void
+    {
+        $incidencia = PermisoLaboral::query()
+            ->with(['empleado', 'comprobantePrincipal'])
+            ->findOrFail($incidenciaId);
+
+        $comprobante = $incidencia->comprobantePrincipal;
+        if (! $comprobante) {
+            $this->modalComprobanteUrl = null;
+            $this->modalComprobanteTitulo = 'Detalle de Justificación: ' . ($incidencia->empleado?->nombre_completo ?? 'Personal');
+            $this->modalComprobanteDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ' · ' . ($incidencia->motivo ?: 'Sin motivo redactado');
+            $this->showComprobanteModal = true;
+            return;
+        }
+
+        $this->modalComprobanteUrl = $comprobante->url;
+        $this->modalComprobanteTitulo = 'Comprobante de Justificación: ' . ($incidencia->empleado?->nombre_completo ?? 'Personal');
+        $this->modalComprobanteDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ' · ' . ($incidencia->motivo ?: 'Sin motivo');
+        $this->showComprobanteModal = true;
+    }
+
+    public function cerrarComprobanteModal(): void
+    {
+        $this->showComprobanteModal = false;
+        $this->modalComprobanteUrl = null;
+        $this->modalComprobanteTitulo = null;
+        $this->modalComprobanteDetalle = null;
+    }
+
+    public function abrirConfirmacion(int $incidenciaId, string $nuevoEstado): void
+    {
+        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($incidenciaId);
+
+        if (in_array($incidencia->estado, ['aprobado', 'rechazado'], true)) {
+            session()->flash('warning', 'Esta solicitud ya fue ' . $incidencia->estado . ' y no se puede volver a modificar.');
+            return;
+        }
+
+        $this->confirmandoIncidenciaId = $incidencia->id;
+        $this->confirmandoNuevoEstado = $nuevoEstado;
+        $this->confirmandoEmpleadoNombre = $incidencia->empleado?->nombre_completo ?? 'Personal';
+        $this->confirmandoDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ($incidencia->motivo ? ' · ' . $incidencia->motivo : '');
+        $this->showConfirmModal = true;
+    }
+
+    public function cancelarConfirmacion(): void
+    {
+        $this->showConfirmModal = false;
+        $this->confirmandoIncidenciaId = null;
+        $this->confirmandoNuevoEstado = null;
+        $this->confirmandoEmpleadoNombre = null;
+        $this->confirmandoDetalle = null;
+    }
+
+    public function confirmarAccion(): void
+    {
+        if (! $this->confirmandoIncidenciaId || ! $this->confirmandoNuevoEstado) {
+            $this->cancelarConfirmacion();
+            return;
+        }
+
+        $id = $this->confirmandoIncidenciaId;
+        $estado = $this->confirmandoNuevoEstado;
+        $this->cancelarConfirmacion();
+        $this->cambiarEstado($id, $estado);
+    }
+
+    public function cambiarEstado(int $incidenciaId, string $nuevoEstado): void
+    {
+        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($incidenciaId);
+
+        // Bloqueo estricto: una vez aprobado o rechazado, ya no se puede modificar
+        if (in_array($incidencia->estado, ['aprobado', 'rechazado'], true)) {
+            session()->flash('warning', 'Esta solicitud ya está ' . $incidencia->estado . ' y no se puede volver a modificar.');
+            return;
+        }
+
+        $antes = $this->snapshotIncidencia($incidencia);
+        $incidencia->update(['estado' => $nuevoEstado]);
+
+        app(AuditoriaService::class)->registrar(
+            'Incidencias',
+            'cambiar_estado',
+            "Se cambio el estado de la incidencia a {$nuevoEstado}.",
+            $incidencia,
+            $antes,
+            $this->snapshotIncidencia($incidencia)
+        );
+
+        session()->flash('status', 'Solicitud de ' . ($incidencia->empleado?->nombre_completo ?? 'personal') . ' marcada como ' . strtoupper($nuevoEstado) . ' exitosamente.');
+    }
+
+    public function descargarBoletaPdf(int $incidenciaId)
+    {
+        $incidencia = PermisoLaboral::query()
+            ->with(['empleado', 'comprobantePrincipal'])
+            ->findOrFail($incidenciaId);
+
+        $empleado = $incidencia->empleado;
+        $motivoCompleto = $incidencia->motivo ?: $incidencia->tipo_label;
+
+        // Determinar tipo de boleta (comision, particular, medico)
+        $tipoBoleta = 'particular';
+        $motivoLower = mb_strtolower($motivoCompleto);
+        if (str_contains($motivoLower, 'medico') || str_contains($motivoLower, 'médico')) {
+            $tipoBoleta = 'medico';
+        } elseif (str_contains($motivoLower, 'comision') || str_contains($motivoLower, 'comisión')) {
+            $tipoBoleta = 'comision';
+        }
+
+        $desdeFecha = $incidencia->fecha_inicio?->format('d/m/Y') ?? now()->format('d/m/Y');
+        $hastaFecha = $incidencia->fecha_fin?->format('d/m/Y') ?? $desdeFecha;
+        $desdeHora = $incidencia->hora_inicio ? substr($incidencia->hora_inicio, 0, 5) : '08:30';
+        $hastaHora = $incidencia->hora_fin ? substr($incidencia->hora_fin, 0, 5) : '16:30';
+
+        $minutos = (int) ($incidencia->minutos_contabilizados ?? 0);
+        if ($minutos > 0) {
+            $horas = intdiv($minutos, 60);
+            $mins = $minutos % 60;
+            $tiempoSolicitado = $horas > 0 ? "{$horas} H {$mins} MIN" : "{$mins} MIN";
+        } else {
+            $tiempoSolicitado = $incidencia->alcance_label;
+        }
+
+        $ciudad = !empty($empleado?->sucursal) ? mb_strtoupper($empleado->sucursal) : 'LA PAZ';
+        $fechaTexto = ($incidencia->fecha_inicio ?? now())->locale('es')->translatedFormat('d \de F \de Y');
+
+        $boleta = [
+            'nombre' => $empleado?->nombre_completo ?? 'PERSONAL',
+            'ci' => (string) ($empleado?->codigo_biometrico ?: $empleado?->id ?: 'S/D'),
+            'cargo' => (string) ($empleado?->cargo ?: 'PERSONAL'),
+            'motivo' => $motivoCompleto,
+            'tipo' => $tipoBoleta,
+            'desde_fecha' => $desdeFecha,
+            'desde_hora' => $desdeHora,
+            'hasta_fecha' => $hastaFecha,
+            'hasta_hora' => $hastaHora,
+            'tiempo_solicitado' => $tiempoSolicitado,
+            'ciudad' => $ciudad,
+            'fecha_texto' => $fechaTexto,
+            'lugar_fecha' => mb_strtoupper($ciudad) . ', ' . mb_strtoupper($fechaTexto),
+        ];
+
+        $pdf = Pdf::loadView('pdf.boleta-permiso', [
+            'boleta' => $boleta,
+        ])->setPaper('letter', 'portrait');
+
+        $fileName = 'Boleta_Oficial_' . Str::slug($boleta['nombre']) . '_' . ($incidencia->fecha_inicio?->format('Ymd') ?? now()->format('Ymd')) . '.pdf';
+
+        return response()->streamDownload(fn () => print($pdf->output()), $fileName, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
     public function render()
     {
-        $query = PermisoLaboral::query()->with('empleado');
+        // Optimización de velocidad: no cargar campos binarios pesados en el listado
+        $query = PermisoLaboral::query()->with([
+            'empleado:id,nombre,apellido,codigo_biometrico,sucursal',
+        ]);
 
         if (filled($this->search)) {
             $term = '%' . mb_strtolower($this->search) . '%';
@@ -298,8 +477,11 @@ class IncidenciasPage extends Component
                 ->whereDate('fecha_fin', '>=', $reference->copy()->startOfMonth()->toDateString());
         }
 
-        $incidencias = $query->orderByDesc('fecha_inicio')->paginate(10);
+        // Ordenar por lo más reciente por defecto
+        $incidencias = $query->latest('id')->paginate(10);
+
         $empleados = Empleado::query()
+            ->select(['id', 'nombre', 'apellido', 'codigo_biometrico', 'sucursal'])
             ->orderBy('nombre')
             ->orderBy('apellido')
             ->get();

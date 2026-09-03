@@ -14,6 +14,7 @@ use App\Livewire\ImportarExcelPage;
 use App\Livewire\MisHorasPage;
 use App\Livewire\PerfilHorasPage;
 use App\Livewire\PersonalPage;
+use App\Livewire\PersonalEspecialPage;
 use App\Livewire\ReportesPage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reportes', ReportesPage::class)->middleware('permission:ver reportes')->name('reportes');
     Route::get('/mis-horas', MisHorasPage::class)->name('mis-horas');
     Route::get('/personal', PersonalPage::class)->middleware('permission:gestionar personal')->name('personal');
+    Route::get('/personal-especial', PersonalEspecialPage::class)->middleware('permission:gestionar personal')->name('personal-especial');
     Route::get('/horarios', HorariosPage::class)->middleware('permission:gestionar personal')->name('horarios');
     Route::get('/fechas-especiales', FechasEspecialesPage::class)->middleware('permission:gestionar personal')->name('fechas-especiales');
     Route::get('/incidencias', IncidenciasPage::class)->middleware('permission:gestionar personal')->name('incidencias');

@@ -245,30 +245,6 @@ class ProgramacionLaboralService
             ? $horaToleranciaDiaria
             : $horaEntradaCarbon;
 
-        // 2. Si es día de tolerancia extendida (días 1 al 4 de cada mes)
-        if (! blank($fecha)) {
-            $carbon = $fecha instanceof Carbon ? $fecha->copy() : Carbon::parse($fecha);
-            $diasToleranciaExtendida = collect(config('asistencia.dias_tolerancia_extendida', []))
-                ->map(fn ($day) => (int) $day)
-                ->filter(fn (int $day) => $day > 0 && $day <= 31)
-                ->all();
-
-            if (in_array($carbon->day, $diasToleranciaExtendida, true)) {
-                $horaExtendida = config('asistencia.hora_entrada_tolerancia_extendida', '09:00:00');
-                foreach (['H:i:s', 'H:i'] as $format) {
-                    try {
-                        $extendidaCarbon = Carbon::createFromFormat($format, $horaExtendida);
-                        if ($extendidaCarbon->greaterThan($horaFinal)) {
-                            $horaFinal = $extendidaCarbon;
-                        }
-                        break;
-                    } catch (\Exception $e) {
-                        continue;
-                    }
-                }
-            }
-        }
-
         return $horaFinal->format('H:i:s');
     }
 

@@ -1,4 +1,25 @@
 <div class="page-stack">
+  {{-- ALERTAS DE ESTADO Y ADVERTENCIA --}}
+  @if (session()->has('status'))
+    <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✓</span>
+        <span>{{ session('status') }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 hover:text-emerald-900 font-bold text-xs">✕</button>
+    </div>
+  @endif
+
+  @if (session()->has('warning'))
+    <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 shadow-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">⚠️</span>
+        <span>{{ session('warning') }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="text-amber-700 hover:text-amber-900 font-bold text-xs">✕</button>
+    </div>
+  @endif
+
   @if ($showDeleteModal)
     <div class="app-modal-backdrop" wire:click="closeDeleteModal">
       <div class="app-modal-card" x-on:click.stop>
@@ -285,6 +306,26 @@
               </select>
             </div>
           @endif
+          @php
+            $incidenciaEditActual = $editingIncidenciaId ? \App\Models\PermisoLaboral::with('comprobantePrincipal')->find($editingIncidenciaId) : null;
+          @endphp
+          @if ($incidenciaEditActual?->comprobantePrincipal)
+            <div class="md:col-span-2 p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg overflow-hidden border border-indigo-200 bg-white shrink-0">
+                  <img src="{{ $incidenciaEditActual->comprobantePrincipal->url }}" alt="Comprobante" class="w-full h-full object-cover">
+                </div>
+                <div>
+                  <p class="text-xs font-bold text-slate-800">{{ $incidenciaEditActual->comprobantePrincipal->nombre_original }}</p>
+                  <p class="text-[11px] text-indigo-700 font-semibold">Comprobante / respaldo fotográfico adjunto</p>
+                </div>
+              </div>
+              <button type="button" wire:click="verComprobante({{ $incidenciaEditActual->id }})" class="px-3 py-1.5 text-xs font-bold bg-white hover:bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer">
+                Ampliar foto
+              </button>
+            </div>
+          @endif
+
           <div class="md:col-span-2 app-modal-actions">
             <button type="submit" class="login-submit app-modal-submit">Guardar cambios</button>
           </div>
@@ -331,47 +372,154 @@
           <tr>
             <th>Personal</th>
             <th>Tipo</th>
-            <th>Alcance</th>
             <th>Periodo</th>
-            <th>Horas contabilizadas</th>
+            <th>Boleta Oficial</th>
             <th>Estado</th>
             <th>Detalle</th>
-            <th>Acciones</th>
+            <th class="text-center" style="min-width: 130px;">Acciones</th>
           </tr>
         </thead>
         <tbody>
           @forelse($incidencias as $item)
-            <tr>
-              <td>{{ $item->empleado?->nombre_completo ?? 'Sin personal' }}</td>
-              <td>{{ $item->tipo_label }}</td>
-              <td>{{ $item->alcance_label }}</td>
+            <tr wire:key="incidencia-row-{{ $item->id }}" class="hover:bg-indigo-50/30 transition-colors">
               <td>
-                {{ $item->fecha_inicio?->format('d/m/Y') ?? '--/--/----' }}
-                -
-                {{ $item->fecha_fin?->format('d/m/Y') ?? '--/--/----' }}
+                <strong class="font-bold text-slate-900 block">{{ $item->empleado?->nombre_completo ?? 'Sin personal' }}</strong>
+                <span class="text-[11px] text-slate-400 font-mono">CI: {{ $item->empleado?->codigo_biometrico ?? 'S/D' }} · {{ $item->empleado?->sucursal ?? 'Sin sucursal' }}</span>
+              </td>
+              <td>
+                <span class="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200/60">
+                  {{ $item->tipo_label }}
+                </span>
+              </td>
+              <td>
+                <div class="font-bold text-xs text-slate-800">
+                  {{ $item->fecha_inicio?->format('d/m/Y') ?? '--/--/----' }}
+                  @if($item->fecha_fin && $item->fecha_fin->ne($item->fecha_inicio))
+                    - {{ $item->fecha_fin->format('d/m/Y') }}
+                  @endif
+                </div>
                 @if($item->hora_inicio && $item->hora_fin)
-                  <div class="mt-1 text-xs text-slate-400">{{ substr($item->hora_inicio, 0, 5) }} -
-                    {{ substr($item->hora_fin, 0, 5) }}</div>
+                  <div class="mt-0.5 text-[11px] text-indigo-600 font-mono font-semibold">
+                    {{ substr($item->hora_inicio, 0, 5) }} - {{ substr($item->hora_fin, 0, 5) }}
+                  </div>
                 @endif
               </td>
+
+              {{-- Boleta Oficial PDF --}}
               <td>
-                {{ sprintf('%02d:%02d', intdiv((int) ($item->minutos_contabilizados ?? 0), 60), (int) ($item->minutos_contabilizados ?? 0) % 60) }}
+                <button
+                  type="button"
+                  wire:click="descargarBoletaPdf({{ $item->id }})"
+                  wire:loading.attr="disabled"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs shadow-2xs transition cursor-pointer"
+                  title="Descargar Boleta Oficial en PDF"
+                >
+                  <svg class="h-3.5 w-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  <span>PDF Boleta</span>
+                </button>
               </td>
-              <td>{{ ucfirst($item->estado) }}</td>
-              <td>{{ $item->motivo ?: 'Sin detalle adicional' }}</td>
+
+              {{-- Estado --}}
+              <td>
+                @if ($item->estado === 'aprobado')
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Aprobado</span>
+                  </span>
+                @elseif ($item->estado === 'rechazado')
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
+                    <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                    <span>Rechazado</span>
+                  </span>
+                @elseif ($item->estado === 'pendiente')
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>Pendiente</span>
+                  </span>
+                @else
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                    {{ ucfirst($item->estado) }}
+                  </span>
+                @endif
+              </td>
+
+              <td class="max-w-[200px] truncate text-xs text-slate-600" title="{{ $item->motivo }}">
+                {{ $item->motivo ?: 'Sin detalle adicional' }}
+              </td>
+
+              {{-- Acciones: 3 Íconos (Ojito, Check, Cruz) --}}
               <td class="table-actions-cell">
-                <div class="table-actions-group">
-                  <button type="button" wire:click="openEditModal({{ $item->id }})"
-                    class="table-action-button">Editar</button>
-                  <button type="button" wire:click="openDeleteModal({{ $item->id }})"
-                    class="table-action-button table-action-button-danger">Eliminar</button>
+                <div class="flex items-center justify-center gap-1.5">
+                  {{-- 1. Ojito (Solo Ver Comprobante) --}}
+                  <button
+                    type="button"
+                    wire:click="verComprobante({{ $item->id }})"
+                    class="h-8 w-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 flex items-center justify-center transition shadow-2xs cursor-pointer border border-indigo-200 hover:scale-105 active:scale-95"
+                    title="Ver comprobante fotográfico"
+                  >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+
+                  {{-- 2. Check (Aprobar) con Popup y Bloqueo --}}
+                  @if ($item->estado === 'pendiente')
+                    <button
+                      type="button"
+                      wire:click="abrirConfirmacion({{ $item->id }}, 'aprobado')"
+                      class="h-8 w-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer border border-emerald-200 flex items-center justify-center transition shadow-2xs hover:scale-105 active:scale-95"
+                      title="Aprobar solicitud de {{ $item->empleado?->nombre_completo ?? 'personal' }}"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </button>
+                  @else
+                    <button
+                      type="button"
+                      disabled
+                      class="h-8 w-8 rounded-lg {{ $item->estado === 'aprobado' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200' }} flex items-center justify-center cursor-not-allowed opacity-60 shadow-none"
+                      title="Esta solicitud ya fue {{ $item->estado }} y no se puede volver a modificar"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </button>
+                  @endif
+
+                  {{-- 3. Cruz (Rechazar) con Popup y Bloqueo --}}
+                  @if ($item->estado === 'pendiente')
+                    <button
+                      type="button"
+                      wire:click="abrirConfirmacion({{ $item->id }}, 'rechazado')"
+                      class="h-8 w-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer border border-rose-200 flex items-center justify-center transition shadow-2xs hover:scale-105 active:scale-95"
+                      title="Rechazar solicitud de {{ $item->empleado?->nombre_completo ?? 'personal' }}"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  @else
+                    <button
+                      type="button"
+                      disabled
+                      class="h-8 w-8 rounded-lg {{ $item->estado === 'rechazado' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200' }} flex items-center justify-center cursor-not-allowed opacity-60 shadow-none"
+                      title="Esta solicitud ya fue {{ $item->estado }} y no se puede volver a modificar"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  @endif
                 </div>
               </td>
             </tr>
           @empty
             <tr>
-              <td colspan="8" class="text-center text-slate-400">No hay incidencias registradas para el filtro actual.
-              </td>
+              <td colspan="7" class="text-center text-slate-400 py-6">No hay incidencias registradas para el filtro actual.</td>
             </tr>
           @endforelse
         </tbody>
@@ -399,4 +547,82 @@
       </div>
     @endif
   </section>
+
+  {{-- MODAL VISOR DE COMPROBANTE --}}
+  @if ($showComprobanteModal)
+    <div class="app-modal-backdrop" wire:click="cerrarComprobanteModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;">
+      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.25rem;max-width:54rem;width:100%;max-height:90vh;overflow-y:auto;padding:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding-bottom:.75rem;">
+          <div>
+            <h3 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0;">{{ $modalComprobanteTitulo }}</h3>
+            <p style="font-size:.78rem;color:#64748b;margin:.25rem 0 0 0;">{{ $modalComprobanteDetalle }}</p>
+          </div>
+          <button type="button" wire:click="cerrarComprobanteModal" style="background:transparent;border:none;color:#94a3b8;font-size:1.2rem;font-weight:bold;cursor:pointer;padding:.25rem .5rem;">✕</button>
+        </div>
+
+        <div style="margin-top:1rem;text-align:center;background:#f8fafc;border-radius:.75rem;padding:1rem;border:1px solid #e2e8f0;display:flex;justify-content:center;align-items:center;min-height:300px;">
+          @if ($modalComprobanteUrl)
+            <img src="{{ $modalComprobanteUrl }}" alt="Comprobante" style="max-width:100%;max-height:68vh;object-fit:contain;border-radius:.5rem;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+          @else
+            <div style="padding: 2.5rem 1rem; text-align: center; color: #64748b;">
+              <p style="font-size: 2.2rem; margin: 0 0 0.5rem 0;">📷</p>
+              <p style="font-size: 0.95rem; font-weight: 800; color: #334155; margin: 0;">Esta incidencia no cuenta con comprobante fotográfico adjunto.</p>
+              <p style="font-size: 0.78rem; color: #94a3b8; margin: 0.35rem 0 0 0;">(Solo las solicitudes enviadas con fotografía adjunta disponen de imagen en este visor).</p>
+            </div>
+          @endif
+        </div>
+
+        <div style="margin-top:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+          <span style="font-size:.75rem;color:#475569;font-weight:600;">🔒 Respaldo fotográfico almacenado en base de datos</span>
+          <button type="button" wire:click="cerrarComprobanteModal" class="login-submit !w-auto !py-2 !px-5" style="background:#334155;">Cerrar visor</button>
+        </div>
+      </div>
+    </div>
+  @endif
+
+  {{-- POPUP MODAL DE CONFIRMACIÓN PARA APROBAR / RECHAZAR --}}
+  @if ($showConfirmModal)
+    <div class="app-modal-backdrop" wire:click="cancelarConfirmacion" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(6px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:1.25rem;">
+      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.5rem;max-width:28rem;width:100%;padding:2rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);border:1px solid #e2e8f0;text-align:center;">
+        
+        @if ($confirmandoNuevoEstado === 'aprobado')
+          <div style="width:4.5rem;height:4.5rem;border-radius:50%;background:#ecfdf5;border:2px solid #a7f3d0;color:#059669;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem auto;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3 style="font-size:1.25rem;font-weight:900;color:#065f46;margin:0 0 .5rem 0;">¿Aprobar esta solicitud?</h3>
+        @else
+          <div style="width:4.5rem;height:4.5rem;border-radius:50%;background:#fff1f2;border:2px solid #fecdd3;color:#e11d48;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem auto;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <h3 style="font-size:1.25rem;font-weight:900;color:#9f1239;margin:0 0 .5rem 0;">¿Rechazar esta solicitud?</h3>
+        @endif
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem;margin:1.25rem 0;text-align:left;">
+          <p style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:800;margin:0 0 .25rem 0;">Funcionario</p>
+          <p style="font-size:.95rem;font-weight:800;color:#0f172a;margin:0 0 .6rem 0;">{{ $confirmandoEmpleadoNombre }}</p>
+          <p style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:800;margin:0 0 .25rem 0;">Detalle de la Solicitud</p>
+          <p style="font-size:.82rem;font-weight:600;color:#334155;margin:0;">{{ $confirmandoDetalle }}</p>
+        </div>
+
+        <p style="font-size:.78rem;color:#64748b;margin:0 0 1.5rem 0;line-height:1.45;">
+          ⚠️ <strong>Aviso importante:</strong> Una vez confirmada como <span style="font-weight:900;text-transform:uppercase;color:{{ $confirmandoNuevoEstado === 'aprobado' ? '#059669' : '#e11d48' }};">{{ $confirmandoNuevoEstado }}</span>, la decisión quedará registrada de forma definitiva y ya no se podrá modificar.
+        </p>
+
+        <div style="display:flex;gap:.75rem;justify-content:center;">
+          <button type="button" wire:click="cancelarConfirmacion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-weight:700;font-size:.85rem;cursor:pointer;">
+            Cancelar
+          </button>
+          @if ($confirmandoNuevoEstado === 'aprobado')
+            <button type="button" wire:click="confirmarAccion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:none;background:#059669;color:#fff;font-weight:800;font-size:.85rem;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.35);">
+              ✓ Sí, Aprobar
+            </button>
+          @else
+            <button type="button" wire:click="confirmarAccion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:none;background:#e11d48;color:#fff;font-weight:800;font-size:.85rem;cursor:pointer;box-shadow:0 4px 12px rgba(225,29,72,0.35);">
+              ✕ Sí, Rechazar
+            </button>
+          @endif
+        </div>
+      </div>
+    </div>
+  @endif
 </div>

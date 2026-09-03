@@ -619,6 +619,37 @@
   .ph-root { background: #fff; }
   .ph-table-card, .ph-emp-card, .ph-delay-panel, .ph-kpi { box-shadow: none; border: 1px solid #e5e7eb; }
 }
+
+/* DROPZONE COMPROBANTE */
+.ph-dropzone {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 230px !important;
+  background: #ffffff !important;
+  border: 2.5px dashed #6366f1 !important;
+  border-radius: 1.25rem !important;
+  padding: 2.5rem 1.5rem !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+.ph-dropzone:hover {
+  border-color: #4338ca !important;
+  background: #f8faff !important;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.16) !important;
+  transform: translateY(-2px) !important;
+}
+.ph-dropzone-active {
+  border-color: #3730a3 !important;
+  background: #eef2ff !important;
+  box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.3) !important;
+  transform: scale(1.02) !important;
+}
 </style>
 
 <div class="ph-root">
@@ -629,6 +660,10 @@
       Portal de Asistencia · Consulta por Carnet
     </div>
     <div style="display:flex;align-items:center;gap:.5rem;">
+      <button wire:click="abrirBoletaModal" type="button" class="ph-btn-primary" style="background:#0f67c0;color:#fff;font-weight:700;box-shadow:0 2px 4px rgba(15,103,192,0.25);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>📄 Generar Boleta</span>
+      </button>
       <a
         href="{{ route('consulta-carnet') }}"
         onclick="if(window.history.length>1){event.preventDefault();window.history.back();}"
@@ -645,6 +680,12 @@
   </div>
 
   <div class="ph-wrapper">
+
+    @if (session('status'))
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:.75rem 1.25rem;border-radius:.75rem;font-size:.82rem;font-weight:700;">
+        {{ session('status') }}
+      </div>
+    @endif
 
     {{-- ── HERO: EMPLEADO + BÚSQUEDA ──────────────────────────── --}}
     <div class="ph-hero">
@@ -666,13 +707,19 @@
           </div>
         </div>
         <div class="ph-emp-bottom">
-          <div>
-            <div class="ph-month-label">Mes de consulta</div>
-            <select id="shared-profile-month" wire:model.live="referenceMonth" class="ph-select">
-              @foreach($monthOptions as $option)
-                <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
-              @endforeach
-            </select>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div>
+              <div class="ph-month-label">Mes de consulta</div>
+              <select id="shared-profile-month" wire:model.live="referenceMonth" class="ph-select">
+                @foreach($monthOptions as $option)
+                  <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                @endforeach
+              </select>
+            </div>
+            <button wire:click="abrirBoletaModal" type="button" class="ph-btn-ghost" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;margin-top:.85rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Generar Boleta Oficial</span>
+            </button>
           </div>
           <div style="font-size:.78rem;color:#64748b;">
             <strong style="color:#0f172a;">{{ $filteredCount }}</strong> de <strong style="color:#0f172a;">{{ $totalRows }}</strong> registros mostrados
@@ -783,6 +830,7 @@
               <th class="center th-delay">⏱ RETRASO</th>
               <th class="center th-estado">ESTADO</th>
               <th>Biométrico</th>
+              <th class="center" style="width: 140px;">Acción Boleta</th>
             </tr>
           </thead>
           <tbody>
@@ -867,10 +915,34 @@
                   <div style="font-size:.77rem;font-weight:600;color:#334155;">{{ $row['estado_biometrico'] }}</div>
                   <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">{{ $row['evento_biometrico'] }}</div>
                 </td>
+
+                {{-- Acción Boleta / Justificación --}}
+                <td class="center" style="vertical-align:middle;padding:.5rem .75rem;">
+                  @if($esOmision || $filterState === 'omisiones')
+                    <button
+                      type="button"
+                      wire:click="abrirBoletaParaOmision('{{ $row['fecha'] }}', '{{ $row['entrada'] }}', '{{ $row['salida'] }}', '{{ $row['horario_programado'] ?? '' }}')"
+                      style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:linear-gradient(to right, #0f67c0, #4f46e5);color:#fff;font-size:.72rem;font-weight:800;border:none;box-shadow:0 2px 4px rgba(79,70,229,0.25);cursor:pointer;"
+                      title="Generar boleta de justificación para esta omisión (precarga fecha y hora)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                      <span>Justificar Omisión</span>
+                    </button>
+                  @else
+                    <button
+                      type="button"
+                      wire:click="abrirBoletaModal('{{ $row['fecha'] }}')"
+                      style="display:inline-flex;align-items:center;gap:.25rem;padding:.25rem .55rem;border-radius:.5rem;background:#f8fafc;color:#475569;border:1px solid #cbd5e1;font-size:.68rem;font-weight:700;cursor:pointer;"
+                      title="Pedir boleta o permiso para este día"
+                    >
+                      <span>+ Boleta</span>
+                    </button>
+                  @endif
+                </td>
               </tr>
             @empty
               <tr>
-                <td colspan="8" style="text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.82rem;">
+                <td colspan="9" style="text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.82rem;">
                   No hay registros que coincidan con los filtros seleccionados.
                 </td>
               </tr>
@@ -890,6 +962,7 @@
               </td>
               <td class="td-estado">—</td>
               <td>—</td>
+              <td>—</td>
             </tr>
           </tfoot>
           @endif
@@ -898,5 +971,249 @@
     </div>
 
   </div>{{-- .ph-wrapper --}}
+
+  {{-- MODAL DE GENERACIÓN DE BOLETA / PAPELETA EN PERFIL DE HORAS --}}
+  @if ($showBoletaModal)
+    <div class="app-modal-backdrop no-print" wire:click="cerrarBoletaModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;">
+      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.25rem;max-width:56rem;width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
+        
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            <div style="height:2.75rem;width:2.75rem;border-radius:.75rem;background:#eff6ff;color:#1e60c6;display:flex;align-items:center;justify-content:center;font-weight:900;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <p style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:0;">Agencia Boliviana de Correos</p>
+              <h2 style="font-size:1.2rem;font-weight:900;color:#0f172a;margin:0;letter-spacing:-.02em;">Papeleta de Comisión - Permiso Particular</h2>
+            </div>
+          </div>
+          <button type="button" wire:click="cerrarBoletaModal" style="color:#94a3b8;background:transparent;border:none;padding:.5rem;border-radius:.5rem;cursor:pointer;font-size:1.2rem;font-weight:bold;">
+            ✕
+          </button>
+        </div>
+
+        {{-- FORMULARIO --}}
+        <div style="margin-top:1.25rem;display:flex;flex-direction:column;gap:1.25rem;">
+
+          {{-- DATOS DEL FUNCIONARIO --}}
+          <div style="background:rgba(248,250,252,0.8);border-radius:.75rem;padding:1rem;border:1px solid rgba(226,232,240,0.8);">
+            <h3 style="font-size:.75rem;font-weight:900;text-transform:uppercase;color:#1e60c6;margin:0 0 .75rem 0;display:flex;align-items:center;gap:.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Datos del Funcionario
+            </h3>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:.85rem;">
+              <div style="grid-column: span 2;">
+                <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
+                  Nombre del Funcionario <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+                </label>
+                <input type="text" wire:model="boletaNombre" readonly style="width:100%;border-radius:.75rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#334155;cursor:not-allowed;">
+              </div>
+
+              <div>
+                <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
+                  C.I. / Carnet <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+                </label>
+                <input type="text" wire:model="boletaCi" readonly style="width:100%;border-radius:.75rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#334155;cursor:not-allowed;">
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">Cargo</label>
+                <input type="text" wire:model="boletaCargo" style="width:100%;border-radius:.75rem;border:1px solid #cbd5e1;background:#fff;padding:.5rem .75rem;font-size:.85rem;font-weight:600;color:#1e293b;">
+              </div>
+            </div>
+          </div>
+
+          {{-- MOTIVO Y TIPO --}}
+          <div style="background:rgba(248,250,252,0.8);border-radius:.75rem;padding:1rem;border:1px solid rgba(226,232,240,0.8);display:flex;flex-direction:column;gap:.85rem;">
+            <h3 style="font-size:.75rem;font-weight:900;text-transform:uppercase;color:#1e60c6;margin:0;display:flex;align-items:center;gap:.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              Detalle de la Solicitud
+            </h3>
+
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">Motivo / Justificación * (Editable)</label>
+              <input type="text" wire:model.live.debounce.300ms="boletaMotivo" placeholder="Ej: Justificación de omisión de entrada / salida" style="width:100%;border-radius:.75rem;border:1px solid #cbd5e1;background:#fff;padding:.5rem .75rem;font-size:.85rem;font-weight:600;color:#1e293b;">
+              @error('boletaMotivo') <p style="font-size:.75rem;color:#e11d48;font-weight:700;margin:.25rem 0 0 0;">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.5rem;">Tipo de Permiso *</label>
+              <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;">
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
+                  <input type="radio" wire:model.live="boletaTipo" value="particular">
+                  <span>PARTICULAR</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'comision' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'comision' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'comision' ? '#1e60c6' : '#334155' }};">
+                  <input type="radio" wire:model.live="boletaTipo" value="comision">
+                  <span>COMISIÓN</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'medico' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'medico' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'medico' ? '#1e60c6' : '#334155' }};">
+                  <input type="radio" wire:model.live="boletaTipo" value="medico">
+                  <span>MÉDICO</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {{-- FECHAS Y HORARIOS (EDITABLES) --}}
+          <div style="background:rgba(248,250,252,0.8);border-radius:.75rem;padding:1rem;border:1px solid rgba(226,232,240,0.8);display:flex;flex-direction:column;gap:.75rem;">
+            <h3 style="font-size:.75rem;font-weight:900;text-transform:uppercase;color:#1e60c6;margin:0;display:flex;align-items:center;gap:.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+              Fechas y Horarios (Totalmente Editables)
+            </h3>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Desde</span>
+                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha (DD/MM/AAAA)</label>
+                <input type="text" wire:model.live.debounce.300ms="boletaDesdeFecha" placeholder="DD/MM/AAAA" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
+                <input type="time" wire:model.live="boletaDesdeHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+              </div>
+
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hasta</span>
+                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha (DD/MM/AAAA)</label>
+                <input type="text" wire:model.live.debounce.300ms="boletaHastaFecha" placeholder="DD/MM/AAAA" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
+                <input type="time" wire:model.live="boletaHastaHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+              </div>
+
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">
+                    Tiempo Solicitado <span style="font-size:.65rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+                  </span>
+                  <input type="text" wire:model="boletaTiempoSolicitado" readonly style="width:100%;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;padding:.35rem .5rem;font-size:.8rem;font-weight:800;color:#4338ca;cursor:not-allowed;">
+                </div>
+                <p style="font-size:.68rem;color:#94a3b8;margin:.4rem 0 0 0;">Se calcula automáticamente con el horario ingresado.</p>
+              </div>
+            </div>
+          </div>
+
+          {{-- CIUDAD (SUCURSAL READONLY) Y FECHA EMISIÓN READONLY --}}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
+                Ciudad / Sucursal <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+              </label>
+              <input type="text" wire:model="boletaCiudad" readonly style="width:100%;border-radius:.75rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#334155;cursor:not-allowed;">
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
+                Fecha de Emisión <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+              </label>
+              <input type="text" wire:model="boletaFechaTexto" readonly style="width:100%;border-radius:.75rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#334155;cursor:not-allowed;">
+            </div>
+          </div>
+
+          {{-- SUBIDA OBLIGATORIA DE COMPROBANTE CON DRAG & DROP --}}
+          <div style="border-radius:1.25rem;border:1.5px solid #c7d2fe;background:#eff6ff;padding:1.25rem;box-shadow:0 2px 8px rgba(99,102,241,0.06);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+              <h3 style="font-size:.8rem;font-weight:900;text-transform:uppercase;color:#312e81;margin:0;display:flex;align-items:center;gap:.4rem;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Foto del Comprobante / Justificación
+                <span style="background:#ffe4e6;color:#be123c;font-size:.65rem;padding:.15rem .5rem;border-radius:.25rem;font-weight:800;border:1px solid #fecdd3;">OBLIGATORIO</span>
+              </h3>
+            </div>
+            <p style="font-size:.75rem;color:#475569;margin:0 0 1rem 0;line-height:1.4;">Sube la foto del certificado médico, boleta de atención o justificativo que respalde la omisión o permiso (JPG, PNG, WEBP, máx 5MB).</p>
+
+            @if ($comprobante)
+              <div style="display:flex;align-items:center;gap:1.25rem;background:#fff;padding:1rem;border-radius:1rem;border:1.5px solid #e0e7ff;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="width:5.5rem;height:5.5rem;border-radius:.75rem;overflow:hidden;background:#f8fafc;flex-shrink:0;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                  <img src="{{ $comprobante->temporaryUrl() }}" alt="Vista previa" style="width:100%;height:100%;object-fit:cover;">
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <p style="font-size:.85rem;font-weight:800;color:#1e293b;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $comprobante->getClientOriginalName() }}</p>
+                  <p style="font-size:.72rem;color:#64748b;margin:.25rem 0;">{{ number_format($comprobante->getSize() / 1024, 1) }} KB · Foto lista para adjuntar</p>
+                  <p style="font-size:.72rem;color:#047857;font-weight:700;margin:0 0 .5rem 0;">✓ Se guardará en la Base de Datos</p>
+                  <button type="button" wire:click="quitarComprobante" style="color:#e11d48;background:#fff1f2;border:1px solid #fecdd3;font-size:.75rem;font-weight:700;cursor:pointer;padding:.3rem .75rem;border-radius:.5rem;">✕ Cambiar foto</button>
+                </div>
+              </div>
+            @else
+              <div
+                x-data="{ isDropping: false }"
+                x-on:dragover.prevent="isDropping = true"
+                x-on:dragleave.prevent="isDropping = false"
+                x-on:drop.prevent="isDropping = false; if ($event.dataTransfer.files.length > 0) { @this.upload('comprobante', $event.dataTransfer.files[0]) }"
+                style="width:100%;"
+              >
+                <label 
+                  :class="isDropping ? 'ph-dropzone-active' : ''"
+                  class="ph-dropzone"
+                >
+                  <div style="width:4.25rem;height:4.25rem;border-radius:1rem;background:#eef2ff;border:1.5px solid #c7d2fe;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;pointer-events:none;box-shadow:0 2px 6px rgba(99,102,241,0.12);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </div>
+                  <span style="font-size:1rem;font-weight:800;color:#0f172a;pointer-events:none;margin-bottom:.35rem;">Arrastra y suelta aquí la foto del comprobante</span>
+                  <span style="font-size:.82rem;font-weight:700;color:#4f46e5;text-decoration:underline;pointer-events:none;margin-bottom:1.25rem;">o haz clic en cualquier parte de este espacio para buscar en tu dispositivo</span>
+                  <div style="display:flex;align-items:center;justify-content:center;gap:.6rem;flex-wrap:wrap;pointer-events:none;">
+                    <span style="font-size:.72rem;font-weight:700;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:.3rem .75rem;border-radius:.6rem;">Formatos: JPG, PNG, WEBP</span>
+                    <span style="font-size:.72rem;font-weight:700;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:.3rem .75rem;border-radius:.6rem;">Hasta 5 MB</span>
+                    <span style="font-size:.72rem;font-weight:700;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;padding:.3rem .75rem;border-radius:.6rem;">✓ Se guarda en Base de Datos</span>
+                  </div>
+                  <input type="file" wire:model="comprobante" accept="image/*" style="display:none;">
+                </label>
+              </div>
+            @endif
+
+            <div wire:loading wire:target="comprobante" style="font-size:.75rem;color:#4338ca;font-weight:700;margin-top:.4rem;">
+              ⏳ Subiendo comprobante...
+            </div>
+
+            @error('comprobante')
+              <p style="font-size:.75rem;color:#e11d48;font-weight:700;margin:.4rem 0 0 0;">{{ $message }}</p>
+            @enderror
+          </div>
+
+        </div>
+
+        @php
+          $requisitosCumplidos = filled(trim($boletaNombre))
+            && filled(trim($boletaCi))
+            && filled(trim($boletaMotivo))
+            && filled(trim($boletaTipo))
+            && filled(trim($boletaDesdeFecha))
+            && filled(trim($boletaDesdeHora))
+            && filled(trim($boletaHastaFecha))
+            && filled(trim($boletaHastaHora))
+            && filled(trim($boletaTiempoSolicitado))
+            && !empty($comprobante);
+        @endphp
+
+        {{-- BOTONES (SOLO APARECE CUANDO SE CUMPLEN TODOS LOS REQUISITOS) --}}
+        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+          <button type="button" wire:click="cerrarBoletaModal" style="padding:.5rem 1rem;font-size:.75rem;font-weight:700;color:#475569;background:#f1f5f9;border:none;border-radius:.75rem;cursor:pointer;">
+            Cancelar
+          </button>
+
+          @if ($requisitosCumplidos)
+            <button
+              type="button"
+              wire:click="descargarPdf"
+              wire:loading.attr="disabled"
+              style="display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.4rem;border-radius:.75rem;background:linear-gradient(135deg, #0f67c0, #4f46e5);color:#fff;font-weight:800;font-size:.8rem;border:none;box-shadow:0 4px 12px rgba(79,70,229,0.3);cursor:pointer;transition:all .2s ease;"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+              <span wire:loading.remove wire:target="descargarPdf">Enviar a RR.HH. y Descargar Boleta PDF</span>
+              <span wire:loading wire:target="descargarPdf">Generando documento oficial...</span>
+            </button>
+          @else
+            <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.75rem;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:.75rem;font-weight:700;">
+              <span>⚠️ Completa el motivo y sube la foto del comprobante para habilitar el envío</span>
+            </div>
+          @endif
+        </div>
+
+      </div>
+    </div>
+  @endif
+
 </div>{{-- .ph-root --}}
 </div>

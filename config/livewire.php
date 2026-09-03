@@ -8,7 +8,7 @@ return [
 
     'temporary_file_upload' => [
         'disk' => null,
-        'rules' => ['required', 'file', 'mimes:xls,xlsx,csv,txt', 'max:512000'],
+        'rules' => null,
         'directory' => null,
         'middleware' => null,
         'preview_mimes' => [

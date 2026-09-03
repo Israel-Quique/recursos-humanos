@@ -3,16 +3,23 @@
 namespace App\Livewire;
 
 use App\Models\Empleado;
+use App\Models\PermisoComprobante;
+use App\Models\PermisoLaboral;
+use App\Services\AuditoriaService;
 use App\Services\BoletaExcelService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ConsultaCarnetPage extends Component
 {
+    use WithFileUploads;
+
     public string $carnet = '';
 
     // Estado del modal de boleta
@@ -30,6 +37,9 @@ class ConsultaCarnetPage extends Component
     public string $boletaTiempoSolicitado = '30 MIN';
     public string $boletaCiudad = 'LA PAZ';
     public string $boletaFechaTexto = '';
+
+    // Archivo de comprobante (foto obligatoria)
+    public $comprobante = null;
 
     public function buscar(): void
     {
@@ -147,7 +157,23 @@ class ConsultaCarnetPage extends Component
         }
     }
 
-    public function payloadBoleta(): array
+    public function quitarComprobante(): void
+    {
+        $this->comprobante = null;
+        $this->resetValidation('comprobante');
+    }
+
+    private function parsearFechaCarbon(string $fecha): Carbon
+    {
+        $fecha = trim($fecha);
+        try {
+            return Carbon::createFromFormat('d/m/Y', $fecha);
+        } catch (\Throwable) {
+            return Carbon::parse($fecha);
+        }
+    }
+
+    public function payloadBoleta(bool $requiereComprobante = true): array
     {
         $this->validate([
             'boletaNombre' => ['required', 'string', 'max:150'],
@@ -162,11 +188,15 @@ class ConsultaCarnetPage extends Component
             'boletaTiempoSolicitado' => ['required', 'string', 'max:50'],
             'boletaCiudad' => ['required', 'string', 'max:60'],
             'boletaFechaTexto' => ['required', 'string', 'max:80'],
+            'comprobante' => $requiereComprobante ? ['required', 'image', 'max:5120'] : ['nullable'],
         ], [
             'boletaNombre.required' => 'Ingresa el nombre del funcionario.',
             'boletaCi.required' => 'Ingresa el carnet del funcionario.',
             'boletaMotivo.required' => 'Ingresa el motivo de la comisión o permiso.',
             'boletaTiempoSolicitado.required' => 'Indica el tiempo solicitado.',
+            'comprobante.required' => 'Es obligatorio subir una foto o comprobante que justifique el motivo de la boleta.',
+            'comprobante.image' => 'El comprobante debe ser un archivo de imagen válido (JPG, PNG o WEBP).',
+            'comprobante.max' => 'La imagen del comprobante no puede pesar más de 5MB.',
         ]);
 
         return [
@@ -189,12 +219,85 @@ class ConsultaCarnetPage extends Component
     public function descargarPdf()
     {
         $boleta = $this->payloadBoleta();
+        $empleado = Empleado::query()->findOrFail((int) $this->empleadoId);
 
+        $fechaInicio = $this->parsearFechaCarbon($this->boletaDesdeFecha)->toDateString();
+        $fechaFin = $this->parsearFechaCarbon($this->boletaHastaFecha)->toDateString();
+
+        $inicioCarbon = Carbon::parse($fechaInicio . ' ' . ($this->boletaDesdeHora ?: '00:00'));
+        $finCarbon = Carbon::parse($fechaFin . ' ' . ($this->boletaHastaHora ?: '23:59'));
+        $minutosContabilizados = max(0, $inicioCarbon->diffInMinutes($finCarbon));
+
+        $alcance = ($fechaInicio === $fechaFin && $this->boletaDesdeHora && $this->boletaHastaHora) ? 'horas' : 'dias';
+
+        // 1. Guardar la solicitud como PermisoLaboral en la base de datos
+        $permiso = PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'permiso',
+            'alcance' => $alcance,
+            'estado' => 'pendiente', // Pendiente de revisión por RRHH
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+            'hora_inicio' => filled($this->boletaDesdeHora) ? $this->boletaDesdeHora . ':00' : null,
+            'hora_fin' => filled($this->boletaHastaHora) ? $this->boletaHastaHora . ':00' : null,
+            'minutos_contabilizados' => $minutosContabilizados,
+            'motivo' => mb_strtoupper($this->boletaTipo) . ': ' . $this->boletaMotivo,
+            'created_by' => null, // Solicitado directamente por el empleado
+        ]);
+
+        // 2. Almacenar la foto del comprobante en disco seguro
+        $extension = $this->comprobante->getClientOriginalExtension() ?: 'jpg';
+        $nombreOriginal = $this->comprobante->getClientOriginalName();
+        $rutaArchivo = $this->comprobante->storeAs(
+            'comprobantes',
+            'comprobante_' . $permiso->id . '_' . time() . '.' . $extension,
+            'public'
+        );
+
+        $mimeType = $this->comprobante->getMimeType() ?: 'image/' . $extension;
+        $tamanoBytes = $this->comprobante->getSize();
+        $realPath = $this->comprobante->getRealPath();
+        $contenidoBinario = $realPath && file_exists($realPath) ? file_get_contents($realPath) : null;
+        $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
+
+        $comprobanteRegistro = PermisoComprobante::query()->create([
+            'permiso_laboral_id' => $permiso->id,
+            'ruta_archivo' => $rutaArchivo,
+            'archivo_binario' => null,
+            'archivo_base64' => $contenidoBase64,
+            'nombre_original' => $nombreOriginal,
+            'mime_type' => $mimeType,
+            'tamano_bytes' => $tamanoBytes,
+            'created_by' => null,
+        ]);
+
+        // 3. Registrar en Auditoría
+        app(AuditoriaService::class)->registrar(
+            'Incidencias',
+            'solicitar_boleta_empleado',
+            'El funcionario envió una solicitud de boleta con comprobante adjunto desde el portal.',
+            $permiso,
+            null,
+            [
+                'empleado_id' => $empleado->id,
+                'empleado' => $empleado->nombre_completo,
+                'ci' => $empleado->codigo_biometrico ?: $this->carnet,
+                'comprobante' => $comprobanteRegistro->nombre_original,
+                'ruta' => $rutaArchivo,
+            ]
+        );
+
+        // 4. Generar Boleta Oficial en PDF (1 sola boleta para impresión limpia)
         $pdf = Pdf::loadView('pdf.boleta-permiso', [
             'boleta' => $boleta,
         ])->setPaper('letter', 'portrait');
 
         $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.pdf';
+
+        // 6. Cerrar modal y limpiar
+        $this->showBoletaModal = false;
+        $this->comprobante = null;
+        session()->flash('status', 'Boleta y comprobante enviados correctamente a Recursos Humanos.');
 
         return response()->streamDownload(fn () => print($pdf->output()), $fileName, [
             'Content-Type' => 'application/pdf',
@@ -203,7 +306,7 @@ class ConsultaCarnetPage extends Component
 
     public function descargarExcel()
     {
-        $boleta = $this->payloadBoleta();
+        $boleta = $this->payloadBoleta(false);
 
         $excelService = app(BoletaExcelService::class);
         $spreadsheet = $excelService->generarSpreadsheet($boleta);
