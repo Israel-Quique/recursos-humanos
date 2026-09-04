@@ -46,6 +46,7 @@ class BoletaPermisoTest extends TestCase
             'codigo_biometrico' => '10909669',
             'area' => 'Sistemas',
             'cargo' => 'Encargado del Area de Sistemas',
+            'email' => 'marco.espinoza@correos.gob.bo',
             'sucursal' => 'La Paz',
             'hora_entrada_programada' => '08:30:00',
             'hora_salida_programada' => '16:30:00',

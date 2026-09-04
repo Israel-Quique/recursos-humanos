@@ -970,6 +970,7 @@ class AnalisisAsistenciaService
                     'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
                         . ' - ' .
                         ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+                    'email' => $empleado->email ?: null,
                 ],
                 'metrics' => [
                     ['label' => 'Dias con marcacion', 'value' => '0'],
@@ -1137,6 +1138,7 @@ class AnalisisAsistenciaService
                 'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
                     . ' - ' .
                     ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+                'email' => $empleado->email ?: null,
             ],
             'retraso_resumen' => [
                 'total_minutos' => $lateMinutes,

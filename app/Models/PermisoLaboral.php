@@ -22,6 +22,7 @@ class PermisoLaboral extends Model
         'hora_fin',
         'minutos_contabilizados',
         'motivo',
+        'motivo_rechazo',
         'created_by',
     ];
 

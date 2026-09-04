@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Mail\BoletaEstadoMailable;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
@@ -9,6 +10,8 @@ use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -66,6 +69,7 @@ class IncidenciasPage extends Component
     public ?string $confirmandoNuevoEstado = null;
     public ?string $confirmandoEmpleadoNombre = null;
     public ?string $confirmandoDetalle = null;
+    public string $motivoRechazo = '';
 
     // Carga opcional de comprobante desde panel RRHH
     public $comprobante = null;
@@ -340,6 +344,8 @@ class IncidenciasPage extends Component
         $this->confirmandoNuevoEstado = $nuevoEstado;
         $this->confirmandoEmpleadoNombre = $incidencia->empleado?->nombre_completo ?? 'Personal';
         $this->confirmandoDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ($incidencia->motivo ? ' · ' . $incidencia->motivo : '');
+        $this->motivoRechazo = '';
+        $this->resetValidation('motivoRechazo');
         $this->showConfirmModal = true;
     }
 
@@ -350,6 +356,8 @@ class IncidenciasPage extends Component
         $this->confirmandoNuevoEstado = null;
         $this->confirmandoEmpleadoNombre = null;
         $this->confirmandoDetalle = null;
+        $this->motivoRechazo = '';
+        $this->resetValidation('motivoRechazo');
     }
 
     public function confirmarAccion(): void
@@ -359,13 +367,25 @@ class IncidenciasPage extends Component
             return;
         }
 
+        if ($this->confirmandoNuevoEstado === 'rechazado') {
+            $this->validate([
+                'motivoRechazo' => ['required', 'string', 'min:3', 'max:500'],
+            ], [
+                'motivoRechazo.required' => 'Debes ingresar el motivo o justificación del rechazo para notificar al funcionario.',
+                'motivoRechazo.min' => 'El motivo del rechazo debe tener al menos 3 caracteres.',
+                'motivoRechazo.max' => 'El motivo del rechazo no puede exceder los 500 caracteres.',
+            ]);
+        }
+
         $id = $this->confirmandoIncidenciaId;
         $estado = $this->confirmandoNuevoEstado;
+        $motivo = trim($this->motivoRechazo);
+
         $this->cancelarConfirmacion();
-        $this->cambiarEstado($id, $estado);
+        $this->cambiarEstado($id, $estado, $motivo);
     }
 
-    public function cambiarEstado(int $incidenciaId, string $nuevoEstado): void
+    public function cambiarEstado(int $incidenciaId, string $nuevoEstado, ?string $motivoRechazo = null): void
     {
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($incidenciaId);
 
@@ -376,18 +396,46 @@ class IncidenciasPage extends Component
         }
 
         $antes = $this->snapshotIncidencia($incidencia);
-        $incidencia->update(['estado' => $nuevoEstado]);
+        
+        $updateData = ['estado' => $nuevoEstado];
+        if ($nuevoEstado === 'rechazado' && filled($motivoRechazo)) {
+            $updateData['motivo_rechazo'] = $motivoRechazo;
+        }
+
+        $incidencia->update($updateData);
 
         app(AuditoriaService::class)->registrar(
             'Incidencias',
             'cambiar_estado',
-            "Se cambio el estado de la incidencia a {$nuevoEstado}.",
+            "Se cambio el estado de la incidencia a {$nuevoEstado}" . (filled($motivoRechazo) ? ". Motivo rechazo: {$motivoRechazo}" : '.'),
             $incidencia,
             $antes,
             $this->snapshotIncidencia($incidencia)
         );
 
-        session()->flash('status', 'Solicitud de ' . ($incidencia->empleado?->nombre_completo ?? 'personal') . ' marcada como ' . strtoupper($nuevoEstado) . ' exitosamente.');
+        // Envío de correo electrónico de notificación al funcionario
+        $empleado = $incidencia->empleado;
+        $correoEnviado = false;
+
+        if ($empleado && filled($empleado->email)) {
+            try {
+                Mail::to($empleado->email)->send(
+                    new BoletaEstadoMailable($incidencia, $nuevoEstado, $motivoRechazo)
+                );
+                $correoEnviado = true;
+            } catch (\Throwable $e) {
+                Log::warning("No se pudo enviar correo de estado de boleta a {$empleado->email}: " . $e->getMessage());
+            }
+        }
+
+        $msg = 'Solicitud de ' . ($empleado?->nombre_completo ?? 'personal') . ' marcada como ' . strtoupper($nuevoEstado) . ' exitosamente.';
+        if ($correoEnviado) {
+            $msg .= " Se envió notificación por correo a: {$empleado->email}.";
+        } elseif ($empleado && blank($empleado->email)) {
+            $msg .= " (El funcionario no tiene correo registrado, por lo que no se envió correo).";
+        }
+
+        session()->flash('status', $msg);
     }
 
     public function descargarBoletaPdf(int $incidenciaId)
@@ -456,7 +504,7 @@ class IncidenciasPage extends Component
     {
         // Optimización de velocidad: no cargar campos binarios pesados en el listado
         $query = PermisoLaboral::query()->with([
-            'empleado:id,nombre,apellido,codigo_biometrico,sucursal',
+            'empleado:id,nombre,apellido,codigo_biometrico,sucursal,email',
         ]);
 
         if (filled($this->search)) {
@@ -773,6 +821,7 @@ class IncidenciasPage extends Component
             'hora_fin' => $incidencia->hora_fin,
             'minutos_contabilizados' => $incidencia->minutos_contabilizados,
             'motivo' => $incidencia->motivo,
+            'motivo_rechazo' => $incidencia->motivo_rechazo,
         ];
     }
 

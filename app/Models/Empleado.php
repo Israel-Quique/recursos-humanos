@@ -20,6 +20,7 @@ class Empleado extends Model
         'nombre',
         'apellido',
         'codigo_biometrico',
+        'email',
         'area',
         'sucursal',
         'es_especial',

@@ -5,30 +5,109 @@
       : null;
   @endphp
 
+  {{-- POPUP MODAL: SOLICITAR CORREO SI EL FUNCIONARIO NO TIENE UNO --}}
+  @if ($showPedirEmailModal)
+    <div class="app-modal-backdrop" wire:click="cerrarPedirEmailModal" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); z-index: 100000; position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+      <div class="app-modal-card !max-w-md !w-full !p-6 bg-white rounded-2xl shadow-2xl border border-slate-200" x-on:click.stop>
+        
+        <div class="text-center space-y-3">
+          <div class="mx-auto h-14 w-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs">
+            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect width="20" height="16" x="2" y="4" rx="2"/>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+          </div>
+          
+          <div>
+            <h3 class="text-lg font-black text-slate-900 tracking-tight">¿Dónde te llegará el estado de tu boleta?</h3>
+            <p class="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">
+              Estimado/a <span class="font-bold text-slate-800">{{ $boletaNombre }}</span>, detectamos que aún no tienes un correo registrado en el sistema.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5 space-y-4">
+          <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 text-xs font-medium text-blue-900 flex items-start gap-2.5">
+            <svg class="h-4 w-4 text-blue-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <span>Ingresa tu correo institucional o personal para recibir la respuesta (aprobación/rechazo) de Recursos Humanos.</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+              Correo Electrónico *
+            </label>
+            <input
+              type="email"
+              wire:model="boletaEmail"
+              wire:keydown.enter="confirmarEmailYDescargar"
+              placeholder="ejemplo@correos.gob.bo o correo@gmail.com"
+              autofocus
+              class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20 transition"
+            >
+            @error('boletaEmail') <p class="text-xs text-rose-600 font-bold mt-1.5">{{ $message }}</p> @enderror
+            <p class="text-[11px] text-slate-500 mt-1.5 font-medium flex items-center gap-1">
+              <svg class="h-3.5 w-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>Se guardará en tu ficha. Por seguridad, luego solo el administrador podrá modificarlo.</span>
+            </p>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              wire:click="cerrarPedirEmailModal"
+              class="px-4 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              wire:click="confirmarEmailYDescargar"
+              wire:loading.attr="disabled"
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0f67c0] to-indigo-600 hover:from-[#0d59a7] hover:to-indigo-700 text-white font-extrabold text-xs shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+            >
+              <span wire:loading.remove wire:target="confirmarEmailYDescargar">Guardar correo y Enviar boleta</span>
+              <span wire:loading wire:target="confirmarEmailYDescargar">Enviando boleta...</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  @endif
+
   {{-- MODAL DE GENERACIÓN DE BOLETA / PAPELETA --}}
   @if ($showBoletaModal)
     <div class="app-modal-backdrop" wire:click="cerrarBoletaModal" style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 9999;">
       <div class="app-modal-card !max-w-4xl !w-full !p-6 sm:!p-8 bg-white rounded-2xl shadow-2xl border border-slate-200" x-on:click.stop style="max-height: 90vh; overflow-y: auto;">
         
         <div class="flex items-start justify-between border-b border-slate-100 pb-4">
-          <div class="flex items-center gap-3">
-            <div class="h-11 w-11 rounded-xl bg-blue-50 text-[#1e60c6] flex items-center justify-center font-black">
-              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
-              </svg>
-            </div>
+          <div class="flex items-center gap-3.5">
+            @if ($loginLogo)
+              <img src="{{ $loginLogo }}" alt="Agencia Boliviana de Correos" class="h-11 w-auto object-contain max-w-[140px] drop-shadow-xs">
+            @else
+              <div class="h-11 w-11 rounded-xl bg-blue-50 text-[#1e60c6] flex items-center justify-center font-black">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </div>
+            @endif
             <div>
               <p class="text-xs font-black uppercase tracking-wider text-slate-500">Agencia Boliviana de Correos</p>
               <h2 class="text-xl font-black text-slate-900 tracking-tight">Papeleta de Comisión - Permiso Particular</h2>
             </div>
           </div>
-          <button type="button" wire:click="cerrarBoletaModal" class="text-slate-400 hover:text-slate-700 p-2 rounded-lg transition" aria-label="Cerrar modal">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <div class="flex items-center gap-3">
+            @if (file_exists(public_path('images/obrasPublicas.png')))
+              <img src="{{ asset('images/obrasPublicas.png') }}" alt="Ministerio de Obras Públicas" class="hidden sm:block h-10 w-auto object-contain opacity-90">
+            @endif
+            <button type="button" wire:click="cerrarBoletaModal" class="text-slate-400 hover:text-slate-700 p-2 rounded-lg transition hover:bg-slate-100" aria-label="Cerrar modal">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
 
         {{-- CUERPO FORMULARIO DE LA PAPELETA --}}
@@ -112,12 +191,18 @@
               <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
                 <span class="block text-[11px] font-black uppercase text-slate-500">Desde Fecha y Hora</span>
                 <div>
-                  <label class="text-[10px] font-bold text-slate-400">Fecha (DD/MM/AAAA)</label>
-                  <input type="text" wire:model.live.debounce.300ms="boletaDesdeFecha" placeholder="DD/MM/AAAA" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                  <label class="text-[10px] font-bold text-slate-400">Fecha</label>
+                  <input type="date" wire:model.live="boletaDesdeFecha" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20">
                 </div>
                 <div>
                   <label class="text-[10px] font-bold text-slate-400">Hora</label>
-                  <input type="time" wire:model.live="boletaDesdeHora" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                  @if ($this->esRangoDias)
+                    <div class="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                      <span>🔒 No requerida</span>
+                    </div>
+                  @else
+                    <input type="time" wire:model.live="boletaDesdeHora" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20">
+                  @endif
                 </div>
               </div>
 
@@ -125,12 +210,18 @@
               <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
                 <span class="block text-[11px] font-black uppercase text-slate-500">Hasta Fecha y Hora</span>
                 <div>
-                  <label class="text-[10px] font-bold text-slate-400">Fecha (DD/MM/AAAA)</label>
-                  <input type="text" wire:model.live.debounce.300ms="boletaHastaFecha" placeholder="DD/MM/AAAA" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                  <label class="text-[10px] font-bold text-slate-400">Fecha</label>
+                  <input type="date" wire:model.live="boletaHastaFecha" min="{{ $boletaDesdeFecha }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20">
                 </div>
                 <div>
                   <label class="text-[10px] font-bold text-slate-400">Hora</label>
-                  <input type="time" wire:model.live="boletaHastaHora" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                  @if ($this->esRangoDias)
+                    <div class="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                      <span>🔒 No requerida</span>
+                    </div>
+                  @else
+                    <input type="time" wire:model.live="boletaHastaHora" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20">
+                  @endif
                 </div>
               </div>
 
@@ -144,7 +235,14 @@
                   </label>
                   <input type="text" wire:model="boletaTiempoSolicitado" readonly class="w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-xs font-extrabold text-indigo-700 cursor-not-allowed select-none">
                 </div>
-                <p class="text-[10px] text-slate-400">Se calcula automáticamente con el horario ingresado.</p>
+                @if ($this->esRangoDias)
+                  <p class="text-[10px] font-bold text-indigo-600 flex items-center gap-1">
+                    <svg class="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                    <span>Rango de varios días (Jornada completa sin horas)</span>
+                  </p>
+                @else
+                  <p class="text-[10px] text-slate-400">Se calcula automáticamente con el horario ingresado.</p>
+                @endif
               </div>
             </div>
           </div>
@@ -265,9 +363,9 @@
             && filled(trim($boletaMotivo))
             && filled(trim($boletaTipo))
             && filled(trim($boletaDesdeFecha))
-            && filled(trim($boletaDesdeHora))
+            && ($this->esRangoDias || filled(trim($boletaDesdeHora)))
             && filled(trim($boletaHastaFecha))
-            && filled(trim($boletaHastaHora))
+            && ($this->esRangoDias || filled(trim($boletaHastaHora)))
             && filled(trim($boletaTiempoSolicitado))
             && !empty($comprobante);
         @endphp
@@ -342,7 +440,7 @@
                   </svg>
                 </span>
                 <input
-                  wire:model.live="carnet"
+                  wire:model.live.debounce.300ms="carnet"
                   id="carnet"
                   type="text"
                   class="form-input login-input"
@@ -353,6 +451,54 @@
               @error('carnet')
                 <p class="form-error form-error-dark">{{ $message }}</p>
               @enderror
+
+              {{-- DATOS INICIALES DEL FUNCIONARIO AL ESCRIBIR EL CARNET --}}
+              @if ($empleadoEncontrado)
+                <div class="mt-4 p-4 rounded-2xl bg-white/95 border border-slate-200 shadow-sm text-left space-y-3 animate-in fade-in">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="h-9 w-9 rounded-xl bg-blue-50 text-[#1e60c6] flex items-center justify-center font-black text-xs shrink-0 border border-blue-100">
+                        {{ strtoupper(substr($empleadoEncontrado->nombre_completo, 0, 2)) }}
+                      </div>
+                      <div class="min-w-0">
+                        <h4 class="text-xs font-black text-slate-900 truncate leading-tight">{{ $empleadoEncontrado->nombre_completo }}</h4>
+                        <p class="text-[11px] font-semibold text-slate-500">Carnet: {{ $empleadoEncontrado->codigo_biometrico }}</p>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shrink-0 {{ !empty($empleadoEncontrado->sucursal) ? 'bg-blue-50 text-blue-700 border border-blue-200/60' : 'bg-slate-100 text-slate-600' }}">
+                      {{ $empleadoEncontrado->sucursal ?: 'La Paz' }}
+                    </span>
+                  </div>
+
+                  <div class="space-y-2 text-xs">
+                    <div class="flex items-center justify-between text-slate-600">
+                      <span class="font-medium text-slate-500">Cargo / Función:</span>
+                      <span class="font-bold text-slate-800 text-right truncate ml-2">{{ $empleadoEncontrado->cargo ?: ($empleadoEncontrado->area ? 'Área de ' . $empleadoEncontrado->area : 'Personal') }}</span>
+                    </div>
+
+                    <div class="flex items-start justify-between pt-2 border-t border-slate-100 gap-2">
+                      <span class="font-medium text-slate-500 shrink-0">Correo de notificación:</span>
+                      <div class="text-right">
+                        @if (filled($empleadoEncontrado->email))
+                          <span class="font-black text-slate-900 break-all text-[12px]">{{ $empleadoEncontrado->email }}</span>
+                          <div class="mt-0.5">
+                            <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              ✓ Registrado (Solo editable por Administración)
+                            </span>
+                          </div>
+                        @else
+                          <span class="font-bold text-amber-700 text-[12px]">Sin correo registrado</span>
+                          <div class="mt-0.5">
+                            <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                              ⚠️ Pendiente (Se solicitará al generar boleta)
+                            </span>
+                          </div>
+                        @endif
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              @endif
 
               <div class="space-y-3 mt-4">
                 <button type="submit" class="login-submit !w-full justify-center">

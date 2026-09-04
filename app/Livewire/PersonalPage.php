@@ -80,6 +80,7 @@ class PersonalPage extends Component
     public string $nombre = '';
     public string $apellido = '';
     public string $codigoBiometrico = '';
+    public string $email = '';
     public string $area = '';
     public string $sucursal = '';
     public string $fechaNacimiento = '';
@@ -88,6 +89,7 @@ class PersonalPage extends Component
     public string $editNombre = '';
     public string $editApellido = '';
     public string $editCodigoBiometrico = '';
+    public string $editEmail = '';
     public string $editArea = '';
     public string $editSucursal = '';
     public string $editFechaNacimiento = '';
@@ -146,6 +148,7 @@ class PersonalPage extends Component
             'nombre' => ['required', 'string', 'max:120'],
             'apellido' => ['required', 'string', 'max:120'],
             'codigoBiometrico' => ['nullable', 'string', 'max:50', 'unique:empleados,codigo_biometrico'],
+            'email' => ['nullable', 'email', 'max:191', 'unique:empleados,email'],
             'area' => ['nullable', 'string', 'max:120'],
             'sucursal' => ['required', 'string', 'max:120'],
             'fechaNacimiento' => ['nullable', 'date'],
@@ -153,6 +156,8 @@ class PersonalPage extends Component
             'nombre.required' => 'Ingresa el nombre del personal.',
             'apellido.required' => 'Ingresa el apellido del personal.',
             'sucursal.required' => 'Ingresa la sucursal.',
+            'email.email' => 'Ingresa un correo electronico valido.',
+            'email.unique' => 'Ese correo ya esta asignado a otro personal.',
         ]);
 
         $horarioRegional = $this->programacionLaboral()->obtenerHorarioRegional($data['sucursal']);
@@ -161,6 +166,7 @@ class PersonalPage extends Component
             'nombre' => $data['nombre'],
             'apellido' => $data['apellido'],
             'codigo_biometrico' => $data['codigoBiometrico'] ?: null,
+            'email' => filled($data['email'] ?? null) ? strtolower(trim($data['email'])) : null,
             'area' => trim((string) ($data['area'] ?? '')),
             'sucursal' => $data['sucursal'],
             'fecha_nacimiento' => $data['fechaNacimiento'] ?: null,
@@ -180,7 +186,7 @@ class PersonalPage extends Component
             $this->snapshotEmpleado($empleado)
         );
 
-        $this->reset(['nombre', 'apellido', 'codigoBiometrico', 'area', 'sucursal', 'fechaNacimiento', 'fechaDespido']);
+        $this->reset(['nombre', 'apellido', 'codigoBiometrico', 'email', 'area', 'sucursal', 'fechaNacimiento', 'fechaDespido']);
         $this->resetPage();
         $this->showCreateModal = false;
 
@@ -195,6 +201,7 @@ class PersonalPage extends Component
         $this->editNombre = $empleado->nombre;
         $this->editApellido = $empleado->apellido;
         $this->editCodigoBiometrico = $empleado->codigo_biometrico ?: '';
+        $this->editEmail = $empleado->email ?: '';
         $this->editArea = $empleado->area;
         $this->editSucursal = $empleado->sucursal;
         $this->editFechaNacimiento = $empleado->fecha_nacimiento?->toDateString() ?? '';
@@ -206,6 +213,7 @@ class PersonalPage extends Component
         $this->showEditModal = false;
         $this->editingEmpleadoId = null;
         $this->resetValidation();
+        $this->reset(['editNombre', 'editApellido', 'editCodigoBiometrico', 'editEmail', 'editArea', 'editSucursal', 'editFechaNacimiento']);
     }
 
     public function openDetailModal(int $empleadoId): void
@@ -345,6 +353,7 @@ class PersonalPage extends Component
             'editNombre' => ['required', 'string', 'max:120'],
             'editApellido' => ['required', 'string', 'max:120'],
             'editCodigoBiometrico' => ['nullable', 'string', 'max:50', Rule::unique('empleados', 'codigo_biometrico')->ignore($this->editingEmpleadoId)],
+            'editEmail' => ['nullable', 'email', 'max:191', Rule::unique('empleados', 'email')->ignore($this->editingEmpleadoId)],
             'editArea' => ['nullable', 'string', 'max:120'],
             'editSucursal' => ['required', 'string', 'max:120'],
             'editFechaNacimiento' => ['nullable', 'date'],
@@ -352,6 +361,8 @@ class PersonalPage extends Component
             'editNombre.required' => 'Ingresa el nombre del personal.',
             'editApellido.required' => 'Ingresa el apellido del personal.',
             'editSucursal.required' => 'Ingresa la sucursal.',
+            'editEmail.email' => 'Ingresa un correo electronico valido.',
+            'editEmail.unique' => 'Ese correo ya esta asignado a otro personal.',
         ]);
 
         $empleado = Empleado::query()->findOrFail($this->editingEmpleadoId);
@@ -361,6 +372,7 @@ class PersonalPage extends Component
             'nombre' => $this->editNombre,
             'apellido' => $this->editApellido,
             'codigo_biometrico' => $this->editCodigoBiometrico ?: null,
+            'email' => filled($this->editEmail) ? strtolower(trim($this->editEmail)) : null,
             'area' => trim($this->editArea),
             'sucursal' => $this->editSucursal,
             'fecha_nacimiento' => $this->editFechaNacimiento ?: null,
@@ -964,6 +976,7 @@ class PersonalPage extends Component
         $listaControl = $controlQuery->get()
             ->filter(fn (Empleado $e) => ! $e->trashed())
             ->filter(fn (Empleado $e) => $e->fecha_despido === null || $e->fecha_despido > now()->toDateString())
+            ->filter(fn (Empleado $e) => $e->estaActivoLaboralmente(now()))
             ->values();
 
         $listaControl->transform(function (Empleado $empleado) use ($registrosPorNombre, $targetMonth) {
@@ -1140,12 +1153,10 @@ class PersonalPage extends Component
                 ->distinct()->orderBy('sucursal')->pluck('sucursal'));
 
             $resumenSucursalesConteo = Empleado::query()
+                ->withUltimaMarcacion()
                 ->whereNotNull('sucursal')->where('sucursal', '!=', '')
-                ->where(function ($q) {
-                    $q->whereNull('fecha_despido')->orWhere('fecha_despido', '>', now()->toDateString());
-                })
-                ->select('sucursal')
                 ->get()
+                ->filter(fn (Empleado $e) => $e->estaActivoLaboralmente(now()))
                 ->groupBy(fn ($e) => SucursalNormalizer::normalize($e->sucursal))
                 ->map(fn ($group) => $group->count())
                 ->all();
@@ -1207,6 +1218,7 @@ class PersonalPage extends Component
             $listaControl = $controlQuery->get()
                 ->filter(fn (Empleado $e) => ! $e->trashed())
                 ->filter(fn (Empleado $e) => $e->fecha_despido === null || $e->fecha_despido > now()->toDateString())
+                ->filter(fn (Empleado $e) => $e->estaActivoLaboralmente(now()))
                 ->values();
 
             $listaControl->transform(function (Empleado $empleado) use ($registrosPorNombre, $targetMonth) {
@@ -1254,7 +1266,8 @@ class PersonalPage extends Component
             $empleadosBaseQuery->where(function ($query) use ($searchOperator) {
                 $query->where('codigo_biometrico', $searchOperator, "%{$this->search}%")
                     ->orWhere('nombre', $searchOperator, "%{$this->search}%")
-                    ->orWhere('apellido', $searchOperator, "%{$this->search}%");
+                    ->orWhere('apellido', $searchOperator, "%{$this->search}%")
+                    ->orWhere('email', $searchOperator, "%{$this->search}%");
             });
         }
 
@@ -1626,6 +1639,7 @@ class PersonalPage extends Component
         return [
             'nombre_completo' => $empleado->nombre_completo,
             'codigo_biometrico' => $empleado->codigo_biometrico ?: 'Sin asignar',
+            'email' => $empleado->email ?: 'Sin correo asignado',
             'estado_laboral' => $empleado->estado_laboral ?? $empleado->estadoLaboral(now()),
             'ultima_marcacion' => $empleado->ultima_marcacion_label ?? ($empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones'),
             'area' => $empleado->area ?: 'Sin area',
@@ -2099,6 +2113,7 @@ class PersonalPage extends Component
             'nombre' => $empleado->nombre,
             'apellido' => $empleado->apellido,
             'codigo_biometrico' => $empleado->codigo_biometrico,
+            'email' => $empleado->email,
             'area' => $empleado->area,
             'sucursal' => $empleado->sucursal,
             'fecha_nacimiento' => $empleado->fecha_nacimiento?->toDateString(),

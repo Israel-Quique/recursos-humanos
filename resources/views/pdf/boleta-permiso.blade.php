@@ -177,11 +177,13 @@
       <tr>
         <td class="header-logo" style="width: 170px; text-align: left; vertical-align: middle;">
           @php
-            $hasGd = extension_loaded('gd');
-            $logoObras = public_path('images/obrasPublicas.png');
+            $logoObrasPath = public_path('images/obrasPublicas.png');
+            $logoObrasBase64 = file_exists($logoObrasPath)
+              ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoObrasPath))
+              : null;
           @endphp
-          @if ($hasGd && file_exists($logoObras))
-            <img src="{{ $logoObras }}" style="max-width: 160px; max-height: 75px; object-fit: contain;" alt="Ministerio de Obras Públicas">
+          @if ($logoObrasBase64)
+            <img src="{{ $logoObrasBase64 }}" height="56" style="height: 56px; width: auto; max-width: 160px;" alt="Ministerio de Obras Públicas">
           @else
             <div style="font-size: 8.5pt; font-weight: bold; color: #334155; line-height: 1.15;">
               ESTADO PLURINACIONAL<br>DE BOLIVIA
@@ -196,10 +198,13 @@
         </td>
         <td class="header-logo" style="width: 170px; text-align: right; vertical-align: middle;">
           @php
-            $logoCorreos = public_path('images/menu-logo.png');
+            $logoCorreosPath = public_path('images/menu-logo.png');
+            $logoCorreosBase64 = file_exists($logoCorreosPath)
+              ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoCorreosPath))
+              : null;
           @endphp
-          @if ($hasGd && file_exists($logoCorreos))
-            <img src="{{ $logoCorreos }}" style="max-width: 140px; max-height: 70px; object-fit: contain;" alt="Correos de Bolivia">
+          @if ($logoCorreosBase64)
+            <img src="{{ $logoCorreosBase64 }}" height="52" style="height: 52px; width: auto; max-width: 160px;" alt="Correos de Bolivia">
           @else
             <strong style="font-size: 15pt; color: #1e60c6;">CORREOS</strong>
           @endif

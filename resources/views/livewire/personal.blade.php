@@ -76,6 +76,11 @@
             @error('codigoBiometrico') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
+            <label class="form-label">Correo electronico</label>
+            <input type="email" wire:model="email" class="form-input" placeholder="Ej. nombre.apellido@correos.gob.bo">
+            @error('email') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
             <label class="form-label">Area</label>
             <input type="text" wire:model="area" class="form-input" placeholder="Opcional">
             @error('area') <p class="form-error">{{ $message }}</p> @enderror
@@ -125,6 +130,11 @@
             <label class="form-label">Codigo biometrico</label>
             <input type="text" wire:model="editCodigoBiometrico" class="form-input" placeholder="Ej. 1045">
             @error('editCodigoBiometrico') <p class="form-error">{{ $message }}</p> @enderror
+          </div>
+          <div>
+            <label class="form-label">Correo electronico</label>
+            <input type="email" wire:model="editEmail" class="form-input" placeholder="Ej. nombre.apellido@correos.gob.bo">
+            @error('editEmail') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
             <label class="form-label">Area</label>
@@ -254,6 +264,10 @@
             </div>
 
             <div class="mt-8 grid gap-4 md:grid-cols-2">
+              <div class="detail-info-card md:col-span-2">
+                <p class="metric-label">Correo institucional</p>
+                <p class="detail-info-value font-mono text-sm text-[#0f67c0]">{{ $detailEmpleado['email'] ?? 'Sin correo asignado' }}</p>
+              </div>
               <div class="detail-info-card">
                 <p class="metric-label">Area</p>
                 <p class="detail-info-value">{{ $detailEmpleado['area'] ?? 'Sin area' }}</p>
@@ -1176,7 +1190,15 @@
           <tbody>
             @forelse ($empleados as $empleado)
               <tr>
-                <td>{{ $empleado->nombre_completo }}</td>
+                <td>
+                  <div class="font-bold text-slate-900">{{ $empleado->nombre_completo }}</div>
+                  @if($empleado->email)
+                    <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title="Correo institucional">
+                      <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                      <span>{{ $empleado->email }}</span>
+                    </div>
+                  @endif
+                </td>
                 <td>{{ $empleado->sucursal }}</td>
                 <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>
                 <td>
@@ -1304,7 +1326,15 @@
           <tbody>
             @forelse ($empleados as $empleado)
               <tr>
-                <td>{{ $empleado->nombre_completo }}</td>
+                <td>
+                  <div class="font-bold text-slate-900">{{ $empleado->nombre_completo }}</div>
+                  @if($empleado->email)
+                    <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title="Correo institucional">
+                      <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                      <span>{{ $empleado->email }}</span>
+                    </div>
+                  @endif
+                </td>
                 <td>{{ $empleado->sucursal }}</td>
                 <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>
                 <td>
@@ -2442,7 +2472,9 @@
                       </div>
                       <div class="min-w-0">
                         <p class="font-bold text-slate-900 truncate max-w-[200px]">{{ $empleado->nombre_completo }}</p>
-                        <p class="text-[11px] text-slate-400 font-mono mt-0.5">Cód: {{ $codigo }}</p>
+                        <p class="text-[11px] text-slate-400 font-mono mt-0.5 truncate max-w-[240px]" title="Cód: {{ $codigo }}@if($empleado->email) | {{ $empleado->email }}@endif">
+                          Cód: {{ $codigo }}@if($empleado->email)<span class="text-slate-300 mx-1">•</span><span class="text-slate-500">{{ $empleado->email }}</span>@endif
+                        </p>
                       </div>
                     </div>
                   </td>

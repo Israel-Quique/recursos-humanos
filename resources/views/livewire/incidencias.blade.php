@@ -604,6 +604,32 @@
           <p style="font-size:.82rem;font-weight:600;color:#334155;margin:0;">{{ $confirmandoDetalle }}</p>
         </div>
 
+        @if ($confirmandoNuevoEstado === 'rechazado')
+          <div style="text-align:left;margin-bottom:1.25rem;">
+            <label style="display:block;font-size:.75rem;font-weight:800;color:#9f1239;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em;">
+              Motivo o Justificación del Rechazo *
+            </label>
+            <textarea
+              wire:model="motivoRechazo"
+              rows="3"
+              placeholder="Indica el motivo por el cual se rechaza la solicitud (ej: Falta firma de jefatura, comprobante ilegible, fuera de plazo...)"
+              style="width:100%;border-radius:.75rem;border:1.5px solid #fecdd3;background:#fff1f2;padding:.6rem .75rem;font-size:.82rem;font-weight:600;color:#881337;box-sizing:border-box;resize:vertical;"
+            ></textarea>
+            @error('motivoRechazo')
+              <p style="font-size:.72rem;color:#e11d48;font-weight:800;margin:.3rem 0 0 0;">{{ $message }}</p>
+            @enderror
+            <p style="font-size:.68rem;color:#64748b;margin:.35rem 0 0 0;font-weight:500;">
+              ✉️ Este motivo se enviará automáticamente por correo electrónico al funcionario.
+            </p>
+          </div>
+        @else
+          <div style="text-align:left;background:#ecfdf5;border:1px solid #a7f3d0;padding:.6rem .85rem;border-radius:.75rem;margin-bottom:1.25rem;">
+            <p style="font-size:.75rem;color:#065f46;font-weight:700;margin:0;">
+              ✉️ Se enviará un correo electrónico de confirmación de aprobación al funcionario.
+            </p>
+          </div>
+        @endif
+
         <p style="font-size:.78rem;color:#64748b;margin:0 0 1.5rem 0;line-height:1.45;">
           ⚠️ <strong>Aviso importante:</strong> Una vez confirmada como <span style="font-weight:900;text-transform:uppercase;color:{{ $confirmandoNuevoEstado === 'aprobado' ? '#059669' : '#e11d48' }};">{{ $confirmandoNuevoEstado }}</span>, la decisión quedará registrada de forma definitiva y ya no se podrá modificar.
         </p>

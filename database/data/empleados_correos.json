@@ -1,0 +1,668 @@
+[
+    {
+        "id": 12,
+        "codigo_biometrico": "6888223",
+        "nombre": "LUCY TINTA",
+        "apellido": "TORREZ",
+        "nombre_completo": "LUCY TINTA TORREZ",
+        "email": "lucy.tinta@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 13,
+        "codigo_biometrico": "3499691",
+        "nombre": "ROGER",
+        "apellido": "GONZALES",
+        "nombre_completo": "ROGER GONZALES",
+        "email": "roger.gonzales@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 14,
+        "codigo_biometrico": "70",
+        "nombre": "ALISON BALCAZAR",
+        "apellido": "MITA",
+        "nombre_completo": "ALISON BALCAZAR MITA",
+        "email": "krupskaya.balcazar@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 15,
+        "codigo_biometrico": "6767306",
+        "nombre": "CLAUDIA ALDUNATE",
+        "apellido": "ROCHA",
+        "nombre_completo": "CLAUDIA ALDUNATE ROCHA",
+        "email": "claudia.aldunate@correos.gob.bo",
+        "sucursal": "Cochabamba"
+    },
+    {
+        "id": 18,
+        "codigo_biometrico": "6536120",
+        "nombre": "ismael jancko",
+        "apellido": "gutierres",
+        "nombre_completo": "ismael jancko gutierres",
+        "email": "ismael.jancko@correos.gob.bo",
+        "sucursal": "Cochabamba"
+    },
+    {
+        "id": 19,
+        "codigo_biometrico": "7920706",
+        "nombre": "Ana Rosa Siles",
+        "apellido": "Balderra",
+        "nombre_completo": "Ana Rosa Siles Balderra",
+        "email": "ana.siles@correos.gob.bo",
+        "sucursal": "Cochabamba"
+    },
+    {
+        "id": 21,
+        "codigo_biometrico": "9312012",
+        "nombre": "severo guzman",
+        "apellido": "escobar",
+        "nombre_completo": "severo guzman escobar",
+        "email": "severo.guzman@correos.gob.bo",
+        "sucursal": "Cochabamba"
+    },
+    {
+        "id": 22,
+        "codigo_biometrico": "6453601",
+        "nombre": "perez",
+        "apellido": "nery",
+        "nombre_completo": "perez nery",
+        "email": "nery.perez@correos.gob.bo",
+        "sucursal": "Cochabamba"
+    },
+    {
+        "id": 24,
+        "codigo_biometrico": "6600652",
+        "nombre": "LARRAZABAL FLORES",
+        "apellido": "GUNNAR",
+        "nombre_completo": "LARRAZABAL FLORES GUNNAR",
+        "email": "gunnar.larrazabal@correos.gob.bo",
+        "sucursal": "Potosi"
+    },
+    {
+        "id": 25,
+        "codigo_biometrico": "8413445",
+        "nombre": "ALVAREZ RUELAS GUIDO",
+        "apellido": "EDS",
+        "nombre_completo": "ALVAREZ RUELAS GUIDO EDS",
+        "email": "guido.alvarez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 26,
+        "codigo_biometrico": "9980093",
+        "nombre": "OLIVER DIEGO",
+        "apellido": "BUSTILLOS",
+        "nombre_completo": "OLIVER DIEGO BUSTILLOS",
+        "email": "oliver.bustillos@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 27,
+        "codigo_biometrico": "6862760",
+        "nombre": "HUGO MAMANI",
+        "apellido": "QUISPE",
+        "nombre_completo": "HUGO MAMANI QUISPE",
+        "email": "hugo.mamani@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 28,
+        "codigo_biometrico": "6561173",
+        "nombre": "guery n",
+        "apellido": "valdezzambrana",
+        "nombre_completo": "guery n valdezzambrana",
+        "email": "guery.valdez@correos.gob.bo",
+        "sucursal": "Potosi"
+    },
+    {
+        "id": 29,
+        "codigo_biometrico": "10403792",
+        "nombre": "guadalupe quispe",
+        "apellido": "mamani",
+        "nombre_completo": "guadalupe quispe mamani",
+        "email": "guadalupe.quispe@correos.gob.bo",
+        "sucursal": "Sucre"
+    },
+    {
+        "id": 30,
+        "codigo_biometrico": "2603302",
+        "nombre": "ABEL ROJAS",
+        "apellido": "PENALOZA",
+        "nombre_completo": "ABEL ROJAS PENALOZA",
+        "email": "abel.rojas@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 32,
+        "codigo_biometrico": "8343497",
+        "nombre": "BRIAM MAYDANA",
+        "apellido": "PERSONA",
+        "nombre_completo": "BRIAM MAYDANA PERSONA",
+        "email": "briam.maydana@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 33,
+        "codigo_biometrico": "4811056",
+        "nombre": "RUBEN MANRRIQUEZ",
+        "apellido": "CHOQUE",
+        "nombre_completo": "RUBEN MANRRIQUEZ CHOQUE",
+        "email": "ruben.manrriquez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 34,
+        "codigo_biometrico": "7513779",
+        "nombre": "emily sharkey",
+        "apellido": "palenque",
+        "nombre_completo": "emily sharkey palenque",
+        "email": "emily.sharkey@correos.gob.bo",
+        "sucursal": "Sucre"
+    },
+    {
+        "id": 35,
+        "codigo_biometrico": "8237795",
+        "nombre": "joeldaniel leiguez",
+        "apellido": "villa",
+        "nombre_completo": "joeldaniel leiguez villa",
+        "email": "joel.leiguez@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 36,
+        "codigo_biometrico": "9902384",
+        "nombre": "ANGELA TANTANI",
+        "apellido": "GARCIA",
+        "nombre_completo": "ANGELA TANTANI GARCIA",
+        "email": "angela.tantani@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 37,
+        "codigo_biometrico": "3441601",
+        "nombre": "CLAUDIA RIVEROS",
+        "apellido": "VERA",
+        "nombre_completo": "CLAUDIA RIVEROS VERA",
+        "email": "claudia.riveros@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 41,
+        "codigo_biometrico": "7281679",
+        "nombre": "wilson",
+        "apellido": "CONDORI",
+        "nombre_completo": "wilson CONDORI",
+        "email": "wilson.condori@correos.gob.bo",
+        "sucursal": "Oruro"
+    },
+    {
+        "id": 44,
+        "codigo_biometrico": "9110001",
+        "nombre": "JORGE ARTURO",
+        "apellido": "FERNANDEZ",
+        "nombre_completo": "JORGE ARTURO FERNANDEZ",
+        "email": "jorge.fernandez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 45,
+        "codigo_biometrico": "9493414",
+        "nombre": "SAUL",
+        "apellido": "SEOANE",
+        "nombre_completo": "SAUL SEOANE",
+        "email": "saul.seoane@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 46,
+        "codigo_biometrico": "6122699",
+        "nombre": "BLADIMIR BITRE",
+        "apellido": "QUISBERT",
+        "nombre_completo": "BLADIMIR BITRE QUISBERT",
+        "email": "bladimir.bitre@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 47,
+        "codigo_biometrico": "4850032",
+        "nombre": "EDGAR GIRONDA",
+        "apellido": "CHIRI",
+        "nombre_completo": "EDGAR GIRONDA CHIRI",
+        "email": "edgar.gironda@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 49,
+        "codigo_biometrico": "6167598",
+        "nombre": "JUAN PABLO",
+        "apellido": "VARGAS",
+        "nombre_completo": "JUAN PABLO VARGAS",
+        "email": "juan.vargas@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 50,
+        "codigo_biometrico": "4857842",
+        "nombre": "YADIRA VALDEZ",
+        "apellido": "MENDOZA",
+        "nombre_completo": "YADIRA VALDEZ MENDOZA",
+        "email": "yadira.valdez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 53,
+        "codigo_biometrico": "4832904",
+        "nombre": "BRYAN SINCA",
+        "apellido": "CONDORI",
+        "nombre_completo": "BRYAN SINCA CONDORI",
+        "email": "bryan.sinca@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 54,
+        "codigo_biometrico": "10955225",
+        "nombre": "EDSON LEONEL",
+        "apellido": "MARCA",
+        "nombre_completo": "EDSON LEONEL MARCA",
+        "email": "edson.marca@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 55,
+        "codigo_biometrico": "46",
+        "nombre": "moises quispe",
+        "apellido": "humerez",
+        "nombre_completo": "moises quispe humerez",
+        "email": "moises.quispe@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 57,
+        "codigo_biometrico": "5605288",
+        "nombre": "dietmar didier vasquez",
+        "apellido": "s",
+        "nombre_completo": "dietmar didier vasquez s",
+        "email": "dietmar.vasquez@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 58,
+        "codigo_biometrico": "6724255",
+        "nombre": "LOURDES NINA",
+        "apellido": "FORONDA",
+        "nombre_completo": "LOURDES NINA FORONDA",
+        "email": "lourdes.nina@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 59,
+        "codigo_biometrico": "6307371",
+        "nombre": "ENRIQUE RIOS",
+        "apellido": "MELGAR",
+        "nombre_completo": "ENRIQUE RIOS MELGAR",
+        "email": "enrique.rios@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 60,
+        "codigo_biometrico": "11397621",
+        "nombre": "jesus burgos",
+        "apellido": "pachuri",
+        "nombre_completo": "jesus burgos pachuri",
+        "email": "jesus.burgos@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 62,
+        "codigo_biometrico": "9623271",
+        "nombre": "omar parra",
+        "apellido": "grajeda",
+        "nombre_completo": "omar parra grajeda",
+        "email": "omar.pana@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 63,
+        "codigo_biometrico": "12570317",
+        "nombre": "roberto negrete",
+        "apellido": "rivera",
+        "nombre_completo": "roberto negrete rivera",
+        "email": "roberto.negrete@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 65,
+        "codigo_biometrico": "12474549",
+        "nombre": "JOSE",
+        "apellido": "BARRON",
+        "nombre_completo": "JOSE BARRON",
+        "email": "jose.barron@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 66,
+        "codigo_biometrico": "6878923",
+        "nombre": "ANAY CHAVARRIA DE LA",
+        "apellido": "CRU",
+        "nombre_completo": "ANAY CHAVARRIA DE LA CRU",
+        "email": "anay.chavarria@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 67,
+        "codigo_biometrico": "6856630",
+        "nombre": "ELSA MENDOZA",
+        "apellido": "ALIAGA",
+        "nombre_completo": "ELSA MENDOZA ALIAGA",
+        "email": "viviana.mendoza@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 68,
+        "codigo_biometrico": "3477079",
+        "nombre": "MEDINA VARGAS",
+        "apellido": "YAQUELINE",
+        "nombre_completo": "MEDINA VARGAS YAQUELINE",
+        "email": "yaqueline.medina@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 69,
+        "codigo_biometrico": "8426729",
+        "nombre": "LESLI CALLISAYA",
+        "apellido": "CHOQUE",
+        "nombre_completo": "LESLI CALLISAYA CHOQUE",
+        "email": "lesly.callisaya@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 70,
+        "codigo_biometrico": "6944783",
+        "nombre": "REYNALDO",
+        "apellido": "QUISBERT",
+        "nombre_completo": "REYNALDO QUISBERT",
+        "email": "reynaldo.quisbert@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 71,
+        "codigo_biometrico": "9865115",
+        "nombre": "JAVIER CONDORI",
+        "apellido": "MAMANI",
+        "nombre_completo": "JAVIER CONDORI MAMANI",
+        "email": "javier.condori@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 72,
+        "codigo_biometrico": "4478400",
+        "nombre": "WILGE CESPEDES",
+        "apellido": "SUAREZ",
+        "nombre_completo": "WILGE CESPEDES SUAREZ",
+        "email": "wilge.cespedes@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 73,
+        "codigo_biometrico": "4877453",
+        "nombre": "JHEIDY CHAVEZ",
+        "apellido": "G",
+        "nombre_completo": "JHEIDY CHAVEZ G",
+        "email": "jheidy.chavez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 74,
+        "codigo_biometrico": "9683880",
+        "nombre": "priscila gonzales",
+        "apellido": "sanche",
+        "nombre_completo": "priscila gonzales sanche",
+        "email": "priscila.gonzales@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 75,
+        "codigo_biometrico": "9165320",
+        "nombre": "JAZMIN VALENCIA",
+        "apellido": "CALLOAPA",
+        "nombre_completo": "JAZMIN VALENCIA CALLOAPA",
+        "email": "jazmin.valencia@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 76,
+        "codigo_biometrico": "9253243",
+        "nombre": "JHILKA LUNA",
+        "apellido": "VEGA",
+        "nombre_completo": "JHILKA LUNA VEGA",
+        "email": "jhilka.luna@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 79,
+        "codigo_biometrico": "6841118",
+        "nombre": "MAMANI APAZA",
+        "apellido": "WIKE",
+        "nombre_completo": "MAMANI APAZA WIKE",
+        "email": "wike.mamani@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 80,
+        "codigo_biometrico": "6872307",
+        "nombre": "NIEVES HELEN",
+        "apellido": "MAIDANA",
+        "nombre_completo": "NIEVES HELEN MAIDANA",
+        "email": "helen.maidana@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 81,
+        "codigo_biometrico": "9222736",
+        "nombre": "TATIANA JAEL INCA",
+        "apellido": "SOLDAD",
+        "nombre_completo": "TATIANA JAEL INCA SOLDAD",
+        "email": "tatiana.inca@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 82,
+        "codigo_biometrico": "9077141",
+        "nombre": "NANDA FLORES",
+        "apellido": "YUJRA",
+        "nombre_completo": "NANDA FLORES YUJRA",
+        "email": "nanda.flores@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 83,
+        "codigo_biometrico": "10909669",
+        "nombre": "Marco Antonio",
+        "apellido": "Espinoza",
+        "nombre_completo": "Marco Antonio Espinoza",
+        "email": "marco.espinoza@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 84,
+        "codigo_biometrico": "8328926",
+        "nombre": "GRACE",
+        "apellido": "ZUZUNAGA",
+        "nombre_completo": "GRACE ZUZUNAGA",
+        "email": "grace.zuzunaga@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 85,
+        "codigo_biometrico": "2681390",
+        "nombre": "MARTHA XIMENA LAURA",
+        "apellido": "SAEN",
+        "nombre_completo": "MARTHA XIMENA LAURA SAEN",
+        "email": "ximena.laura@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 87,
+        "codigo_biometrico": "4912081",
+        "nombre": "MIRTHA RAFAEL",
+        "apellido": "JUANIQUINQ",
+        "nombre_completo": "MIRTHA RAFAEL JUANIQUINQ",
+        "email": "mirtha.rafael@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 88,
+        "codigo_biometrico": "9903588",
+        "nombre": "GUTIERREZ B.",
+        "apellido": "ESTEFANY",
+        "nombre_completo": "GUTIERREZ B. ESTEFANY",
+        "email": "estefany.gutierrez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 89,
+        "codigo_biometrico": "2444368",
+        "nombre": "JACQUELINE",
+        "apellido": "VILLEGAS",
+        "nombre_completo": "JACQUELINE VILLEGAS",
+        "email": "jacqueline.villegas@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 91,
+        "codigo_biometrico": "9996456",
+        "nombre": "EYNAR QUISPE",
+        "apellido": "CRISPIN",
+        "nombre_completo": "EYNAR QUISPE CRISPIN",
+        "email": "eynar.quispe@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 92,
+        "codigo_biometrico": "9883740",
+        "nombre": "VILLA SANJINES",
+        "apellido": "RODRIGO",
+        "nombre_completo": "VILLA SANJINES RODRIGO",
+        "email": "rodrigo.villa@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 93,
+        "codigo_biometrico": "63",
+        "nombre": "cinthya apaza",
+        "apellido": "fernandez",
+        "nombre_completo": "cinthya apaza fernandez",
+        "email": "cinthya.apaza@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 96,
+        "codigo_biometrico": "3454823",
+        "nombre": "MARIA E ROCHA",
+        "apellido": "LAGOS",
+        "nombre_completo": "MARIA E ROCHA LAGOS",
+        "email": "maria.rocha@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 97,
+        "codigo_biometrico": "3346267",
+        "nombre": "RENE",
+        "apellido": "TEJERINA",
+        "nombre_completo": "RENE TEJERINA",
+        "email": "rene.tejerina@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 101,
+        "codigo_biometrico": "9878461",
+        "nombre": "QUENALLATA TINDAL",
+        "apellido": "JUAN",
+        "nombre_completo": "QUENALLATA TINDAL JUAN",
+        "email": "juan.quenallata@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 105,
+        "codigo_biometrico": "4329942",
+        "nombre": "MARIO CHAVEZ",
+        "apellido": "DUCHEN",
+        "nombre_completo": "MARIO CHAVEZ DUCHEN",
+        "email": "mario.chavez@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 106,
+        "codigo_biometrico": "9698900",
+        "nombre": "daniela paz",
+        "apellido": "ortiz",
+        "nombre_completo": "daniela paz ortiz",
+        "email": "daniela.paz@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 107,
+        "codigo_biometrico": "6727073",
+        "nombre": "LEONARDO DORIA",
+        "apellido": "MEDINA",
+        "nombre_completo": "LEONARDO DORIA MEDINA",
+        "email": "leonardo.doriamedina@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 108,
+        "codigo_biometrico": "5033986",
+        "nombre": "PATRICK PENALOZA",
+        "apellido": "MARTINE",
+        "nombre_completo": "PATRICK PENALOZA MARTINE",
+        "email": "patrick.penaloza@correos.gob.bo",
+        "sucursal": "SantaCruz"
+    },
+    {
+        "id": 111,
+        "codigo_biometrico": "2661847",
+        "nombre": "MIRANDA VELASCO",
+        "apellido": "BORIS",
+        "nombre_completo": "MIRANDA VELASCO BORIS",
+        "email": "boris.miranda@correos.gob.bo",
+        "sucursal": "LaPaz"
+    },
+    {
+        "id": 112,
+        "codigo_biometrico": "9066508",
+        "nombre": "YURGUEN",
+        "apellido": "TERRAZAS",
+        "nombre_completo": "YURGUEN TERRAZAS",
+        "email": "yurgen.terrazas@correos.gob.bo",
+        "sucursal": "La Paz"
+    },
+    {
+        "id": 113,
+        "codigo_biometrico": "6723375",
+        "nombre": "WILMA",
+        "apellido": "GABRIELA ARANIBAR",
+        "nombre_completo": "WILMA GABRIELA ARANIBAR",
+        "email": "gabriela.aranibar@correos.gob.bo",
+        "sucursal": "La Paz"
+    },
+    {
+        "id": 155,
+        "codigo_biometrico": "9589398",
+        "nombre": "DANIEL",
+        "apellido": "PAZ MENDEZ",
+        "nombre_completo": "DANIEL PAZ MENDEZ",
+        "email": "daniela.paz@correos.gob.bo",
+        "sucursal": "Santa Cruz"
+    },
+    {
+        "id": 185,
+        "codigo_biometrico": "5115844",
+        "nombre": "INDIRA",
+        "apellido": "BARRIOS",
+        "nombre_completo": "INDIRA BARRIOS",
+        "email": "indira.barrios@correos.gob.bo",
+        "sucursal": "La Paz"
+    }
+]

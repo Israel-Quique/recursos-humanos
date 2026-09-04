@@ -6,6 +6,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Font;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class BoletaExcelService
@@ -32,6 +33,18 @@ class BoletaExcelService
     private function construirBloquePapeleta($sheet, int $startRow, array $boleta): void
     {
         $r = $startRow;
+
+        // Logo de Correos en la esquina superior derecha
+        $logoPath = public_path('images/menu-logo.png');
+        if (file_exists($logoPath)) {
+            $drawing = new Drawing();
+            $drawing->setName('Logo Correos');
+            $drawing->setDescription('Agencia Boliviana de Correos');
+            $drawing->setPath($logoPath);
+            $drawing->setCoordinates("S{$r}");
+            $drawing->setHeight(48);
+            $drawing->setWorksheet($sheet);
+        }
 
         // 1. Encabezado
         $sheet->mergeCells("A{$r}:X{$r}");

@@ -200,6 +200,105 @@ class PersonalPageTest extends TestCase
             ->assertFileDownloaded();
     }
 
+    public function test_control_vista_excluye_empleados_inactivos_de_las_metricas_y_listado(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        // Empleado ACTIVO
+        $activo = Empleado::query()->create([
+            'nombre' => 'Empleado',
+            'apellido' => 'Activo',
+            'codigo_biometrico' => 'ACT-001',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $activo->id,
+            'fecha' => now()->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        // Empleado ANTIGUO INACTIVO (sin despido formal, pero sin marcaciones desde hace 120 días)
+        $inactivo = Empleado::query()->create([
+            'nombre' => 'Empleado',
+            'apellido' => 'AntiguoInactivo',
+            'codigo_biometrico' => 'INA-999',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->subMonths(6)->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $inactivo->id,
+            'fecha' => now()->subDays(120)->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        // Verificar que en vista control sólo se liste y contabilice al activo
+        Livewire::test('personal-page')
+            ->set('vista', 'control')
+            ->call('seleccionarSucursal', 'La Paz')
+            ->assertSee('Empleado Activo')
+            ->assertDontSee('Empleado AntiguoInactivo')
+            ->assertViewHas('sucursalKpis', function (array $kpis) {
+                return ($kpis['total_empleados'] ?? 0) === 1;
+            });
+    }
+
+    public function test_personal_page_can_create_edit_and_search_by_email(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        // 1. Crear personal con correo
+        Livewire::test('personal-page')
+            ->set('nombre', 'Carlos')
+            ->set('apellido', 'Mamani')
+            ->set('codigoBiometrico', 'BIO-999')
+            ->set('email', 'carlos.mamani@correos.gob.bo')
+            ->set('sucursal', 'La Paz')
+            ->call('saveEmpleado')
+            ->assertHasNoErrors();
+
+        $empleado = Empleado::query()->where('codigo_biometrico', 'BIO-999')->firstOrFail();
+        $this->assertSame('carlos.mamani@correos.gob.bo', $empleado->email);
+
+        // 2. Buscar por correo
+        Livewire::test('personal-page')
+            ->set('search', 'carlos.mamani@correos.gob.bo')
+            ->assertSee('Carlos')
+            ->assertSee('BIO-999')
+            ->assertSee('carlos.mamani@correos.gob.bo');
+
+        // 3. Editar correo
+        Livewire::test('personal-page')
+            ->call('openEditModal', $empleado->id)
+            ->assertSet('editEmail', 'carlos.mamani@correos.gob.bo')
+            ->set('editEmail', 'carlos.nuevo@correos.gob.bo')
+            ->call('updateEmpleado')
+            ->assertHasNoErrors();
+
+        $this->assertSame('carlos.nuevo@correos.gob.bo', $empleado->fresh()->email);
+    }
+
     private function crearUsuarioConPermisoPersonal(): User
     {
         $permission = Permission::findOrCreate('gestionar personal', 'web');

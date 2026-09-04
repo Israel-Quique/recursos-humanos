@@ -19,12 +19,13 @@ class BoletaConComprobanteTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function crearEmpleado(): Empleado
+    private function crearEmpleado(?string $email = 'carlos.mendoza@correos.gob.bo', string $codigo = '1234567', string $nombre = 'Carlos', string $apellido = 'Mendoza'): Empleado
     {
         return Empleado::query()->create([
-            'nombre' => 'Carlos',
-            'apellido' => 'Mendoza',
-            'codigo_biometrico' => '1234567',
+            'nombre' => $nombre,
+            'apellido' => $apellido,
+            'codigo_biometrico' => $codigo,
+            'email' => $email,
             'cargo' => 'ANALISTA DE SISTEMAS',
             'area' => 'TECNOLOGÍA',
             'sucursal' => 'La Paz',
@@ -205,9 +206,9 @@ class BoletaConComprobanteTest extends TestCase
         $component = Livewire::test(\App\Livewire\PerfilHorasPage::class, ['empleado' => $empleado])
             ->call('abrirBoletaParaOmision', '15/08/2026', '--:--', '16:30', '08:30 - 16:30')
             ->assertSet('showBoletaModal', true)
-            ->assertSet('boletaDesdeFecha', '15/08/2026')
+            ->assertSet('boletaDesdeFecha', '2026-08-15')
             ->assertSet('boletaDesdeHora', '08:30')
-            ->assertSet('boletaHastaFecha', '15/08/2026')
+            ->assertSet('boletaHastaFecha', '2026-08-15')
             ->assertSet('boletaNombre', $empleado->nombre_completo)
             ->assertSet('boletaCiudad', mb_strtoupper($empleado->sucursal))
             ->set('comprobante', $imagenFalsa)
@@ -226,4 +227,105 @@ class BoletaConComprobanteTest extends TestCase
         $this->assertSame('2026-08-15', $permisoCreado->fecha_inicio->format('Y-m-d'));
         $this->assertSame('08:30:00', $permisoCreado->hora_inicio);
     }
+
+    public function test_solicitud_boleta_abre_popup_si_empleado_no_tiene_correo(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado(email: null);
+        $imagenFalsa = UploadedFile::fake()->image('justificativo.png', 600, 400);
+
+        // 1. Al intentar descargar sin correo en BD ni en formulario, se abre el popup modal
+        $component = Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaMotivo', 'Comision de servicio')
+            ->set('boletaTipo', 'comision')
+            ->set('comprobante', $imagenFalsa)
+            ->call('descargarPdf')
+            ->assertSet('showPedirEmailModal', true)
+            ->assertSee('¿Dónde te llegará el estado de tu boleta?');
+
+        $this->assertSame(0, PermisoLaboral::query()->count());
+
+        // 2. Pepito completa su correo en el popup y confirma
+        $component->set('boletaEmail', 'pepito@correos.gob.bo')
+            ->call('confirmarEmailYDescargar')
+            ->assertHasNoErrors()
+            ->assertSet('showPedirEmailModal', false);
+
+        // El empleado ahora tiene el correo guardado permanentemente en la base de datos
+        $this->assertSame('pepito@correos.gob.bo', $empleado->fresh()->email);
+        $this->assertSame(1, PermisoLaboral::query()->count());
+    }
+
+    public function test_usuario_no_puede_cambiar_correo_ya_establecido(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado(email: 'original@correos.gob.bo');
+        $imagenFalsa = UploadedFile::fake()->image('justificativo.png', 600, 400);
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaMotivo', 'Comision de prueba')
+            ->set('boletaTipo', 'comision')
+            ->set('boletaEmail', 'intento_cambio@correos.gob.bo')
+            ->set('comprobante', $imagenFalsa)
+            ->call('descargarPdf')
+            ->assertHasNoErrors();
+
+        // El correo del empleado se mantiene intacto
+        $this->assertSame('original@correos.gob.bo', $empleado->fresh()->email);
+    }
+
+    public function test_consulta_carnet_muestra_datos_iniciales_con_correo_o_sin_correo(): void
+    {
+        $conCorreo = $this->crearEmpleado(email: 'empleado.con@correos.gob.bo');
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', $conCorreo->codigo_biometrico)
+            ->assertSee($conCorreo->nombre_completo)
+            ->assertSee('empleado.con@correos.gob.bo')
+            ->assertSee('✓ Registrado');
+
+        $this->crearEmpleado(email: null, codigo: '998877', nombre: 'JUAN', apellido: 'SIN CORREO');
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '998877')
+            ->assertSee('JUAN SIN CORREO')
+            ->assertSee('Sin correo registrado')
+            ->assertSee('⚠️ Pendiente');
+    }
+
+    public function test_boleta_rango_varios_dias_bloquea_horas_y_calcula_dias(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado();
+        $imagenFalsa = UploadedFile::fake()->image('comprobante_comision.jpg', 600, 400);
+
+        $component = Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaDesdeFecha', '2026-09-10')
+            ->set('boletaHastaFecha', '2026-09-12')
+            ->assertSet('boletaTiempoSolicitado', '3 DÍAS')
+            ->assertSet('boletaDesdeHora', '')
+            ->assertSet('boletaHastaHora', '')
+            ->assertSet('esRangoDias', true)
+            ->set('boletaMotivo', 'Comisión departamental en Oruro')
+            ->set('boletaTipo', 'comision')
+            ->set('comprobante', $imagenFalsa)
+            ->call('descargarPdf')
+            ->assertHasNoErrors()
+            ->assertFileDownloaded();
+
+        $permiso = PermisoLaboral::query()->where('empleado_id', $empleado->id)->latest('id')->first();
+        $this->assertNotNull($permiso);
+        $this->assertSame('dias', $permiso->alcance);
+        $this->assertNull($permiso->hora_inicio);
+        $this->assertNull($permiso->hora_fin);
+        $this->assertSame('2026-09-10', $permiso->fecha_inicio->format('Y-m-d'));
+        $this->assertSame('2026-09-12', $permiso->fecha_fin->format('Y-m-d'));
+    }
 }
+
