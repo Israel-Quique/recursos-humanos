@@ -108,23 +108,9 @@
                   Te comunicamos que tu solicitud de boleta de permiso/comisión ha sido <strong style="color: #059669;">revisada y aprobada satisfactoriamente</strong> por el Departamento de Recursos Humanos.
                 </div>
               @else
-                <div style="font-size: 13.5px; color: #334155; line-height: 1.6; margin-bottom: 18px; font-family: Arial, sans-serif;">
+                <div style="font-size: 13.5px; color: #334155; line-height: 1.6; margin-bottom: 20px; font-family: Arial, sans-serif;">
                   Te informamos que tu solicitud de boleta de permiso/comisión <strong style="color: #e11d48;">ha sido rechazada</strong> luego de la evaluación de Recursos Humanos.
                 </div>
-
-                <!-- CUADRO DESTACADO CON MOTIVO DE RECHAZO -->
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#fff1f2" style="background-color: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px; margin-bottom: 22px; width: 100%;">
-                  <tr>
-                    <td style="padding: 14px 16px;">
-                      <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #9f1239; margin-bottom: 6px; font-family: Arial, sans-serif;">
-                        ⚠️ Motivo o Justificación del Rechazo indicada por RR.HH.:
-                      </div>
-                      <div style="font-size: 13.5px; font-weight: bold; color: #881337; line-height: 1.5; font-family: Arial, sans-serif;">
-                        "{{ $motivoRechazo ?: ($permiso->motivo_rechazo ?: 'No especificado por el administrador.') }}"
-                      </div>
-                    </td>
-                  </tr>
-                </table>
               @endif
 
               <!-- RESUMEN DE LA SOLICITUD -->
@@ -173,6 +159,12 @@
                           {{ $esAprobado ? 'APROBADO' : 'RECHAZADO' }}
                         </td>
                       </tr>
+                      @if (! $esAprobado && ($motivoRechazo ?: $permiso->motivo_rechazo))
+                        <tr>
+                          <td style="padding: 5px 0; font-size: 12.5px; color: #64748b; font-family: Arial, sans-serif;">Motivo de Rechazo:</td>
+                          <td style="padding: 5px 0; font-size: 12.5px; color: #0f172a; font-weight: bold; text-align: right; font-family: Arial, sans-serif;">{{ $motivoRechazo ?: $permiso->motivo_rechazo }}</td>
+                        </tr>
+                      @endif
                     </table>
 
                   </td>
