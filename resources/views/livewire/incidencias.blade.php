@@ -386,7 +386,6 @@
             <th>Periodo</th>
             <th>Boleta Oficial</th>
             <th>Estado</th>
-            <th>Detalle</th>
             <th class="text-center" style="min-width: 130px;">Acciones</th>
           </tr>
         </thead>
@@ -451,23 +450,6 @@
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
                     {{ ucfirst($item->estado) }}
                   </span>
-                @endif
-              </td>
-
-              <td class="max-w-[240px] text-xs text-slate-600">
-                <div class="truncate font-semibold text-slate-800" title="{{ $item->motivo }}">
-                  {{ $item->motivo ?: 'Sin detalle adicional' }}
-                </div>
-                @if ($item->estado === 'rechazado')
-                  <div class="mt-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-[11px] shadow-2xs">
-                    <span class="font-black uppercase text-rose-950 block flex items-center gap-1">
-                      <svg class="h-3 w-3 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      Motivo del Rechazo:
-                    </span>
-                    <p class="font-bold text-rose-800 mt-0.5 line-clamp-2" title="{{ $item->motivo_rechazo }}">
-                      "{{ $item->motivo_rechazo ?: 'Sin motivo registrado' }}"
-                    </p>
-                  </div>
                 @endif
               </td>
 
@@ -543,7 +525,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-slate-400 py-6">No hay incidencias registradas para el filtro actual.</td>
+              <td colspan="6" class="text-center text-slate-400 py-6">No hay incidencias registradas para el filtro actual.</td>
             </tr>
           @endforelse
         </tbody>

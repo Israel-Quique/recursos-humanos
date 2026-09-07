@@ -402,7 +402,6 @@ class BoletaConComprobanteTest extends TestCase
 
         Livewire::actingAs($admin)
             ->test(\App\Livewire\IncidenciasPage::class)
-            ->assertSee('Comprobante no legible')
             ->call('openEditModal', $permiso->id)
             ->assertSet('editMotivoRechazo', 'Comprobante no legible')
             ->set('editMotivoRechazo', 'Nuevo motivo: falta sello oficial')
