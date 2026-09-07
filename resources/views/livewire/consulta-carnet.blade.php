@@ -181,10 +181,33 @@
 
           {{-- SECCIÓN: FECHAS, HORAS Y TIEMPO --}}
           <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 space-y-4">
-            <h3 class="text-xs font-black uppercase tracking-wider text-[#1e60c6] flex items-center gap-1.5">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-              Horarios y Tiempo Solicitado
-            </h3>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 class="text-xs font-black uppercase tracking-wider text-[#1e60c6] flex items-center gap-1.5">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                  Horarios y Tiempo Solicitado
+                </h3>
+                <p class="text-[11px] text-slate-500 font-semibold">Elige si solicitas permiso por horas o por día(s) completo(s).</p>
+              </div>
+
+              {{-- SELECTOR DE MODALIDAD (HORAS VS DÍAS) --}}
+              <div class="inline-flex p-1 bg-slate-200/80 rounded-xl border border-slate-300/80">
+                <button
+                  type="button"
+                  wire:click="$set('boletaModalidad', 'horas')"
+                  class="py-1.5 px-3 rounded-lg text-xs font-black transition cursor-pointer {{ $boletaModalidad === 'horas' && !$this->esRangoDias ? 'bg-white text-[#1e60c6] shadow-xs' : 'text-slate-600 hover:text-slate-900' }}"
+                >
+                  ⏰ Por Horas (Mismo día)
+                </button>
+                <button
+                  type="button"
+                  wire:click="$set('boletaModalidad', 'dias')"
+                  class="py-1.5 px-3 rounded-lg text-xs font-black transition cursor-pointer {{ $boletaModalidad === 'dias' || $this->esRangoDias ? 'bg-[#1e60c6] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}"
+                >
+                  📅 Por Días (1 o más días)
+                </button>
+              </div>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               {{-- Desde --}}
@@ -196,9 +219,9 @@
                 </div>
                 <div>
                   <label class="text-[10px] font-bold text-slate-400">Hora</label>
-                  @if ($this->esRangoDias)
+                  @if ($this->esRangoDias || $boletaModalidad === 'dias')
                     <div class="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
-                      <span>🔒 No requerida</span>
+                      <span>🔒 Jornada completa</span>
                     </div>
                   @else
                     <input type="time" wire:model.live="boletaDesdeHora" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20">
@@ -215,7 +238,7 @@
                 </div>
                 <div>
                   <label class="text-[10px] font-bold text-slate-400">Hora</label>
-                  @if ($this->esRangoDias)
+                  @if ($this->esRangoDias || $boletaModalidad === 'dias')
                     <div class="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
                       <span>🔒 No requerida</span>
                     </div>
@@ -235,13 +258,13 @@
                   </label>
                   <input type="text" wire:model="boletaTiempoSolicitado" readonly class="w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-xs font-extrabold text-indigo-700 cursor-not-allowed select-none">
                 </div>
-                @if ($this->esRangoDias)
+                @if ($this->esRangoDias || $boletaModalidad === 'dias')
                   <p class="text-[10px] font-bold text-indigo-600 flex items-center gap-1">
                     <svg class="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-                    <span>Rango de varios días (Jornada completa sin horas)</span>
+                    <span>Permiso por día(s) completo(s) sin horas.</span>
                   </p>
                 @else
-                  <p class="text-[10px] text-slate-400">Se calcula automáticamente con el horario ingresado.</p>
+                  <p class="text-[10px] text-slate-400 font-medium">Se calcula automáticamente con el horario ingresado.</p>
                 @endif
               </div>
             </div>
@@ -498,6 +521,79 @@
                     </div>
                   </div>
                 </div>
+
+                {{-- MIS SOLICITUDES DE BOLETA Y SU ESTADO (CON MOTIVO DE RECHAZO SI APLICA) --}}
+                @if ($this->solicitudesRecientes->isNotEmpty())
+                  <div class="mt-4 p-4 rounded-2xl bg-white/95 border border-slate-200 shadow-sm text-left space-y-3 animate-in fade-in">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <svg class="h-4 w-4 text-[#1e60c6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Mis Solicitudes de Boleta Recientes
+                      </h4>
+                      <span class="text-[10px] font-bold text-slate-400">{{ $this->solicitudesRecientes->count() }} solicitud(es)</span>
+                    </div>
+
+                    <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                      @foreach ($this->solicitudesRecientes as $solicitud)
+                        <div class="p-3 rounded-xl border {{ $solicitud->estado === 'aprobado' ? 'border-emerald-200 bg-emerald-50/40' : ($solicitud->estado === 'rechazado' ? 'border-rose-200 bg-rose-50/50' : 'border-amber-200 bg-amber-50/40') }} text-xs space-y-1.5">
+                          <div class="flex items-center justify-between gap-2">
+                            <span class="font-black text-slate-800 text-[11px] truncate">
+                              {{ mb_strtoupper($solicitud->tipo_label) }}
+                            </span>
+                            @if ($solicitud->estado === 'aprobado')
+                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                ✓ Aprobado
+                              </span>
+                            @elseif ($solicitud->estado === 'rechazado')
+                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                ✕ Rechazado
+                              </span>
+                            @else
+                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                ⏳ Pendiente
+                              </span>
+                            @endif
+                          </div>
+
+                          <div class="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1 font-medium">
+                            <span>📅 {{ $solicitud->fecha_inicio?->format('d/m/Y') }} {{ $solicitud->fecha_fin && $solicitud->fecha_fin->ne($solicitud->fecha_inicio) ? 'al ' . $solicitud->fecha_fin->format('d/m/Y') : '' }}</span>
+                            @if ($solicitud->hora_inicio && $solicitud->hora_fin)
+                              <span>⏰ {{ substr($solicitud->hora_inicio, 0, 5) }} a {{ substr($solicitud->hora_fin, 0, 5) }}</span>
+                            @else
+                              <span>⏰ Jornada completa</span>
+                            @endif
+                          </div>
+
+                          @if ($solicitud->motivo)
+                            <p class="text-[11px] text-slate-600 italic">"{{ $solicitud->motivo }}"</p>
+                          @endif
+
+                          {{-- MOTIVO DE RECHAZO VISIBLE PARA EL FUNCIONARIO --}}
+                          @if ($solicitud->estado === 'rechazado')
+                            <div class="mt-1.5 p-2 rounded-lg bg-rose-100 border border-rose-300/80 text-rose-900 text-[11px]">
+                              <strong class="block font-black text-rose-950 uppercase tracking-tight flex items-center gap-1">
+                                <svg class="h-3.5 w-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Motivo del Rechazo (RR.HH.):
+                              </strong>
+                              <p class="mt-0.5 font-bold text-rose-800">"{{ $solicitud->motivo_rechazo ?: 'No especificado por el administrador.' }}"</p>
+                            </div>
+                          @endif
+
+                          <div class="pt-1 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              wire:click="descargarBoletaPdf({{ $solicitud->id }})"
+                              class="text-[11px] font-extrabold text-[#1e60c6] hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                              Descargar Boleta PDF
+                            </button>
+                          </div>
+                        </div>
+                      @endforeach
+                    </div>
+                  </div>
+                @endif
               @endif
 
               <div class="space-y-3 mt-4">

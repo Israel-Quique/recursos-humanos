@@ -975,6 +975,84 @@
       </div>
     </div>
 
+    {{-- MIS SOLICITUDES Y BOLETAS RECIENTES CON ESTADO Y MOTIVO DE RECHAZO --}}
+    @if ($this->solicitudesRecientes->isNotEmpty())
+      <div class="ph-table-card mt-6" style="padding:1.5rem;background:#fff;border-radius:1.5rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(15,23,42,.06);margin-top:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding-bottom:1rem;margin-bottom:1.25rem;">
+          <div>
+            <p style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#0f67c0;margin:0 0 .25rem 0;">Control de solicitudes</p>
+            <h3 style="font-size:1.15rem;font-weight:900;color:#0f172a;margin:0;">Mis Boletas y Permisos Recientes</h3>
+          </div>
+          <span style="font-size:.75rem;font-weight:700;color:#64748b;background:#f8fafc;padding:.3rem .75rem;border-radius:.75rem;border:1px solid #e2e8f0;">
+            {{ $this->solicitudesRecientes->count() }} solicitud(es)
+          </span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(290px, 1fr));gap:1rem;">
+          @foreach ($this->solicitudesRecientes as $sol)
+            <div style="background:{{ $sol->estado === 'aprobado' ? '#f0fdf4' : ($sol->estado === 'rechazado' ? '#fff1f2' : '#fffbeb') }};border:1.5px solid {{ $sol->estado === 'aprobado' ? '#bbf7d0' : ($sol->estado === 'rechazado' ? '#fecdd3' : '#fde68a') }};border-radius:1rem;padding:1rem;display:flex;flex-direction:column;justify-content:space-between;gap:.65rem;">
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
+                  <span style="font-size:.75rem;font-weight:900;color:#0f172a;text-transform:uppercase;">
+                    {{ $sol->tipo_label }}
+                  </span>
+                  @if ($sol->estado === 'aprobado')
+                    <span style="font-size:.68rem;font-weight:900;color:#065f46;background:#d1fae5;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #a7f3d0;">
+                      ✓ Aprobado
+                    </span>
+                  @elseif ($sol->estado === 'rechazado')
+                    <span style="font-size:.68rem;font-weight:900;color:#9f1239;background:#ffe4e6;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #fecdd3;">
+                      ✕ Rechazado
+                    </span>
+                  @else
+                    <span style="font-size:.68rem;font-weight:900;color:#92400e;background:#fef3c7;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #fde68a;">
+                      ⏳ Pendiente
+                    </span>
+                  @endif
+                </div>
+
+                <div style="font-size:.72rem;color:#475569;font-weight:600;display:flex;flex-direction:column;gap:.2rem;">
+                  <span>📅 {{ $sol->fecha_inicio?->format('d/m/Y') }} {{ $sol->fecha_fin && $sol->fecha_fin->ne($sol->fecha_inicio) ? 'al ' . $sol->fecha_fin->format('d/m/Y') : '' }}</span>
+                  @if ($sol->hora_inicio && $sol->hora_fin)
+                    <span>⏰ {{ substr($sol->hora_inicio, 0, 5) }} - {{ substr($sol->hora_fin, 0, 5) }}</span>
+                  @else
+                    <span>⏰ Jornada Completa</span>
+                  @endif
+                </div>
+
+                @if ($sol->motivo)
+                  <p style="font-size:.72rem;color:#64748b;margin:.4rem 0 0 0;font-style:italic;">
+                    "{{ $sol->motivo }}"
+                  </p>
+                @endif
+
+                {{-- MOTIVO DE RECHAZO EN PERFIL DE HORAS --}}
+                @if ($sol->estado === 'rechazado')
+                  <div style="margin-top:.5rem;background:#ffe4e6;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .65rem;color:#881337;font-size:.72rem;">
+                    <strong style="display:block;font-size:.68rem;text-transform:uppercase;color:#9f1239;letter-spacing:.03em;margin-bottom:.2rem;">
+                      ⚠️ Motivo del Rechazo (RR.HH.):
+                    </strong>
+                    <span style="font-weight:700;">"{{ $sol->motivo_rechazo ?: 'No especificado por el administrador.' }}"</span>
+                  </div>
+                @endif
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:flex-end;border-top:1px solid rgba(0,0,0,0.05);padding-top:.5rem;">
+                <button
+                  type="button"
+                  wire:click="descargarBoletaPdf({{ $sol->id }})"
+                  style="font-size:.72rem;font-weight:800;color:#0f67c0;background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Descargar PDF
+                </button>
+              </div>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    @endif
+
   </div>{{-- .ph-wrapper --}}
 
   {{-- POPUP MODAL: SOLICITAR CORREO SI EL FUNCIONARIO NO TIENE UNO --}}
@@ -1134,10 +1212,33 @@
 
           {{-- FECHAS Y HORARIOS (EDITABLES) --}}
           <div style="background:rgba(248,250,252,0.8);border-radius:.75rem;padding:1rem;border:1px solid rgba(226,232,240,0.8);display:flex;flex-direction:column;gap:.75rem;">
-            <h3 style="font-size:.75rem;font-weight:900;text-transform:uppercase;color:#1e60c6;margin:0;display:flex;align-items:center;gap:.4rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-              Fechas y Horarios (Totalmente Editables)
-            </h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding-bottom:.65rem;">
+              <div>
+                <h3 style="font-size:.75rem;font-weight:900;text-transform:uppercase;color:#1e60c6;margin:0;display:flex;align-items:center;gap:.4rem;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                  Fechas y Horarios (Totalmente Editables)
+                </h3>
+                <p style="font-size:.7rem;color:#64748b;margin:.2rem 0 0 0;font-weight:600;">Elige si solicitas permiso por horas o por día(s) completo(s).</p>
+              </div>
+
+              {{-- SELECTOR DE MODALIDAD --}}
+              <div style="display:inline-flex;padding:3px;background:#e2e8f0;border-radius:.65rem;border:1px solid #cbd5e1;">
+                <button
+                  type="button"
+                  wire:click="$set('boletaModalidad', 'horas')"
+                  style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'horas' && !$this->esRangoDias ? 'background:#fff;color:#1e60c6;box-shadow:0 1px 2px rgba(0,0,0,0.05);' : 'background:transparent;color:#475569;' }}"
+                >
+                  ⏰ Por Horas (Mismo día)
+                </button>
+                <button
+                  type="button"
+                  wire:click="$set('boletaModalidad', 'dias')"
+                  style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'dias' || $this->esRangoDias ? 'background:#1e60c6;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.1);' : 'background:transparent;color:#475569;' }}"
+                >
+                  📅 Por Días (1 o más días)
+                </button>
+              </div>
+            </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
               <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
@@ -1145,9 +1246,9 @@
                 <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
                 <input type="date" wire:model.live="boletaDesdeFecha" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
                 <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
-                @if ($this->esRangoDias)
+                @if ($this->esRangoDias || $boletaModalidad === 'dias')
                   <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
-                    🔒 No requerida
+                    🔒 Jornada completa
                   </div>
                 @else
                   <input type="time" wire:model.live="boletaDesdeHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
@@ -1159,7 +1260,7 @@
                 <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
                 <input type="date" wire:model.live="boletaHastaFecha" min="{{ $boletaDesdeFecha }}" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
                 <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
-                @if ($this->esRangoDias)
+                @if ($this->esRangoDias || $boletaModalidad === 'dias')
                   <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
                     🔒 No requerida
                   </div>
@@ -1175,8 +1276,8 @@
                   </span>
                   <input type="text" wire:model="boletaTiempoSolicitado" readonly style="width:100%;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;padding:.35rem .5rem;font-size:.8rem;font-weight:800;color:#4338ca;cursor:not-allowed;">
                 </div>
-                @if ($this->esRangoDias)
-                  <p style="font-size:.68rem;color:#4338ca;margin:.4rem 0 0 0;font-weight:700;">Rango de varios días (Jornada completa sin horas)</p>
+                @if ($this->esRangoDias || $boletaModalidad === 'dias')
+                  <p style="font-size:.68rem;color:#4338ca;margin:.4rem 0 0 0;font-weight:700;">Permiso por día(s) completo(s) sin horas.</p>
                 @else
                   <p style="font-size:.68rem;color:#94a3b8;margin:.4rem 0 0 0;">Se calcula automáticamente con el horario ingresado.</p>
                 @endif

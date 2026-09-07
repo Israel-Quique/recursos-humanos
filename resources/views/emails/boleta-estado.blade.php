@@ -120,7 +120,7 @@
                         ⚠️ Motivo o Justificación del Rechazo indicada por RR.HH.:
                       </div>
                       <div style="font-size: 13.5px; font-weight: bold; color: #881337; line-height: 1.5; font-family: Arial, sans-serif;">
-                        "{{ $motivoRechazo ?: 'No especificado por el administrador.' }}"
+                        "{{ $motivoRechazo ?: ($permiso->motivo_rechazo ?: 'No especificado por el administrador.') }}"
                       </div>
                     </td>
                   </tr>

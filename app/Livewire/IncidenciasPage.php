@@ -56,6 +56,7 @@ class IncidenciasPage extends Component
     public string $editHoraFin = '';
     public string $editMotivo = '';
     public string $editTipoPermiso = '';
+    public string $editMotivoRechazo = '';
 
     // Modal para ver imagen del comprobante
     public bool $showComprobanteModal = false;
@@ -160,6 +161,7 @@ class IncidenciasPage extends Component
         $this->editHoraFin = $incidencia->hora_fin ? substr($incidencia->hora_fin, 0, 5) : '';
         $this->editMotivo = $incidencia->motivo ?? '';
         $this->editTipoPermiso = $this->resolverTipoPermisoDesdeMotivo($this->editMotivo);
+        $this->editMotivoRechazo = $incidencia->motivo_rechazo ?? '';
         $this->showEditModal = true;
         $this->resetValidation();
         $this->sincronizarReglaTipo($this->editTipo, true);
@@ -171,6 +173,7 @@ class IncidenciasPage extends Component
         $this->showEditModal = false;
         $this->editingIncidenciaId = null;
         $this->editEmpleadoSearch = '';
+        $this->editMotivoRechazo = '';
         $this->resetValidation();
     }
 
@@ -262,6 +265,7 @@ class IncidenciasPage extends Component
             'hora_fin' => $this->normalizarHora($data['editAlcance'], $data['editHoraFin'] ?? ''),
             'minutos_contabilizados' => $minutos,
             'motivo' => $data['editMotivo'] ?: null,
+            'motivo_rechazo' => $data['editEstado'] === 'rechazado' ? (trim($this->editMotivoRechazo) ?: null) : null,
         ]);
 
         app(AuditoriaService::class)->registrar(
@@ -570,12 +574,13 @@ class IncidenciasPage extends Component
             'editEmpleadoId' => ['required', Rule::exists('empleados', 'id')],
             'editTipo' => ['required', Rule::in(array_keys($this->tiposDisponibles()))],
             'editAlcance' => ['required', Rule::in(array_keys($this->alcancesDisponibles()))],
-            'editEstado' => ['required', Rule::in(['aprobado', 'pendiente'])],
+            'editEstado' => ['required', Rule::in(['aprobado', 'pendiente', 'rechazado'])],
             'editFechaInicio' => ['required', 'date'],
             'editFechaFin' => ['required', 'date', 'after_or_equal:editFechaInicio'],
             'editHoraInicio' => ['nullable', 'date_format:H:i'],
             'editHoraFin' => ['nullable', 'date_format:H:i'],
             'editMotivo' => ['nullable', 'string', 'max:500'],
+            'editMotivoRechazo' => ['nullable', 'string', 'max:500'],
         ];
     }
 

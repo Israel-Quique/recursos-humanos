@@ -251,9 +251,10 @@
           </div>
           <div>
             <label class="form-label">Estado</label>
-            <select wire:model="editEstado" class="form-input">
+            <select wire:model.live="editEstado" class="form-input">
               <option value="aprobado">Aprobado</option>
               <option value="pendiente">Pendiente</option>
+              <option value="rechazado">Rechazado</option>
             </select>
           </div>
           <div>
@@ -295,6 +296,16 @@
             <label class="form-label">Motivo / detalle</label>
             <textarea wire:model="editMotivo" rows="3" class="form-input"></textarea>
           </div>
+          @if($editEstado === 'rechazado')
+            <div class="md:col-span-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5">
+              <label class="form-label text-rose-900 font-extrabold flex items-center gap-1.5">
+                <svg class="h-4 w-4 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Motivo o Justificación del Rechazo *
+              </label>
+              <textarea wire:model="editMotivoRechazo" rows="2" class="form-input border-rose-300 bg-white text-rose-900 font-semibold" placeholder="Indica el motivo por el cual fue rechazada esta solicitud..."></textarea>
+              <p class="text-[11px] text-rose-700 font-medium">Este motivo se almacena en el sistema y es visible para el funcionario y en los reportes.</p>
+            </div>
+          @endif
           @if($editTipo === 'permiso')
             <div class="md:col-span-2">
               <label class="form-label">Tipo de permiso</label>
@@ -443,8 +454,21 @@
                 @endif
               </td>
 
-              <td class="max-w-[200px] truncate text-xs text-slate-600" title="{{ $item->motivo }}">
-                {{ $item->motivo ?: 'Sin detalle adicional' }}
+              <td class="max-w-[240px] text-xs text-slate-600">
+                <div class="truncate font-semibold text-slate-800" title="{{ $item->motivo }}">
+                  {{ $item->motivo ?: 'Sin detalle adicional' }}
+                </div>
+                @if ($item->estado === 'rechazado')
+                  <div class="mt-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-[11px] shadow-2xs">
+                    <span class="font-black uppercase text-rose-950 block flex items-center gap-1">
+                      <svg class="h-3 w-3 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      Motivo del Rechazo:
+                    </span>
+                    <p class="font-bold text-rose-800 mt-0.5 line-clamp-2" title="{{ $item->motivo_rechazo }}">
+                      "{{ $item->motivo_rechazo ?: 'Sin motivo registrado' }}"
+                    </p>
+                  </div>
+                @endif
               </td>
 
               {{-- Acciones: 3 Íconos (Ojito, Check, Cruz) --}}

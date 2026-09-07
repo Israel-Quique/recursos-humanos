@@ -37,6 +37,7 @@ class PerfilHorasPage extends Component
     public string $boletaEmail = '';
     public string $boletaMotivo = '';
     public string $boletaTipo = 'particular'; // 'comision', 'particular', 'medico'
+    public string $boletaModalidad = 'horas'; // 'horas' o 'dias'
     public string $boletaDesdeFecha = '';
     public string $boletaDesdeHora = '08:30';
     public string $boletaHastaFecha = '';
@@ -44,6 +45,16 @@ class PerfilHorasPage extends Component
     public string $boletaTiempoSolicitado = '1 HORA';
     public string $boletaCiudad = '';
     public string $boletaFechaTexto = '';
+
+    public function getSolicitudesRecientesProperty()
+    {
+        return PermisoLaboral::query()
+            ->with(['comprobantePrincipal'])
+            ->where('empleado_id', $this->empleado->id)
+            ->latest('id')
+            ->take(8)
+            ->get();
+    }
     public $comprobante = null;
 
     public function mount(Empleado $empleado): void
@@ -244,6 +255,13 @@ class PerfilHorasPage extends Component
         $this->resetValidation('comprobante');
     }
 
+    public function descargarBoletaPdf(int $id)
+    {
+        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
+
+        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
+    }
+
     public function updatedBoletaDesdeHora(): void
     {
         $this->recalcularTiempoSolicitado();
@@ -254,18 +272,56 @@ class PerfilHorasPage extends Component
         $this->recalcularTiempoSolicitado();
     }
 
+    public function updatedBoletaModalidad(): void
+    {
+        if ($this->boletaModalidad === 'dias') {
+            $this->boletaDesdeHora = '';
+            $this->boletaHastaHora = '';
+        } else {
+            if (blank($this->boletaDesdeHora)) {
+                $this->boletaDesdeHora = '08:30';
+            }
+            if (blank($this->boletaHastaHora)) {
+                $this->boletaHastaHora = '16:30';
+            }
+        }
+        $this->recalcularTiempoSolicitado();
+    }
+
     public function updatedBoletaDesdeFecha(): void
     {
+        try {
+            $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
+            $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
+
+            if ($hasta->lessThan($desde)) {
+                $this->boletaHastaFecha = $this->boletaDesdeFecha;
+            }
+        } catch (\Throwable) {
+        }
         $this->recalcularTiempoSolicitado();
     }
 
     public function updatedBoletaHastaFecha(): void
     {
+        try {
+            $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
+            $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
+
+            if ($hasta->lessThan($desde)) {
+                $this->boletaDesdeFecha = $this->boletaHastaFecha;
+            }
+        } catch (\Throwable) {
+        }
         $this->recalcularTiempoSolicitado();
     }
 
     public function getEsRangoDiasProperty(): bool
     {
+        if ($this->boletaModalidad === 'dias') {
+            return true;
+        }
+
         try {
             $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
             $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
@@ -287,8 +343,12 @@ class PerfilHorasPage extends Component
                 $this->boletaHastaFecha = $this->boletaDesdeFecha;
             }
 
-            // Si es más de un día (rango de días):
             if ($hastaFecha->greaterThan($desdeFecha)) {
+                $this->boletaModalidad = 'dias';
+            }
+
+            // Si es modalidad por días (1 día completo o rango de varios días):
+            if ($this->boletaModalidad === 'dias' || $hastaFecha->greaterThan($desdeFecha)) {
                 $dias = (int) $desdeFecha->diffInDays($hastaFecha) + 1;
                 $this->boletaTiempoSolicitado = $dias === 1 ? '1 DÍA' : "{$dias} DÍAS";
                 $this->boletaDesdeHora = '';
@@ -321,8 +381,11 @@ class PerfilHorasPage extends Component
                     $min = $diffMin % 60;
                     $this->boletaTiempoSolicitado = "{$horas} H {$min} MIN";
                 }
+            } else {
+                $this->boletaTiempoSolicitado = '0 MIN';
             }
         } catch (\Throwable) {
+            // Mantener el valor actual si las fechas no se pueden parsear aún
         }
     }
 

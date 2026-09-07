@@ -327,5 +327,90 @@ class BoletaConComprobanteTest extends TestCase
         $this->assertSame('2026-09-10', $permiso->fecha_inicio->format('Y-m-d'));
         $this->assertSame('2026-09-12', $permiso->fecha_fin->format('Y-m-d'));
     }
+
+    public function test_boleta_modalidad_dias_permite_solicitar_un_solo_dia_completo_sin_horas(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado();
+        $imagenFalsa = UploadedFile::fake()->image('comprobante_dia.jpg', 600, 400);
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaModalidad', 'dias')
+            ->set('boletaDesdeFecha', '2026-09-10')
+            ->set('boletaHastaFecha', '2026-09-10')
+            ->assertSet('boletaTiempoSolicitado', '1 DÍA')
+            ->assertSet('boletaDesdeHora', '')
+            ->assertSet('boletaHastaHora', '')
+            ->assertSet('esRangoDias', true)
+            ->set('boletaMotivo', 'Permiso particular día completo')
+            ->set('boletaTipo', 'particular')
+            ->set('comprobante', $imagenFalsa)
+            ->call('descargarPdf')
+            ->assertHasNoErrors()
+            ->assertFileDownloaded();
+
+        $permiso = PermisoLaboral::query()->where('empleado_id', $empleado->id)->latest('id')->first();
+        $this->assertNotNull($permiso);
+        $this->assertSame('dias', $permiso->alcance);
+        $this->assertNull($permiso->hora_inicio);
+        $this->assertNull($permiso->hora_fin);
+    }
+
+    public function test_consulta_carnet_muestra_solicitudes_recientes_y_motivo_de_rechazo(): void
+    {
+        $empleado = $this->crearEmpleado(codigo: '887766');
+
+        PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'permiso',
+            'alcance' => 'dias',
+            'estado' => 'rechazado',
+            'fecha_inicio' => '2026-09-01',
+            'fecha_fin' => '2026-09-02',
+            'motivo' => 'COMISION: Viaje a taller',
+            'motivo_rechazo' => 'Falta firma de jefatura inmediata',
+            'minutos_contabilizados' => 0,
+        ]);
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '887766')
+            ->assertSee('Mis Solicitudes de Boleta Recientes')
+            ->assertSee('Rechazado')
+            ->assertSee('Falta firma de jefatura inmediata');
+    }
+
+    public function test_incidencias_muestra_y_permite_editar_motivo_de_rechazo(): void
+    {
+        $admin = $this->crearAdmin();
+        $empleado = $this->crearEmpleado();
+
+        $permiso = PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'permiso',
+            'alcance' => 'horas',
+            'estado' => 'rechazado',
+            'fecha_inicio' => '2026-09-05',
+            'fecha_fin' => '2026-09-05',
+            'hora_inicio' => '09:00:00',
+            'hora_fin' => '10:00:00',
+            'motivo' => 'Trámite bancario',
+            'motivo_rechazo' => 'Comprobante no legible',
+            'minutos_contabilizados' => 60,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(\App\Livewire\IncidenciasPage::class)
+            ->assertSee('Comprobante no legible')
+            ->call('openEditModal', $permiso->id)
+            ->assertSet('editMotivoRechazo', 'Comprobante no legible')
+            ->set('editMotivoRechazo', 'Nuevo motivo: falta sello oficial')
+            ->call('updateIncidencia')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Nuevo motivo: falta sello oficial', $permiso->fresh()->motivo_rechazo);
+    }
 }
+
 

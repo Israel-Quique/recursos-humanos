@@ -33,6 +33,7 @@ class ConsultaCarnetPage extends Component
     public string $boletaEmail = '';
     public string $boletaMotivo = '';
     public string $boletaTipo = 'comision'; // 'comision', 'particular', 'medico'
+    public string $boletaModalidad = 'horas'; // 'horas' (mismo día con horario) o 'dias' (jornada completa o rango de días)
     public string $boletaDesdeFecha = '';
     public string $boletaDesdeHora = '08:30';
     public string $boletaHastaFecha = '';
@@ -46,6 +47,20 @@ class ConsultaCarnetPage extends Component
 
     // Empleado encontrado para visualización de datos iniciales en la consulta
     public ?Empleado $empleadoEncontrado = null;
+
+    public function getSolicitudesRecientesProperty()
+    {
+        if (! $this->empleadoEncontrado) {
+            return collect();
+        }
+
+        return PermisoLaboral::query()
+            ->with(['comprobantePrincipal'])
+            ->where('empleado_id', $this->empleadoEncontrado->id)
+            ->latest('id')
+            ->take(8)
+            ->get();
+    }
 
     public function updatedCarnet($value): void
     {
@@ -115,6 +130,7 @@ class ConsultaCarnetPage extends Component
         $this->showPedirEmailModal = false;
         $this->boletaMotivo = '';
         $this->boletaTipo = 'comision';
+        $this->boletaModalidad = 'horas';
 
         $hoy = now();
         $this->boletaDesdeFecha = $hoy->format('Y-m-d');
@@ -139,6 +155,10 @@ class ConsultaCarnetPage extends Component
 
     public function getEsRangoDiasProperty(): bool
     {
+        if ($this->boletaModalidad === 'dias') {
+            return true;
+        }
+
         try {
             $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
             $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
@@ -147,6 +167,22 @@ class ConsultaCarnetPage extends Component
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    public function updatedBoletaModalidad(): void
+    {
+        if ($this->boletaModalidad === 'dias') {
+            $this->boletaDesdeHora = '';
+            $this->boletaHastaHora = '';
+        } else {
+            if (blank($this->boletaDesdeHora)) {
+                $this->boletaDesdeHora = '08:30';
+            }
+            if (blank($this->boletaHastaHora)) {
+                $this->boletaHastaHora = '09:00';
+            }
+        }
+        $this->recalcularTiempoSolicitado();
     }
 
     public function updatedBoletaDesdeHora(): void
@@ -161,11 +197,30 @@ class ConsultaCarnetPage extends Component
 
     public function updatedBoletaDesdeFecha(): void
     {
+        try {
+            $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
+            $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
+
+            // Si la fecha hasta es menor, igualar automáticamente
+            if ($hasta->lessThan($desde)) {
+                $this->boletaHastaFecha = $this->boletaDesdeFecha;
+            }
+        } catch (\Throwable) {
+        }
         $this->recalcularTiempoSolicitado();
     }
 
     public function updatedBoletaHastaFecha(): void
     {
+        try {
+            $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
+            $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();
+
+            if ($hasta->lessThan($desde)) {
+                $this->boletaDesdeFecha = $this->boletaHastaFecha;
+            }
+        } catch (\Throwable) {
+        }
         $this->recalcularTiempoSolicitado();
     }
 
@@ -181,8 +236,13 @@ class ConsultaCarnetPage extends Component
                 $this->boletaHastaFecha = $this->boletaDesdeFecha;
             }
 
-            // Si es más de un día (rango de días):
+            // Si la fecha hasta es mayor a la fecha desde, conmutar automáticamente a modalidad días
             if ($hastaFecha->greaterThan($desdeFecha)) {
+                $this->boletaModalidad = 'dias';
+            }
+
+            // Si es modalidad por días (1 día completo o rango de varios días):
+            if ($this->boletaModalidad === 'dias' || $hastaFecha->greaterThan($desdeFecha)) {
                 $dias = (int) $desdeFecha->diffInDays($hastaFecha) + 1;
                 $this->boletaTiempoSolicitado = $dias === 1 ? '1 DÍA' : "{$dias} DÍAS";
                 $this->boletaDesdeHora = '';
@@ -220,6 +280,13 @@ class ConsultaCarnetPage extends Component
         } catch (\Throwable) {
             // Mantener el valor actual si las fechas no se pueden parsear aún
         }
+    }
+
+    public function descargarBoletaPdf(int $id)
+    {
+        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
+
+        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
     }
 
     public function quitarComprobante(): void
