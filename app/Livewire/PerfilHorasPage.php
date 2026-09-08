@@ -36,7 +36,7 @@ class PerfilHorasPage extends Component
     public string $boletaCargo = '';
     public string $boletaEmail = '';
     public string $boletaMotivo = '';
-    public string $boletaTipo = 'particular'; // 'comision', 'particular', 'medico'
+    public string $boletaTipo = 'particular'; // 'comision', 'particular', 'medico', 'omision', 'retraso'
     public string $boletaModalidad = 'horas'; // 'horas' o 'dias'
     public string $boletaDesdeFecha = '';
     public string $boletaDesdeHora = '08:30';
@@ -45,6 +45,100 @@ class PerfilHorasPage extends Component
     public string $boletaTiempoSolicitado = '1 HORA';
     public string $boletaCiudad = '';
     public string $boletaFechaTexto = '';
+
+    public function getEsBoletaOmisionORetrasoProperty(): bool
+    {
+        if (in_array($this->boletaTipo, ['omision', 'retraso'])) {
+            return true;
+        }
+
+        if (in_array($this->boletaTipo, ['comision', 'medico'])) {
+            return false;
+        }
+
+        $motivo = trim($this->boletaMotivo);
+        if ($motivo === '') {
+            return false;
+        }
+
+        return preg_match('/\b(omisi[oó]n|olvido|retraso|atraso|tardanza|falta de marcado)\b/ui', $motivo) === 1
+            || preg_match('/no\s+marc[oó]/ui', $motivo) === 1;
+    }
+
+    public function getPlazo48HorasInfoProperty(): array
+    {
+        if (! $this->esBoletaOmisionORetraso) {
+            return [
+                'aplica' => false,
+                'vencido' => false,
+                'es_futuro' => false,
+                'horas_transcurridas' => 0,
+                'horas_restantes' => 48,
+                'mensaje' => null,
+            ];
+        }
+
+        if (blank($this->boletaDesdeFecha)) {
+            return [
+                'aplica' => true,
+                'vencido' => false,
+                'es_futuro' => false,
+                'horas_transcurridas' => 0,
+                'horas_restantes' => 48,
+                'mensaje' => null,
+            ];
+        }
+
+        try {
+            $hora = filled($this->boletaDesdeHora) && $this->boletaDesdeHora !== '--:--' ? trim($this->boletaDesdeHora) : '08:30';
+            $fechaIncidencia = Carbon::parse($this->parsearFechaCarbon($this->boletaDesdeFecha)->format('Y-m-d') . ' ' . $hora);
+            $ahora = now();
+
+            if ($fechaIncidencia->isFuture()) {
+                return [
+                    'aplica' => true,
+                    'vencido' => true,
+                    'es_futuro' => true,
+                    'horas_transcurridas' => 0,
+                    'horas_restantes' => 0,
+                    'mensaje' => 'La boleta por omisión o retraso no puede emitirse para una fecha u hora futura.',
+                ];
+            }
+
+            $horasTranscurridas = (int) $fechaIncidencia->diffInHours($ahora);
+
+            if ($horasTranscurridas > 48) {
+                return [
+                    'aplica' => true,
+                    'vencido' => true,
+                    'es_futuro' => false,
+                    'horas_transcurridas' => $horasTranscurridas,
+                    'horas_restantes' => 0,
+                    'mensaje' => "El plazo máximo de 48 horas para presentar la boleta por omisión o retraso ha vencido (Han transcurrido {$horasTranscurridas} horas desde la falta).",
+                ];
+            }
+
+            $horasRestantes = max(0, 48 - $horasTranscurridas);
+
+            return [
+                'aplica' => true,
+                'vencido' => false,
+                'es_futuro' => false,
+                'horas_transcurridas' => $horasTranscurridas,
+                'horas_restantes' => $horasRestantes,
+                'mensaje' => "Dentro del plazo permitido: te quedan {$horasRestantes} horas de las 48 horas reglamentarias para presentar esta boleta.",
+            ];
+        } catch (\Throwable) {
+            return [
+                'aplica' => true,
+                'vencido' => false,
+                'es_futuro' => false,
+                'horas_transcurridas' => 0,
+                'horas_restantes' => 48,
+                'mensaje' => null,
+            ];
+        }
+    }
 
     public function getSolicitudesRecientesProperty()
     {
@@ -409,7 +503,7 @@ class PerfilHorasPage extends Component
 
         $this->validate([
             'boletaMotivo' => ['required', 'string', 'max:255'],
-            'boletaTipo' => ['required', 'in:comision,particular,medico'],
+            'boletaTipo' => ['required', 'in:comision,particular,medico,omision,retraso'],
             'boletaDesdeFecha' => ['required', 'string', 'max:20'],
             'boletaDesdeHora' => $esRangoDias ? ['nullable', 'string', 'max:10'] : ['required', 'string', 'max:10'],
             'boletaHastaFecha' => ['required', 'string', 'max:20'],
@@ -423,6 +517,13 @@ class PerfilHorasPage extends Component
             'comprobante.image' => 'El comprobante debe ser un archivo de imagen válido (JPG, PNG o WEBP).',
             'comprobante.max' => 'La imagen del comprobante no puede pesar más de 5MB.',
         ]);
+
+        if ($this->plazo48HorasInfo['vencido']) {
+            $this->addError('boletaDesdeFecha', $this->plazo48HorasInfo['mensaje']);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'boletaDesdeFecha' => $this->plazo48HorasInfo['mensaje'],
+            ]);
+        }
 
         $empleado = $this->empleado;
 

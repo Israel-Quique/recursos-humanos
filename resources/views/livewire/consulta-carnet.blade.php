@@ -163,15 +163,15 @@
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-2">Tipo de Permiso *</label>
               <div class="grid grid-cols-3 gap-3">
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'comision' ? 'border-[#1e60c6] bg-blue-50/60 font-black text-[#1e60c6]' : 'border-slate-300 bg-white text-slate-700' }} cursor-pointer transition">
+                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'comision' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
                   <input type="radio" wire:model.live="boletaTipo" value="comision" class="text-[#1e60c6] focus:ring-[#1e60c6]">
                   <span class="text-xs font-bold">COMISIÓN</span>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'particular' ? 'border-[#1e60c6] bg-blue-50/60 font-black text-[#1e60c6]' : 'border-slate-300 bg-white text-slate-700' }} cursor-pointer transition">
+                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'particular' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
                   <input type="radio" wire:model.live="boletaTipo" value="particular" class="text-[#1e60c6] focus:ring-[#1e60c6]">
                   <span class="text-xs font-bold">PARTICULAR</span>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'medico' ? 'border-[#1e60c6] bg-blue-50/60 font-black text-[#1e60c6]' : 'border-slate-300 bg-white text-slate-700' }} cursor-pointer transition">
+                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'medico' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
                   <input type="radio" wire:model.live="boletaTipo" value="medico" class="text-[#1e60c6] focus:ring-[#1e60c6]">
                   <span class="text-xs font-bold">MÉDICO</span>
                 </label>
@@ -378,6 +378,32 @@
             @enderror
           </div>
 
+          {{-- BANNER DE REGLA 48 HORAS PARA OMISIÓN / RETRASO --}}
+          @if ($this->plazo48HorasInfo['aplica'])
+            @if ($this->plazo48HorasInfo['vencido'])
+              <div class="rounded-xl border-2 border-rose-300 bg-rose-50 p-3.5 text-rose-900 flex items-start gap-3 animate-in fade-in">
+                <div class="h-8 w-8 rounded-lg bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center shrink-0">
+                  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div class="space-y-0.5 text-xs">
+                  <p class="font-black text-rose-950 uppercase tracking-tight">⛔ Plazo de 48 horas vencido</p>
+                  <p class="font-bold leading-relaxed text-rose-800">{{ $this->plazo48HorasInfo['mensaje'] }}</p>
+                  <p class="text-[11px] font-semibold text-rose-600">Por normativa de la institución, las boletas por omisión de marcado o retraso sólo pueden presentarse dentro de las 48 horas posteriores a la falta.</p>
+                </div>
+              </div>
+            @else
+              <div class="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-emerald-900 flex items-start gap-2.5 animate-in fade-in">
+                <div class="h-6 w-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                </div>
+                <div class="text-xs">
+                  <span class="font-black text-emerald-950 uppercase tracking-tight">⏱️ Regla de 48 Horas: </span>
+                  <span class="font-bold text-emerald-800">{{ $this->plazo48HorasInfo['mensaje'] }}</span>
+                </div>
+              </div>
+            @endif
+          @endif
+
         </div>
 
         @php
@@ -390,7 +416,8 @@
             && filled(trim($boletaHastaFecha))
             && ($this->esRangoDias || filled(trim($boletaHastaHora)))
             && filled(trim($boletaTiempoSolicitado))
-            && !empty($comprobante);
+            && !empty($comprobante)
+            && !$this->plazo48HorasInfo['vencido'];
         @endphp
 
         {{-- BOTONES DE ACCIÓN (SOLO APARECE AL CUMPLIR TODOS LOS REQUISITOS) --}}
@@ -411,6 +438,11 @@
                 <span wire:loading.remove wire:target="descargarPdf">Enviar a RR.HH. y Descargar Boleta PDF</span>
                 <span wire:loading wire:target="descargarPdf">Generando Boleta Oficial...</span>
               </button>
+            @elseif ($this->plazo48HorasInfo['vencido'])
+              <div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
+                <svg class="h-4 w-4 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>No se puede enviar la boleta: El plazo de 48 horas ha vencido</span>
+              </div>
             @else
               <div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
                 <svg class="h-4 w-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -521,79 +553,6 @@
                     </div>
                   </div>
                 </div>
-
-                {{-- MIS SOLICITUDES DE BOLETA Y SU ESTADO (CON MOTIVO DE RECHAZO SI APLICA) --}}
-                @if ($this->solicitudesRecientes->isNotEmpty())
-                  <div class="mt-4 p-4 rounded-2xl bg-white/95 border border-slate-200 shadow-sm text-left space-y-3 animate-in fade-in">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                        <svg class="h-4 w-4 text-[#1e60c6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        Mis Solicitudes de Boleta Recientes
-                      </h4>
-                      <span class="text-[10px] font-bold text-slate-400">{{ $this->solicitudesRecientes->count() }} solicitud(es)</span>
-                    </div>
-
-                    <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                      @foreach ($this->solicitudesRecientes as $solicitud)
-                        <div class="p-3 rounded-xl border {{ $solicitud->estado === 'aprobado' ? 'border-emerald-200 bg-emerald-50/40' : ($solicitud->estado === 'rechazado' ? 'border-rose-200 bg-rose-50/50' : 'border-amber-200 bg-amber-50/40') }} text-xs space-y-1.5">
-                          <div class="flex items-center justify-between gap-2">
-                            <span class="font-black text-slate-800 text-[11px] truncate">
-                              {{ mb_strtoupper($solicitud->tipo_label) }}
-                            </span>
-                            @if ($solicitud->estado === 'aprobado')
-                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                ✓ Aprobado
-                              </span>
-                            @elseif ($solicitud->estado === 'rechazado')
-                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
-                                ✕ Rechazado
-                              </span>
-                            @else
-                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                                ⏳ Pendiente
-                              </span>
-                            @endif
-                          </div>
-
-                          <div class="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1 font-medium">
-                            <span>📅 {{ $solicitud->fecha_inicio?->format('d/m/Y') }} {{ $solicitud->fecha_fin && $solicitud->fecha_fin->ne($solicitud->fecha_inicio) ? 'al ' . $solicitud->fecha_fin->format('d/m/Y') : '' }}</span>
-                            @if ($solicitud->hora_inicio && $solicitud->hora_fin)
-                              <span>⏰ {{ substr($solicitud->hora_inicio, 0, 5) }} a {{ substr($solicitud->hora_fin, 0, 5) }}</span>
-                            @else
-                              <span>⏰ Jornada completa</span>
-                            @endif
-                          </div>
-
-                          @if ($solicitud->motivo)
-                            <p class="text-[11px] text-slate-600 italic">"{{ $solicitud->motivo }}"</p>
-                          @endif
-
-                          {{-- MOTIVO DE RECHAZO VISIBLE PARA EL FUNCIONARIO --}}
-                          @if ($solicitud->estado === 'rechazado')
-                            <div class="mt-1.5 p-2 rounded-lg bg-rose-100 border border-rose-300/80 text-rose-900 text-[11px]">
-                              <strong class="block font-black text-rose-950 uppercase tracking-tight flex items-center gap-1">
-                                <svg class="h-3.5 w-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                Motivo del Rechazo (RR.HH.):
-                              </strong>
-                              <p class="mt-0.5 font-bold text-rose-800">"{{ $solicitud->motivo_rechazo ?: 'No especificado por el administrador.' }}"</p>
-                            </div>
-                          @endif
-
-                          <div class="pt-1 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              wire:click="descargarBoletaPdf({{ $solicitud->id }})"
-                              class="text-[11px] font-extrabold text-[#1e60c6] hover:underline flex items-center gap-1 cursor-pointer"
-                            >
-                              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                              Descargar Boleta PDF
-                            </button>
-                          </div>
-                        </div>
-                      @endforeach
-                    </div>
-                  </div>
-                @endif
               @endif
 
               <div class="space-y-3 mt-4">

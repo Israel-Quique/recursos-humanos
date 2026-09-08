@@ -23,19 +23,29 @@ class InicioPageSyncButtonTest extends TestCase
             ->assertSee('Sincronizar biométrico');
     }
 
-    public function test_manual_sync_action_starts_background_sync_instead_of_blocking_the_request(): void
+    public function test_manual_sync_action_triggers_synchronization_and_renders_summary(): void
     {
         $user = $this->crearUsuarioConPermisos();
         $this->actingAs($user);
 
-        $service = \Mockery::mock(BiometricoAutoSyncService::class);
-        $service->shouldReceive('triggerNow')->once();
+        $service = \Mockery::mock(\App\Services\SincronizacionBiometricoService::class);
+        $service->shouldReceive('sincronizarTodos')->once()->andReturn([
+            [
+                'device' => 'Oficina Central',
+                'status' => 'sincronizado',
+                'message' => 'Sincronizado correctamente',
+                'imported' => 10,
+                'updated' => 2,
+                'created' => 8,
+            ],
+        ]);
 
-        $this->app->instance(BiometricoAutoSyncService::class, $service);
+        $this->app->instance(\App\Services\SincronizacionBiometricoService::class, $service);
 
         Livewire::test(InicioPage::class)
             ->call('sincronizarBiometrico')
-            ->assertSee('Sincronización iniciada en segundo plano');
+            ->assertSee('Sincronización completada')
+            ->assertSee('Oficina Central');
     }
 
     private function crearUsuarioConPermisos(): User

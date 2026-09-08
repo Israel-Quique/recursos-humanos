@@ -975,84 +975,6 @@
       </div>
     </div>
 
-    {{-- MIS SOLICITUDES Y BOLETAS RECIENTES CON ESTADO Y MOTIVO DE RECHAZO --}}
-    @if ($this->solicitudesRecientes->isNotEmpty())
-      <div class="ph-table-card mt-6" style="padding:1.5rem;background:#fff;border-radius:1.5rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(15,23,42,.06);margin-top:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding-bottom:1rem;margin-bottom:1.25rem;">
-          <div>
-            <p style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#0f67c0;margin:0 0 .25rem 0;">Control de solicitudes</p>
-            <h3 style="font-size:1.15rem;font-weight:900;color:#0f172a;margin:0;">Mis Boletas y Permisos Recientes</h3>
-          </div>
-          <span style="font-size:.75rem;font-weight:700;color:#64748b;background:#f8fafc;padding:.3rem .75rem;border-radius:.75rem;border:1px solid #e2e8f0;">
-            {{ $this->solicitudesRecientes->count() }} solicitud(es)
-          </span>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(290px, 1fr));gap:1rem;">
-          @foreach ($this->solicitudesRecientes as $sol)
-            <div style="background:{{ $sol->estado === 'aprobado' ? '#f0fdf4' : ($sol->estado === 'rechazado' ? '#fff1f2' : '#fffbeb') }};border:1.5px solid {{ $sol->estado === 'aprobado' ? '#bbf7d0' : ($sol->estado === 'rechazado' ? '#fecdd3' : '#fde68a') }};border-radius:1rem;padding:1rem;display:flex;flex-direction:column;justify-content:space-between;gap:.65rem;">
-              <div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
-                  <span style="font-size:.75rem;font-weight:900;color:#0f172a;text-transform:uppercase;">
-                    {{ $sol->tipo_label }}
-                  </span>
-                  @if ($sol->estado === 'aprobado')
-                    <span style="font-size:.68rem;font-weight:900;color:#065f46;background:#d1fae5;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #a7f3d0;">
-                      ✓ Aprobado
-                    </span>
-                  @elseif ($sol->estado === 'rechazado')
-                    <span style="font-size:.68rem;font-weight:900;color:#9f1239;background:#ffe4e6;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #fecdd3;">
-                      ✕ Rechazado
-                    </span>
-                  @else
-                    <span style="font-size:.68rem;font-weight:900;color:#92400e;background:#fef3c7;padding:.2rem .55rem;border-radius:.5rem;border:1px solid #fde68a;">
-                      ⏳ Pendiente
-                    </span>
-                  @endif
-                </div>
-
-                <div style="font-size:.72rem;color:#475569;font-weight:600;display:flex;flex-direction:column;gap:.2rem;">
-                  <span>📅 {{ $sol->fecha_inicio?->format('d/m/Y') }} {{ $sol->fecha_fin && $sol->fecha_fin->ne($sol->fecha_inicio) ? 'al ' . $sol->fecha_fin->format('d/m/Y') : '' }}</span>
-                  @if ($sol->hora_inicio && $sol->hora_fin)
-                    <span>⏰ {{ substr($sol->hora_inicio, 0, 5) }} - {{ substr($sol->hora_fin, 0, 5) }}</span>
-                  @else
-                    <span>⏰ Jornada Completa</span>
-                  @endif
-                </div>
-
-                @if ($sol->motivo)
-                  <p style="font-size:.72rem;color:#64748b;margin:.4rem 0 0 0;font-style:italic;">
-                    "{{ $sol->motivo }}"
-                  </p>
-                @endif
-
-                {{-- MOTIVO DE RECHAZO EN PERFIL DE HORAS --}}
-                @if ($sol->estado === 'rechazado')
-                  <div style="margin-top:.5rem;background:#ffe4e6;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .65rem;color:#881337;font-size:.72rem;">
-                    <strong style="display:block;font-size:.68rem;text-transform:uppercase;color:#9f1239;letter-spacing:.03em;margin-bottom:.2rem;">
-                      ⚠️ Motivo del Rechazo (RR.HH.):
-                    </strong>
-                    <span style="font-weight:700;">"{{ $sol->motivo_rechazo ?: 'No especificado por el administrador.' }}"</span>
-                  </div>
-                @endif
-              </div>
-
-              <div style="display:flex;align-items:center;justify-content:flex-end;border-top:1px solid rgba(0,0,0,0.05);padding-top:.5rem;">
-                <button
-                  type="button"
-                  wire:click="descargarBoletaPdf({{ $sol->id }})"
-                  style="font-size:.72rem;font-weight:800;color:#0f67c0;background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Descargar PDF
-                </button>
-              </div>
-            </div>
-          @endforeach
-        </div>
-      </div>
-    @endif
-
   </div>{{-- .ph-wrapper --}}
 
   {{-- POPUP MODAL: SOLICITAR CORREO SI EL FUNCIONARIO NO TIENE UNO --}}
@@ -1194,15 +1116,15 @@
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.5rem;">Tipo de Permiso *</label>
               <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;">
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="particular">
                   <span>PARTICULAR</span>
                 </label>
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'comision' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'comision' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'comision' ? '#1e60c6' : '#334155' }};">
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'comision' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'comision' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'comision' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="comision">
                   <span>COMISIÓN</span>
                 </label>
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1px solid {{ $boletaTipo === 'medico' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'medico' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'medico' ? '#1e60c6' : '#334155' }};">
+                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'medico' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'medico' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'medico' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="medico">
                   <span>MÉDICO</span>
                 </label>
@@ -1360,6 +1282,28 @@
             @enderror
           </div>
 
+          {{-- BANNER DE REGLA 48 HORAS PARA OMISIÓN / RETRASO --}}
+          @if ($this->plazo48HorasInfo['aplica'])
+            @if ($this->plazo48HorasInfo['vencido'])
+              <div style="border-radius:.75rem;border:2px solid #fca5a5;background:#fef2f2;padding:.85rem 1rem;display:flex;align-items:flex-start;gap:.75rem;">
+                <span style="font-size:1.25rem;">⛔</span>
+                <div>
+                  <strong style="display:block;font-size:.8rem;color:#991b1b;text-transform:uppercase;">Plazo de 48 horas vencido</strong>
+                  <p style="margin:.2rem 0;font-size:.75rem;font-weight:700;color:#b91c1c;">{{ $this->plazo48HorasInfo['mensaje'] }}</p>
+                  <p style="margin:0;font-size:.7rem;color:#dc2626;">Por normativa de la institución, las boletas por omisión de marcado o retraso sólo pueden presentarse dentro de las 48 horas posteriores a la falta.</p>
+                </div>
+              </div>
+            @else
+              <div style="border-radius:.75rem;border:1px solid #6ee7b7;background:#ecfdf5;padding:.75rem 1rem;display:flex;align-items:center;gap:.6rem;">
+                <span style="font-size:1.1rem;">⏱️</span>
+                <div style="font-size:.75rem;">
+                  <strong style="color:#065f46;text-transform:uppercase;">Regla de 48 Horas: </strong>
+                  <span style="font-weight:700;color:#047857;">{{ $this->plazo48HorasInfo['mensaje'] }}</span>
+                </div>
+              </div>
+            @endif
+          @endif
+
         </div>
 
         @php
@@ -1372,7 +1316,8 @@
             && filled(trim($boletaHastaFecha))
             && ($this->esRangoDias || filled(trim($boletaHastaHora)))
             && filled(trim($boletaTiempoSolicitado))
-            && !empty($comprobante);
+            && !empty($comprobante)
+            && !$this->plazo48HorasInfo['vencido'];
         @endphp
 
         {{-- BOTONES (SOLO APARECE CUANDO SE CUMPLEN TODOS LOS REQUISITOS) --}}
@@ -1392,6 +1337,10 @@
               <span wire:loading.remove wire:target="descargarPdf">Enviar a RR.HH. y Descargar Boleta PDF</span>
               <span wire:loading wire:target="descargarPdf">Generando documento oficial...</span>
             </button>
+          @elseif ($this->plazo48HorasInfo['vencido'])
+            <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.75rem;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:.75rem;font-weight:700;">
+              <span>⛔ No se puede enviar: El plazo de 48 horas ha vencido</span>
+            </div>
           @else
             <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.75rem;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:.75rem;font-weight:700;">
               <span>⚠️ Completa el motivo y sube la foto del comprobante para habilitar el envío</span>

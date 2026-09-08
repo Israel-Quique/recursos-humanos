@@ -201,6 +201,7 @@ class BoletaConComprobanteTest extends TestCase
         Storage::fake('public');
         $empleado = $this->crearEmpleado();
 
+        \Carbon\Carbon::setTestNow('2026-08-16 10:00:00');
         $imagenFalsa = UploadedFile::fake()->image('justificativo_omision.jpg', 600, 400);
 
         $component = Livewire::test(\App\Livewire\PerfilHorasPage::class, ['empleado' => $empleado])
@@ -213,6 +214,8 @@ class BoletaConComprobanteTest extends TestCase
             ->assertSet('boletaCiudad', mb_strtoupper($empleado->sucursal))
             ->set('comprobante', $imagenFalsa)
             ->call('descargarPdf');
+
+        \Carbon\Carbon::setTestNow();
 
         $component->assertHasNoErrors();
         $component->assertFileDownloaded();
@@ -358,7 +361,7 @@ class BoletaConComprobanteTest extends TestCase
         $this->assertNull($permiso->hora_fin);
     }
 
-    public function test_consulta_carnet_muestra_solicitudes_recientes_y_motivo_de_rechazo(): void
+    public function test_consulta_carnet_no_muestra_boletas_al_buscar_carnet(): void
     {
         $empleado = $this->crearEmpleado(codigo: '887766');
 
@@ -374,11 +377,103 @@ class BoletaConComprobanteTest extends TestCase
             'minutos_contabilizados' => 0,
         ]);
 
+        // Al buscar por carnet o código, NO deben aparecer las boletas anteriores en la pantalla
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '887766')
-            ->assertSee('Mis Solicitudes de Boleta Recientes')
-            ->assertSee('Rechazado')
-            ->assertSee('Falta firma de jefatura inmediata');
+            ->assertSee($empleado->nombre_completo)
+            ->assertDontSee('Mis Solicitudes de Boleta Recientes')
+            ->assertDontSee('Falta firma de jefatura inmediata');
+
+        // En perfil de horas tampoco deben exponerse públicamente las boletas
+        Livewire::test(\App\Livewire\PerfilHorasPage::class, ['empleado' => $empleado])
+            ->assertDontSee('Mis Boletas y Permisos Recientes')
+            ->assertDontSee('Falta firma de jefatura inmediata');
+    }
+
+    public function test_boleta_omision_o_retraso_bloqueada_despues_de_48_horas(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado();
+        $imagenFalsa = UploadedFile::fake()->image('justificativo_omision.jpg', 600, 400);
+
+        // Fijamos hora actual para la prueba: 2026-09-08 15:00
+        \Carbon\Carbon::setTestNow('2026-09-08 15:00:00');
+
+        // Intento de justificar omisión de hace 3 días (2026-09-05 08:30 -> ~78 horas > 48h)
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', $empleado->codigo_biometrico)
+            ->call('abrirBoletaModal')
+            ->set('boletaTipo', 'particular')
+            ->set('boletaDesdeFecha', '2026-09-05')
+            ->set('boletaDesdeHora', '08:30')
+            ->set('boletaHastaFecha', '2026-09-05')
+            ->set('boletaHastaHora', '09:00')
+            ->set('boletaMotivo', 'Olvidé marcar mi entrada (omisión de huella)')
+            ->set('comprobante', $imagenFalsa)
+            ->assertSee('Plazo de 48 horas vencido')
+            ->assertDontSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('descargarPdf')
+            ->assertHasErrors(['boletaDesdeFecha']);
+
+        $this->assertSame(0, PermisoLaboral::query()->count());
+
+        \Carbon\Carbon::setTestNow();
+    }
+
+    public function test_boleta_omision_o_retraso_permitida_dentro_de_48_horas(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado();
+        $imagenFalsa = UploadedFile::fake()->image('justificativo_retraso.jpg', 600, 400);
+
+        \Carbon\Carbon::setTestNow('2026-09-08 15:00:00');
+
+        // Retraso de ayer 2026-09-07 09:00 -> ~30 horas transcurridas (dentro de las 48h)
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', $empleado->codigo_biometrico)
+            ->call('abrirBoletaModal')
+            ->set('boletaTipo', 'particular')
+            ->set('boletaDesdeFecha', '2026-09-07')
+            ->set('boletaDesdeHora', '09:00')
+            ->set('boletaHastaFecha', '2026-09-07')
+            ->set('boletaHastaHora', '09:30')
+            ->set('boletaMotivo', 'Retraso de 30 minutos por trancadera vehicular')
+            ->set('comprobante', $imagenFalsa)
+            ->assertSee('Regla de 48 Horas')
+            ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('descargarPdf')
+            ->assertHasNoErrors()
+            ->assertFileDownloaded();
+
+        $this->assertSame(1, PermisoLaboral::query()->count());
+
+        \Carbon\Carbon::setTestNow();
+    }
+
+    public function test_boleta_omision_o_retraso_bloqueada_para_fecha_futura(): void
+    {
+        Storage::fake('public');
+        $empleado = $this->crearEmpleado();
+        $imagenFalsa = UploadedFile::fake()->image('justificativo.jpg', 600, 400);
+
+        \Carbon\Carbon::setTestNow('2026-09-08 15:00:00');
+
+        // Intento de omisión para mañana (2026-09-09)
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', $empleado->codigo_biometrico)
+            ->call('abrirBoletaModal')
+            ->set('boletaTipo', 'particular')
+            ->set('boletaDesdeFecha', '2026-09-09')
+            ->set('boletaDesdeHora', '08:30')
+            ->set('boletaHastaFecha', '2026-09-09')
+            ->set('boletaHastaHora', '09:00')
+            ->set('boletaMotivo', 'Omisión de marcado en ingreso')
+            ->set('comprobante', $imagenFalsa)
+            ->assertSee('no puede emitirse para una fecha u hora futura')
+            ->call('descargarPdf')
+            ->assertHasErrors(['boletaDesdeFecha']);
+
+        \Carbon\Carbon::setTestNow();
     }
 
     public function test_incidencias_muestra_y_permite_editar_motivo_de_rechazo(): void

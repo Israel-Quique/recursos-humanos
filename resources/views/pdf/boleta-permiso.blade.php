@@ -272,7 +272,7 @@
         </td>
         <td style="width: 33.3%; text-align: center;">
           PARTICULAR
-          <span class="check-square">{{ ($boleta['tipo'] ?? '') === 'particular' ? 'X' : '' }}</span>
+          <span class="check-square">{{ in_array(($boleta['tipo'] ?? ''), ['particular', 'omision', 'retraso']) ? 'X' : '' }}</span>
         </td>
         <td style="width: 33.3%; text-align: right;">
           MÉDICO

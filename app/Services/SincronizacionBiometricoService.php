@@ -31,6 +31,26 @@ class SincronizacionBiometricoService
     public function sincronizarDispositivo(array $device, bool $force = false): array
     {
         $storedDevice = $this->resolveStoredDevice($device);
+
+        // Pre-verificación rápida TCP para evitar esperas largas si la sucursal está apagada o sin red
+        if (! $this->isDeviceReachable($device, 1.2)) {
+            $msg = 'Dispositivo no alcanzable en la red (' . ($device['ip'] ?? '') . ':' . ($device['port'] ?? 4370) . ').';
+            if ($storedDevice) {
+                $storedDevice->forceFill([
+                    'last_error' => $msg,
+                ])->save();
+            }
+
+            return [
+                'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
+                'status' => 'offline',
+                'imported' => 0,
+                'updated' => 0,
+                'created' => 0,
+                'message' => $msg,
+            ];
+        }
+
         $syncCutoff = $force ? null : $this->resolveSyncCutoff($storedDevice);
 
         try {
@@ -63,6 +83,8 @@ class SincronizacionBiometricoService
                     'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
                     'status' => 'sin-cambios',
                     'imported' => 0,
+                    'updated' => 0,
+                    'created' => 0,
                     'message' => 'No existen marcaciones nuevas y validas para sincronizar en la ventana reciente.',
                 ];
             }
@@ -91,11 +113,16 @@ class SincronizacionBiometricoService
                 ])->save();
             }
 
+            $actualizados = (int) ($importacion->resumen_json['registros_actualizados'] ?? 0);
+            $generados = (int) ($importacion->resumen_json['registros_generados'] ?? 0);
+
             return [
                 'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
                 'status' => 'sincronizado',
                 'imported' => (int) ($importacion->registros_total ?? count($newRows)),
-                'message' => 'Marcaciones sincronizadas correctamente. CSV generado en ' . basename($csvPath) . '.',
+                'updated' => $actualizados,
+                'created' => $generados,
+                'message' => "Sincronizado correctamente: {$generados} registros generados, {$actualizados} actualizados.",
             ];
         } catch (\Throwable $exception) {
             if ($storedDevice) {
@@ -109,9 +136,29 @@ class SincronizacionBiometricoService
                 'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
                 'status' => 'error',
                 'imported' => 0,
+                'updated' => 0,
+                'created' => 0,
                 'message' => $exception->getMessage(),
             ];
         }
+    }
+
+    private function isDeviceReachable(array $device, float $timeout = 1.2): bool
+    {
+        $ip = trim((string) ($device['ip'] ?? ''));
+        $port = (int) ($device['port'] ?? 4370);
+
+        if ($ip === '') {
+            return false;
+        }
+
+        $socket = @fsockopen($ip, $port, $errno, $errstr, $timeout);
+        if (is_resource($socket)) {
+            fclose($socket);
+            return true;
+        }
+
+        return false;
     }
 
     private function resolveStoredDevice(array $device): ?BiometricoDispositivo

@@ -300,11 +300,31 @@ class ImportacionBiometricaService
 
             // Fusionar con registro existente: no sobreescribir con nulos y
             // elegir la entrada más temprana y la salida más tardía.
-            $mergedEntrada = $this->minTime($registro->hora_entrada ?? null, $entrada);
-            $mergedSalida = $this->maxTime($registro->hora_salida ?? null, $salida);
+            $existingEntrada = $registro->hora_entrada ?? null;
+            $existingSalida = $registro->hora_salida ?? null;
+
+            // Si el registro ya tenía entrada previa y las marcas procesadas traen una hora posterior sin salida,
+            // esa marca posterior corresponde a la salida solo si dista al menos 5 minutos de la entrada.
+            if ($existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
+                $cEntrada = $this->parseTimeStringToCarbon($entrada);
+                $cExisting = $this->parseTimeStringToCarbon($existingEntrada);
+                if ($cEntrada && $cExisting && abs($cEntrada->diffInMinutes($cExisting)) >= 5) {
+                    $salida = $entrada;
+                    $entrada = $existingEntrada;
+                }
+            }
+
+            $mergedEntrada = $this->minTime($existingEntrada, $entrada);
+            $mergedSalida = $this->maxTime($existingSalida, $salida);
 
             if ($this->sameTime($mergedEntrada, $mergedSalida)) {
                 $mergedSalida = null;
+            } elseif ($mergedEntrada && $mergedSalida) {
+                $cEntrada = $this->parseTimeStringToCarbon($mergedEntrada);
+                $cSalida = $this->parseTimeStringToCarbon($mergedSalida);
+                if ($cEntrada && $cSalida && abs($cSalida->diffInMinutes($cEntrada)) < 5) {
+                    $mergedSalida = null;
+                }
             }
 
             $registro->fill([
@@ -923,14 +943,8 @@ class ImportacionBiometricaService
 
     private function resolverHorasJornada(Empleado $empleado, Collection $horas): array
     {
-        $entradaExplicita = $horas->first(fn (array $mark) => $this->marcaEsEntrada($mark));
-        $salidaExplicita = $horas->filter(fn (array $mark) => $this->marcaEsSalida($mark))->last();
-
-        $entrada = ($entradaExplicita['fecha_hora'] ?? null)?->format('H:i:s');
-        $salida = ($salidaExplicita['fecha_hora'] ?? null)?->format('H:i:s');
-
-        if ($entrada && $salida) {
-            return [$entrada, $salida];
+        if ($horas->isEmpty()) {
+            return [null, null];
         }
 
         if ($horas->count() === 1) {
@@ -938,21 +952,21 @@ class ImportacionBiometricaService
             return $this->resolverMarcacionUnicaPorHorario($empleado, $unica['fecha_hora']);
         }
 
-        if (! $entrada) {
-            $primera = $horas->first();
-            $entrada = $primera['fecha_hora']->format('H:i:s');
+        // Si hay 2 o más marcas en la jornada:
+        // Ordenamos estrictamente por timestamp
+        $sorted = $horas->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)->values();
+        $primera = $sorted->first();
+        $ultima = $sorted->last();
+        $primeraHora = $primera['fecha_hora']->format('H:i:s');
+        $ultimaHora = $ultima['fecha_hora']->format('H:i:s');
+
+        // Si la última marca es posterior por al menos 5 minutos, se considera salida válida
+        if ($this->esPosterior($ultimaHora, $primeraHora) && abs($ultima['fecha_hora']->diffInMinutes($primera['fecha_hora'])) >= 5) {
+            return [$primeraHora, $ultimaHora];
         }
 
-        if (! $salida) {
-            $ultima = $horas->last();
-            $ultimaHora = $ultima['fecha_hora']->format('H:i:s');
-
-            $salida = $entrada && $this->esPosterior($ultimaHora, $entrada)
-                ? $ultimaHora
-                : null;
-        }
-
-        return [$entrada, $salida];
+        // Si todas las marcas ocurrieron en una ventana menor a 5 minutos (doble marcación al llegar):
+        return [$primeraHora, null];
     }
 
     private function marcaEsEntrada(array $mark): bool
@@ -963,7 +977,8 @@ class ImportacionBiometricaService
         return str_contains($estado, 'entrada')
             || str_contains($estado, 'retorno')
             || str_contains($estado, 'ingreso')
-            || str_contains($evento, 'retorno');
+            || str_contains($evento, 'retorno')
+            || str_contains($evento, 'entrada');
     }
 
     private function marcaEsSalida(array $mark): bool
@@ -987,11 +1002,16 @@ class ImportacionBiometricaService
         $horaEntrada = $this->parseTimeStringToCarbon((string) ($horario['hora_entrada'] ?? ''));
         $horaSalida = $this->parseTimeStringToCarbon((string) ($horario['hora_salida'] ?? ''));
 
+        $marcaMinutos = ((int) $fechaHora->format('H')) * 60 + (int) $fechaHora->format('i');
+
         if (! $horaEntrada || ! $horaSalida) {
+            // Si no hay horario configurado, usar 13:00 (1:00 PM) como punto medio estimado
+            if ($marcaMinutos >= 13 * 60) {
+                return [null, $fechaHora->format('H:i:s')];
+            }
             return [$fechaHora->format('H:i:s'), null];
         }
 
-        $marcaMinutos = ((int) $fechaHora->format('H')) * 60 + (int) $fechaHora->format('i');
         $entradaMinutos = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
         $salidaMinutos = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
         $puntoMedio = (int) floor(($entradaMinutos + $salidaMinutos) / 2);
@@ -1033,9 +1053,25 @@ class ImportacionBiometricaService
         $nombre = trim((string) ($row['nombre'] ?? ''));
         $apellido = trim((string) ($row['apellido'] ?? ''));
         $nombreCompleto = trim((string) ($row['nombre_completo'] ?? trim($nombre.' '.$apellido)));
-        $estadoHumano = $this->traducirEstadoHumano((string) ($row['estado'] ?? ''));
-        $eventoHumano = $this->traducirEventoHumano((string) ($row['punch'] ?? ''));
-        $verificacionHumana = $this->traducirVerificacionHumana((string) ($row['verificacion'] ?? ''));
+
+        $punchRaw = trim((string) ($row['punch'] ?? ''));
+        $estadoRaw = trim((string) ($row['estado'] ?? ''));
+        $verifRaw = trim((string) ($row['verificacion'] ?? ''));
+
+        // En ZKTeco/pyzk:
+        // punch: 0 = Entrada, 1 = Salida, 2 = Descanso salida, 3 = Descanso entrada, 4 = Extra entrada, 5 = Extra salida, 255 = Marcacion
+        // status/verificacion: 0 = Contraseña, 1 = Huella, 2 = Tarjeta, 15 = Rostro
+        $punchToUse = ($punchRaw !== '' && $punchRaw !== '255') 
+            ? $punchRaw 
+            : ($estadoRaw !== '' && in_array($estadoRaw, ['0', '1', '2', '3', '4', '5'], true) ? $estadoRaw : '');
+        
+        $verifToUse = $verifRaw !== '' 
+            ? $verifRaw 
+            : ($estadoRaw !== '' && !in_array($estadoRaw, ['0', '1', '2', '3', '4', '5'], true) ? $estadoRaw : ($punchRaw !== '' && in_array($punchRaw, ['1', '15'], true) ? $punchRaw : ''));
+
+        $estadoHumano = $this->traducirEstadoHumano($punchToUse);
+        $eventoHumano = $this->traducirEventoHumano($punchRaw !== '' ? $punchRaw : $punchToUse);
+        $verificacionHumana = $this->traducirVerificacionHumana($verifToUse);
 
         return [
             'codigo' => $codigo,
@@ -1069,19 +1105,21 @@ class ImportacionBiometricaService
             '3' => 'Retorno de descanso',
             '4' => 'Entrada extra',
             '5' => 'Salida extra',
-            default => $status !== '' ? 'Estado '.$status : 'Sin estado',
+            default => $status !== '' ? 'Estado '.$status : 'Marcacion general',
         };
     }
 
     private function traducirEventoHumano(string $punch): string
     {
         return match ($punch) {
-            '0' => 'Registro biometrico',
-            '1' => 'Apertura con tarjeta de proximidad',
-            '2' => 'Apertura remota',
-            '3' => 'Boton de salida',
-            '4' => 'Alarma',
-            default => $punch !== '' ? 'Evento '.$punch : 'Sin evento',
+            '0' => 'Entrada / Check-in',
+            '1' => 'Salida / Check-out',
+            '2' => 'Salida a descanso',
+            '3' => 'Retorno de descanso',
+            '4' => 'Entrada extra',
+            '5' => 'Salida extra',
+            '255' => 'Registro biometrico',
+            default => $punch !== '' ? 'Evento '.$punch : 'Registro biometrico',
         };
     }
 
@@ -1095,16 +1133,14 @@ class ImportacionBiometricaService
             '4' => 'Huella + tarjeta',
             '5' => 'Tarjeta + contrasena',
             '6' => 'Tarjeta + huella + contrasena',
-            '7' => 'Rostro',
+            '7', '14', '15' => 'Rostro',
             '8' => 'Rostro + huella',
             '9' => 'Rostro + tarjeta',
             '10' => 'Rostro + contrasena',
             '11' => 'Rostro + tarjeta + huella',
             '12' => 'Rostro + huella + contrasena',
             '13' => 'Rostro + tarjeta + contrasena',
-            '14' => 'Solo rostro',
-            '15' => 'Tarjeta de proximidad',
-            default => $verification !== '' ? 'Metodo '.$verification : 'No disponible',
+            default => $verification !== '' ? 'Metodo '.$verification : 'Biometrico',
         };
     }
 

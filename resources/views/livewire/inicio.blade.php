@@ -1,4 +1,31 @@
 <div class="page-stack">
+  @if (session('status_success'))
+    <div
+      class="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/90 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm backdrop-blur-xs">
+      <div class="flex items-center gap-2.5">
+        <svg class="h-5 w-5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <span>{{ session('status_success') }}</span>
+      </div>
+    </div>
+  @endif
+
+  @if (session('status_error'))
+    <div
+      class="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-rose-300 bg-rose-50/90 px-4 py-3 text-sm font-semibold text-rose-800 shadow-sm backdrop-blur-xs">
+      <div class="flex items-center gap-2.5">
+        <svg class="h-5 w-5 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>{{ session('status_error') }}</span>
+      </div>
+    </div>
+  @endif
+
   @if (session('status'))
     <div
       class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm">
@@ -191,57 +218,143 @@
 
   {{-- 3. ENLACES SECUNDARIOS Y OTRAS HERRAMIENTAS --}}
   <section class="mt-6">
-    <div class="surface-card !p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>
-        <h4 class="text-sm font-bold text-slate-800">Otras herramientas operativas</h4>
-        <p class="text-xs text-slate-500">Accede rápidamente a la configuración general o consulta el calendario</p>
-      </div>
+    <div class="surface-card !p-5">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h4 class="text-sm font-bold text-slate-800">Otras herramientas operativas</h4>
+          <p class="text-xs text-slate-500">Accede rápidamente a la configuración general o sincroniza con el biométrico físico</p>
+        </div>
 
-      <div class="flex flex-wrap items-center gap-2.5">
-        <a wire:navigate href="{{ route('dashboard') }}"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
-          <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          <span>Calendario laboral</span>
-        </a>
-
-        @can('importar biometria')
-          <button type="button" wire:click="sincronizarBiometrico" wire:loading.attr="disabled"
-            wire:target="sincronizarBiometrico"
-            class="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition shadow-xs disabled:opacity-60">
-            <svg class="h-4 w-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <path d="M21 3v6h-6" />
-            </svg>
-            <span wire:loading.remove wire:target="sincronizarBiometrico">Sincronizar biométrico</span>
-            <span wire:loading wire:target="sincronizarBiometrico">Sincronizando…</span>
-          </button>
-        @endcan
-
-        @can('gestionar personal')
-          <a wire:navigate href="{{ route('horarios') }}"
+        <div class="flex flex-wrap items-center gap-2.5">
+          <a wire:navigate href="{{ route('dashboard') }}"
             class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
             <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <span>Horarios por sucursal</span>
+            <span>Calendario laboral</span>
           </a>
-          <a wire:navigate href="{{ route('incidencias') }}"
-            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
-            <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span>Incidencias</span>
-          </a>
-        @endcan
+
+          @can('importar biometria')
+            <div class="inline-flex items-center gap-2">
+              <button type="button" wire:click="sincronizarBiometrico(true)" wire:loading.attr="disabled"
+                wire:target="sincronizarBiometrico"
+                title="Conecta con los relojes biométricos, extrae todas las marcaciones recientes y actualiza las entradas y salidas sin perder fidelidad"
+                class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-900 hover:bg-amber-500/20 hover:border-amber-400 transition shadow-xs disabled:opacity-60 cursor-pointer">
+                <svg wire:loading.remove wire:target="sincronizarBiometrico" class="h-4 w-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+                <svg wire:loading wire:target="sincronizarBiometrico" class="h-4 w-4 text-amber-700 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
+                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                </svg>
+                <span wire:loading.remove wire:target="sincronizarBiometrico">Sincronizar biométrico</span>
+                <span wire:loading wire:target="sincronizarBiometrico">Conectando y sincronizando…</span>
+              </button>
+
+              @if ($lastSyncTime)
+                <span class="hidden md:inline-block text-[11px] text-slate-400 font-medium">
+                  Sincronizado: {{ $lastSyncTime }}
+                </span>
+              @endif
+            </div>
+          @endcan
+
+          @can('gestionar personal')
+            <a wire:navigate href="{{ route('horarios') }}"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
+              <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>Horarios por sucursal</span>
+            </a>
+            <a wire:navigate href="{{ route('incidencias') }}"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
+              <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>Incidencias</span>
+            </a>
+          @endcan
+        </div>
       </div>
+
+      {{-- DETALLES DE SINCRONIZACIÓN BAJO DEMANDA --}}
+      @if ($syncResult)
+        <div class="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              @if ($syncResult['success'] ?? false)
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  Sincronización completada
+                </span>
+              @else
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                  Error de sincronización
+                </span>
+              @endif
+              <span class="text-xs text-slate-400">• {{ $syncResult['timestamp'] ?? '' }}</span>
+            </div>
+
+            <button type="button" wire:click="cerrarResumenSync" class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
+              Cerrar
+            </button>
+          </div>
+
+          @if ($syncResult['success'] ?? false)
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-slate-800">{{ $syncResult['sincronizados'] }}/{{ $syncResult['total_devices'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Equipos conectados</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-amber-600">{{ $syncResult['total_importados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Marcaciones leídas</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-emerald-600">{{ $syncResult['total_actualizados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Salidas/Entradas actualizadas</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-blue-600">{{ $syncResult['total_generados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Registros nuevos</div>
+              </div>
+            </div>
+
+            @if (!empty($syncResult['detalles']))
+              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                @foreach ($syncResult['detalles'] as $detalle)
+                  <div class="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : ($detalle['status'] === 'sin-cambios' ? 'bg-slate-50 text-slate-700 border border-slate-100' : 'bg-slate-50 text-slate-400 border border-slate-100') }}">
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 rounded-full {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-500' : ($detalle['status'] === 'sin-cambios' ? 'bg-blue-400' : 'bg-slate-300') }}"></span>
+                      <span class="font-bold">{{ $detalle['device'] }}</span>
+                    </div>
+                    <span class="text-[11px] truncate max-w-xs">{{ $detalle['message'] }}</span>
+                  </div>
+                @endforeach
+              </div>
+            @endif
+          @else
+            <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800">
+              {{ $syncResult['error'] ?? 'Ocurrió un error inesperado.' }}
+            </div>
+          @endif
+        </div>
+      @endif
     </div>
   </section>
 

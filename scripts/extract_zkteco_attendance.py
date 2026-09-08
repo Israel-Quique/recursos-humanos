@@ -40,6 +40,9 @@ def serialize_attendance(record, users_by_code):
     codigo = str(getattr(record, "user_id", "") or "").strip()
     user = users_by_code.get(codigo, {})
 
+    status_val = getattr(record, "status", "")
+    punch_val = getattr(record, "punch", "")
+
     return {
         "uid": getattr(record, "uid", ""),
         "codigo": codigo,
@@ -48,8 +51,9 @@ def serialize_attendance(record, users_by_code):
         "nombre_completo": user.get("nombre_completo", ""),
         "numero_tarjeta": user.get("numero_tarjeta", ""),
         "fecha_hora": timestamp.isoformat() if timestamp else "",
-        "estado": str(getattr(record, "status", "") or ""),
-        "punch": str(getattr(record, "punch", "") or ""),
+        "estado": str(punch_val if punch_val is not None and str(punch_val) != "255" and str(punch_val) != "" else (status_val if status_val is not None else "")),
+        "punch": str(punch_val if punch_val is not None else ""),
+        "verificacion": str(status_val if status_val is not None else ""),
     }
 
 
