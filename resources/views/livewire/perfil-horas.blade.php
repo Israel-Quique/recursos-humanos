@@ -783,9 +783,28 @@
             </p>
           @endif
 
-          <div style="display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;font-size:.72rem;color:#64748b;">
-            <span>⏱️ <strong>Plazo de 48 horas:</strong> Toda omisión de marcado o atraso debe justificarse dentro de las 48 horas mediante boleta oficial.</span>
-            <span>⚖️ <strong>Garantía reglamentaria:</strong> Las sanciones se aplican estrictamente según las causales del Reglamento Interno (Art. 45).</span>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(290px, 1fr));gap:.65rem;margin-top:.75rem;">
+            {{-- Tarjeta 1: Plazo 48h --}}
+            <div style="display:flex;align-items:flex-start;gap:.65rem;background:#fffbeb;border:1.5px solid #fde68a;border-left:4px solid #d97706;border-radius:.75rem;padding:.65rem .85rem;">
+              <span style="font-size:1.25rem;line-height:1.2;flex-shrink:0;">⏱️</span>
+              <div style="font-size:.8rem;line-height:1.45;color:#78350f;">
+                <strong style="color:#92400e;font-size:.82rem;font-weight:800;display:block;margin-bottom:.15rem;letter-spacing:-.01em;">
+                  ⏱️ Plazo de 48 horas (Improrrogable):
+                </strong>
+                Toda omisión de marcado o atraso debe justificarse estrictamente dentro de las <strong style="color:#b45309;text-decoration:underline;">48 horas</strong> mediante boleta oficial.
+              </div>
+            </div>
+
+            {{-- Tarjeta 2: Garantía reglamentaria --}}
+            <div style="display:flex;align-items:flex-start;gap:.65rem;background:#eff6ff;border:1.5px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:.75rem;padding:.65rem .85rem;">
+              <span style="font-size:1.25rem;line-height:1.2;flex-shrink:0;">⚖️</span>
+              <div style="font-size:.8rem;line-height:1.45;color:#1e3a8a;">
+                <strong style="color:#1d4ed8;font-size:.82rem;font-weight:800;display:block;margin-bottom:.15rem;letter-spacing:-.01em;">
+                  ⚖️ Garantía reglamentaria (Oficial):
+                </strong>
+                Las sanciones se aplican estrictamente según las causales tipificadas en el <strong style="color:#1e40af;">Reglamento Interno (Art. 45)</strong>.
+              </div>
+            </div>
           </div>
         </div>
 
