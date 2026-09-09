@@ -660,6 +660,10 @@
       Portal de Asistencia · Consulta por Carnet
     </div>
     <div style="display:flex;align-items:center;gap:.5rem;">
+      <button wire:click="abrirModalNormativa" type="button" class="ph-btn-ghost" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>📢 Normativa y Faltas (Art. 45)</span>
+      </button>
       <button wire:click="abrirBoletaModal" type="button" class="ph-btn-primary" style="background:#0f67c0;color:#fff;font-weight:700;box-shadow:0 2px 4px rgba(15,103,192,0.25);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>📄 Generar Boleta</span>
@@ -750,6 +754,50 @@
             </div>
             <div class="ph-kpi-sub">Tolerancia: {{ $retrasoResumen['tolerancia_minutos'] }} min</div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    {{-- ── AVISO INSTITUCIONAL DE NORMATIVA Y FALTAS (ARTÍCULO 45) ── --}}
+    <div style="background:#fff;border:1.5px solid {{ $excedio ? '#fecdd3' : '#cbd5e1' }};border-radius:1.25rem;padding:1.15rem 1.35rem;box-shadow:0 4px 18px rgba(15,23,42,.04);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;bottom:0;width:5px;background:{{ $excedio ? '#e11d48' : '#0f67c0' }};"></div>
+      
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:260px;">
+          <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.35rem;">
+            <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .65rem;border-radius:9999px;font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:{{ $excedio ? '#ffe4e6' : '#eff6ff' }};color:{{ $excedio ? '#be123c' : '#1d4ed8' }};border:1px solid {{ $excedio ? '#fecdd3' : '#bfdbfe' }};">
+              🏛️ Normativa Interna · Artículo 45
+            </span>
+            <span style="font-size:.72rem;font-weight:700;color:#64748b;">
+              Control de Asistencia, Atrasos y Régimen Disciplinario
+            </span>
+          </div>
+
+          @if ($excedio)
+            <p style="font-size:.82rem;font-weight:700;color:#9f1239;margin:0 0 .35rem 0;line-height:1.45;">
+              ⚠️ <strong style="color:#881337;">Atención: Has superado el margen de tolerancia mensual de {{ $retrasoResumen['tolerancia_minutos'] }} minutos</strong> (Retraso acumulado: {{ $retrasoResumen['total_formateado'] }}). De acuerdo con el Artículo 45, Numeral I, los excesos no justificados conllevan sanciones disciplinarias y emisión de Memorándum institucional.
+            </p>
+          @else
+            <p style="font-size:.82rem;font-weight:700;color:#1e293b;margin:0 0 .35rem 0;line-height:1.45;">
+              ✓ Te encuentras dentro del margen de tolerancia mensual ({{ $retrasoResumen['total_formateado'] }} de {{ $retrasoResumen['tolerancia_minutos'] }} min). Mantén el control de tus marcaciones para evitar llamadas de atención.
+            </p>
+          @endif
+
+          <div style="display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;font-size:.72rem;color:#64748b;">
+            <span>⏱️ <strong>Plazo de 48 horas:</strong> Toda omisión de marcado o atraso debe justificarse dentro de las 48 horas mediante boleta oficial.</span>
+            <span>⚖️ <strong>Garantía reglamentaria:</strong> Las sanciones se aplican estrictamente según las causales del Reglamento Interno (Art. 45).</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:.5rem;align-self:center;">
+          <button
+            type="button"
+            wire:click="abrirModalNormativa"
+            class="ph-btn-ghost"
+            style="background:#f8fafc;border:1.5px solid #cbd5e1;color:#0f67c0;font-weight:800;font-size:.75rem;padding:.5rem 1rem;white-space:nowrap;"
+          >
+            📖 Ver Faltas y Reglamento (Art. 45)
+          </button>
         </div>
       </div>
     </div>
@@ -1346,6 +1394,178 @@
               <span>⚠️ Completa el motivo y sube la foto del comprobante para habilitar el envío</span>
             </div>
           @endif
+        </div>
+
+      </div>
+    </div>
+  @endif
+
+  {{-- ── MODAL: ARTÍCULO 45 - REGLAMENTO DE FALTAS Y CONSECUENCIAS DISCIPLINARIAS ── --}}
+  @if ($mostrarModalNormativa)
+    <div class="app-modal-backdrop" wire:click="cerrarModalNormativa" style="background:rgba(15,23,42,0.78);backdrop-filter:blur(5px);z-index:99999;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;">
+      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #cbd5e1;max-width:920px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+        
+        {{-- Modal Header --}}
+        <div style="padding:1.25rem 1.75rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;background:#f8fafc;">
+          <div>
+            <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .65rem;border-radius:9999px;font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">
+              🏛️ Normativa Interna de Recursos Humanos
+            </span>
+            <h2 style="margin:.4rem 0 0 0;font-size:1.15rem;font-weight:900;color:#0f172a;line-height:1.25;">
+              ARTÍCULO 45: Faltas, Infracciones y Consecuencias Disciplinarias
+            </h2>
+            <p style="margin:.25rem 0 0 0;font-size:.75rem;color:#64748b;font-weight:600;">
+              Conoce las causales de infracción por atrasos, inasistencias u omisiones en el puesto de trabajo y tus plazos reglamentarios de justificación.
+            </p>
+          </div>
+          <button
+            type="button"
+            wire:click="cerrarModalNormativa"
+            style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:.4rem;border-radius:.5rem;line-height:1;"
+            title="Cerrar modal"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {{-- Modal Body --}}
+        <div style="padding:1.5rem 1.75rem;overflow-y:auto;display:flex;flex-direction:column;gap:1.25rem;">
+          
+          {{-- Regla de 48 Horas Alert Box --}}
+          <div style="border-radius:1rem;border:1.5px solid #a7f3d0;background:#ecfdf5;padding:1rem 1.25rem;display:flex;align-items:flex-start;gap:.85rem;">
+            <div style="font-size:1.4rem;line-height:1;">⏱️</div>
+            <div style="flex:1;">
+              <h4 style="margin:0 0 .2rem 0;font-size:.82rem;font-weight:900;color:#065f46;text-transform:uppercase;letter-spacing:.04em;">
+                Regla Improrrogable de 48 Horas para Boletas y Justificaciones
+              </h4>
+              <p style="margin:0;font-size:.76rem;color:#047857;line-height:1.5;font-weight:600;">
+                Toda omisión de marcado biométrico (entrada o salida) o justificación de atraso debe registrarse formalmente <strong>dentro de las 48 horas</strong> de suscitado el hecho. Una vez transcurrido este plazo fatal, el sistema bloquea la emisión de la boleta y la infracción queda consolidada como sancionable según reglamento.
+              </p>
+            </div>
+          </div>
+
+          {{-- Categorías de Filtro --}}
+          <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;border-bottom:1px solid #f1f5f9;padding-bottom:.75rem;">
+            <button
+              type="button"
+              wire:click="setCategoriaNormativa('todas')"
+              style="padding:.35rem .75rem;border-radius:.6rem;font-size:.72rem;font-weight:800;border:1.5px solid {{ $categoriaNormativa === 'todas' ? '#0f67c0' : '#e2e8f0' }};background:{{ $categoriaNormativa === 'todas' ? '#0f67c0' : '#f8fafc' }};color:{{ $categoriaNormativa === 'todas' ? '#fff' : '#475569' }};cursor:pointer;"
+            >
+              Todas las Faltas
+            </button>
+            <button
+              type="button"
+              wire:click="setCategoriaNormativa('atraso')"
+              style="padding:.35rem .75rem;border-radius:.6rem;font-size:.72rem;font-weight:800;border:1.5px solid {{ $categoriaNormativa === 'atraso' ? '#d97706' : '#e2e8f0' }};background:{{ $categoriaNormativa === 'atraso' ? '#d97706' : '#f8fafc' }};color:{{ $categoriaNormativa === 'atraso' ? '#fff' : '#475569' }};cursor:pointer;"
+            >
+              ⏰ Punto I: Atrasos
+            </button>
+            <button
+              type="button"
+              wire:click="setCategoriaNormativa('inasistencia')"
+              style="padding:.35rem .75rem;border-radius:.6rem;font-size:.72rem;font-weight:800;border:1.5px solid {{ $categoriaNormativa === 'inasistencia' ? '#e11d48' : '#e2e8f0' }};background:{{ $categoriaNormativa === 'inasistencia' ? '#e11d48' : '#f8fafc' }};color:{{ $categoriaNormativa === 'inasistencia' ? '#fff' : '#475569' }};cursor:pointer;"
+            >
+              🚫 Punto II: Inasistencias
+            </button>
+            <button
+              type="button"
+              wire:click="setCategoriaNormativa('omision')"
+              style="padding:.35rem .75rem;border-radius:.6rem;font-size:.72rem;font-weight:800;border:1.5px solid {{ $categoriaNormativa === 'omision' ? '#4f46e5' : '#e2e8f0' }};background:{{ $categoriaNormativa === 'omision' ? '#4f46e5' : '#f8fafc' }};color:{{ $categoriaNormativa === 'omision' ? '#fff' : '#475569' }};cursor:pointer;"
+            >
+              📝 Punto III: Omisiones
+            </button>
+            <button
+              type="button"
+              wire:click="setCategoriaNormativa('gravisima')"
+              style="padding:.35rem .75rem;border-radius:.6rem;font-size:.72rem;font-weight:800;border:1.5px solid {{ $categoriaNormativa === 'gravisima' ? '#7c3aed' : '#e2e8f0' }};background:{{ $categoriaNormativa === 'gravisima' ? '#7c3aed' : '#f8fafc' }};color:{{ $categoriaNormativa === 'gravisima' ? '#fff' : '#475569' }};cursor:pointer;"
+            >
+              ⚖️ Punto IV: Gravísimas
+            </button>
+          </div>
+
+          {{-- Listado de Puntos del Artículo 45 --}}
+          @php
+            $normativas = $this->anunciosReglamento;
+            if ($categoriaNormativa !== 'todas' && isset($normativas[$categoriaNormativa])) {
+              $normativas = [$categoriaNormativa => $normativas[$categoriaNormativa]];
+            }
+          @endphp
+
+          <div style="display:flex;flex-direction:column;gap:1.25rem;">
+            @foreach ($normativas as $catKey => $cat)
+              <div style="border:1px solid #e2e8f0;border-radius:1rem;background:#f8fafc;padding:1.15rem;display:flex;flex-direction:column;gap:.85rem;">
+                
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding-bottom:.65rem;">
+                  <div style="display:flex;align-items:center;gap:.6rem;">
+                    <span style="font-size:1.35rem;">{{ $cat['icono'] }}</span>
+                    <div>
+                      <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;">{{ $cat['punto'] }} · {{ $cat['articulo'] }}</span>
+                      <h3 style="margin:0;font-size:.95rem;font-weight:900;color:#0f172a;">{{ $cat['titulo'] }}</h3>
+                    </div>
+                  </div>
+                  <span style="padding:.2rem .6rem;border-radius:9999px;font-size:.65rem;font-weight:800;{{ $cat['activo'] ? 'background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;' : 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;' }}">
+                    {{ $cat['activo'] ? '● Vigente en la Institución' : '○ Suspendido temporalmente' }}
+                  </span>
+                </div>
+
+                <p style="margin:0;font-size:.76rem;color:#475569;font-weight:600;">
+                  {{ $cat['descripcion'] }}
+                </p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:.75rem;">
+                  @foreach ($cat['items'] as $item)
+                    @php
+                      $badgeColors = [
+                        'emerald' => 'background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;',
+                        'amber'   => 'background:#fffbeb;color:#92400e;border:1px solid #fde68a;',
+                        'orange'  => 'background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;',
+                        'rose'    => 'background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;',
+                        'red'     => 'background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;',
+                        'purple'  => 'background:#faf5ff;color:#6b21a8;border:1px solid #e9d5ff;',
+                        'blue'    => 'background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;',
+                      ];
+                      $styleBadge = $badgeColors[$item['badge_color']] ?? 'background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;';
+                    @endphp
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.85rem;padding:.85rem 1rem;display:flex;flex-direction:column;justify-content:space-between;gap:.5rem;">
+                      <div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.35rem;">
+                          <h4 style="margin:0;font-size:.8rem;font-weight:800;color:#0f172a;">{{ $item['subtitulo'] }}</h4>
+                          <span style="padding:.15rem .5rem;border-radius:.4rem;font-size:.62rem;font-weight:800;white-space:nowrap;{{ $styleBadge }}">
+                            {{ $item['badge'] }}
+                          </span>
+                        </div>
+                        <p style="margin:0 0 .35rem 0;font-size:.72rem;color:#64748b;font-weight:600;">
+                          <strong style="color:#334155;">Causal:</strong> {{ $item['condicion'] }}
+                        </p>
+                      </div>
+                      <div style="background:#f8fafc;border-radius:.6rem;padding:.5rem .65rem;border:1px solid #f1f5f9;">
+                        <p style="margin:0;font-size:.72rem;color:#1e293b;font-weight:700;line-height:1.4;">
+                          ⚖️ <strong style="color:#0f172a;">Consecuencia:</strong> {{ $item['efecto'] }}
+                        </p>
+                      </div>
+                    </div>
+                  @endforeach
+                </div>
+
+              </div>
+            @endforeach
+          </div>
+
+        </div>
+
+        {{-- Modal Footer --}}
+        <div style="padding:1rem 1.75rem;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
+          <span style="font-size:.72rem;color:#64748b;font-weight:600;">
+            Reglamento Interno de Personal · Agencia Boliviana de Correos
+          </span>
+          <button
+            type="button"
+            wire:click="cerrarModalNormativa"
+            class="ph-btn-primary"
+            style="padding:.5rem 1.25rem;font-size:.78rem;font-weight:800;cursor:pointer;"
+          >
+            Entendido / Cerrar
+          </button>
         </div>
 
       </div>

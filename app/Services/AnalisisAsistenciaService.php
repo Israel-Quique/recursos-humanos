@@ -255,7 +255,7 @@ class AnalisisAsistenciaService
             'entry_time' => config('asistencia.hora_entrada'),
             'exit_time' => config('asistencia.hora_salida'),
             'hours' => (int) config('asistencia.horas_jornada'),
-            'tolerance' => (int) config('asistencia.tolerancia_mensual_min'),
+            'tolerance' => $this->programacionLaboral->resolverToleranciaMensual(),
             'weeks' => $weeks,
             'weekdays' => ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
             'prev_label' => ucfirst($reference->copy()->subMonth()->locale('es')->translatedFormat('F Y')),
@@ -771,6 +771,7 @@ class AnalisisAsistenciaService
 
         $lateRows = [];
         $forgotRows = [];
+        $totalRetrasoMinutos = 0;
 
         foreach ($attendance as $registro) {
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
@@ -788,11 +789,13 @@ class AnalisisAsistenciaService
             );
 
             if ($delay > 0) {
+                $totalRetrasoMinutos += $delay;
                 $lateRows[] = [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'retraso' => $this->formatearMinutosEtiqueta($delay),
+                    'retraso_minutos' => $delay,
                     'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
                 ];
             }
@@ -827,6 +830,9 @@ class AnalisisAsistenciaService
                 ])->values()->all(),
         ];
 
+        $toleranciaMensual = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
+        $excesoTolerancia = max(0, $totalRetrasoMinutos - $toleranciaMensual);
+
         return [
             'empleado' => [
                 'id' => $empleado->id,
@@ -837,8 +843,18 @@ class AnalisisAsistenciaService
                     . ' - ' .
                     ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
             ],
+            'retraso_resumen' => [
+                'total_minutos' => $totalRetrasoMinutos,
+                'total_formateado' => $this->formatearMinutosEtiqueta($totalRetrasoMinutos),
+                'tolerancia_minutos' => $toleranciaMensual,
+                'exceso_minutos' => $excesoTolerancia,
+                'exceso_formateado' => $this->formatearMinutosEtiqueta($excesoTolerancia),
+                'excedio_tolerancia' => $totalRetrasoMinutos > $toleranciaMensual,
+            ],
             'metrics' => [
                 ['label' => 'Dias tarde', 'value' => (string) count($lateRows)],
+                ['label' => 'Retraso acumulado', 'value' => $this->formatearMinutosEtiqueta($totalRetrasoMinutos)],
+                ['label' => 'Tolerancia mensual', 'value' => $this->formatearMinutosEtiqueta($toleranciaMensual)],
                 ['label' => 'No marcados', 'value' => (string) count($forgotRows)],
                 ['label' => 'Faltas', 'value' => (string) count($faltas)],
             ],
@@ -1124,7 +1140,7 @@ class AnalisisAsistenciaService
             ->values()
             ->all();
 
-        $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 30);
+        $toleranciaMensual = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
         $excesoTolerancia = max(0, $lateMinutes - $toleranciaMensual);
 
         return [
@@ -1739,6 +1755,8 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $toleranciaMensualEmpleado = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
+
             $eventos[$fecha][] = [
                 'empleado_id' => $empleado->id,
                 'label' => $empleado->nombre_completo,
@@ -1747,7 +1765,7 @@ class AnalisisAsistenciaService
                 'entry_time' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
                 'status' => $this->resolverEstadoMarcacionVisible($registro),
                 'branch' => $empleado->sucursal ?: 'Sin sucursal',
-                'tone' => $acumuladoActual > $toleranciaMensual ? 'black' : 'red',
+                'tone' => $acumuladoActual > $toleranciaMensualEmpleado ? 'black' : 'red',
             ];
         }
 

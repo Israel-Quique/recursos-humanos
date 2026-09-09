@@ -1140,6 +1140,167 @@
     </div>
   @endif
 
+  @if ($showModalSancionados2Dias)
+    <div class="app-modal-backdrop" wire:click="closeModalSancionados2Dias">
+      <div class="app-modal-card max-w-4xl" x-on:click.stop>
+        <button type="button" wire:click="closeModalSancionados2Dias" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
+        
+        <div class="app-modal-head border-b border-slate-100 pb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider">
+                🏛️ Art. 45 - Faltas con Sanción Económica
+              </span>
+              <span class="text-xs text-slate-400 font-mono">{{ $mes_resumen ?? '' }}</span>
+            </div>
+            <h3 class="section-title app-modal-title mt-2 text-slate-900 flex items-center gap-2">
+              <span>Personal con Sanción por Tolerancia Excedida</span>
+            </h3>
+            <p class="section-copy-sm mt-1 text-slate-600">
+              Listado de funcionarios que han superado el límite de tolerancia mensual y acumulan sanciones económicas deducibles de la remuneración mensual mediante Memorándum formal de la Dirección Administrativa Financiera (DAF).
+            </p>
+          </div>
+        </div>
+
+        {{-- Pestañas de filtrado dentro del modal --}}
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              wire:click="setFiltroModalSancion('acumulativo_2')"
+              class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer {{ $filtroModalSancion === 'acumulativo_2' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}"
+            >
+              <span>🚨 Acumulativo 2 (2+ días descuento)</span>
+              <span class="rounded-full px-1.5 py-0.2 text-[10px] font-black {{ $filtroModalSancion === 'acumulativo_2' ? 'bg-white text-rose-700' : 'bg-rose-200 text-rose-800' }}">
+                {{ $totalSancionadosAcumulativo2 ?? 0 }}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              wire:click="setFiltroModalSancion('todos')"
+              class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer {{ $filtroModalSancion === 'todos' ? 'bg-[#0f67c0] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}"
+            >
+              <span>⚠️ Todos con Sanción Económica</span>
+              <span class="rounded-full px-1.5 py-0.2 text-[10px] font-black {{ $filtroModalSancion === 'todos' ? 'bg-white text-[#0f67c0]' : 'bg-slate-200 text-slate-800' }}">
+                {{ $totalSancionadosGeneral ?? 0 }}
+              </span>
+            </button>
+          </div>
+
+          <span class="text-[11px] text-slate-500 font-medium">
+            Mostrando <strong>{{ count($empleadosSancionadosModal ?? []) }}</strong> funcionarios
+          </span>
+        </div>
+
+        {{-- Métricas resumen del modal --}}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-800">Funcionarios Sancionados</span>
+            <p class="text-xl font-extrabold text-rose-950 mt-1">{{ count($empleadosSancionadosModal ?? []) }}</p>
+            <span class="text-[10px] text-rose-700 block mt-0.5">En el criterio seleccionado</span>
+          </div>
+          <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800">Total Días de Descuento</span>
+            <p class="text-xl font-extrabold text-amber-950 mt-1">
+              {{ array_sum(array_map(fn($e) => (float)($e->resumen_asistencia['sancion_regla']['dias_sancion'] ?? 0), ($empleadosSancionadosModal ?? collect([]))->all())) }} días
+            </p>
+            <span class="text-[10px] text-amber-700 block mt-0.5">Haber mensual acumulado</span>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600">Total Retraso Acumulado</span>
+            <p class="text-xl font-extrabold text-slate-900 mt-1">
+              {{ array_sum(array_map(fn($e) => (int)($e->resumen_asistencia['retraso_mes'] ?? 0), ($empleadosSancionadosModal ?? collect([]))->all())) }} min
+            </p>
+            <span class="text-[10px] text-slate-500 block mt-0.5">En exceso de horario</span>
+          </div>
+          <div class="rounded-xl border border-purple-200 bg-purple-50/60 p-3">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-purple-900">Acción Requerida</span>
+            <p class="text-xs font-bold text-purple-950 mt-1 leading-snug">Memorándum DAF</p>
+            <span class="text-[10px] text-purple-700 block mt-0.5">Deducción en planilla</span>
+          </div>
+        </div>
+
+        {{-- Tabla de Funcionarios Sancionados --}}
+        <div class="history-table-shell mt-4 max-h-[380px] overflow-y-auto">
+          <table class="history-table text-xs">
+            <thead>
+              <tr>
+                <th>Personal / Código</th>
+                <th>Sucursal</th>
+                <th class="text-center">Retraso Acumulado</th>
+                <th class="text-center">Tolerancia</th>
+                <th class="text-center">Exceso</th>
+                <th class="text-center">Sanción Aplicable (Art. 45)</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse (($empleadosSancionadosModal ?? []) as $empSancionado)
+                @php
+                  $sanc = $empSancionado->resumen_asistencia['sancion_regla'] ?? [];
+                  $retraso = (int)($empSancionado->resumen_asistencia['retraso_mes'] ?? 0);
+                  $toler = (int)($empSancionado->resumen_asistencia['tolerancia_mensual'] ?? 35);
+                  $exceso = max(0, $retraso - $toler);
+                  $esAcum2 = $sanc['es_acumulativo_2'] ?? false;
+                @endphp
+                <tr class="{{ $esAcum2 ? 'bg-rose-50/50' : 'bg-amber-50/30' }}">
+                  <td>
+                    <div class="font-bold text-slate-900">{{ $empSancionado->nombre_completo }}</div>
+                    <div class="text-[11px] text-slate-500 font-mono">
+                      Cód: <strong>{{ $empSancionado->codigo_biometrico ?: '—' }}</strong>
+                      @if($empSancionado->area) | {{ $empSancionado->area }} @endif
+                    </div>
+                  </td>
+                  <td class="font-semibold text-slate-700">{{ $empSancionado->sucursal ?? '—' }}</td>
+                  <td class="text-center font-mono font-bold text-rose-700">{{ $retraso }} min</td>
+                  <td class="text-center font-mono text-slate-500">{{ $toler }} min</td>
+                  <td class="text-center font-mono font-extrabold text-rose-800">+{{ $exceso }} min</td>
+                  <td class="text-center">
+                    @if($esAcum2)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-0.5 text-[11px] font-black shadow-xs">
+                        🚨 {{ $sanc['sancion_texto'] ?? 'Dos (2) días' }} (-{{ $sanc['dias_sancion'] ?? 2 }}d)
+                      </span>
+                    @else
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-2.5 py-0.5 text-[11px] font-bold shadow-xs">
+                        ⚠️ {{ $sanc['sancion_texto'] ?? 'Medio día' }} (-{{ $sanc['dias_sancion'] ?? 0.5 }}d)
+                      </span>
+                    @endif
+                  </td>
+                  <td class="text-center">
+                    <span class="inline-flex items-center rounded-md bg-white border border-slate-300 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                      Emitir Memorándum
+                    </span>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="7" class="py-10 text-center text-slate-500">
+                    <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <p class="text-xs font-bold text-slate-700">No hay funcionarios en este tramo de sanción</p>
+                    <p class="text-[11px] text-slate-400">Todos los colaboradores se encuentran dentro de los márgenes aceptables.</p>
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+          <span class="text-xs text-slate-500">
+            * Sanciones calculadas de acuerdo a la escala oficial vigente del <strong>Reglamento Interno de Personal (Art. 45)</strong>.
+          </span>
+          <button type="button" wire:click="closeModalSancionados2Dias" class="app-modal-secondary cursor-pointer">
+            Cerrar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  @endif
+
   @if ($vista === 'personal')
   <section>
     <article class="surface-card">
@@ -1606,6 +1767,48 @@
 
       {{-- ESTADO 2: DESPUÉS DE BUSCAR (TABLA COMPLETA CON FILTROS Y ORDENACIÓN) --}}
       @else
+        {{-- Selector de coincidencias múltiples cuando varios funcionarios coinciden con la búsqueda --}}
+        @if (count($matchingEmpleados) > 1)
+          <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 shadow-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-[#0f67c0] text-xs font-bold">
+                  👥
+                </span>
+                <span class="text-xs font-bold text-slate-800">
+                  Se encontraron <strong>{{ count($matchingEmpleados) }}</strong> personas con el criterio "<strong>{{ $appliedMarcacionesSearch }}</strong>":
+                </span>
+              </div>
+              <button
+                type="button"
+                wire:click="seleccionarEmpleadoMarcaciones(null)"
+                class="text-[11px] font-bold text-[#0f67c0] hover:underline self-start sm:self-auto cursor-pointer"
+              >
+                {{ $selectedMarcacionesEmpleadoId ? 'Mostrar todas las marcaciones combinadas' : '✓ Mostrando todas combinadas' }}
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              @foreach ($matchingEmpleados as $matched)
+                @php
+                  $isSelected = ($selectedMarcacionesEmpleadoId === $matched['id']);
+                  $isActivo = $matched['es_activo'];
+                @endphp
+                <button
+                  type="button"
+                  wire:click="seleccionarEmpleadoMarcaciones({{ $matched['id'] }})"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer {{ $isSelected ? 'bg-[#0f67c0] text-white border-[#0f67c0] shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300' }}"
+                >
+                  <span>{{ $matched['nombre_completo'] }}</span>
+                  <span class="font-mono text-[10px] {{ $isSelected ? 'text-blue-100' : 'text-slate-400' }}">Cód: {{ $matched['codigo'] }}</span>
+                  <span class="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider {{ $isSelected ? ($isActivo ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : ($isActivo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') }}">
+                    {{ $matched['estado_laboral'] }}
+                  </span>
+                </button>
+              @endforeach
+            </div>
+          </div>
+        @endif
+
         {{-- Tarjeta superior con datos del personal encontrado --}}
         @if ($marcacionesEmpleadoInfo)
           <div class="mt-5 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/90 via-slate-50 to-white p-4 shadow-sm">
@@ -1617,13 +1820,18 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <h4 class="text-base font-bold text-slate-900">{{ $marcacionesEmpleadoInfo['nombre_completo'] }}</h4>
-                    <span class="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 uppercase tracking-wide">
+                    <span class="rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide {{ $marcacionesEmpleadoInfo['estado_laboral'] === 'Activo' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300' }}">
                       {{ $marcacionesEmpleadoInfo['estado_laboral'] }}
                     </span>
                   </div>
                   <p class="text-xs text-slate-500 font-mono mt-0.5">
                     Código biométrico: <strong class="text-slate-700 font-bold">{{ $marcacionesEmpleadoInfo['codigo'] }}</strong>
                   </p>
+                  @if ($marcacionesEmpleadoInfo['estado_laboral'] === 'Inactivo')
+                    <p class="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+                      <span>⚠️ Personal en estado <strong>INACTIVO / DADO DE BAJA</strong> (Sin marcaciones en más de 30 días o desvinculado).</span>
+                    </p>
+                  @endif
                 </div>
               </div>
               
@@ -1636,6 +1844,81 @@
                   <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
                   Área: <strong class="text-slate-900">{{ $marcacionesEmpleadoInfo['area'] }}</strong>
                 </span>
+              </div>
+            </div>
+
+            {{-- Barra acumulativa y Alerta de Sanción Económica Reglamentaria (Art. 45) --}}
+            @php
+              $marcRetrasoMin = (int)($marcacionesStats['minutos_atraso_totales'] ?? 0);
+              $marcToleranciaMin = (int)($marcacionesStats['tolerancia_mensual'] ?? 35);
+              $marcPorcentaje = (int)($marcacionesStats['porcentaje_tolerancia'] ?? ($marcToleranciaMin > 0 ? min(100, round(($marcRetrasoMin / $marcToleranciaMin) * 100)) : 100));
+              $marcSancion = $marcacionesStats['sancion_regla'] ?? null;
+              $marcExcedido = ($marcacionesStats['estado_tolerancia'] ?? '') === 'Excedido';
+              $marcEsAcum2 = $marcSancion['es_acumulativo_2'] ?? false;
+            @endphp
+            <div class="mt-4 rounded-2xl border p-4 transition-all {{ $marcEsAcum2 ? 'border-rose-300 bg-rose-50/70' : ($marcExcedido ? 'border-amber-300 bg-amber-50/70' : 'border-emerald-200 bg-emerald-50/50') }}">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider {{ $marcEsAcum2 ? 'text-rose-900' : ($marcExcedido ? 'text-amber-900' : 'text-emerald-900') }}">
+                      🏛️ Control de Tolerancia Mensual y Sanciones Económicas (Art. 45)
+                    </span>
+                    @if($marcEsAcum2)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2 py-0.5 text-[10px] font-black animate-pulse">
+                        🚨 ALCANZÓ ACUMULATIVO 2
+                      </span>
+                    @elseif($marcExcedido)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                        ⚠️ TOLERANCIA EXCEDIDA
+                      </span>
+                    @else
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                        ✓ EN TOLERANCIA
+                      </span>
+                    @endif
+                  </div>
+
+                  <p class="text-xs {{ $marcEsAcum2 ? 'text-rose-950 font-bold' : ($marcExcedido ? 'text-amber-950 font-medium' : 'text-slate-700 font-medium') }}">
+                    @if($marcRetrasoMin === 0)
+                      El funcionario no registra minutos de atraso en el período evaluado.
+                    @elseif(!$marcExcedido)
+                      El funcionario acumula <strong>{{ $marcRetrasoMin }} min</strong> de retraso de un límite de <strong>{{ $marcToleranciaMin }} min</strong> ({{ $marcacionesStats['saldo_tolerancia'] ?? '' }}). Sin sanción económica.
+                    @elseif($marcacionesStats['en_periodo_transicion'] ?? false)
+                      Ha acumulado <strong>{{ $marcRetrasoMin }} min</strong> de atraso superando la tolerancia de <strong>{{ $marcToleranciaMin }} min</strong>. No obstante, el reglamento de sanciones para este período se encuentra en <strong>marcha blanca / entra en vigencia posterior</strong> ({{ $marcacionesStats['vigencia_reglamento_detalle'] ?? 'No aplica este mes' }}), por lo que <strong>no corresponde descuento económico</strong>.
+                    @elseif($marcEsAcum2)
+                      Ha acumulado <strong>{{ $marcRetrasoMin }} min</strong> de atraso superando la tolerancia de <strong>{{ $marcToleranciaMin }} min</strong>. Sanción aplicable: <strong class="underline decoration-rose-500 font-black text-rose-900">{{ $marcSancion['sancion_texto'] ?? 'Dos (2) días' }} (-{{ $marcSancion['dias_sancion'] ?? 2 }} días de haber mensual)</strong> por memorándum DAF.
+                    @else
+                      Ha acumulado <strong>{{ $marcRetrasoMin }} min</strong> de atraso superando la tolerancia de <strong>{{ $marcToleranciaMin }} min</strong>. Sanción aplicable: <strong class="font-bold text-amber-950">{{ $marcSancion['sancion_texto'] ?? 'Medio día' }} (-{{ $marcSancion['dias_sancion'] ?? 0.5 }} día de haber mensual)</strong>.
+                    @endif
+                  </p>
+                </div>
+
+                @if($marcExcedido)
+                  <div class="shrink-0">
+                    <button
+                      type="button"
+                      wire:click="openModalSancionados2Dias('{{ $marcEsAcum2 ? 'acumulativo_2' : 'todos' }}')"
+                      class="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition cursor-pointer {{ $marcEsAcum2 ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700' }}"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                      <span>Ver Normativa y Sancionados</span>
+                    </button>
+                  </div>
+                @endif
+              </div>
+
+              {{-- Barra acumulativa de progreso --}}
+              <div class="mt-3">
+                <div class="flex items-center justify-between text-[11px] font-bold mb-1 {{ $marcEsAcum2 ? 'text-rose-900' : ($marcExcedido ? 'text-amber-900' : 'text-slate-600') }}">
+                  <span>Consumo de Tolerancia Mensual: <strong>{{ $marcPorcentaje }}%</strong></span>
+                  <span>{{ $marcRetrasoMin }} min registrados / {{ $marcToleranciaMin }} min tolerancia</span>
+                </div>
+                <div class="h-2.5 w-full rounded-full bg-slate-200/90 overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-500 {{ $marcPorcentaje >= 100 ? 'bg-rose-600' : ($marcPorcentaje >= 75 ? 'bg-amber-500' : ($marcPorcentaje > 0 ? 'bg-emerald-500' : 'bg-transparent')) }}"
+                    style="width: {{ $marcPorcentaje }}%"
+                  ></div>
+                </div>
               </div>
             </div>
 
@@ -2309,6 +2592,35 @@
                   {{ $sucursalKpis['excedidos_tolerancia'] }} excedidos ({{ $sucursalKpis['porcentaje_excedidos'] }}%)
                 </span>
               </div>
+
+              @if(($sucursalKpis['sancionados_acumulativo_2'] ?? 0) > 0)
+                <button
+                  type="button"
+                  wire:click="openModalSancionados2Dias('acumulativo_2')"
+                  class="mt-2.5 w-full flex items-center justify-between rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer"
+                  title="Ver funcionarios con sanción de 2+ días de haber"
+                >
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
+                    <span>🚨 Acumulativo 2:</span>
+                  </span>
+                  <span class="rounded-full bg-white text-rose-700 px-2 py-0.5 text-[10px] font-black">
+                    {{ $sucursalKpis['sancionados_acumulativo_2'] }} sancionados
+                  </span>
+                </button>
+              @elseif(($sucursalKpis['sancionados_con_descuento'] ?? 0) > 0)
+                <button
+                  type="button"
+                  wire:click="openModalSancionados2Dias('todos')"
+                  class="mt-2.5 w-full flex items-center justify-between rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-600 transition cursor-pointer"
+                  title="Ver funcionarios con sanción económica"
+                >
+                  <span>⚠️ Con Sanción:</span>
+                  <span class="rounded-full bg-white text-amber-800 px-2 py-0.5 text-[10px] font-black">
+                    {{ $sucursalKpis['sancionados_con_descuento'] }} funcionarios
+                  </span>
+                </button>
+              @endif
             </div>
 
             {{-- KPI 4: Horas Acumuladas de la Sucursal --}}
@@ -2364,6 +2676,19 @@
             <button type="button" wire:click="sortByControl('excedido')"
               class="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-semibold transition {{ $ordenControl === 'excedido_primero' ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}">
               Excedidos primero
+            </button>
+
+            <button
+              type="button"
+              wire:click="openModalSancionados2Dias('acumulativo_2')"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 px-2.5 py-1 text-xs font-bold transition shadow-2xs cursor-pointer"
+              title="Abrir modal con personal que superó tolerancia y alcanzó el acumulativo 2 de descuento"
+            >
+              <span class="h-2 w-2 rounded-full bg-rose-600 animate-pulse"></span>
+              <span>🚨 Acumulativo 2:</span>
+              <span class="rounded-full bg-rose-600 text-white px-1.5 py-0.2 text-[10px] font-black">
+                {{ $sucursalKpis['sancionados_acumulativo_2'] ?? 0 }}
+              </span>
             </button>
           </div>
 
@@ -2461,20 +2786,87 @@
                   $retrasoFormateado = $empleado->resumen_asistencia['retraso_mes_formateado'] ?? '0 min';
                   $horasMes = $empleado->resumen_asistencia['horas_mes'] ?? '0h 0m';
                   $codigo = $empleado->codigo_biometrico ?: '—';
+                  $retrasoMinutos = (int)($empleado->resumen_asistencia['retraso_mes'] ?? 0);
+                  $toleranciaMinutos = (int)($empleado->resumen_asistencia['tolerancia_mensual'] ?? 35);
+                  $toleranciaFormateada = $empleado->resumen_asistencia['tolerancia_mensual_formateada'] ?? ($toleranciaMinutos . ' min');
+                  $porcentajeTolerancia = (int)($empleado->resumen_asistencia['porcentaje_tolerancia'] ?? ($toleranciaMinutos > 0 ? min(100, round(($retrasoMinutos / $toleranciaMinutos) * 100)) : 100));
+                  $enPeriodoTransicion = (bool)($empleado->resumen_asistencia['en_periodo_transicion'] ?? false);
+                  $vigenciaDetalle = $empleado->resumen_asistencia['vigencia_reglamento_detalle'] ?? null;
+                  $sancionRegla = $empleado->resumen_asistencia['sancion_regla'] ?? null;
+                  $esAcumulativo2 = (!$enPeriodoTransicion) && ($sancionRegla['es_acumulativo_2'] ?? false);
+                  $diasSancion = (float)($sancionRegla['dias_sancion'] ?? 0);
+                  $sancionTexto = $sancionRegla['sancion_texto'] ?? 'Sin sanción';
                 @endphp
-                <tr class="{{ $excedido ? 'bg-rose-50/40' : '' }} hover:bg-slate-50/80 transition-colors">
+                <tr class="{{ ($excedido && !$enPeriodoTransicion) ? 'bg-rose-50/40' : ($enPeriodoTransicion && $excedido ? 'bg-amber-50/20' : '') }} hover:bg-slate-50/80 transition-colors">
 
                   {{-- Personal --}}
                   <td class="px-4 py-3">
-                    <div class="flex items-center gap-2.5">
-                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0f67c0]/10 text-[#0f67c0] font-bold text-xs uppercase select-none">
+                    <div class="flex items-start gap-2.5">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0f67c0]/10 text-[#0f67c0] font-bold text-xs uppercase select-none mt-0.5">
                         {{ mb_substr($empleado->nombre, 0, 1) }}{{ mb_substr($empleado->apellido, 0, 1) }}
                       </div>
-                      <div class="min-w-0">
-                        <p class="font-bold text-slate-900 truncate max-w-[200px]">{{ $empleado->nombre_completo }}</p>
+                      <div class="min-w-0 flex-1">
+                        <p class="font-bold text-slate-900 truncate max-w-[220px]">{{ $empleado->nombre_completo }}</p>
                         <p class="text-[11px] text-slate-400 font-mono mt-0.5 truncate max-w-[240px]" title="Cód: {{ $codigo }}@if($empleado->email) | {{ $empleado->email }}@endif">
                           Cód: {{ $codigo }}@if($empleado->email)<span class="text-slate-300 mx-1">•</span><span class="text-slate-500">{{ $empleado->email }}</span>@endif
                         </p>
+
+                        {{-- Barra acumulativa de tolerancia mensual y alerta de sanción económica según Art. 45 --}}
+                        <div class="mt-2 w-full max-w-[240px]">
+                          <div class="flex items-center justify-between text-[10px] text-slate-500 font-medium mb-1">
+                            <span>Tolerancia: <strong>{{ $toleranciaFormateada }}</strong></span>
+                            <span class="{{ $excedido ? 'text-rose-700 font-bold' : 'text-slate-600' }}">
+                              {{ $retrasoMinutos }}m / {{ $toleranciaMinutos }}m ({{ $porcentajeTolerancia }}%)
+                            </span>
+                          </div>
+                          <div class="h-1.5 w-full rounded-full bg-slate-200/90 overflow-hidden" title="Consumo de tolerancia mensual: {{ $porcentajeTolerancia }}%">
+                            <div
+                              class="h-full rounded-full transition-all duration-300 {{ $porcentajeTolerancia >= 100 ? 'bg-rose-600' : ($porcentajeTolerancia >= 75 ? 'bg-amber-500' : ($porcentajeTolerancia > 0 ? 'bg-emerald-500' : 'bg-transparent')) }}"
+                              style="width: {{ $porcentajeTolerancia }}%"
+                            ></div>
+                          </div>
+
+                          {{-- Alerta de Sanción Económica --}}
+                          <div class="mt-1 flex flex-wrap items-center gap-1">
+                            @if($retrasoMinutos === 0)
+                              <span class="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                Puntual • Sin retraso
+                              </span>
+                            @elseif(!$excedido)
+                              <span class="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                En tolerancia • Sin sanción
+                              </span>
+                            @elseif($enPeriodoTransicion)
+                              <span class="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 shadow-2xs" title="{{ $vigenciaDetalle ?? 'No aplica en este periodo' }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                                ⏳ Marcha blanca • Sin sanción
+                              </span>
+                            @elseif($esAcumulativo2)
+                              <button
+                                type="button"
+                                wire:click="openModalSancionados2Dias('acumulativo_2')"
+                                class="inline-flex items-center gap-1 rounded-md bg-rose-100 border border-rose-300 px-1.5 py-0.5 text-[10px] font-black text-rose-800 hover:bg-rose-200 transition cursor-pointer shadow-2xs"
+                                title="Clic para ver detalle de sanción en el modal"
+                              >
+                                <span class="h-1.5 w-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                                🚨 Acumulativo 2: {{ $sancionTexto }} (-{{ $diasSancion }}d)
+                              </button>
+                            @else
+                              <button
+                                type="button"
+                                wire:click="openModalSancionados2Dias('todos')"
+                                class="inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 hover:bg-amber-200 transition cursor-pointer shadow-2xs"
+                                title="Clic para ver detalle de sanción en el modal"
+                              >
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                                ⚠️ Sanción: {{ $sancionTexto }} (-{{ $diasSancion }}d)
+                              </button>
+                            @endif
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   </td>
@@ -2510,13 +2902,34 @@
 
                   {{-- Estado Tolerancia --}}
                   <td class="px-4 py-3 text-center">
-                    @if($excedido)
-                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
-                        <svg class="h-3 w-3 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                        <span>Excedido</span>
+                    @if($enPeriodoTransicion)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold text-amber-800" title="{{ $vigenciaDetalle ?? 'En marcha blanca / no aplica este mes' }}">
+                        <span>⏳ En marcha blanca</span>
                       </span>
+                    @elseif($excedido)
+                      @if($esAcumulativo2)
+                        <button
+                          type="button"
+                          wire:click="openModalSancionados2Dias('acumulativo_2')"
+                          class="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-0.5 text-[11px] font-black shadow-xs hover:bg-rose-700 transition cursor-pointer"
+                          title="Clic para ver detalle de sanción de 2+ días"
+                        >
+                          <svg class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                          <span>Acumulativo 2 (-{{ $diasSancion }}d)</span>
+                        </button>
+                      @else
+                        <button
+                          type="button"
+                          wire:click="openModalSancionados2Dias('todos')"
+                          class="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-[11px] font-bold text-rose-800 hover:bg-rose-200 transition cursor-pointer"
+                          title="Clic para ver detalle de sanción"
+                        >
+                          <svg class="h-3 w-3 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                          <span>Excedido (-{{ $diasSancion }}d)</span>
+                        </button>
+                      @endif
                     @else
-                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
                         <svg class="h-3 w-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         <span>En tolerancia</span>
                       </span>

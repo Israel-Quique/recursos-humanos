@@ -602,8 +602,7 @@
         <p class="login-sidecard-kicker">Portal institucional</p>
         <h2 class="login-sidecard-title">Sistema de Recursos Humanos</h2>
         <p class="login-sidecard-copy">
-          Consulta asistencia, seguimiento del personal, generación de boletas de permiso e información institucional
-          desde una sola plataforma interna.
+          Consulta tu asistencia, seguimiento de horas acumuladas, normativa interna y generación de boletas oficiales de permiso desde una sola plataforma.
         </p>
 
         <ul class="login-feature-list">
@@ -613,7 +612,7 @@
                 <path d="M5 13l4 4L19 7"/>
               </svg>
             </span>
-            <span>Consulta rápida por carnet</span>
+            <span>Consulta inmediata por carnet</span>
           </li>
           <li class="login-feature-item">
             <span class="login-feature-icon">
@@ -621,7 +620,7 @@
                 <path d="M5 13l4 4L19 7"/>
               </svg>
             </span>
-            <span>Generación de papeletas oficiales</span>
+            <span>Generación de papeletas y boletas en PDF</span>
           </li>
           <li class="login-feature-item">
             <span class="login-feature-icon">
@@ -629,7 +628,7 @@
                 <path d="M5 13l4 4L19 7"/>
               </svg>
             </span>
-            <span>Historial del mes en una sola vista</span>
+            <span>Normativa y faltas en tu vista de horas</span>
           </li>
         </ul>
 
@@ -643,3 +642,4 @@
     </aside>
   </div>
 </div>
+

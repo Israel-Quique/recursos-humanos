@@ -15,6 +15,7 @@ use App\Livewire\MisHorasPage;
 use App\Livewire\PerfilHorasPage;
 use App\Livewire\PersonalPage;
 use App\Livewire\PersonalEspecialPage;
+use App\Livewire\ReglamentoSancionesPage;
 use App\Livewire\ReportesPage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/horarios', HorariosPage::class)->middleware('permission:gestionar personal')->name('horarios');
     Route::get('/fechas-especiales', FechasEspecialesPage::class)->middleware('permission:gestionar personal')->name('fechas-especiales');
     Route::get('/incidencias', IncidenciasPage::class)->middleware('permission:gestionar personal')->name('incidencias');
+    Route::get('/reglamento-sanciones', ReglamentoSancionesPage::class)->middleware('permission:gestionar personal')->name('reglamento-sanciones');
     Route::get('/accesos', GestionAccesosPage::class)->middleware('permission:gestionar accesos')->name('accesos');
     Route::get('/auditoria', AuditoriaPage::class)->middleware('permission:ver auditoria')->name('auditoria');
 });

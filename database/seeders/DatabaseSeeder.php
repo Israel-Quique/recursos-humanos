@@ -72,6 +72,7 @@ class DatabaseSeeder extends Seeder
 
         $this->seedAsistenciasDemo($empleados, $adminPrincipal->id);
         $this->call(EmpleadoCorreosSeeder::class);
+        $this->call(ReglaSancionSeeder::class);
     }
 
     private function seedAsistenciasDemo(Collection $empleados, int $adminUserId): void

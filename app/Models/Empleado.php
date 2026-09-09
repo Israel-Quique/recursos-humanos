@@ -58,6 +58,11 @@ class Empleado extends Model
         return trim($this->nombre.' '.$this->apellido);
     }
 
+    public function getEstadoLaboralAttribute(): string
+    {
+        return $this->estadoLaboral(now());
+    }
+
     public function scopeWithUltimaMarcacion(Builder $query): Builder
     {
         return $query->withMax('asistencias', 'fecha');
@@ -97,6 +102,16 @@ class Empleado extends Model
         }
 
         if (blank($fecha)) {
+            if ($this->relationLoaded('asistencias')) {
+                $maxFecha = $this->asistencias->max('fecha');
+                return $maxFecha ? Carbon::parse($maxFecha) : null;
+            }
+
+            if ($this->exists) {
+                $maxFecha = $this->asistencias()->max('fecha');
+                return $maxFecha ? Carbon::parse($maxFecha) : null;
+            }
+
             return null;
         }
 

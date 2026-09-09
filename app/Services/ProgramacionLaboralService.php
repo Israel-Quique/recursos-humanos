@@ -86,8 +86,8 @@ class ProgramacionLaboralService
     public function resolverHorario(Empleado $empleado, Carbon|string|null $fecha): array
     {
         $horarioRegional = $this->obtenerHorarioRegional($empleado->sucursal);
-        $horaEntradaBase = $horarioRegional?->hora_entrada ?: config('asistencia.hora_entrada');
-        $horaSalidaBase = $horarioRegional?->hora_salida ?: config('asistencia.hora_salida');
+        $horaEntradaBase = $horarioRegional?->hora_entrada ?: cache()->get('asistencia_hora_entrada', config('asistencia.hora_entrada'));
+        $horaSalidaBase = $horarioRegional?->hora_salida ?: cache()->get('asistencia_hora_salida', config('asistencia.hora_salida'));
         $fechaEspecial = $this->obtenerFechaEspecial($fecha, $empleado->sucursal);
 
         if ($this->esDiaNoLaborable($fecha, $empleado->sucursal)) {
@@ -111,8 +111,30 @@ class ProgramacionLaboralService
             'es_feriado' => false,
             'hora_entrada' => $horaEntrada,
             'hora_entrada_tolerancia' => $this->resolverHoraEntradaTolerancia($fecha, $horaEntrada, $horarioRegional),
+            'tolerancia_diaria' => $this->resolverToleranciaDiaria($empleado->sucursal),
+            'tolerancia_mensual' => $this->resolverToleranciaMensual($empleado->sucursal),
             'hora_salida' => $fechaEspecial?->hora_salida ?: $horaSalidaBase,
         ];
+    }
+
+    public function resolverToleranciaMensual(?string $sucursal = null): int
+    {
+        $horario = $this->obtenerHorarioRegional($sucursal);
+        if ($horario && $horario->tolerancia_mensual_minutos !== null && (int) $horario->tolerancia_mensual_minutos > 0) {
+            return (int) $horario->tolerancia_mensual_minutos;
+        }
+
+        return (int) cache()->get('asistencia_tolerancia_min', config('asistencia.tolerancia_mensual_min', 35));
+    }
+
+    public function resolverToleranciaDiaria(?string $sucursal = null): int
+    {
+        $horario = $this->obtenerHorarioRegional($sucursal);
+        if ($horario && $horario->tolerancia_minutos !== null) {
+            return (int) $horario->tolerancia_minutos;
+        }
+
+        return (int) cache()->get('asistencia_tolerancia_diaria_min', config('asistencia.tolerancia_diaria_min', 5));
     }
 
     public function obtenerHorarioRegional(?string $sucursal): ?HorarioRegional

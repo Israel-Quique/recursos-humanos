@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
+use App\Models\ReglaSancion;
 use App\Services\AnalisisAsistenciaService;
 use App\Services\AuditoriaService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -27,6 +28,10 @@ class PerfilHorasPage extends Component
     public string $sortDirection = 'asc';
     public string $searchCarnet = '';
 
+    // Modal de anuncios y normativa de faltas (Artículo 45)
+    public bool $mostrarModalNormativa = false;
+    public string $categoriaNormativa = 'todas';
+
     // Estado del modal de boleta
     public bool $showBoletaModal = false;
     public bool $showPedirEmailModal = false;
@@ -45,6 +50,172 @@ class PerfilHorasPage extends Component
     public string $boletaTiempoSolicitado = '1 HORA';
     public string $boletaCiudad = '';
     public string $boletaFechaTexto = '';
+
+    public function toggleModalNormativa(): void
+    {
+        $this->mostrarModalNormativa = ! $this->mostrarModalNormativa;
+    }
+
+    public function abrirModalNormativa(): void
+    {
+        $this->mostrarModalNormativa = true;
+    }
+
+    public function cerrarModalNormativa(): void
+    {
+        $this->mostrarModalNormativa = false;
+    }
+
+    public function setCategoriaNormativa(string $categoria): void
+    {
+        $this->categoriaNormativa = $categoria;
+    }
+
+    public function getAnunciosReglamentoProperty(): array
+    {
+        $atrasoActivo = ReglaSancion::where('categoria', 'atraso')->where('activo', true)->exists();
+        $inasistenciaActiva = ReglaSancion::where('categoria', 'inasistencia')->where('activo', true)->exists();
+        $omisionActiva = ReglaSancion::where('categoria', 'omision')->where('activo', true)->exists();
+        $gravisimaActiva = ReglaSancion::where('categoria', 'gravisima')->where('activo', true)->exists();
+
+        return [
+            'atraso' => [
+                'clave' => 'atraso',
+                'punto' => 'Punto I',
+                'titulo' => 'Atrasos en los Horarios de Ingreso',
+                'articulo' => 'Artículo 45, Numeral I',
+                'icono' => '⏰',
+                'activo' => $atrasoActivo,
+                'descripcion' => 'Régimen de puntualidad y margen de tolerancia mensual institucional por sucursal.',
+                'items' => [
+                    [
+                        'subtitulo' => 'Tolerancia Institucional',
+                        'condicion' => 'Dentro del margen mensual establecido (30 a 35 min según sucursal)',
+                        'efecto' => 'Sin consecuencias disciplinarias. Margen reservado para imprevistos menores.',
+                        'badge' => 'Tolerancia permitida',
+                        'badge_color' => 'emerald',
+                    ],
+                    [
+                        'subtitulo' => 'Exceso Leve de Tolerancia (31 a 60 min)',
+                        'condicion' => 'Acumulación de 31 a 60 minutos de atraso en el mes',
+                        'efecto' => 'Consecuencias administrativas y sanción disciplinaria oficial según el Artículo 45, Numeral I.',
+                        'badge' => 'Infracción Leve',
+                        'badge_color' => 'amber',
+                    ],
+                    [
+                        'subtitulo' => 'Exceso Moderado de Tolerancia (61 a 90 min)',
+                        'condicion' => 'Acumulación de 61 a 90 minutos de atraso en el mes',
+                        'efecto' => 'Sanción disciplinaria formal e informe a la Dirección Administrativa Financiera.',
+                        'badge' => 'Infracción Moderada',
+                        'badge_color' => 'orange',
+                    ],
+                    [
+                        'subtitulo' => 'Exceso Grave de Tolerancia (91 a 120 min)',
+                        'condicion' => 'Acumulación de 91 a 120 minutos de atraso en el mes',
+                        'efecto' => 'Sanción disciplinaria agravada y emisión de Memorándum oficial por la DAF.',
+                        'badge' => 'Infracción Severa',
+                        'badge_color' => 'rose',
+                    ],
+                    [
+                        'subtitulo' => 'Atraso Mayor a 120 min / Reincidencias',
+                        'condicion' => 'Más de 120 minutos acumulados o reincidencia en la gestión',
+                        'efecto' => 'Memorándum de severa llamada de atención. En caso de tercera reincidencia, remisión a proceso interno de destitución.',
+                        'badge' => 'Régimen Especial',
+                        'badge_color' => 'purple',
+                    ],
+                ],
+            ],
+            'inasistencia' => [
+                'clave' => 'inasistencia',
+                'punto' => 'Punto II',
+                'titulo' => 'Inasistencias y Ausencias en el Puesto de Trabajo',
+                'articulo' => 'Artículo 45, Numeral II',
+                'icono' => '🚫',
+                'activo' => $inasistenciaActiva,
+                'descripcion' => 'Obligación de permanencia en el puesto laboral y justificación oportuna.',
+                'items' => [
+                    [
+                        'subtitulo' => '1er Día de Inasistencia Injustificada',
+                        'condicion' => 'Un (1) día laboral de ausencia sin boleta autorizada',
+                        'efecto' => 'Sanción disciplinaria y reporte formal a la Dirección Administrativa Financiera (Art. 45 - II).',
+                        'badge' => 'Falta Directa',
+                        'badge_color' => 'rose',
+                    ],
+                    [
+                        'subtitulo' => '2do Día Consecutivo Injustificado',
+                        'condicion' => 'Dos (2) días continuos de ausencia sin justificación',
+                        'efecto' => 'Sanción administrativa agravada con registro en el expediente del funcionario.',
+                        'badge' => 'Falta Agravada',
+                        'badge_color' => 'rose',
+                    ],
+                    [
+                        'subtitulo' => '3er Día Consecutivo Injustificado',
+                        'condicion' => 'Tres (3) días continuos de inasistencia no regularizada',
+                        'efecto' => 'Severa sanción disciplinaria y último apercibimiento antes de destitución.',
+                        'badge' => 'Severa Advertencia',
+                        'badge_color' => 'rose',
+                    ],
+                    [
+                        'subtitulo' => 'Abandono de Funciones (>3 días continuos o >6 discontinuos)',
+                        'condicion' => 'Más de 3 días continuos o más de 6 discontinuos en el mes',
+                        'efecto' => 'Destitución del cargo conforme a la Ley General del Trabajo y Reglamento Interno de la institución.',
+                        'badge' => 'Destitución',
+                        'badge_color' => 'red',
+                    ],
+                ],
+            ],
+            'omision' => [
+                'clave' => 'omision',
+                'punto' => 'Punto III',
+                'titulo' => 'Omisión en el Registro de Asistencia',
+                'articulo' => 'Artículo 45, Numeral III',
+                'icono' => '📝',
+                'activo' => $omisionActiva,
+                'descripcion' => 'Obligatoriedad del marcado biométrico y regularización dentro de plazo fatal.',
+                'items' => [
+                    [
+                        'subtitulo' => '1ra y 2da Omisión de Registro',
+                        'condicion' => 'Olvido de marcado de entrada o salida en el biométrico',
+                        'efecto' => 'Tolerancia regularizable. Debe presentarse la papeleta/boleta oficial con respaldo.',
+                        'badge' => 'Regularizable',
+                        'badge_color' => 'blue',
+                    ],
+                    [
+                        'subtitulo' => 'A partir de la 3ra Omisión en el Mes',
+                        'condicion' => 'Tres o más omisiones no justificadas en la misma mensualidad',
+                        'efecto' => 'Consecuencias y sanciones disciplinarias por cada omisión subsiguiente conforme al Artículo 45.',
+                        'badge' => 'Sancionable',
+                        'badge_color' => 'amber',
+                    ],
+                    [
+                        'subtitulo' => '⏱️ Plazo Improrrogable de 48 Horas',
+                        'condicion' => 'Límite máximo para registrar boletas de retraso u omisión',
+                        'efecto' => 'Toda justificación por olvido de marcado o retraso debe tramitarse dentro de las 48 horas de la falta. Vencido el plazo, el sistema bloquea el trámite y se consolida la sanción.',
+                        'badge' => 'Regla de 48h',
+                        'badge_color' => 'purple',
+                    ],
+                ],
+            ],
+            'gravisima' => [
+                'clave' => 'gravisima',
+                'punto' => 'Punto IV',
+                'titulo' => 'Faltas Gravísimas y Régimen Disciplinario',
+                'articulo' => 'Artículo 45, Numeral IV',
+                'icono' => '⚖️',
+                'activo' => $gravisimaActiva,
+                'descripcion' => 'Reincidencias graves y conductas sujetas a proceso administrativo.',
+                'items' => [
+                    [
+                        'subtitulo' => 'Reincidencia Reiterada en Infracciones',
+                        'condicion' => 'Tercera reincidencia en atrasos mayores a 120 min o faltas graves',
+                        'efecto' => 'Remisión del funcionario a proceso administrativo interno con sanción de destitución.',
+                        'badge' => 'Proceso Administrativo',
+                        'badge_color' => 'red',
+                    ],
+                ],
+            ],
+        ];
+    }
 
     public function getEsBoletaOmisionORetrasoProperty(): bool
     {

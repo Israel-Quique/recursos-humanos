@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\RegistroAsistencia;
 use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
+use App\Services\ReglamentoSancionService;
 use App\Support\SucursalNormalizer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -47,12 +48,16 @@ class PersonalPage extends Component
     public string $appliedMarcacionesFechaFin = '';
     public string $appliedMarcacionesMes = '';
     public string $filterEstadoMarcaciones = 'todos'; // 'todos', 'completo', 'faltante'
+    public ?int $selectedMarcacionesEmpleadoId = null;
+    public array $matchingEmpleados = [];
     public ?array $marcacionesEmpleadoInfo = null;
     public array $marcacionesStats = [];
     public bool $showModalAtrasos = false;
     public bool $showModalOmisiones = false;
     public bool $showModalFaltas = false;
     public bool $showModalGlobal = false;
+    public bool $showModalSancionados2Dias = false;
+    public string $filtroModalSancion = 'acumulativo_2'; // 'acumulativo_2', 'todos'
 
     // Búsqueda explícita para la vista de Control / Marcaciones por Sucursal (personal?vista=control)
     public bool $controlSearchPerformed = false;
@@ -531,21 +536,58 @@ class PersonalPage extends Component
         if (filled($this->appliedMarcacionesSearch)) {
             $term = "%{$this->appliedMarcacionesSearch}%";
             $searchOperator = config('database.default') === 'pgsql' ? 'ilike' : 'like';
-            $empleado = Empleado::query()
-                ->where('codigo_biometrico', $searchOperator, $term)
-                ->orWhere('nombre', $searchOperator, $term)
-                ->orWhere('apellido', $searchOperator, $term)
-                ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term])
-                ->first();
+
+            $matchingCollection = Empleado::query()
+                ->withUltimaMarcacion()
+                ->withTrashed()
+                ->where(function ($q) use ($searchOperator, $term) {
+                    $q->where('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
+                })
+                ->get();
+
+            $this->matchingEmpleados = $matchingCollection->map(function (Empleado $emp) {
+                $estado = $emp->estadoLaboral(now());
+
+                return [
+                    'id' => $emp->id,
+                    'nombre_completo' => $emp->nombre_completo,
+                    'codigo' => $emp->codigo_biometrico ?: 'Sin asignar',
+                    'sucursal' => $emp->sucursal ?: 'Sin sucursal',
+                    'area' => $emp->area ?: 'Sin área',
+                    'estado_laboral' => $estado,
+                    'es_activo' => ($estado === 'Activo'),
+                ];
+            })->sortByDesc(fn ($item) => $item['es_activo'] ? 1 : 0)->values()->all();
+
+            $empleado = null;
+            if ($this->selectedMarcacionesEmpleadoId) {
+                $empleado = $matchingCollection->firstWhere('id', $this->selectedMarcacionesEmpleadoId);
+            }
+
+            if (!$empleado) {
+                $exactCodeMatch = $matchingCollection->first(fn ($e) => strcasecmp((string)$e->codigo_biometrico, $this->appliedMarcacionesSearch) === 0);
+                if ($exactCodeMatch) {
+                    $empleado = $exactCodeMatch;
+                } else {
+                    $empleado = $matchingCollection->first(fn ($e) => $e->estadoLaboral(now()) === 'Activo')
+                        ?? $matchingCollection->first();
+                }
+            }
 
             if ($empleado) {
+                $this->selectedMarcacionesEmpleadoId = $empleado->id;
+                $estadoLaboral = $empleado->estadoLaboral(now());
+
                 $this->marcacionesEmpleadoInfo = [
                     'id' => $empleado->id,
                     'nombre_completo' => $empleado->nombre_completo,
                     'codigo' => $empleado->codigo_biometrico ?: 'Sin asignar',
                     'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                     'area' => $empleado->area ?: 'Sin área',
-                    'estado_laboral' => $empleado->estado_laboral ?: 'Activo',
+                    'estado_laboral' => $estadoLaboral,
                 ];
 
                 // Determinar rango para estadísticas
@@ -574,15 +616,32 @@ class PersonalPage extends Component
 
                 $this->marcacionesStats = $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
             } else {
+                $this->selectedMarcacionesEmpleadoId = null;
                 $this->marcacionesEmpleadoInfo = null;
                 $this->marcacionesStats = [];
             }
         } else {
+            $this->matchingEmpleados = [];
+            $this->selectedMarcacionesEmpleadoId = null;
             $this->marcacionesEmpleadoInfo = null;
             $this->marcacionesStats = [];
         }
 
         $this->resetPage('registrosPage');
+    }
+
+    public function seleccionarEmpleadoMarcaciones(?int $empleadoId): void
+    {
+        $this->selectedMarcacionesEmpleadoId = $empleadoId;
+        if ($empleadoId === null) {
+            $this->marcacionesEmpleadoInfo = null;
+            $this->marcacionesStats = [];
+            $this->resetPage('registrosPage');
+
+            return;
+        }
+
+        $this->aplicarBusquedaMarcaciones();
     }
 
     public function limpiarFiltrosMarcaciones(): void
@@ -597,6 +656,8 @@ class PersonalPage extends Component
         $this->appliedMarcacionesFechaInicio = '';
         $this->appliedMarcacionesFechaFin = '';
         $this->appliedMarcacionesMes = '';
+        $this->selectedMarcacionesEmpleadoId = null;
+        $this->matchingEmpleados = [];
         $this->marcacionesEmpleadoInfo = null;
         $this->marcacionesStats = [];
         $this->showModalAtrasos = false;
@@ -647,6 +708,71 @@ class PersonalPage extends Component
     public function closeModalGlobal(): void
     {
         $this->showModalGlobal = false;
+    }
+
+    public function openModalSancionados2Dias(string $filtro = 'acumulativo_2'): void
+    {
+        $this->filtroModalSancion = $filtro;
+        $this->showModalSancionados2Dias = true;
+    }
+
+    public function closeModalSancionados2Dias(): void
+    {
+        $this->showModalSancionados2Dias = false;
+    }
+
+    public function setFiltroModalSancion(string $filtro): void
+    {
+        $this->filtroModalSancion = $filtro;
+    }
+
+    public function obtenerColeccionSancionadosModal(): array
+    {
+        $targetMonth = Carbon::create(
+            (int) ($this->inputControlAnio ?: now()->year),
+            (int) ($this->inputControlMesNumero ?: now()->month),
+            1
+        );
+
+        $controlQuery = Empleado::query()
+            ->with('asistencias')
+            ->when(filled($this->appliedControlSucursal) && $this->appliedControlSucursal !== 'todas', function ($q) {
+                SucursalNormalizer::applyFilter($q, 'sucursal', $this->appliedControlSucursal);
+            })
+            ->where('fecha_ingreso', '<=', $targetMonth->copy()->endOfMonth()->toDateString())
+            ->get()
+            ->filter(fn (Empleado $e) => $e->fecha_despido === null || $e->fecha_despido > now()->toDateString())
+            ->filter(fn (Empleado $e) => $e->estaActivoLaboralmente(now()))
+            ->values();
+
+        $registrosPorNombre = $this->registrosPorNombre(
+            $targetMonth->copy()->startOfMonth()->toDateString(),
+            $targetMonth->copy()->endOfMonth()->toDateString()
+        );
+
+        $empleados = $controlQuery->map(function (Empleado $empleado) use ($registrosPorNombre, $targetMonth) {
+            return $this->hidratarResumenEmpleado($empleado, $registrosPorNombre, $targetMonth);
+        });
+
+        $totalAcumulativo2 = $empleados->filter(fn (Empleado $e) => ($e->resumen_asistencia['sancion_regla']['es_acumulativo_2'] ?? false))->count();
+        $totalGeneral = $empleados->filter(fn (Empleado $e) => (($e->resumen_asistencia['sancion_regla']['dias_sancion'] ?? 0) > 0 || ($e->resumen_asistencia['sancion_regla']['es_destitucion'] ?? false)))->count();
+
+        $filtrados = $empleados->filter(function (Empleado $e) {
+            $sancion = $e->resumen_asistencia['sancion_regla'] ?? null;
+            if (!$sancion) {
+                return false;
+            }
+            if ($this->filtroModalSancion === 'acumulativo_2') {
+                return $sancion['es_acumulativo_2'] ?? false;
+            }
+            return (($sancion['dias_sancion'] ?? 0) > 0 || ($sancion['es_destitucion'] ?? false));
+        })->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values();
+
+        return [
+            'empleados' => $filtrados,
+            'total_acumulativo_2' => $totalAcumulativo2,
+            'total_general' => $totalGeneral,
+        ];
     }
 
     public function sortByMarcaciones(string $column): void
@@ -703,14 +829,16 @@ class PersonalPage extends Component
             $periodoLabel = 'Hasta ' . Carbon::parse($this->appliedMarcacionesFechaFin)->format('d/m/Y');
         }
 
-        if (filled($this->appliedMarcacionesSearch)) {
+        if ($this->selectedMarcacionesEmpleadoId) {
+            $registrosQuery->where('empleado_id', $this->selectedMarcacionesEmpleadoId);
+        } elseif (filled($this->appliedMarcacionesSearch)) {
             $term = "%{$this->appliedMarcacionesSearch}%";
             $registrosQuery->whereHas('empleado', function ($empleadoQuery) use ($searchOperator, $term) {
                 $empleadoQuery->where(function ($nestedQuery) use ($searchOperator, $term) {
                     $nestedQuery->where('codigo_biometrico', $searchOperator, $term)
                         ->orWhere('nombre', $searchOperator, $term)
                         ->orWhere('apellido', $searchOperator, $term)
-                        ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term]);
+                        ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
                 });
             });
         }
@@ -1247,6 +1375,20 @@ class PersonalPage extends Component
                 'path' => request()->url(), 'pageName' => 'registrosPage',
             ]);
 
+            $empleadosSancionadosModal = $listaControl->filter(function (Empleado $e) {
+                $sancion = $e->resumen_asistencia['sancion_regla'] ?? null;
+                if (!$sancion) {
+                    return false;
+                }
+                if ($this->filtroModalSancion === 'acumulativo_2') {
+                    return $sancion['es_acumulativo_2'] ?? false;
+                }
+                return (($sancion['dias_sancion'] ?? 0) > 0 || ($sancion['es_destitucion'] ?? false));
+            })->sortByDesc(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0)->values();
+
+            $totalSancionadosAcumulativo2 = $listaControl->filter(fn (Empleado $e) => ($e->resumen_asistencia['sancion_regla']['es_acumulativo_2'] ?? false))->count();
+            $totalSancionadosGeneral = $listaControl->filter(fn (Empleado $e) => (($e->resumen_asistencia['sancion_regla']['dias_sancion'] ?? 0) > 0 || ($e->resumen_asistencia['sancion_regla']['es_destitucion'] ?? false)))->count();
+
             return view('livewire.personal', [
                 'empleados' => $empleados,
                 'registros' => $registros,
@@ -1256,6 +1398,9 @@ class PersonalPage extends Component
                 'departmentStats' => $departmentStats,
                 'sucursalKpis' => $sucursalKpis,
                 'totalHorasMes' => $totalHorasMes,
+                'empleadosSancionadosModal' => $empleadosSancionadosModal,
+                'totalSancionadosAcumulativo2' => $totalSancionadosAcumulativo2,
+                'totalSancionadosGeneral' => $totalSancionadosGeneral,
             ])->layout('layouts.app', ['title' => $this->pageTitle()]);
         }
 
@@ -1346,14 +1491,16 @@ class PersonalPage extends Component
                     $registrosQuery->whereDate('fecha', '<=', $this->appliedMarcacionesFechaFin);
                 }
 
-                if (filled($this->appliedMarcacionesSearch)) {
+                if ($this->selectedMarcacionesEmpleadoId) {
+                    $registrosQuery->where('empleado_id', $this->selectedMarcacionesEmpleadoId);
+                } elseif (filled($this->appliedMarcacionesSearch)) {
                     $term = "%{$this->appliedMarcacionesSearch}%";
                     $registrosQuery->whereHas('empleado', function ($empleadoQuery) use ($searchOperator, $term) {
                         $empleadoQuery->where(function ($nestedQuery) use ($searchOperator, $term) {
                             $nestedQuery->where('codigo_biometrico', $searchOperator, $term)
                                 ->orWhere('nombre', $searchOperator, $term)
                                 ->orWhere('apellido', $searchOperator, $term)
-                                ->orWhereRaw("nombre || ' ' || apellido LIKE ?", [$term]);
+                                ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
                         });
                     });
                 }
@@ -1421,12 +1568,26 @@ class PersonalPage extends Component
             ]);
         }
 
+        $empleadosSancionadosModal = collect([]);
+        $totalSancionadosAcumulativo2 = 0;
+        $totalSancionadosGeneral = 0;
+
+        if ($this->showModalSancionados2Dias) {
+            $modalData = $this->obtenerColeccionSancionadosModal();
+            $empleadosSancionadosModal = $modalData['empleados'];
+            $totalSancionadosAcumulativo2 = $modalData['total_acumulativo_2'];
+            $totalSancionadosGeneral = $modalData['total_general'];
+        }
+
         return view('livewire.personal', [
             'empleados' => $empleados,
             'registros' => $registros,
             'mes_resumen' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'sucursales' => $sucursales,
             'totalHorasMes' => $totalHorasMes,
+            'empleadosSancionadosModal' => $empleadosSancionadosModal,
+            'totalSancionadosAcumulativo2' => $totalSancionadosAcumulativo2,
+            'totalSancionadosGeneral' => $totalSancionadosGeneral,
         ])->layout('layouts.app', ['title' => $this->pageTitle()]);
     }
 
@@ -1479,7 +1640,7 @@ class PersonalPage extends Component
 
     private function resumenMensualEmpleado(Empleado $empleado, EloquentCollection $registrosAsistencia, Carbon $referenceMonth): array
     {
-        $toleranciaMensual = (int) config('asistencia.tolerancia_mensual_min', 35);
+        $toleranciaMensual = $this->programacionLaboral()->resolverToleranciaMensual($empleado->sucursal);
         $fechaReferencia = $referenceMonth->isSameMonth(now())
             ? now()->toDateString()
             : null;
@@ -1520,6 +1681,14 @@ class PersonalPage extends Component
             }
         }
 
+        $sancionAtraso = app(ReglamentoSancionService::class)->evaluarAtraso($minutosRetraso, 1, $referenceMonth);
+        $reglaSinFiltro = app(ReglamentoSancionService::class)->evaluarAtrasoSinFiltroFecha($minutosRetraso);
+        $enPeriodoTransicion = (! $sancionAtraso && $reglaSinFiltro && $minutosRetraso > $toleranciaMensual);
+
+        $porcentajeTolerancia = $toleranciaMensual > 0
+            ? (int) min(100, round(($minutosRetraso / $toleranciaMensual) * 100))
+            : 100;
+
         return [
             'entrada_hoy' => ($registroHoy && ($marcacionHoy = $this->normalizarMarcacionAsistencia($registroHoy)) && $marcacionHoy['entrada'])
                 ? substr($marcacionHoy['entrada'], 0, 5)
@@ -1544,6 +1713,17 @@ class PersonalPage extends Component
             'exceso_retraso' => max($minutosRetraso - $toleranciaMensual, 0),
             'estado_retraso' => $minutosRetraso > $toleranciaMensual ? 'Excedido' : 'Dentro de tolerancia',
             'olvidos_marcacion' => $olvidosMarcacion,
+            'porcentaje_tolerancia' => $porcentajeTolerancia,
+            'en_periodo_transicion' => $enPeriodoTransicion,
+            'vigencia_reglamento_detalle' => $enPeriodoTransicion ? ($reglaSinFiltro->descripcion_vigencia ?? 'No aplica en este periodo') : null,
+            'sancion_regla' => $sancionAtraso ? [
+                'id' => $sancionAtraso->id,
+                'dias_sancion' => (float) $sancionAtraso->dias_sancion,
+                'sancion_texto' => $sancionAtraso->sancion_texto,
+                'causal' => $sancionAtraso->causal,
+                'es_destitucion' => (bool) $sancionAtraso->es_destitucion,
+                'es_acumulativo_2' => ((float) $sancionAtraso->dias_sancion >= 2.0 || $sancionAtraso->es_destitucion),
+            ] : null,
         ];
     }
 
@@ -2311,8 +2491,16 @@ class PersonalPage extends Component
             $current->addDay();
         }
 
-        $toleranciaMesMinutos = (int) config('asistencia.tolerancia_mensual_minutos', 30);
+        $toleranciaMesMinutos = $this->programacionLaboral()->resolverToleranciaMensual($empleado->sucursal);
         $excedido = $minutosRetrasoTotales > $toleranciaMesMinutos;
+
+        $sancionAtraso = app(ReglamentoSancionService::class)->evaluarAtraso($minutosRetrasoTotales, 1, $start);
+        $reglaSinFiltro = app(ReglamentoSancionService::class)->evaluarAtrasoSinFiltroFecha($minutosRetrasoTotales);
+        $enPeriodoTransicion = (! $sancionAtraso && $reglaSinFiltro && $minutosRetrasoTotales > $toleranciaMesMinutos);
+
+        $porcentajeTolerancia = $toleranciaMesMinutos > 0
+            ? (int) min(100, round(($minutosRetrasoTotales / $toleranciaMesMinutos) * 100))
+            : 100;
 
         return [
             'total_atrasos' => count($listaAtrasos),
@@ -2331,6 +2519,17 @@ class PersonalPage extends Component
             'saldo_tolerancia' => $excedido
                 ? 'Excedido por ' . ($minutosRetrasoTotales - $toleranciaMesMinutos) . ' min'
                 : max(0, $toleranciaMesMinutos - $minutosRetrasoTotales) . ' min disponibles',
+            'porcentaje_tolerancia' => $porcentajeTolerancia,
+            'en_periodo_transicion' => $enPeriodoTransicion,
+            'vigencia_reglamento_detalle' => $enPeriodoTransicion ? ($reglaSinFiltro->descripcion_vigencia ?? 'No aplica en este periodo') : null,
+            'sancion_regla' => $sancionAtraso ? [
+                'id' => $sancionAtraso->id,
+                'dias_sancion' => (float) $sancionAtraso->dias_sancion,
+                'sancion_texto' => $sancionAtraso->sancion_texto,
+                'causal' => $sancionAtraso->causal,
+                'es_destitucion' => (bool) $sancionAtraso->es_destitucion,
+                'es_acumulativo_2' => ((float) $sancionAtraso->dias_sancion >= 2.0 || $sancionAtraso->es_destitucion),
+            ] : null,
         ];
     }
 
@@ -2352,6 +2551,8 @@ class PersonalPage extends Component
                 'porcentaje_dentro_tolerancia' => 100,
                 'excedidos_tolerancia' => 0,
                 'porcentaje_excedidos' => 0,
+                'sancionados_acumulativo_2' => 0,
+                'sancionados_con_descuento' => 0,
                 'total_minutos_trabajados' => 0,
                 'total_horas_trabajadas' => '0h 0m',
                 'promedio_horas_empleado' => '0h 0m',
@@ -2368,6 +2569,16 @@ class PersonalPage extends Component
 
         $excedidosTolerancia = $empleadosHydrated->filter(fn (Empleado $e) => ($e->resumen_asistencia['estado_retraso'] ?? '') === 'Excedido')->count();
         $dentroTolerancia = $total - $excedidosTolerancia;
+
+        $sancionadosAcumulativo2 = $empleadosHydrated->filter(function (Empleado $e) {
+            $sancion = $e->resumen_asistencia['sancion_regla'] ?? null;
+            return $sancion && ($sancion['es_acumulativo_2'] ?? false);
+        })->count();
+
+        $sancionadosConDescuento = $empleadosHydrated->filter(function (Empleado $e) {
+            $sancion = $e->resumen_asistencia['sancion_regla'] ?? null;
+            return $sancion && (($sancion['dias_sancion'] ?? 0) > 0 || ($sancion['es_destitucion'] ?? false));
+        })->count();
 
         $totalMinutosTrabajados = $empleadosHydrated->sum(fn (Empleado $e) => $e->resumen_asistencia['minutos_mes'] ?? 0);
         $totalMinutosRetraso = $empleadosHydrated->sum(fn (Empleado $e) => $e->resumen_asistencia['retraso_mes'] ?? 0);
@@ -2387,6 +2598,8 @@ class PersonalPage extends Component
             'porcentaje_dentro_tolerancia' => round(($dentroTolerancia / $total) * 100, 1),
             'excedidos_tolerancia' => $excedidosTolerancia,
             'porcentaje_excedidos' => round(($excedidosTolerancia / $total) * 100, 1),
+            'sancionados_acumulativo_2' => $sancionadosAcumulativo2,
+            'sancionados_con_descuento' => $sancionadosConDescuento,
             'total_minutos_trabajados' => $totalMinutosTrabajados,
             'total_horas_trabajadas' => $this->formatearMinutos((int) $totalMinutosTrabajados),
             'promedio_horas_empleado' => sprintf('%dh %02dm', intdiv($promedioMinutos, 60), $promedioMinutos % 60),
