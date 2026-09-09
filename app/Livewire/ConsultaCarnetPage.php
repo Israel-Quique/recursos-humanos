@@ -262,12 +262,12 @@ class ConsultaCarnetPage extends Component
                 $mensaje = "Has acumulado {$minutosRetraso} min de retraso (has utilizado el {$porcentajeUso}% de tus {$toleranciaMensual} min de tolerancia mensual). Regula tus ingresos para evitar exceder el margen y quedar sujeto a sanciones según el Artículo 45.";
             } elseif ($minutosRetraso > 0) {
                 $nivel = 'regular';
-                $titulo = 'ℹ️ Control de Tolerancia · Artículo 45';
-                $mensaje = "Llevas {$minutosRetraso} min acumulados de los {$toleranciaMensual} min de tolerancia institucional. Te encuentras dentro del margen permitido sin consecuencias.";
+                $titulo = '🏛️ Normativa Institucional · Artículo 45';
+                $mensaje = "El límite máximo de tolerancia mensual institucional antes de la aplicación de sanciones disciplinarias es de {$toleranciaMensual} minutos acumulados en el mes. A partir de dicho margen aplican las medidas y memorándums según el Artículo 45.";
             } else {
                 $nivel = 'optimo';
-                $titulo = '✅ Asistencia Regular · Artículo 45';
-                $mensaje = "No registras atrasos acumulados en el mes en curso. Cuentas con tus {$toleranciaMensual} min de tolerancia mensual disponibles.";
+                $titulo = '🏛️ Normativa Institucional · Artículo 45';
+                $mensaje = "El límite máximo de tolerancia mensual institucional antes de la aplicación de sanciones disciplinarias es de {$toleranciaMensual} minutos acumulados en el mes. A partir de dicho margen aplican las medidas y memorándums según el Artículo 45.";
             }
 
             return [

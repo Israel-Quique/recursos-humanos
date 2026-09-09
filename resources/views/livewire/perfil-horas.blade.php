@@ -747,12 +747,12 @@
             </div>
             <div class="ph-kpi-sub">{{ $retrasoResumen['dias_tarde'] }} día(s) tarde</div>
           </div>
-          <div class="ph-kpi {{ $excedio ? 'ph-kpi-rose' : 'ph-kpi-green' }}">
-            <div class="ph-kpi-label">Exceso / Margen</div>
-            <div class="ph-kpi-value" style="color:{{ $excedio ? '#e11d48' : '#059669' }};">
-              {{ $excedio ? $retrasoResumen['exceso_formateado'] : '✓ OK' }}
+          <div class="ph-kpi {{ $excedio ? 'ph-kpi-rose' : 'ph-kpi-slate' }}">
+            <div class="ph-kpi-label">{{ $excedio ? 'Exceso acumulado' : 'Límite de tolerancia' }}</div>
+            <div class="ph-kpi-value" style="color:{{ $excedio ? '#e11d48' : '#0f67c0' }};">
+              {{ $excedio ? $retrasoResumen['exceso_formateado'] : $retrasoResumen['tolerancia_minutos'] . ' min' }}
             </div>
-            <div class="ph-kpi-sub">Tolerancia: {{ $retrasoResumen['tolerancia_minutos'] }} min</div>
+            <div class="ph-kpi-sub">{{ $excedio ? 'Supera tolerancia de ' . $retrasoResumen['tolerancia_minutos'] . ' min' : 'Margen mensual Art. 45' }}</div>
           </div>
         </div>
       </div>
@@ -778,8 +778,8 @@
               ⚠️ <strong style="color:#881337;">Atención: Has superado el margen de tolerancia mensual de {{ $retrasoResumen['tolerancia_minutos'] }} minutos</strong> (Retraso acumulado: {{ $retrasoResumen['total_formateado'] }}). De acuerdo con el Artículo 45, Numeral I, los excesos no justificados conllevan sanciones disciplinarias y emisión de Memorándum institucional.
             </p>
           @else
-            <p style="font-size:.82rem;font-weight:700;color:#1e293b;margin:0 0 .35rem 0;line-height:1.45;">
-              ✓ Te encuentras dentro del margen de tolerancia mensual ({{ $retrasoResumen['total_formateado'] }} de {{ $retrasoResumen['tolerancia_minutos'] }} min). Mantén el control de tus marcaciones para evitar llamadas de atención.
+            <p style="font-size:.82rem;font-weight:600;color:#334155;margin:0 0 .35rem 0;line-height:1.45;">
+              📌 <strong>Límite de tolerancia institucional:</strong> El margen máximo acumulable antes de la aplicación de sanciones disciplinarias es de <strong>{{ $retrasoResumen['tolerancia_minutos'] }} minutos al mes</strong>. A partir de dicho límite, todo exceso no justificado queda sujeto al régimen disciplinario y emisión de memorándum (Art. 45).
             </p>
           @endif
 
