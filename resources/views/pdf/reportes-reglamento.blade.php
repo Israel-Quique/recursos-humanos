@@ -225,11 +225,6 @@
       </tr>
     </table>
 
-    <!-- Nota de Auditoría Normativa y Contingencias -->
-    <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-left: 3px solid #2563eb; padding: 6px 10px; border-radius: 4px; margin-bottom: 12px; font-size: 8px; color: #1e3a8a;">
-      <strong>NOTA DE AUDITORÍA Y CONTINGENCIAS ADMINISTRATIVAS:</strong> Debido a bloqueos de vías, conflictos de transporte y feriados o tolerancias que pudieran no estar registrados oportunamente en la base de datos, los casos con concurrencia de artículos o ausencias sucesivas deben ser auditados cotejando boletas físicas de justificación y reportes de jefatura inmediata antes de proceder con sanciones definitivas o procesos de destitución.
-    </div>
-
     <!-- SECCIÓN 1: PERSONAL EN ZONA DE ALERTA (A PUNTO DE SER SANCIONADO) -->
     <div class="section-header">
       <span class="section-kicker">Prevención y Control Temprano · </span>
@@ -240,11 +235,11 @@
         <tr>
           <th style="width: 20px;" class="text-center">#</th>
           <th>Personal</th>
-          <th style="width: 55px;">CI / Código</th>
+          <th style="width: 60px;">CI / Código</th>
           <th>Sucursal / Área</th>
-          <th style="width: 65px;" class="text-center">Tolerancia Usada</th>
-          <th style="width: 65px;" class="text-center">Falta p/ Sanción</th>
-          <th>Sanción Inminente / Motivo</th>
+          <th style="width: 70px;" class="text-center">Tolerancia Usada</th>
+          <th style="width: 70px;" class="text-center">Falta p/ Sanción</th>
+          <th>Sanción Inminente</th>
         </tr>
       </thead>
       <tbody>
@@ -252,7 +247,7 @@
           <tr>
             <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
             <td class="font-bold">{{ $emp['nombre'] }}</td>
-            <td class="font-mono">{{ $emp['codigo'] }}</td>
+            <td class="font-mono font-bold">{{ $emp['codigo'] }}</td>
             <td>{{ $emp['sucursal'] }} - {{ $emp['area'] }}</td>
             <td class="text-center font-bold" style="color: #92400e;">
               {{ $emp['minutos_atraso'] }} min
@@ -260,7 +255,7 @@
             <td class="text-center font-bold" style="color: #b91c1c;">
               {{ $emp['distancia_umbral'] }}
             </td>
-            <td>{{ $emp['motivo_principal'] }}</td>
+            <td>{{ $emp['sancion_inminente'] ?? $emp['motivo_principal'] }}</td>
           </tr>
         @empty
           <tr>
@@ -282,12 +277,13 @@
         <tr>
           <th style="width: 20px;" class="text-center">#</th>
           <th>Personal Sancionado</th>
-          <th style="width: 55px;">CI / Código</th>
+          <th style="width: 60px;">CI / Código</th>
           <th>Sucursal / Área</th>
-          <th style="width: 65px;" class="text-center">Atraso Acumulado</th>
-          <th style="width: 45px;" class="text-center">Omisiones</th>
+          <th style="width: 65px;" class="text-center">Atrasos (45.I)</th>
+          <th style="width: 65px;" class="text-center">Faltas (45.II)</th>
+          <th style="width: 50px;" class="text-center">Omisiones</th>
           <th style="width: 75px;" class="text-center">Días a Descontar</th>
-          <th>Desglose Oficial</th>
+          <th>Desglose Oficial de Sanción</th>
         </tr>
       </thead>
       <tbody>
@@ -296,14 +292,19 @@
             <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
             <td class="font-bold">
               {{ $sancionado['nombre'] }}
-              @if($sancionado['es_destitucion'])
+              @if(!empty($sancionado['es_concurrente']))
+                <span class="badge badge-purple">Art. 45+48</span>
+              @elseif($sancionado['es_destitucion'])
                 <span class="badge badge-rose">Art. 48</span>
               @endif
             </td>
-            <td class="font-mono">{{ $sancionado['codigo'] }}</td>
+            <td class="font-mono font-bold">{{ $sancionado['codigo'] }}</td>
             <td>{{ $sancionado['sucursal'] }} - {{ $sancionado['area'] }}</td>
             <td class="text-center font-bold" style="color: #92400e;">
               {{ $sancionado['minutos_atraso'] > 0 ? $sancionado['minutos_atraso'] . ' min' : '0 min' }}
+            </td>
+            <td class="text-center font-bold" style="color: #c2410c;">
+              {{ $sancionado['faltas'] > 0 ? $sancionado['faltas'] . ' (' . $sancionado['dias_sancion_inasistencia_texto'] . ' doble)' : '0' }}
             </td>
             <td class="text-center">{{ $sancionado['omisiones'] }}</td>
             <td class="text-center font-bold" style="color: #b91c1c;">
@@ -313,7 +314,7 @@
           </tr>
         @empty
           <tr>
-            <td colspan="8" class="text-center" style="padding: 10px; color: #64748b;">
+            <td colspan="9" class="text-center" style="padding: 10px; color: #64748b;">
               No se registraron sanciones aplicables en el periodo seleccionado.
             </td>
           </tr>
@@ -321,21 +322,21 @@
       </tbody>
     </table>
 
-    <!-- SECCIÓN 3: CONCURRENCIA DE LEYES Y PROPUESTA DE RESOLUCIÓN -->
+    <!-- SECCIÓN 3: CONCURRENCIA DE LEYES Y SANCIONES -->
     @if(count($reporte['concurrentes'] ?? []) > 0)
       <div class="section-header" style="background-color: #f5f3ff; border-left-color: #7c3aed;">
         <span class="section-kicker" style="color: #6d28d9;">Concurrencia Normativa (Art. 45 y Art. 48) · </span>
-        3. Casos con Doble Infracción y Propuesta de Resolución Administrativa
+        3. Casos con Doble Infracción y Cómputo de Sanciones
       </div>
       <table class="data-table">
         <thead>
           <tr>
             <th style="width: 20px;" class="text-center">#</th>
-            <th style="width: 130px;">Personal</th>
+            <th style="width: 125px;">Personal</th>
             <th style="width: 60px;">CI / Código</th>
-            <th style="width: 100px;">Sucursal / Área</th>
-            <th style="width: 150px;">Infracciones Detectadas</th>
-            <th>Propuesta Administrativa de Resolución</th>
+            <th style="width: 95px;">Sucursal / Área</th>
+            <th style="width: 140px;">Infracciones Detectadas</th>
+            <th>Sanción Aplicable / Cómputo Final</th>
           </tr>
         </thead>
         <tbody>
@@ -346,14 +347,19 @@
                 {{ $concurrente['nombre'] }}
                 <span class="badge badge-purple" style="margin-top: 2px; display: block; width: fit-content;">Art. 45 + 48</span>
               </td>
-              <td class="font-mono">{{ $concurrente['codigo'] }}</td>
+              <td class="font-mono font-bold">{{ $concurrente['codigo'] }}</td>
               <td>{{ $concurrente['sucursal'] }}<br><span style="color: #64748b;">{{ $concurrente['area'] }}</span></td>
               <td>
                 <div style="color: #92400e; font-size: 7.5px; margin-bottom: 2px;"><strong>• Art. 45:</strong> {{ $concurrente['infraccion_art45'] }}</div>
                 <div style="color: #9f1239; font-size: 7.5px;"><strong>• Art. 48:</strong> {{ $concurrente['infraccion_art48'] }}</div>
               </td>
-              <td style="background-color: #faf5ff; color: #4c1d95; font-size: 8px;">
-                {{ $concurrente['propuesta_resolucion'] }}
+              <td style="font-size: 8px;">
+                @if(!empty($concurrente['es_destitucion']))
+                  <strong style="color: #9f1239;">DESTITUCIÓN (Art. 48)</strong><br>
+                  <span style="color: #475569;">Días deducibles de haber: <strong>{{ $concurrente['total_dias_sancion_texto'] }}</strong></span>
+                @else
+                  <strong style="color: #92400e;">Descuento en planilla: {{ $concurrente['total_dias_sancion_texto'] }} de remuneración mensual</strong>
+                @endif
               </td>
             </tr>
           @endforeach

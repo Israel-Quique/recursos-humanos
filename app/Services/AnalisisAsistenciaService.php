@@ -723,6 +723,7 @@ class AnalisisAsistenciaService
             }
             $perEmployee[$empleado->id]['name'] = $empleado->nombre_completo;
             $perEmployee[$empleado->id]['branch'] = $empleado->sucursal ?: 'Sin sucursal';
+            $perEmployee[$empleado->id]['codigo'] = $empleado->codigo_biometrico ?: 'CI: ' . $empleado->id;
         }
 
         $topEmployees = collect($perEmployee)
@@ -732,6 +733,7 @@ class AnalisisAsistenciaService
                 return [
                     'empleado_id' => (int) $employeeId,
                     'nombre' => $item['name'],
+                    'codigo' => $item['codigo'] ?? ('CI: ' . $employeeId),
                     'sucursal' => $item['branch'],
                     'dias_tarde' => $item['late_days'] ?? 0,
                     'retraso' => $this->formatearMinutosEtiqueta($item['late_minutes'] ?? 0),
