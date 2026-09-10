@@ -5,8 +5,10 @@ namespace App\Livewire;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use App\Services\AnalisisAsistenciaService;
+use App\Services\AnalisisReglamentoReporteService;
 use App\Support\SucursalNormalizer;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -58,16 +60,16 @@ class ReportesPage extends Component
     public function mount(): void
     {
         $this->referenceMonth = now()->format('Y-m');
+        $this->selectedBranch = request()->query('branch', '');
     }
 
     public function openEmployeeDetailModal(int $employeeId): void
     {
-        $analysis = app(AnalisisAsistenciaService::class);
-        $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
-
         $this->detailEmployeeId = $employeeId;
+        $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+        $analysis = app(AnalisisAsistenciaService::class);
         $this->detailEmployeeReport = $analysis->detalleMensualPorEmpleado($employeeId, $referenceMonth, $this->selectedBranch) ?? [];
-        $this->showEmployeeDetailModal = ! empty($this->detailEmployeeReport);
+        $this->showEmployeeDetailModal = true;
     }
 
     public function closeEmployeeDetailModal(): void
@@ -113,6 +115,36 @@ class ReportesPage extends Component
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();
         }, $fileName);
+    }
+
+    public function descargarPdfReporteReglamento()
+    {
+        $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+        $monthLabel = ucfirst($referenceMonth->locale('es')->translatedFormat('F Y'));
+        $branchLabel = $this->selectedBranch !== '' ? $this->selectedBranch : 'Todas las sucursales';
+        $reporteReglamento = $this->obtenerReporteReglamento();
+
+        $pdf = Pdf::loadView('pdf.reportes-reglamento', [
+            'monthLabel' => $monthLabel,
+            'branchLabel' => $branchLabel,
+            'reporte' => $reporteReglamento,
+        ])->setPaper('a4');
+
+        $fileName = 'reporte-reglamento-sanciones-'.Str::slug($branchLabel).'-'.$referenceMonth->format('Y-m').'.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $fileName);
+    }
+
+    public function obtenerReporteReglamento(): array
+    {
+        $cacheKey = "rep_reglamento_{$this->referenceMonth}_{$this->selectedBranch}";
+
+        return Cache::remember($cacheKey, 60, function () {
+            $ref = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+            return app(AnalisisReglamentoReporteService::class)->generarReporteReglamento($ref, $this->selectedBranch);
+        });
     }
 
     public function descargarPdfDetalleEmpleado()
@@ -302,6 +334,7 @@ class ReportesPage extends Component
             'omisionesStats'       => $omisionesStats,
             'reportePersonal'      => $reportePersonal,
             'reporteSucursales'    => $reporteSucursales,
+            'reporteReglamento'    => $this->obtenerReporteReglamento(),
             'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,
         ])->layout('layouts.app', ['title' => 'Reportes de asistencia']);
     }

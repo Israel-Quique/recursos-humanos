@@ -303,6 +303,17 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
       <span>Antigüedad</span>
     </button>
+    <button type="button" role="tab" :aria-selected="tab === 'reglamento'" @click="tab = 'reglamento'"
+      :class="tab === 'reglamento' ? 'report-tab-button-active' : ''"
+      class="report-tab-button" id="tab-reglamento">
+      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>Reglamento</span>
+      @if((($reporteReglamento['metricas']['en_alerta_preventiva'] ?? 0) + ($reporteReglamento['metricas']['con_sancion_economica'] ?? 0) + ($reporteReglamento['metricas']['riesgo_critico'] ?? 0)) > 0)
+        <span class="report-tab-badge report-tab-badge-amber">
+          {{ ($reporteReglamento['metricas']['en_alerta_preventiva'] ?? 0) + ($reporteReglamento['metricas']['con_sancion_economica'] ?? 0) + ($reporteReglamento['metricas']['riesgo_critico'] ?? 0) }}
+        </span>
+      @endif
+    </button>
     @if($reportePersonal)
     <button type="button" role="tab" :aria-selected="tab === 'mi-reporte'" @click="tab = 'mi-reporte'"
       :class="tab === 'mi-reporte' ? 'report-tab-button-active' : ''"
@@ -1273,7 +1284,644 @@
   </div>
 
   {{-- ============================================================ --}}
-  {{-- TAB 6: MI REPORTE (solo usuarios con empleado vinculado)     --}}
+  {{-- TAB 7: REGLAMENTO Y SANCIONES                                --}}
+  {{-- ============================================================ --}}
+  <div x-show="tab === 'reglamento'" x-transition.opacity.duration.200ms role="tabpanel">
+
+    {{-- Encabezado solo para impresión física --}}
+    <div class="hidden print:block mb-6 border-b-2 border-slate-900 pb-3">
+      <p class="text-xs uppercase font-bold text-slate-500 tracking-wider">Agencia Boliviana de Correos · Recursos Humanos</p>
+      <h2 class="text-xl font-bold text-slate-900 mt-1">Reporte Disciplinario de Sanciones y Alertas de Reglamento</h2>
+      <p class="text-xs text-slate-600">Periodo: {{ $monthLabel }} | Sucursal: {{ $selectedBranch ?: 'Todas las sucursales' }} | Normativa: Art. 45 y Art. 48 | Emisión: {{ now()->format('d/m/Y H:i') }}</p>
+    </div>
+
+    {{-- Resumen Ejecutivo Superior (5 KPIs) --}}
+    <section class="mb-6 grid gap-3.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div class="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-center shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Zona de Alerta</p>
+        <p class="mt-2 text-2xl font-black text-amber-900">{{ $reporteReglamento['metricas']['en_alerta_preventiva'] ?? 0 }}</p>
+        <p class="text-[11px] text-amber-700 mt-1">A punto de ser sancionados</p>
+      </div>
+
+      <div class="rounded-2xl border border-orange-200 bg-orange-50/50 p-4 text-center shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-orange-800">Con Sanción Económica</p>
+        <p class="mt-2 text-2xl font-black text-orange-950">{{ $reporteReglamento['metricas']['con_sancion_economica'] ?? 0 }}</p>
+        <p class="text-[11px] text-orange-700 mt-1">Descuento en planilla (Art. 45)</p>
+      </div>
+
+      <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-4 text-center shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Riesgo Crítico</p>
+        <p class="mt-2 text-2xl font-black text-rose-950">{{ $reporteReglamento['metricas']['riesgo_critico'] ?? 0 }}</p>
+        <p class="text-[11px] text-rose-700 mt-1">Causal de destitución (Art. 48)</p>
+      </div>
+
+      <div class="rounded-2xl border border-purple-200 bg-purple-50/50 p-4 text-center shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Concurrencia de Leyes</p>
+        <p class="mt-2 text-2xl font-black text-purple-950">{{ $reporteReglamento['metricas']['concurrencia_articulos'] ?? 0 }}</p>
+        <p class="text-[11px] text-purple-700 mt-1">Infringen Art. 45 y 48 a la vez</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm col-span-2 md:col-span-1">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Días Totales a Deducir</p>
+        <p class="mt-2 text-2xl font-black text-slate-900">{{ $reporteReglamento['metricas']['total_dias_sancion_formato'] ?? '0 días' }}</p>
+        <p class="text-[11px] text-slate-400 mt-1">Cómputo general DAF</p>
+      </div>
+    </section>
+
+    {{-- Desglose rápido por Sucursal --}}
+    @if(($reporteReglamento['por_sucursal'] ?? null) && count($reporteReglamento['por_sucursal']) > 0)
+      <div class="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center gap-2 shadow-sm">
+        <span class="font-bold text-slate-700 uppercase tracking-wider mr-1">Impacto por regional:</span>
+        @foreach($reporteReglamento['por_sucursal'] as $sucName => $sucData)
+          @if($sucData['sancionados'] > 0 || $sucData['en_alerta'] > 0 || $sucData['criticos'] > 0)
+            <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
+              <strong class="uppercase text-slate-800">{{ $sucName }}:</strong>
+              @if($sucData['en_alerta'] > 0)
+                <span class="text-amber-800 font-bold">{{ $sucData['en_alerta'] }} en alerta</span>
+              @endif
+              @if($sucData['sancionados'] > 0)
+                <span class="text-orange-900 font-bold">· {{ $sucData['sancionados'] }} sancionados</span>
+              @endif
+              @if($sucData['criticos'] > 0)
+                <span class="text-rose-700 font-bold">· {{ $sucData['criticos'] }} crítico(s)</span>
+              @endif
+            </span>
+          @endif
+        @endforeach
+      </div>
+    @endif
+
+    {{-- AVISO / PROPUESTA INSTITUCIONAL POR CONTINGENCIAS Y BLOQUEOS --}}
+    <div class="mb-6 rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm">
+      <div class="flex items-start gap-3">
+        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-sm shadow-xs">
+          🛡️
+        </span>
+        <div class="flex-1 text-xs leading-relaxed text-slate-700">
+          <h4 class="font-bold text-slate-900 text-sm mb-0.5">Nota de Auditoría Normativa y Contingencias Administrativas</h4>
+          <p class="text-slate-600">
+            Debido a que los registros biométricos pueden no reflejar de inmediato boletas en trámite, así como afectaciones por 
+            <strong class="text-slate-900">bloqueos de transporte, cortes de conectividad o feriados regionales no consolidados</strong>, 
+            aquellos funcionarios que registren <strong class="text-purple-900">concurrencia simultánea de infracciones (Art. 45 y Art. 48)</strong> 
+            o causales críticas deben ser objeto de <strong class="text-blue-900 underline">auditoría previa y verificación de boletas físicas</strong> 
+            con su respectiva jefatura antes de la aplicación definitiva de memorándums de destitución o deducciones en planilla.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  <div x-data="{ filtroArticulo: 'todos' }">
+    {{-- Título y Barra de Navegación por Artículos --}}
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-4 no-print border-b border-slate-200 pb-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900">Control de Cumplimiento del Reglamento Interno</h3>
+        <p class="text-xs text-slate-500">Evaluación disciplinaria de atrasos, omisiones y ausencias según el Art. 45 y Art. 48 en {{ $monthLabel }}.</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-sm">
+          <button type="button" @click="filtroArticulo = 'todos'"
+            :class="filtroArticulo === 'todos' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span>Todos los Casos</span>
+            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+              {{ count($reporteReglamento['personal_en_alerta'] ?? []) + count($reporteReglamento['mas_sancionados'] ?? []) + count($reporteReglamento['casos_criticos'] ?? []) }}
+            </span>
+          </button>
+
+          <button type="button" @click="filtroArticulo = 'concurrente'"
+            :class="filtroArticulo === 'concurrente' ? 'bg-white text-purple-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span class="h-2 w-2 rounded-full bg-purple-600"></span>
+            <span>Concurrencia (Art. 45 + 48)</span>
+            <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
+              {{ $reporteReglamento['metricas']['concurrencia_articulos'] ?? 0 }}
+            </span>
+          </button>
+
+          <button type="button" @click="filtroArticulo = 'art45'"
+            :class="filtroArticulo === 'art45' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+            <span>Art. 45 (Atrasos)</span>
+            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+              {{ ($reporteReglamento['art_45']['total_alertas'] ?? 0) + ($reporteReglamento['art_45']['total_sancionados'] ?? 0) }}
+            </span>
+          </button>
+
+          <button type="button" @click="filtroArticulo = 'art48'"
+            :class="filtroArticulo === 'art48' ? 'bg-white text-rose-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+            <span>Art. 48 (Destitución)</span>
+            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900">
+              {{ ($reporteReglamento['art_48']['total_alertas'] ?? 0) + ($reporteReglamento['art_48']['total_criticos'] ?? 0) }}
+            </span>
+          </button>
+        </div>
+
+        <button type="button" wire:click="descargarPdfReporteReglamento" class="report-hero-pdf-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>
+          </svg>
+          <span>Descargar PDF Reglamento</span>
+        </button>
+      </div>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- BLOQUE ESPECIAL: CASOS CON CONCURRENCIA (ART. 45 Y ART. 48)  --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'concurrente'" class="space-y-4 mb-8">
+      @if(count($reporteReglamento['concurrentes'] ?? []) > 0)
+        <section class="surface-card border-purple-200 bg-purple-50/20">
+          <div class="mb-4 flex items-center justify-between border-b border-purple-100 pb-2.5">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">⚖️</span>
+                <h5 class="text-sm font-bold text-purple-950">Casos con Concurrencia de Leyes (Art. 45 y Art. 48 Simultáneos)</h5>
+              </div>
+              <p class="text-xs text-purple-800 mt-0.5">Funcionarios que incurren a la vez en descuentos por atrasos y causales críticas de destitución/omisiones.</p>
+            </div>
+            <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
+              {{ count($reporteReglamento['concurrentes']) }} caso(s) en revisión
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            @foreach($reporteReglamento['concurrentes'] as $concurrente)
+              <div class="flex flex-col justify-between rounded-xl border border-purple-200 bg-white p-3.5 shadow-sm hover:border-purple-300 transition">
+                <div>
+                  <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-sm shadow-xs">
+                        {{ $concurrente['inicial'] ?? 'F' }}
+                      </div>
+                      <div class="min-w-0">
+                        <h6 class="truncate font-bold text-slate-900 text-sm leading-tight">{{ $concurrente['nombre'] }}</h6>
+                        <p class="truncate text-[11px] text-slate-500 mt-0.5">{{ $concurrente['sucursal'] }} · {{ $concurrente['area'] }}</p>
+                      </div>
+                    </div>
+                    <span class="rounded-full bg-purple-100 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-900 shrink-0">
+                      Art. 45 + 48
+                    </span>
+                  </div>
+
+                  {{-- Cajas métricas duales --}}
+                  <div class="grid grid-cols-2 gap-2 text-center my-2.5">
+                    <div class="rounded-lg bg-amber-50 border border-amber-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-800">Infracción Art. 45</span>
+                      <span class="text-sm font-black text-amber-950">{{ $concurrente['minutos_atraso'] ?? 0 }} min</span>
+                      <span class="block text-[9px] text-amber-700">{{ $concurrente['dias_sancion_atraso_texto'] ?? 'En alerta' }}</span>
+                    </div>
+                    <div class="rounded-lg bg-rose-50 border border-rose-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-rose-800">Infracción Art. 48</span>
+                      <span class="text-sm font-black text-rose-950">{{ $concurrente['omisiones'] ?? 0 }} omisiones</span>
+                      <span class="block text-[9px] text-rose-700">Riesgo destitución</span>
+                    </div>
+                  </div>
+
+                  {{-- Propuesta de Resolución Administrativa --}}
+                  <div class="rounded-lg bg-purple-50/70 p-2.5 border border-purple-100 text-[11px] text-purple-950 leading-relaxed">
+                    <strong class="text-purple-900 block font-bold mb-0.5">Propuesta Institucional:</strong>
+                    {{ $concurrente['propuesta_resolucion'] }}
+                  </div>
+                </div>
+
+                <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>CI: <strong class="font-mono text-slate-700">{{ $concurrente['codigo'] }}</strong></span>
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $concurrente['id'] }})" class="table-action-button text-[10px] py-1 px-2.5">
+                    Ver detalle completo
+                  </button>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        </section>
+      @endif
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- BLOQUE 1: ARTÍCULO 45 (ATRASOS, INASISTENCIAS Y DESCUENTOS)  --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art45'" class="space-y-6 mb-8">
+      {{-- Banner explicativo Art. 45 --}}
+      <div class="rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50/70 via-white to-amber-50/40 p-4 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 pb-2.5 mb-2.5">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-xs px-2.5 py-1 shadow-xs">
+              Artículo 45
+            </span>
+            <div>
+              <h4 class="text-sm font-bold text-slate-900">Régimen de Atrasos, Inasistencias y Sanciones Salariales</h4>
+              <p class="text-xs text-slate-500">Sanciones automáticas con descuento de haberes (de 1/2 día a 4 días de sueldo) según minutos acumulados en {{ $monthLabel }}.</p>
+            </div>
+          </div>
+        </div>
+        {{-- Escala resumida muy amigable y clara --}}
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px] text-slate-600">
+          <div class="rounded-lg bg-white p-2 border border-slate-200">
+            <span class="block font-bold text-slate-800">Tolerancia:</span> 5 min al ingreso
+          </div>
+          <div class="rounded-lg bg-white p-2 border border-slate-200">
+            <span class="block font-bold text-slate-800">6 a 30 min:</span> Sin descuento (acumula)
+          </div>
+          <div class="rounded-lg bg-amber-50 p-2 border border-amber-200">
+            <span class="block font-bold text-amber-900">31 a 60 min:</span> 1/2 día de haber
+          </div>
+          <div class="rounded-lg bg-amber-50 p-2 border border-amber-200">
+            <span class="block font-bold text-amber-900">61 a 90 min:</span> 1 día de haber
+          </div>
+          <div class="rounded-lg bg-orange-50 p-2 border border-orange-200">
+            <span class="block font-bold text-orange-950">91 a 120 min:</span> 2 días | <strong class="text-orange-900">+120m:</strong> 3 a 4 días
+          </div>
+        </div>
+      </div>
+
+      {{-- Alertas Preventivas Art. 45 (Cards compactas y amigables) --}}
+      <section class="surface-card">
+        <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-900 text-xs">⚠️</span>
+              <h5 class="text-sm font-bold text-slate-900">Personal a punto de sanción económica (20 a 30 min)</h5>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Funcionarios que rozan los 31 minutos; una llegada tarde más activará el descuento de 1/2 día.</p>
+          </div>
+          <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900 border border-amber-200">
+            {{ count($reporteReglamento['art_45']['alertas'] ?? []) }} en alerta
+          </span>
+        </div>
+
+        @if(count($reporteReglamento['art_45']['alertas'] ?? []) > 0)
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            @foreach($reporteReglamento['art_45']['alertas'] as $alerta)
+              <div class="flex flex-col justify-between rounded-xl border border-amber-300 bg-linear-to-b from-amber-50/50 to-white p-3.5 shadow-sm hover:border-amber-400 transition">
+                <div>
+                  {{-- Encabezado con Nombre destacado --}}
+                  <div class="flex items-start justify-between gap-2 mb-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white font-bold text-sm shadow-xs">
+                        {{ $alerta['inicial'] }}
+                      </div>
+                      <div class="min-w-0">
+                        <h6 class="truncate font-bold text-slate-900 text-sm leading-tight">{{ $alerta['nombre'] }}</h6>
+                        <p class="truncate text-[11px] text-slate-500 mt-0.5">{{ $alerta['sucursal'] }} · {{ $alerta['area'] }}</p>
+                      </div>
+                    </div>
+                    @if(!empty($alerta['es_concurrente']))
+                      <span class="inline-block rounded-full bg-purple-100 border border-purple-300 px-2 py-0.5 text-[10px] font-extrabold text-purple-950 shrink-0">
+                        Art. 45 + 48
+                      </span>
+                    @else
+                      <span class="inline-block rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-950 shrink-0">
+                        Alerta Tolerancia
+                      </span>
+                    @endif
+                  </div>
+
+                  {{-- Cajas métricas: Cuánto usó de tolerancia y cuánto le falta para la sanción --}}
+                  <div class="grid grid-cols-2 gap-2 text-center my-2.5">
+                    <div class="rounded-lg bg-amber-100/70 border border-amber-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-800">Tolerancia Usada</span>
+                      <span class="text-lg font-black text-amber-950">{{ $alerta['tolerancia_usada_minutos'] ?? $alerta['minutos_atraso'] }} min</span>
+                      <span class="block text-[9px] text-amber-700">de 30 min sin sanción</span>
+                    </div>
+                    <div class="rounded-lg bg-rose-50 border border-rose-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-rose-800">Faltan para Sanción</span>
+                      <span class="text-lg font-black text-rose-700">{{ $alerta['minutos_restantes_sancion'] ?? (31 - $alerta['minutos_atraso']) }} min</span>
+                      <span class="block text-[9px] text-rose-600">para 1/2 día descuento</span>
+                    </div>
+                  </div>
+
+                  {{-- Medidor visual de consumo de tolerancia --}}
+                  <div class="mt-1 mb-2.5">
+                    <div class="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+                      <span>Consumo de margen libre:</span>
+                      <strong class="text-amber-950 font-bold">{{ $alerta['porcentaje_tolerancia_usada'] ?? 80 }}%</strong>
+                    </div>
+                    <div class="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                      <div class="h-full rounded-full bg-amber-500 transition-all duration-300" style="width: {{ $alerta['porcentaje_tolerancia_usada'] ?? 80 }}%"></div>
+                    </div>
+                  </div>
+
+                  {{-- Explicación y propuesta --}}
+                  <div class="rounded-lg bg-white p-2.5 border border-amber-200 text-[11px] text-amber-950 leading-relaxed shadow-xs">
+                    ⚠️ <strong>{{ $alerta['nombre'] }}</strong>: ha consumido <strong>{{ $alerta['tolerancia_usada_minutos'] ?? $alerta['minutos_atraso'] }} min</strong>. A los 31 min se aplicará descuento de 1/2 día (Art. 45).
+                    @if(!empty($alerta['propuesta_resolucion']))
+                      <span class="block mt-1 text-slate-600 font-medium">💡 {{ $alerta['propuesta_resolucion'] }}</span>
+                    @endif
+                  </div>
+                </div>
+
+                <div class="mt-3 pt-2 border-t border-amber-200/60 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>CI: <strong class="font-mono text-slate-700">{{ $alerta['codigo'] }}</strong></span>
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $alerta['id'] }})" class="table-action-button text-[10px] py-1 px-2.5">
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        @else
+          <div class="py-6 text-center text-xs text-slate-400">
+            Ningún funcionario activo se encuentra en zona de alerta de 20 a 30 minutos.
+          </div>
+        @endif
+      </section>
+
+      {{-- Sección: Personal Sancionado (Art. 45) con Tarjetas de Resumen y Tabla --}}
+      <section class="surface-card">
+        <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-orange-900 text-xs">📉</span>
+              <h5 class="text-sm font-bold text-slate-900">Personal con Descuento Salarial Aplicable (Art. 45)</h5>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Minutos de atraso acumulados y total de días de haber que se descontarán en la planilla de {{ $monthLabel }}.</p>
+          </div>
+          <span class="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-900 border border-orange-200">
+            {{ count($reporteReglamento['art_45']['sancionados'] ?? []) }} sancionados
+          </span>
+        </div>
+
+        {{-- Tabla detallada de Personal Sancionado --}}
+        <div class="overflow-x-auto">
+          <table class="history-table w-full text-left">
+            <thead>
+              <tr>
+                <th class="w-10 text-center">#</th>
+                <th>Personal Sancionado</th>
+                <th>CI / Código</th>
+                <th>Sucursal / Área</th>
+                <th class="text-center">Minutos Atraso</th>
+                <th class="text-center">Omisiones</th>
+                <th class="text-center">Días a Descontar</th>
+                <th>Propuesta / Diagnóstico</th>
+                <th class="text-right no-print w-28">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @forelse($reporteReglamento['art_45']['sancionados'] ?? [] as $idx => $sancionado)
+                <tr class="hover:bg-slate-50/60 transition">
+                  <td class="text-center font-semibold text-slate-400 text-xs">{{ $idx + 1 }}</td>
+                  <td>
+                    <span class="font-bold text-slate-900">{{ $sancionado['nombre'] }}</span>
+                    @if(!empty($sancionado['es_concurrente']))
+                      <span class="ml-1.5 inline-block rounded bg-purple-100 text-purple-900 border border-purple-200 px-1.5 py-0.2 text-[10px] font-bold">Art. 45 + 48</span>
+                    @elseif($sancionado['es_destitucion'])
+                      <span class="ml-1.5 inline-block rounded bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-900">Art. 48</span>
+                    @endif
+                  </td>
+                  <td><span class="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{{ $sancionado['codigo'] }}</span></td>
+                  <td class="text-xs text-slate-600">{{ $sancionado['sucursal'] }} · {{ $sancionado['area'] }}</td>
+                  <td class="text-center">
+                    @if($sancionado['minutos_atraso'] > 0)
+                      <strong class="text-amber-950 text-xs font-bold">{{ $sancionado['minutos_atraso'] }} min</strong>
+                      <span class="block text-[10px] text-slate-400">({{ $sancionado['dias_tarde'] }} días tarde)</span>
+                    @else
+                      <span class="text-slate-400 text-xs">0 min</span>
+                    @endif
+                  </td>
+                  <td class="text-center">
+                    @if($sancionado['omisiones'] > 0)
+                      <span class="inline-flex items-center justify-center rounded-full bg-rose-50 border border-rose-200 px-2 py-0.2 text-xs font-bold text-rose-800">
+                        {{ $sancionado['omisiones'] }}
+                      </span>
+                    @else
+                      <span class="text-slate-400 text-xs">0</span>
+                    @endif
+                  </td>
+                  <td class="text-center">
+                    @if($sancionado['es_destitucion'])
+                      <span class="inline-block rounded-lg bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-xs font-bold text-rose-900">
+                        Destitución
+                      </span>
+                    @else
+                      <span class="inline-block rounded-lg bg-orange-100 border border-orange-300 px-2.5 py-0.5 text-xs font-black text-orange-950">
+                        {{ $sancionado['total_dias_sancion_texto'] }}
+                      </span>
+                    @endif
+                  </td>
+                  <td class="text-xs text-slate-600">
+                    <span class="block font-medium text-slate-800">{{ implode(' · ', $sancionado['desglose']) ?: 'Atrasos acumulados' }}</span>
+                    @if(!empty($sancionado['propuesta_resolucion']))
+                      <span class="block text-[10px] text-slate-500 mt-0.5">💡 {{ $sancionado['propuesta_resolucion'] }}</span>
+                    @endif
+                  </td>
+                  <td class="text-right no-print">
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $sancionado['id'] }})" class="table-action-button text-xs py-1 px-2.5">
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="9" class="py-8 text-center text-xs text-slate-400">
+                    No se registran sanciones salariales aplicables en este periodo.
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- BLOQUE 2: ARTÍCULO 48 (CAUSALES GRAVES Y DESTITUCIÓN)        --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art48'" class="space-y-6 mb-8">
+      {{-- Banner explicativo Art. 48 --}}
+      <div class="rounded-2xl border border-rose-200 bg-linear-to-r from-rose-50/70 via-white to-red-50/40 p-4 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-rose-200/70 pb-2.5 mb-2.5">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex items-center justify-center rounded-lg bg-rose-600 text-white font-bold text-xs px-2.5 py-1 shadow-xs">
+              Artículo 48
+            </span>
+            <div>
+              <h4 class="text-sm font-bold text-slate-900">Causales Disciplinarias Graves y Destitución</h4>
+              <p class="text-xs text-slate-500">Causales normativas que conllevan el retiro definitivo de funciones por reincidencia o abandono.</p>
+            </div>
+          </div>
+        </div>
+        {{-- Causales normativas clave --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-slate-600">
+          <div class="rounded-lg bg-white p-2 border border-rose-200">
+            <strong class="block text-rose-900">Inciso I (Reincidencia Atrasos):</strong> 3ra vez en la gestión anual con más de 120 min de atraso en un mes.
+          </div>
+          <div class="rounded-lg bg-white p-2 border border-rose-200">
+            <strong class="block text-rose-900">Inciso IV (Omisiones de Marcación):</strong> 4 o más omisiones de asistencia (sin marcar entrada o salida) en un mes.
+          </div>
+          <div class="rounded-lg bg-white p-2 border border-rose-200">
+            <strong class="block text-rose-900">Inasistencias Injustificadas:</strong> 3 días continuos o 6 días discontinuos de abandono de funciones.
+          </div>
+        </div>
+      </div>
+
+      {{-- Alertas Tempranas de Destitución (Cards compactas y amigables) --}}
+      <section class="surface-card">
+        <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-900 text-xs">⚠️</span>
+              <h5 class="text-sm font-bold text-slate-900">Alertas Tempranas de Destitución (A 1 omisión o 1 mes de incurrir en Art. 48)</h5>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Funcionarios que con una sola falta adicional ingresarán en causal de destitución.</p>
+          </div>
+          <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-900 border border-rose-200">
+            {{ count($reporteReglamento['art_48']['alertas'] ?? []) }} en riesgo
+          </span>
+        </div>
+
+        @if(count($reporteReglamento['art_48']['alertas'] ?? []) > 0)
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            @foreach($reporteReglamento['art_48']['alertas'] as $alerta48)
+              <div class="flex flex-col justify-between rounded-xl border border-rose-300 bg-linear-to-b from-rose-50/50 to-white p-3.5 shadow-sm hover:border-rose-400 transition">
+                <div>
+                  {{-- Encabezado con Nombre destacado --}}
+                  <div class="flex items-start justify-between gap-2 mb-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white font-bold text-sm shadow-xs">
+                        {{ $alerta48['inicial'] }}
+                      </div>
+                      <div class="min-w-0">
+                        <h6 class="truncate font-bold text-slate-900 text-sm leading-tight">{{ $alerta48['nombre'] }}</h6>
+                        <p class="truncate text-[11px] text-slate-500 mt-0.5">{{ $alerta48['sucursal'] }} · {{ $alerta48['area'] }}</p>
+                      </div>
+                    </div>
+                    @if(!empty($alerta48['es_concurrente']))
+                      <span class="inline-block rounded-full bg-purple-100 border border-purple-300 px-2 py-0.5 text-[10px] font-extrabold text-purple-950 shrink-0">
+                        Art. 45 + 48
+                      </span>
+                    @else
+                      <span class="inline-block rounded-full bg-rose-100 border border-rose-300 px-2 py-0.5 text-[10px] font-extrabold text-rose-950 shrink-0">
+                        🛑 Riesgo Destitución
+                      </span>
+                    @endif
+                  </div>
+
+                  {{-- Cajas métricas --}}
+                  <div class="grid grid-cols-2 gap-2 text-center my-2.5">
+                    <div class="rounded-lg bg-rose-100/70 border border-rose-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-rose-900">
+                        {{ isset($alerta48['omisiones_usadas']) ? 'Omisiones Usadas' : 'Meses Reincidentes' }}
+                      </span>
+                      <span class="text-lg font-black text-rose-950">
+                        {{ $alerta48['omisiones_usadas'] ?? ($alerta48['meses_graves_usados'] ?? 2) }}
+                      </span>
+                      <span class="block text-[9px] text-rose-700">
+                        de {{ $alerta48['omisiones_limite'] ?? ($alerta48['meses_graves_limite'] ?? 4) }} límite
+                      </span>
+                    </div>
+                    <div class="rounded-lg bg-red-100 border border-red-300 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-red-900">Falta para Destitución</span>
+                      <span class="text-lg font-black text-red-700">
+                        {{ $alerta48['omisiones_restantes'] ?? ($alerta48['meses_restantes'] ?? 1) }}
+                      </span>
+                      <span class="block text-[9px] text-red-600">para causal formal</span>
+                    </div>
+                  </div>
+
+                  {{-- Medidor visual de cercanía a causal disciplinaria --}}
+                  <div class="mt-1 mb-2.5">
+                    <div class="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+                      <span>Cercanía a proceso de destitución:</span>
+                      <strong class="text-rose-950 font-bold">{{ $alerta48['porcentaje_usado'] ?? 75 }}%</strong>
+                    </div>
+                    <div class="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                      <div class="h-full rounded-full bg-rose-600 transition-all duration-300" style="width: {{ $alerta48['porcentaje_usado'] ?? 75 }}%"></div>
+                    </div>
+                  </div>
+
+                  {{-- Explicación y propuesta --}}
+                  <div class="rounded-lg bg-white p-2.5 border border-rose-200 text-[11px] text-rose-950 leading-relaxed shadow-xs">
+                    🛑 <strong>{{ $alerta48['nombre'] }}</strong>: {{ $alerta48['explicacion'] }}
+                    @if(!empty($alerta48['propuesta_resolucion']))
+                      <span class="block mt-1 text-slate-600 font-medium">💡 {{ $alerta48['propuesta_resolucion'] }}</span>
+                    @endif
+                  </div>
+                </div>
+
+                <div class="mt-3 pt-2 border-t border-rose-200/60 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>CI: <strong class="font-mono text-slate-700">{{ $alerta48['codigo'] }}</strong></span>
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $alerta48['id'] }})" class="table-action-button text-[10px] py-1 px-2.5">
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        @else
+          <div class="py-6 text-center text-xs text-slate-400">
+            Ningún funcionario se encuentra al límite de incurrir en causales del Art. 48.
+          </div>
+        @endif
+      </section>
+
+      {{-- Casos Críticos Activos (Causal de Destitución Incurrida) --}}
+      @if(count($reporteReglamento['art_48']['casos_criticos'] ?? []) > 0)
+        <section class="surface-card border-rose-300 bg-rose-50/20">
+          <div class="mb-4 flex items-center justify-between border-b border-rose-200 pb-2.5">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-white text-xs">⛔</span>
+                <h5 class="text-sm font-bold text-rose-950">Personal en Causal de Destitución Incurrida (Art. 48)</h5>
+              </div>
+              <p class="text-xs text-rose-800 mt-0.5">Casos que superaron los límites permitidos de omisiones, faltas continuas o reincidencia.</p>
+            </div>
+            <span class="rounded-full bg-rose-600 text-white px-2.5 py-0.5 text-xs font-bold">
+              {{ count($reporteReglamento['art_48']['casos_criticos']) }} caso(s)
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            @foreach($reporteReglamento['art_48']['casos_criticos'] as $critico)
+              <div class="rounded-xl border border-rose-300 bg-white p-3.5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-900 font-bold text-xs border border-rose-300">
+                      ⛔
+                    </div>
+                    <div class="min-w-0">
+                      <p class="truncate font-bold text-slate-900 text-xs">{{ $critico['nombre'] }}</p>
+                      <p class="truncate text-[10px] text-slate-500">{{ $critico['sucursal'] }} · {{ $critico['area'] }} · CI: {{ $critico['codigo'] }}</p>
+                    </div>
+                  </div>
+                  @if(!empty($critico['es_concurrente']))
+                    <span class="rounded bg-purple-100 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-900 shrink-0">
+                      Art. 45 + 48
+                    </span>
+                  @else
+                    <span class="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900 shrink-0">
+                      Causal de Destitución
+                    </span>
+                  @endif
+                </div>
+                <div class="mt-2.5 rounded-lg bg-rose-50 p-2 border border-rose-200 text-xs font-semibold text-rose-900">
+                  {{ $critico['causal_principal'] }}
+                </div>
+                @if(!empty($critico['propuesta_resolucion']))
+                  <div class="mt-2 rounded-lg bg-slate-50 p-2 border border-slate-200 text-[11px] text-slate-700">
+                    💡 <strong class="text-slate-900">Propuesta:</strong> {{ $critico['propuesta_resolucion'] }}
+                  </div>
+                @endif
+                <div class="mt-2.5 flex items-center justify-end">
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $critico['id'] }})" class="table-action-button text-[10px] py-0.5 px-2.5">
+                    Ver historial completo
+                  </button>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        </section>
+      @endif
+    </div>
+  </div>
+  </div>
+
+  {{-- ============================================================ --}}
+  {{-- TAB 8: MI REPORTE (solo usuarios con empleado vinculado)     --}}
   {{-- ============================================================ --}}
   @if($reportePersonal)
   <div x-show="tab === 'mi-reporte'" x-transition.opacity.duration.200ms role="tabpanel">
