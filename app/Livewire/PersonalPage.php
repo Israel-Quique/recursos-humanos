@@ -1281,10 +1281,9 @@ class PersonalPage extends Component
                 ->distinct()->orderBy('sucursal')->pluck('sucursal'));
 
             $resumenSucursalesConteo = Empleado::query()
-                ->withUltimaMarcacion()
+                ->activosLaboralmente()
                 ->whereNotNull('sucursal')->where('sucursal', '!=', '')
                 ->get()
-                ->filter(fn (Empleado $e) => $e->estaActivoLaboralmente(now()))
                 ->groupBy(fn ($e) => SucursalNormalizer::normalize($e->sucursal))
                 ->map(fn ($group) => $group->count())
                 ->all();
@@ -1401,6 +1400,10 @@ class PersonalPage extends Component
                 'empleadosSancionadosModal' => $empleadosSancionadosModal,
                 'totalSancionadosAcumulativo2' => $totalSancionadosAcumulativo2,
                 'totalSancionadosGeneral' => $totalSancionadosGeneral,
+                'totalActivosSistema' => Empleado::query()->activosLaboralmente()->count(),
+                'totalInactivosSistema' => Empleado::query()->inactivosLaboralmente()->count(),
+                'totalPadronSistema' => Empleado::query()->count(),
+                'totalMarcacionesHoySistema' => RegistroAsistencia::query()->whereDate('fecha', now()->toDateString())->whereNotNull('empleado_id')->distinct('empleado_id')->count('empleado_id'),
             ])->layout('layouts.app', ['title' => $this->pageTitle()]);
         }
 
@@ -1588,6 +1591,10 @@ class PersonalPage extends Component
             'empleadosSancionadosModal' => $empleadosSancionadosModal,
             'totalSancionadosAcumulativo2' => $totalSancionadosAcumulativo2,
             'totalSancionadosGeneral' => $totalSancionadosGeneral,
+            'totalActivosSistema' => Empleado::query()->activosLaboralmente()->count(),
+            'totalInactivosSistema' => Empleado::query()->inactivosLaboralmente()->count(),
+            'totalPadronSistema' => Empleado::query()->count(),
+            'totalMarcacionesHoySistema' => RegistroAsistencia::query()->whereDate('fecha', now()->toDateString())->whereNotNull('empleado_id')->distinct('empleado_id')->count('empleado_id'),
         ])->layout('layouts.app', ['title' => $this->pageTitle()]);
     }
 

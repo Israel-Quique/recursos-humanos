@@ -77,15 +77,29 @@
     </div>
 
     {{-- Mini Estadísticas Rápidas del Banner --}}
-    <div class="inicio-kpi-box flex items-center gap-6 p-6 shrink-0 z-10">
-      <div class="text-center px-4 border-r border-white/15">
-        <p class="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400">
+    <div class="inicio-kpi-box flex flex-wrap items-center gap-4 sm:gap-6 p-4 sm:p-6 shrink-0 z-10">
+      <div class="text-center px-3 sm:px-4 border-r border-white/15">
+        <p class="text-2xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400">
           {{ $totalEmpleadosActivos }}</p>
         <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 mt-1 block">Personal Activo</span>
+        <span class="text-[10px] text-emerald-200/80 font-medium block">de {{ $totalEmpleadosPadron }} en padrón</span>
       </div>
-      <div class="text-center px-4">
-        <p class="text-3xl sm:text-4xl font-black font-mono tracking-tight text-sky-300">{{ $totalSucursales }}</p>
+      <div class="text-center px-3 sm:px-4 border-r border-white/15">
+        <p class="text-2xl sm:text-4xl font-black font-mono tracking-tight text-amber-300">
+          {{ $totalMarcacionesHoy }}</p>
+        <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 mt-1 block">Marcaron Hoy</span>
+        <span class="text-[10px] text-amber-200/80 font-medium block">{{ $porcentajeAsistenciaHoy }}% asistencia</span>
+      </div>
+      <div class="text-center px-3 sm:px-4 hidden md:block border-r border-white/15">
+        <p class="text-2xl sm:text-4xl font-black font-mono tracking-tight text-emerald-300">
+          {{ $totalEnPuestoHoy }}</p>
+        <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 mt-1 block">En Puesto</span>
+        <span class="text-[10px] text-emerald-200/80 font-medium block">en su agencia</span>
+      </div>
+      <div class="text-center px-3 sm:px-4">
+        <p class="text-2xl sm:text-4xl font-black font-mono tracking-tight text-sky-300">{{ $totalSucursales }}</p>
         <span class="text-[11px] font-black uppercase tracking-wider text-slate-200 mt-1 block">Sucursales</span>
+        <span class="text-[10px] text-sky-200/80 font-medium block">a nivel nacional</span>
       </div>
     </div>
   </article>
@@ -216,7 +230,90 @@
     </div>
   </section>
 
-  {{-- 3. ENLACES SECUNDARIOS Y OTRAS HERRAMIENTAS --}}
+  {{-- 3. SECCIÓN: MONITOREO DIARIO DE MARCACIONES POR SUCURSAL --}}
+  <section class="mt-6">
+    <article class="surface-card !p-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <p class="section-kicker !mb-0">Control Diario en Tiempo Real</p>
+          </div>
+          <h2 class="text-xl font-black text-slate-800 tracking-tight mt-0.5">
+            Marcaciones de Hoy por Sucursal
+          </h2>
+          <p class="text-xs text-slate-500 mt-1 font-medium">
+            Seguimiento de asistencia del día entre todas las regionales activas ({{ $totalMarcacionesHoy }} de {{ $totalEmpleadosActivos }} colaboradores marcaron hoy).
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <a wire:navigate href="{{ route('personal', ['vista' => 'control']) }}"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
+            <svg class="h-4 w-4 text-[#0f67c0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18" /><path d="M19 21v-4" /><path d="M19 13v-2" /><path d="M19 7V4a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v17" /></svg>
+            <span>Ver reporte de control</span>
+          </a>
+          <a wire:navigate href="{{ route('dashboard') }}"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-xs">
+            <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            <span>Mapa de Bolivia</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+        @foreach ($departmentStats as $deptKey => $dept)
+          @php
+            $empCount = (int) ($dept['employees'] ?? 0);
+            $markedCount = (int) ($dept['marked'] ?? 0);
+            $workingCount = (int) ($dept['working'] ?? 0);
+            $pct = $empCount > 0 ? (int) round(($markedCount / $empCount) * 100) : 0;
+            $hasActivity = $markedCount > 0;
+          @endphp
+          <div class="rounded-2xl border p-4 transition-all duration-200 {{ $hasActivity ? 'border-slate-200 bg-white shadow-xs hover:border-blue-300 hover:shadow-sm' : 'border-slate-200/70 bg-slate-50/50' }}">
+            <div class="flex items-start justify-between gap-3 mb-2.5">
+              <div>
+                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400 block">{{ $dept['branch'] ?? 'Regional' }}</span>
+                <h4 class="text-base font-black text-slate-800 tracking-tight">{{ $dept['name'] }}</h4>
+              </div>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold font-mono {{ $pct >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : ($pct > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-500 border border-slate-200') }}">
+                {{ $pct }}%
+              </span>
+            </div>
+
+            {{-- Barra de progreso --}}
+            <div class="w-full bg-slate-100 rounded-full h-1.5 mb-3 overflow-hidden">
+              <div class="h-1.5 rounded-full transition-all duration-500 {{ $pct >= 80 ? 'bg-emerald-500' : ($pct > 0 ? 'bg-amber-500' : 'bg-slate-300') }}" style="width: {{ min(100, max(0, $pct)) }}%"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+              <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Marcaron</span>
+                <strong class="text-sm font-black font-mono {{ $markedCount > 0 ? 'text-blue-700' : 'text-slate-400' }}">{{ $markedCount }}</strong>
+              </div>
+              <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">En puesto</span>
+                <strong class="text-sm font-black font-mono {{ $workingCount > 0 ? 'text-emerald-600' : 'text-slate-400' }}">{{ $workingCount }}</strong>
+              </div>
+              <div>
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Activos</span>
+                <strong class="text-sm font-black font-mono text-slate-700">{{ $empCount }}</strong>
+              </div>
+            </div>
+
+            <div class="mt-3 pt-2 border-t border-slate-100/70 flex items-center justify-between text-[11px] text-slate-400">
+              <span class="truncate max-w-[170px]" title="{{ $dept['sync_label'] ?? '' }}">{{ $dept['sync_label'] ?? 'Sin sync' }}</span>
+              <a wire:navigate href="{{ route('personal', ['vista' => 'control']) }}" class="text-[#0f67c0] font-bold hover:underline shrink-0">
+                Detalle →
+              </a>
+            </div>
+          </div>
+        @endforeach
+      </div>
+    </article>
+  </section>
+
+  {{-- 4. ENLACES SECUNDARIOS Y OTRAS HERRAMIENTAS --}}
   <section class="mt-6">
     <div class="surface-card !p-5">
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

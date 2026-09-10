@@ -398,6 +398,12 @@ class HorariosPage extends Component
                     })
                     ->first();
                 $cantidad = Empleado::query()
+                    ->activosLaboralmente()
+                    ->where(function ($query) use ($sucursal) {
+                        SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+                    })
+                    ->count();
+                $totalPadron = Empleado::query()
                     ->where(function ($query) use ($sucursal) {
                         SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
                     })
@@ -413,6 +419,7 @@ class HorariosPage extends Component
                 return (object) [
                     'sucursal' => $sucursal,
                     'empleados' => $cantidad,
+                    'total_padron' => $totalPadron,
                     'hora_entrada' => $entrada,
                     'hora_tolerancia' => $tolerancia ? substr($tolerancia, 0, 5) : $entrada,
                     'tolerancia_minutos' => $horario?->tolerancia_minutos ?? $this->globalToleranciaDiaria,
@@ -440,6 +447,12 @@ class HorariosPage extends Component
                 })
                 ->first();
             $activeEmployeesCount = Empleado::query()
+                ->activosLaboralmente()
+                ->where(function ($query) use ($activeSucursalLabel) {
+                    SucursalNormalizer::applyFilter($query, 'sucursal', $activeSucursalLabel);
+                })
+                ->count();
+            $activeTotalPadron = Empleado::query()
                 ->where(function ($query) use ($activeSucursalLabel) {
                     SucursalNormalizer::applyFilter($query, 'sucursal', $activeSucursalLabel);
                 })
@@ -494,6 +507,7 @@ class HorariosPage extends Component
             'allSucursales' => $sucursales,
             'sucursalEmployees' => $this->selectedSucursal
                 ? Empleado::query()
+                    ->activosLaboralmente()
                     ->where(function ($query) {
                         SucursalNormalizer::applyFilter($query, 'sucursal', $this->selectedSucursal);
                     })

@@ -1306,9 +1306,17 @@
     <article class="surface-card">
       <div class="section-head-row">
         <div>
-          <p class="section-kicker">Personal registrado</p>
+          <div class="flex items-center gap-2 mb-1">
+            <p class="section-kicker !mb-0">Personal registrado</p>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-0.5 text-xs font-black">
+              {{ $totalActivosSistema ?? 93 }} colaboradores activos
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-xs font-medium">
+              {{ $totalPadronSistema ?? 185 }} en padrón total
+            </span>
+          </div>
           <h3 class="section-title">Plantilla activa de RRHH</h3>
-          <p class="section-copy-sm">Aqui solo se muestra personal activo. Si una persona pasa 30 dias sin marcar, se mueve automaticamente a Inactivos.</p>
+          <p class="section-copy-sm">Aquí solo se muestra el personal activo en servicio (con marcaciones en los últimos 30 días o personal especial). Si una persona supera 30 días de inactividad, se traslada a <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="text-[#0f67c0] font-bold underline">Personal Inactivo</a>.</p>
         </div>
         <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar personal</button>
       </div>
@@ -1443,9 +1451,17 @@
     <article class="surface-card">
       <div class="section-head-row">
         <div>
-          <p class="section-kicker">Personal inactivo</p>
-          <h3 class="section-title">Sin marcaciones en los ultimos 30 dias</h3>
-          <p class="section-copy-sm">Este modulo se actualiza automaticamente segun la ultima marcacion registrada de cada persona.</p>
+          <div class="flex items-center gap-2 mb-1">
+            <p class="section-kicker !mb-0">Personal inactivo</p>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-0.5 text-xs font-black">
+              {{ $totalInactivosSistema ?? 92 }} colaboradores inactivos
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-xs font-medium">
+              sin marcaciones recientes (&gt;30 días)
+            </span>
+          </div>
+          <h3 class="section-title">Colaboradores sin marcaciones en los últimos 30 días</h3>
+          <p class="section-copy-sm">Personal histórico o en baja que no registra asistencia en los últimos 30 días. Puedes consultar su historial previo o reactivarlos con una nueva marcación.</p>
         </div>
       </div>
 
@@ -2350,9 +2366,10 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           @foreach($deptOptions as $deptKey => $deptLabel)
             @php
+              $normKey = \App\Support\SucursalNormalizer::normalize($deptLabel);
               $count = $deptKey === 'TODAS'
                 ? array_sum($resumenSucursalesConteo ?? [])
-                : ($resumenSucursalesConteo[$deptLabel] ?? $resumenSucursalesConteo[$deptKey] ?? 0);
+                : ($resumenSucursalesConteo[$normKey] ?? $resumenSucursalesConteo[$deptLabel] ?? $resumenSucursalesConteo[$deptKey] ?? 0);
               $isActive = ($deptKey === 'TODAS' && (empty($appliedControlSucursal) || $appliedControlSucursal === 'todas')) ||
                 ($appliedControlSucursal === $deptLabel || $appliedControlSucursal === $deptKey);
             @endphp

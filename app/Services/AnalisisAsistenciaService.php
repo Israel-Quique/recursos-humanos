@@ -800,12 +800,16 @@ class AnalisisAsistenciaService
                 ];
             }
 
-            if (blank($marcacion['entrada']) || blank($horaSalidaReal)) {
+            if (! $soloEntrada && (blank($marcacion['entrada']) || blank($horaSalidaReal))) {
+                $detalleOmision = blank($marcacion['entrada']) && blank($horaSalidaReal)
+                    ? 'Omisión (Sin marcaciones)'
+                    : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)');
                 $forgotRows[] = [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
-                    'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
+                    'estado' => $detalleOmision,
+                    'detalle' => $detalleOmision,
                 ];
             }
         }
@@ -820,16 +824,19 @@ class AnalisisAsistenciaService
         $faltas = [
             ...$permissions->where('tipo', 'falta')->map(fn(PermisoLaboral $permiso) => [
                 'fecha' => $permiso->fecha_inicio?->format('d/m/Y') ?? 'Sin fecha',
-                'detalle' => 'Falta registrada | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
+                'detalle' => 'Falta con permiso | ' . $permiso->alcance_label . ' | ' . $this->formatearMinutosEtiqueta((int) ($permiso->minutos_contabilizados ?? 0)),
+                'estado' => 'Permiso (Falta)',
             ])->values()->all(),
             ...collect($this->detalleFaltasEnRango($start, $end, $branch))
                 ->filter(fn(array $item) => ($item['nombre'] ?? null) === $empleado->nombre_completo)
                 ->map(fn(array $item) => [
                     'fecha' => str((string) ($item['detalle'] ?? ''))->before(' -')->toString(),
-                    'detalle' => $item['detalle'],
+                    'detalle' => 'Omisión (Día sin marcación)',
+                    'estado' => 'Omisión',
                 ])->values()->all(),
         ];
 
+        $totalOmisiones = count($forgotRows) + count($faltas);
         $toleranciaMensual = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
         $excesoTolerancia = max(0, $totalRetrasoMinutos - $toleranciaMensual);
 
@@ -846,21 +853,23 @@ class AnalisisAsistenciaService
             'retraso_resumen' => [
                 'total_minutos' => $totalRetrasoMinutos,
                 'total_formateado' => $this->formatearMinutosEtiqueta($totalRetrasoMinutos),
+                'total_texto' => $totalRetrasoMinutos . ' min (' . $this->formatearMinutosEtiqueta($totalRetrasoMinutos) . ')',
                 'tolerancia_minutos' => $toleranciaMensual,
                 'exceso_minutos' => $excesoTolerancia,
                 'exceso_formateado' => $this->formatearMinutosEtiqueta($excesoTolerancia),
                 'excedio_tolerancia' => $totalRetrasoMinutos > $toleranciaMensual,
             ],
             'metrics' => [
-                ['label' => 'Dias tarde', 'value' => (string) count($lateRows)],
-                ['label' => 'Retraso acumulado', 'value' => $this->formatearMinutosEtiqueta($totalRetrasoMinutos)],
+                ['label' => 'Total atrasos', 'value' => $totalRetrasoMinutos . ' min (' . $this->formatearMinutosEtiqueta($totalRetrasoMinutos) . ')'],
+                ['label' => 'Dias con retraso', 'value' => (string) count($lateRows)],
+                ['label' => 'Total omisiones', 'value' => (string) $totalOmisiones],
                 ['label' => 'Tolerancia mensual', 'value' => $this->formatearMinutosEtiqueta($toleranciaMensual)],
-                ['label' => 'No marcados', 'value' => (string) count($forgotRows)],
-                ['label' => 'Faltas', 'value' => (string) count($faltas)],
+                ['label' => 'Exceso mensual', 'value' => $this->formatearMinutosEtiqueta($excesoTolerancia)],
             ],
             'tardanzas' => $lateRows,
             'no_marcados' => $forgotRows,
             'faltas' => $faltas,
+            'total_omisiones' => $totalOmisiones,
         ];
     }
 
@@ -885,21 +894,38 @@ class AnalisisAsistenciaService
             ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
+                $detalleOmision = blank($marcacion['entrada']) && blank($marcacion['salida'])
+                    ? 'Omisión (Sin marcaciones)'
+                    : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)');
 
                 return [
+                    'empleado_id' => (int) $registro->empleado_id,
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'nombre' => $registro->empleado?->nombre_completo ?? 'Sin personal',
                     'codigo' => $registro->empleado?->codigo_biometrico ?? '',
                     'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
-                    'estado' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
-                    'detalle' => blank($marcacion['entrada'])
-                        ? 'Falta marcacion de entrada'
-                        : 'Falta marcacion de salida',
+                    'estado' => 'Omisión',
+                    'detalle' => $detalleOmision,
                 ];
             })
             ->values();
+
+        $diasSinMarcar = collect($this->detalleFaltasEnRango($monthStart, $monthEnd, $branch))
+            ->map(fn(array $falta) => [
+                'empleado_id' => (int) ($falta['empleado_id'] ?? 0),
+                'fecha' => str((string) ($falta['detalle'] ?? ''))->before(' -')->toString() ?: 'Sin fecha',
+                'nombre' => $falta['nombre'] ?? 'Sin personal',
+                'codigo' => $falta['codigo'] ?? '',
+                'sucursal' => $falta['sucursal'] ?? 'Sin sucursal',
+                'entrada' => '--:--',
+                'salida' => '--:--',
+                'estado' => 'Omisión',
+                'detalle' => 'Omisión (Día sin marcación)',
+            ]);
+
+        $todasLasOmisiones = $forgotMarks->concat($diasSinMarcar)->sortByDesc('fecha')->values();
 
         $lateRows = [];
         $lateEmployees = [];
@@ -923,6 +949,7 @@ class AnalisisAsistenciaService
 
             $lateMinutes += $delay;
             $lateRows[] = [
+                'empleado_id' => (int) $empleado->id,
                 'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                 'nombre' => $empleado->nombre_completo,
                 'codigo' => $empleado->codigo_biometrico ?? '',
@@ -931,10 +958,11 @@ class AnalisisAsistenciaService
                 'entrada_real' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
                 'minutos_retraso' => $delay,
-                'estado' => $registro->estado_marcacion ?: 'Sin estado',
+                'estado' => 'Atraso (' . $delay . ' min)',
             ];
 
             $lateEmployees[$empleado->id]['nombre'] = $empleado->nombre_completo;
+            $lateEmployees[$empleado->id]['codigo'] = $empleado->codigo_biometrico ?? '';
             $lateEmployees[$empleado->id]['sucursal'] = $empleado->sucursal ?: 'Sin sucursal';
             $lateEmployees[$empleado->id]['dias_tarde'] = ($lateEmployees[$empleado->id]['dias_tarde'] ?? 0) + 1;
             $lateEmployees[$empleado->id]['minutos_tarde'] = ($lateEmployees[$empleado->id]['minutos_tarde'] ?? 0) + $delay;
@@ -945,22 +973,124 @@ class AnalisisAsistenciaService
             ->values()
             ->map(fn(array $item) => [
                 'nombre' => $item['nombre'],
+                'codigo' => $item['codigo'],
                 'sucursal' => $item['sucursal'],
                 'dias_tarde' => $item['dias_tarde'],
-                'retraso' => $this->formatearMinutosEtiqueta($item['minutos_tarde']),
+                'minutos_tarde' => $item['minutos_tarde'],
+                'retraso' => $item['minutos_tarde'] . ' min (' . $this->formatearMinutosEtiqueta($item['minutos_tarde']) . ')',
             ])
             ->all();
 
         return [
             'metrics' => [
-                ['label' => 'No marcados', 'value' => (string) $forgotMarks->count()],
-                ['label' => 'Atrasos', 'value' => (string) count($lateRows)],
+                ['label' => 'Total atrasos (minutos)', 'value' => $lateMinutes . ' min (' . $this->formatearMinutosEtiqueta($lateMinutes) . ')'],
+                ['label' => 'Registros con atraso', 'value' => (string) count($lateRows)],
                 ['label' => 'Personal con atrasos', 'value' => (string) count($lateSummary)],
-                ['label' => 'Retraso acumulado', 'value' => $this->formatearMinutosEtiqueta($lateMinutes)],
+                ['label' => 'Total omisiones', 'value' => (string) $todasLasOmisiones->count()],
             ],
-            'no_marcados' => $forgotMarks->all(),
+            'total_minutos_retraso' => $lateMinutes,
+            'total_omisiones' => $todasLasOmisiones->count(),
+            'no_marcados' => $todasLasOmisiones->all(),
             'atrasos' => $lateRows,
             'resumen_atrasos' => $lateSummary,
+        ];
+    }
+
+    public function reporteConsolidadoPorSucursal(Carbon $referenceMonth, ?string $branch = null): array
+    {
+        $monthStart = $referenceMonth->copy()->startOfMonth();
+        $monthEnd = $referenceMonth->copy()->endOfMonth();
+
+        $empleadosQuery = Empleado::query()
+            ->activosLaboralmente($monthEnd)
+            ->when(filled($branch), fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch));
+
+        $empleados = $empleadosQuery->orderBy('sucursal')->orderBy('apellido')->orderBy('nombre')->get();
+
+        $ordenRegionales = ['La Paz', 'Cochabamba', 'Santa Cruz', 'Oruro', 'Potosi', 'Potosí', 'Chuquisaca', 'Tarija', 'Beni', 'Pando'];
+
+        $sucursalesAgrupadas = $empleados->groupBy(function (Empleado $e) {
+            return SucursalNormalizer::normalize($e->sucursal) ?: 'Oficina Central';
+        });
+
+        $consolidadas = [];
+        $granTotalMinutosRetraso = 0;
+        $granTotalAtrasos = 0;
+        $granTotalOmisiones = 0;
+        $granTotalEmpleados = $empleados->count();
+
+        foreach ($sucursalesAgrupadas as $sucursalNombre => $personalList) {
+            $colaboradores = [];
+            $subtotalMinutos = 0;
+            $subtotalDiasTarde = 0;
+            $subtotalOmisiones = 0;
+
+            foreach ($personalList as $empleado) {
+                $detalle = $this->detalleMensualPorEmpleado($empleado->id, $referenceMonth, $empleado->sucursal);
+                $minutos = (int) ($detalle['retraso_resumen']['total_minutos'] ?? 0);
+                $diasTarde = count($detalle['tardanzas'] ?? []);
+                $omisiones = (int) ($detalle['total_omisiones'] ?? (count($detalle['no_marcados'] ?? []) + count($detalle['faltas'] ?? [])));
+
+                $subtotalMinutos += $minutos;
+                $subtotalDiasTarde += $diasTarde;
+                $subtotalOmisiones += $omisiones;
+
+                $colaboradores[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: 'S/C',
+                    'area' => $empleado->area ?: 'General',
+                    'sucursal' => $empleado->sucursal ?: $sucursalNombre,
+                    'horario' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
+                        . ' - ' .
+                        ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+                    'dias_tarde' => $diasTarde,
+                    'dias_atraso' => $diasTarde,
+                    'minutos_retraso' => $minutos,
+                    'minutos_atraso' => $minutos,
+                    'retraso_etiqueta' => $minutos > 0 ? $minutos . ' min (' . $this->formatearMinutosEtiqueta($minutos) . ')' : '0 min',
+                    'minutos_atraso_formato' => $minutos > 0 ? $this->formatearMinutosEtiqueta($minutos) : '0 min',
+                    'omisiones' => $omisiones,
+                    'dias_asistidos' => count($detalle['asistencias'] ?? $detalle['tardanzas'] ?? []),
+                    'dias_laborables' => $detalle['dias_laborables'] ?? 22,
+                ];
+            }
+
+            $granTotalMinutosRetraso += $subtotalMinutos;
+            $granTotalAtrasos += $subtotalDiasTarde;
+            $granTotalOmisiones += $subtotalOmisiones;
+
+            $itemsOrdenados = collect($colaboradores)->sortBy('nombre')->values()->all();
+
+            $consolidadas[$sucursalNombre] = [
+                'sucursal' => $sucursalNombre,
+                'total_personal' => count($colaboradores),
+                'total_empleados' => count($colaboradores),
+                'subtotal_minutos' => $subtotalMinutos,
+                'total_minutos_atraso' => $subtotalMinutos,
+                'subtotal_minutos_etiqueta' => $subtotalMinutos > 0 ? $subtotalMinutos . ' min (' . $this->formatearMinutosEtiqueta($subtotalMinutos) . ')' : '0 min',
+                'total_minutos_formato' => $subtotalMinutos > 0 ? $subtotalMinutos . ' min (' . $this->formatearMinutosEtiqueta($subtotalMinutos) . ')' : '0 min',
+                'subtotal_atrasos' => $subtotalDiasTarde,
+                'total_dias_atraso' => $subtotalDiasTarde,
+                'subtotal_omisiones' => $subtotalOmisiones,
+                'total_omisiones' => $subtotalOmisiones,
+                'colaboradores' => $itemsOrdenados,
+                'empleados' => $itemsOrdenados,
+            ];
+        }
+
+        return [
+            'total_empleados' => $granTotalEmpleados,
+            'gran_total_empleados' => $granTotalEmpleados,
+            'total_minutos_atraso' => $granTotalMinutosRetraso,
+            'gran_total_minutos' => $granTotalMinutosRetraso,
+            'total_minutos_formato' => $granTotalMinutosRetraso > 0 ? $granTotalMinutosRetraso . ' min (' . $this->formatearMinutosEtiqueta($granTotalMinutosRetraso) . ')' : '0 min',
+            'gran_total_minutos_etiqueta' => $granTotalMinutosRetraso > 0 ? $granTotalMinutosRetraso . ' min (' . $this->formatearMinutosEtiqueta($granTotalMinutosRetraso) . ')' : '0 min',
+            'total_dias_atraso' => $granTotalAtrasos,
+            'gran_total_atrasos' => $granTotalAtrasos,
+            'total_omisiones' => $granTotalOmisiones,
+            'gran_total_omisiones' => $granTotalOmisiones,
+            'sucursales' => $consolidadas,
         ];
     }
 
@@ -1048,11 +1178,14 @@ class AnalisisAsistenciaService
                 $lateDays++;
             }
 
-            $missingMark = blank($marcacion['entrada']) || blank($horaSalidaReal);
+            $missingMark = ! $soloEntrada && (blank($marcacion['entrada']) || blank($horaSalidaReal));
             $dateCarbon = $registro->fecha ? $registro->fecha->copy() : null;
             $diaSemana = $dateCarbon ? ucfirst($dateCarbon->locale('es')->shortDayName) : '';
 
-            $rowTone = $missingMark ? 'warning' : ($delay > 0 ? 'late' : 'default');
+            $rowTone = $soloEntrada ? 'default' : ($missingMark ? 'warning' : ($delay > 0 ? 'late' : 'default'));
+            $estadoCalculado = $missingMark
+                ? (blank($marcacion['entrada']) && blank($horaSalidaReal) ? 'Omisión (Sin marcación)' : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)'))
+                : $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay);
 
             $rows[] = [
                 'raw_date' => $registro->fecha?->toDateString(),
@@ -1065,7 +1198,7 @@ class AnalisisAsistenciaService
                 'horas' => $this->formatearMinutos($worked),
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
                 'retraso_minutos' => $delay,
-                'estado' => $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay),
+                'estado' => $estadoCalculado,
                 'estado_biometrico' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
                 'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
                 'row_tone' => $rowTone,
@@ -1123,12 +1256,12 @@ class AnalisisAsistenciaService
                 'horas' => '00:00',
                 'retraso' => '0 min',
                 'retraso_minutos' => 0,
-                'estado' => $hasFaltaPermission ? 'Falta registrada' : 'Falta',
+                'estado' => $hasFaltaPermission ? 'Permiso (Falta)' : 'Omisión (Día sin marcación)',
                 'estado_biometrico' => 'Sin marcacion',
-                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Ausencia injustificada',
+                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Omisión de marcación',
                 'row_tone' => 'danger',
                 'es_retraso' => false,
-                'es_omision' => false,
+                'es_omision' => true,
                 'es_falta' => true,
             ];
 
@@ -1300,9 +1433,20 @@ class AnalisisAsistenciaService
                 ];
             })->all();
 
+        $totalRegistrados = (clone $query)->count();
+        $veteranos10Anios = (clone $query)->where('fecha_contratacion', '<=', $hoy->copy()->subYears(10))->count();
+        $incorporacionesRecientes = (clone $query)->where('fecha_contratacion', '>=', $hoy->copy()->subYear())->count();
+
         return [
             'mas_antiguos' => $masAntiguos,
             'mas_nuevos' => $masNuevos,
+            'metricas' => [
+                'total_registrados' => $totalRegistrados,
+                'veteranos_10_anios' => $veteranos10Anios,
+                'incorporaciones_recientes' => $incorporacionesRecientes,
+                'maxima_trayectoria' => $masAntiguos[0]['antiguedad_texto'] ?? 'Sin datos',
+                'maximo_veterano' => $masAntiguos[0]['nombre'] ?? 'Sin datos',
+            ],
         ];
     }
 
@@ -2157,7 +2301,7 @@ class AnalisisAsistenciaService
         return $registro->estado_marcacion ?: 'Sin estado';
     }
 
-    private function formatearMinutosEtiqueta(int $minutos): string
+    public function formatearMinutosEtiqueta(int $minutos): string
     {
         if ($minutos <= 0) {
             return '0 min';
@@ -2177,7 +2321,7 @@ class AnalisisAsistenciaService
         return $horas . ' h ' . $restantes . ' min';
     }
 
-    private function formatearMinutos(int $minutos): string
+    public function formatearMinutos(int $minutos): string
     {
         $horas = intdiv($minutos, 60);
         $restantes = $minutos % 60;

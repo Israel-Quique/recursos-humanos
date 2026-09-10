@@ -83,6 +83,60 @@ class Empleado extends Model
         });
     }
 
+    public function scopeActivosLaboralmente(Builder $query, Carbon|string|null $fecha = null, int $diasInactividad = 30): Builder
+    {
+        $fechaReferencia = $fecha instanceof Carbon
+            ? $fecha->copy()
+            : Carbon::parse($fecha ?: now());
+        $fechaRefStr = $fechaReferencia->toDateString();
+        $umbralStr = $fechaReferencia->copy()->subDays($diasInactividad)->startOfDay()->toDateString();
+
+        return $query->where(function ($nestedQuery) use ($fechaRefStr) {
+            $nestedQuery->whereNull('fecha_despido')
+                ->orWhereDate('fecha_despido', '>', $fechaRefStr);
+        })->where(function ($nestedQuery) use ($fechaRefStr) {
+            $nestedQuery->whereNull('fecha_contratacion')
+                ->orWhereDate('fecha_contratacion', '<=', $fechaRefStr);
+        })->where(function ($nestedQuery) use ($umbralStr) {
+            $nestedQuery->where('es_especial', true)
+                ->orWhereHas('asistencias', function ($sub) use ($umbralStr) {
+                    $sub->where('fecha', '>=', $umbralStr);
+                })
+                ->orWhere(function ($sub) use ($umbralStr) {
+                    $sub->whereNotNull('fecha_contratacion')
+                        ->where('fecha_contratacion', '>=', $umbralStr);
+                });
+        });
+    }
+
+    public function scopeInactivosLaboralmente(Builder $query, Carbon|string|null $fecha = null, int $diasInactividad = 30): Builder
+    {
+        $fechaReferencia = $fecha instanceof Carbon
+            ? $fecha->copy()
+            : Carbon::parse($fecha ?: now());
+        $fechaRefStr = $fechaReferencia->toDateString();
+        $umbralStr = $fechaReferencia->copy()->subDays($diasInactividad)->startOfDay()->toDateString();
+
+        return $query->where(function ($q) use ($fechaRefStr, $umbralStr) {
+            $q->where(function ($sub) use ($fechaRefStr) {
+                $sub->whereNotNull('fecha_despido')
+                    ->whereDate('fecha_despido', '<=', $fechaRefStr);
+            })->orWhere(function ($sub) use ($fechaRefStr) {
+                $sub->whereNotNull('fecha_contratacion')
+                    ->whereDate('fecha_contratacion', '>', $fechaRefStr);
+            })->orWhere(function ($sub) use ($umbralStr) {
+                $sub->where('es_especial', false)
+                    ->whereDoesntHave('asistencias', function ($asist) use ($umbralStr) {
+                        $asist->where('fecha', '>=', $umbralStr);
+                    })
+                    ->where(function ($contratacion) use ($umbralStr) {
+                        $contratacion->whereNull('fecha_contratacion')
+                            ->orWhere('fecha_contratacion', '<', $umbralStr);
+                    });
+            });
+        });
+    }
+
     public function scopeEspeciales(Builder $query): Builder
     {
         return $query->where('es_especial', true);

@@ -104,10 +104,22 @@ class InicioPage extends Component
     public function render()
     {
         $user = auth()->user();
-        $totalEmpleadosActivos = Empleado::query()->whereNull('fecha_despido')->count();
-        if ($totalEmpleadosActivos === 0) {
-            $totalEmpleadosActivos = Empleado::query()->count();
-        }
+        $totalEmpleadosActivos = Empleado::query()->activosLaboralmente()->count();
+        $totalEmpleadosPadron = Empleado::query()->count();
+        $todayStr = Carbon::today()->toDateString();
+        $totalMarcacionesHoy = \App\Models\RegistroAsistencia::query()
+            ->whereDate('fecha', $todayStr)
+            ->whereNotNull('empleado_id')
+            ->distinct('empleado_id')
+            ->count('empleado_id');
+
+        $analisisService = app(\App\Services\AnalisisAsistenciaService::class);
+        $departmentStats = $analisisService->asistenciaPorDepartamento();
+        $totalEnPuestoHoy = collect($departmentStats)->sum('working');
+        $porcentajeAsistenciaHoy = $totalEmpleadosActivos > 0
+            ? (int) round(($totalMarcacionesHoy / $totalEmpleadosActivos) * 100)
+            : 0;
+
         $sucursales = Empleado::query()
             ->whereNotNull('sucursal')
             ->where('sucursal', '!=', '')
@@ -119,6 +131,11 @@ class InicioPage extends Component
         return view('livewire.inicio', [
             'user' => $user,
             'totalEmpleadosActivos' => $totalEmpleadosActivos,
+            'totalEmpleadosPadron' => $totalEmpleadosPadron,
+            'totalMarcacionesHoy' => $totalMarcacionesHoy,
+            'totalEnPuestoHoy' => $totalEnPuestoHoy,
+            'porcentajeAsistenciaHoy' => $porcentajeAsistenciaHoy,
+            'departmentStats' => $departmentStats,
             'totalSucursales' => max($totalSucursales, 9),
             'hoy' => ucfirst($hoy),
         ]);

@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use App\Services\AnalisisAsistenciaService;
+use App\Support\SucursalNormalizer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -95,6 +96,7 @@ class ReportesPage extends Component
         $report = $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch);
         $monthlyReport = $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch);
         $incidents = $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch);
+        $reporteSucursales = $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch);
         $branchLabel = $this->selectedBranch !== '' ? $this->selectedBranch : 'Todas las sucursales';
 
         $pdf = Pdf::loadView('pdf.reportes-general', [
@@ -103,6 +105,7 @@ class ReportesPage extends Component
             'report' => $report,
             'monthlyReport' => $monthlyReport,
             'incidents' => $incidents,
+            'reporteSucursales' => $reporteSucursales,
         ])->setPaper('a4');
 
         $fileName = 'reporte-general-asistencia-'.Str::slug($branchLabel).'-'.$referenceMonth->format('Y-m').'.pdf';
@@ -228,6 +231,56 @@ class ReportesPage extends Component
             ['pageName' => 'omisionesPage']
         );
 
+        // Reporte consolidado por sucursal para vista y agrupaciones
+        $reporteSucursales = $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch);
+        if (filled($this->search)) {
+            $term = Str::ascii(Str::lower(trim($this->search)));
+            $filteredSucursales = [];
+            foreach ($reporteSucursales['sucursales'] as $suc) {
+                $matchedEmpleados = array_values(array_filter($suc['empleados'], function ($emp) use ($term) {
+                    $nombre = Str::ascii(Str::lower($emp['nombre'] ?? ''));
+                    $codigo = Str::ascii(Str::lower($emp['codigo'] ?? ''));
+                    return str_contains($nombre, $term) || str_contains($codigo, $term);
+                }));
+                if (! empty($matchedEmpleados)) {
+                    $suc['empleados'] = $matchedEmpleados;
+                    $filteredSucursales[] = $suc;
+                }
+            }
+            $reporteSucursales['sucursales'] = $filteredSucursales;
+        }
+
+        // Estadísticas ejecutivas de Atrasos
+        $minutosTotalesAtrasos = (int) $atrasosItems->sum('minutos_retraso');
+        $atrasosStats = [
+            'total_registros' => $atrasosItems->count(),
+            'total_minutos' => $minutosTotalesAtrasos,
+            'total_minutos_formato' => $analysis->formatearMinutosEtiqueta($minutosTotalesAtrasos),
+            'personal_afectado' => $atrasosItems->pluck('codigo')->filter()->unique()->count(),
+            'promedio_minutos' => $atrasosItems->count() > 0 ? (int) round($minutosTotalesAtrasos / $atrasosItems->count()) : 0,
+            'maximo_minutos' => (int) ($atrasosItems->max('minutos_retraso') ?? 0),
+            'por_sucursal' => $atrasosItems->groupBy(fn($i) => SucursalNormalizer::normalize($i['sucursal'] ?? '') ?: 'General')
+                ->map(fn($group) => [
+                    'count' => $group->count(),
+                    'minutos' => (int) $group->sum('minutos_retraso'),
+                    'formato' => $analysis->formatearMinutosEtiqueta((int) $group->sum('minutos_retraso')),
+                ]),
+        ];
+
+        // Estadísticas ejecutivas de Omisiones
+        $omisionesFaltasCount = $omisionesItems->filter(fn($i) => str_contains($i['detalle'] ?? '', 'Día') || str_contains($i['estado'] ?? '', 'Día'))->count();
+        $omisionesIncompletasCount = $omisionesItems->count() - $omisionesFaltasCount;
+        $omisionesStats = [
+            'total_omisiones' => $omisionesItems->count(),
+            'dias_sin_marcar' => $omisionesFaltasCount,
+            'marcas_incompletas' => $omisionesIncompletasCount,
+            'personal_afectado' => $omisionesItems->pluck('codigo')->filter()->unique()->count(),
+            'por_sucursal' => $omisionesItems->groupBy(fn($i) => SucursalNormalizer::normalize($i['sucursal'] ?? '') ?: 'General')
+                ->map(fn($group) => [
+                    'count' => $group->count(),
+                ]),
+        ];
+
         return view('livewire.reportes', [
             'metrics'              => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch),
             'frequency'            => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch),
@@ -243,9 +296,12 @@ class ReportesPage extends Component
             'reportesAntiguedad'   => $analysis->reportesAntiguedad($this->selectedBranch, 10),
             'detalleAtrasos'       => $atrasosPaginados,
             'totalAtrasos'         => $atrasosItems->count(),
+            'atrasosStats'         => $atrasosStats,
             'detalleOmisiones'     => $omisionesPaginadas,
             'totalOmisiones'       => $omisionesItems->count(),
+            'omisionesStats'       => $omisionesStats,
             'reportePersonal'      => $reportePersonal,
+            'reporteSucursales'    => $reporteSucursales,
             'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,
         ])->layout('layouts.app', ['title' => 'Reportes de asistencia']);
     }

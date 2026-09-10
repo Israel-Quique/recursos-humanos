@@ -38,52 +38,65 @@
           </div>
         </div>
 
-        <div class="mt-8 grid gap-4 md:grid-cols-3">
+        <div class="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           @foreach(($detailEmployeeReport['metrics'] ?? []) as $metric)
-            <div class="rounded-[1.2rem] border border-slate-200 bg-white px-5 py-4">
-              <p class="metric-label">{{ $metric['label'] }}</p>
-              <p class="mt-3 text-xl font-semibold text-slate-900">{{ $metric['value'] }}</p>
+            <div class="rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-center">
+              <p class="metric-label text-[11px]">{{ $metric['label'] }}</p>
+              <p class="mt-2 text-lg font-bold text-slate-900">{{ $metric['value'] }}</p>
             </div>
           @endforeach
         </div>
 
-        <div class="mt-8 grid gap-6 xl:grid-cols-3">
+        <div class="mt-6 grid gap-6 xl:grid-cols-2">
+          {{-- Tardanzas --}}
           <div class="rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5">
-            <h4 class="text-base font-semibold text-slate-900">Dias tarde</h4>
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <h4 class="text-base font-semibold text-slate-900">Días con Atraso</h4>
+              <span class="status-badge status-warning">{{ count($detailEmployeeReport['tardanzas'] ?? []) }} atrasos</span>
+            </div>
             <div class="report-scroll-list mt-4 space-y-3">
               @forelse(($detailEmployeeReport['tardanzas'] ?? []) as $item)
-                <div class="rounded-xl bg-slate-50 px-4 py-3">
-                  <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                  <p class="mt-1 text-sm text-slate-500">Entrada {{ $item['entrada'] }} | Retraso {{ $item['retraso'] }}</p>
+                <div class="rounded-xl border border-amber-100 bg-amber-50/40 px-4 py-3">
+                  <div class="flex items-center justify-between">
+                    <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
+                    <span class="font-bold text-amber-800 text-sm">{{ $item['retraso'] }}</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">Entrada: <strong class="text-slate-700">{{ $item['entrada'] }}</strong> | Salida: {{ $item['salida'] }}</p>
                 </div>
               @empty
-                <p class="text-sm text-slate-400">No tiene tardanzas en el mes.</p>
+                <p class="text-sm text-slate-400 py-4 text-center">No registra atrasos en el mes.</p>
               @endforelse
             </div>
           </div>
+
+          {{-- Omisiones (olvidos de entrada/salida y días sin registro) --}}
+          @php
+            $omisionesEmpleado = array_merge(
+              $detailEmployeeReport['no_marcados'] ?? [],
+              $detailEmployeeReport['faltas'] ?? []
+            );
+          @endphp
           <div class="rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5">
-            <h4 class="text-base font-semibold text-slate-900">No marcados</h4>
-            <div class="report-scroll-list mt-4 space-y-3">
-              @forelse(($detailEmployeeReport['no_marcados'] ?? []) as $item)
-                <div class="rounded-xl bg-slate-50 px-4 py-3">
-                  <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                  <p class="mt-1 text-sm text-slate-500">Entrada {{ $item['entrada'] }} | Salida {{ $item['salida'] }}</p>
-                </div>
-              @empty
-                <p class="text-sm text-slate-400">No tiene no marcados en el mes.</p>
-              @endforelse
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <h4 class="text-base font-semibold text-slate-900">Registro de Omisiones</h4>
+              <span class="status-badge status-danger">{{ count($omisionesEmpleado) }} omisiones</span>
             </div>
-          </div>
-          <div class="rounded-[1.3rem] border border-slate-200 bg-white px-5 py-5">
-            <h4 class="text-base font-semibold text-slate-900">Faltas</h4>
             <div class="report-scroll-list mt-4 space-y-3">
-              @forelse(($detailEmployeeReport['faltas'] ?? []) as $item)
-                <div class="rounded-xl bg-slate-50 px-4 py-3">
-                  <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
-                  <p class="mt-1 text-sm text-slate-500">{{ $item['detalle'] }}</p>
+              @forelse($omisionesEmpleado as $item)
+                <div class="rounded-xl border border-rose-100 bg-rose-50/40 px-4 py-3">
+                  <div class="flex items-center justify-between">
+                    <p class="font-semibold text-slate-900">{{ $item['fecha'] }}</p>
+                    <span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">Omisión</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-600">
+                    Entrada: {{ $item['entrada'] ?? '--:--' }} | Salida: {{ $item['salida'] ?? '--:--' }}
+                  </p>
+                  <p class="mt-0.5 text-xs text-slate-500">
+                    {{ $item['detalle'] ?? 'Marcación incompleta o día sin registro' }}
+                  </p>
                 </div>
               @empty
-                <p class="text-sm text-slate-400">No tiene faltas en el mes.</p>
+                <p class="text-sm text-slate-400 py-4 text-center">No registra omisiones en el mes.</p>
               @endforelse
             </div>
           </div>
@@ -181,7 +194,15 @@
         <h1 class="report-hero-title">Reportes de Asistencia</h1>
         <p class="report-hero-copy">Análisis mensual · Sucursal activa: <strong>{{ $selectedBranch ?: 'Todas' }}</strong> · <span class="report-hero-month">{{ $monthLabel }}</span></p>
       </div>
-      <div class="report-hero-actions">
+      <div class="report-hero-actions flex items-center gap-2">
+        <button type="button" onclick="window.print()" class="report-hero-pdf-btn !bg-white !text-slate-700 !border-slate-300 hover:!bg-slate-50 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>Imprimir</span>
+        </button>
         <button type="button" wire:click="descargarPdfReporte" class="report-hero-pdf-btn">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>
@@ -297,18 +318,158 @@
   {{-- ============================================================ --}}
   <div x-show="tab === 'resumen'" x-transition.opacity.duration.200ms role="tabpanel">
 
-    {{-- KPI Cards --}}
-    <section class="report-kpi-grid">
-      @foreach($metrics as $metric)
-        <article class="report-kpi-card">
-          <div class="report-kpi-icon report-kpi-icon-{{ $metric['tone'] }}"></div>
-          <div class="report-kpi-body">
-            <p class="report-kpi-label">{{ $metric['label'] }}</p>
-            <strong class="report-kpi-value">{{ $metric['value'] }}</strong>
-            <p class="report-kpi-detail">{{ $metric['detail'] }}</p>
+    {{-- Encabezado solo para impresión física --}}
+    <div class="hidden print:block mb-6 border-b-2 border-slate-900 pb-3">
+      <p class="text-xs uppercase font-bold text-slate-500 tracking-wider">Agencia Boliviana de Correos · Recursos Humanos</p>
+      <h2 class="text-xl font-bold text-slate-900 mt-1">Reporte Consolidado de Asistencia y Puntualidad</h2>
+      <p class="text-xs text-slate-600">Periodo: {{ $monthLabel }} | Sucursal: {{ $selectedBranch ?: 'Todas las sucursales' }} | Fecha de emisión: {{ now()->format('d/m/Y H:i') }}</p>
+    </div>
+
+    {{-- Resumen Ejecutivo Superior --}}
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal evaluado</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $reporteSucursales['total_empleados'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Activos en el periodo</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Atrasos acumulados</p>
+        <p class="mt-2 text-2xl font-bold text-amber-900">{{ number_format($reporteSucursales['total_minutos_atraso'] ?? 0) }} min</p>
+        <p class="text-xs text-slate-500 mt-1 font-medium">{{ $reporteSucursales['total_minutos_formato'] ?? '0 min' }}</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Días con atraso</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $reporteSucursales['total_dias_atraso'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Llegadas tardías totales</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Omisiones</p>
+        <p class="mt-2 text-2xl font-bold text-rose-700">{{ $reporteSucursales['total_omisiones'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Días sin marcar y sin registro</p>
+      </div>
+    </section>
+
+    {{-- Reporte Consolidado por Sucursal con títulos destacados --}}
+    <section class="space-y-6 mb-8">
+      @forelse(($reporteSucursales['sucursales'] ?? []) as $sucursal)
+        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs branch-print-section">
+          <!-- Título de la Sucursal -->
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-5 py-3.5">
+            <div class="flex items-center gap-3">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 text-xs font-bold text-white uppercase">
+                {{ substr($sucursal['sucursal'], 0, 2) }}
+              </span>
+              <h3 class="text-base font-bold text-slate-900 uppercase tracking-wide">
+                {{ $sucursal['sucursal'] }}
+              </h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
+              <span class="rounded-md bg-white border border-slate-200 px-2.5 py-1">
+                <strong>{{ $sucursal['total_empleados'] }}</strong> personal
+              </span>
+              <span class="rounded-md bg-white border border-slate-200 px-2.5 py-1">
+                Atrasos: <strong class="text-amber-800">{{ number_format($sucursal['total_minutos_atraso']) }} min</strong> ({{ $sucursal['total_minutos_formato'] }})
+              </span>
+              <span class="rounded-md bg-white border border-slate-200 px-2.5 py-1">
+                Omisiones: <strong class="text-rose-700">{{ $sucursal['total_omisiones'] }}</strong>
+              </span>
+            </div>
           </div>
-        </article>
-      @endforeach
+
+          <!-- Tabla del personal de la sucursal -->
+          <div class="overflow-x-auto">
+            <table class="history-table w-full text-left">
+              <thead>
+                <tr>
+                  <th class="w-10 text-center">#</th>
+                  <th class="w-24">CI / Código</th>
+                  <th>Personal</th>
+                  <th>Área / Cargo</th>
+                  <th class="text-center">Atraso Sumado</th>
+                  <th class="text-center">Días Tarde</th>
+                  <th class="text-center">Omisiones</th>
+                  <th class="text-center">Asistencia</th>
+                  <th class="text-right no-print w-28">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                @forelse($sucursal['empleados'] as $idx => $emp)
+                  <tr class="hover:bg-slate-50/60 transition">
+                    <td class="text-center font-semibold text-slate-400 text-xs">{{ $idx + 1 }}</td>
+                    <td><span class="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{{ $emp['codigo'] ?: '-' }}</span></td>
+                    <td>
+                      <span class="font-semibold text-slate-900">{{ $emp['nombre'] }}</span>
+                    </td>
+                    <td class="text-xs text-slate-600">{{ $emp['area'] }}</td>
+                    <td class="text-center">
+                      @if($emp['minutos_atraso'] > 0)
+                        <span class="font-bold text-amber-900 text-sm">{{ $emp['minutos_atraso'] }} min</span>
+                        <span class="block text-[11px] text-slate-400">({{ $emp['minutos_atraso_formato'] }})</span>
+                      @else
+                        <span class="text-slate-400 text-xs">0 min</span>
+                      @endif
+                    </td>
+                    <td class="text-center">
+                      @if($emp['dias_atraso'] > 0)
+                        <span class="inline-flex items-center justify-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                          {{ $emp['dias_atraso'] }}
+                        </span>
+                      @else
+                        <span class="text-slate-400 text-xs">0</span>
+                      @endif
+                    </td>
+                    <td class="text-center">
+                      @if($emp['omisiones'] > 0)
+                        <span class="inline-flex items-center justify-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-xs font-bold text-rose-800">
+                          {{ $emp['omisiones'] }}
+                        </span>
+                      @else
+                        <span class="text-slate-400 text-xs">0</span>
+                      @endif
+                    </td>
+                    <td class="text-center text-xs text-slate-600">
+                      {{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables'] }}
+                    </td>
+                    <td class="text-right no-print">
+                      <button type="button" wire:click="openEmployeeDetailModal({{ $emp['id'] }})" class="table-action-button text-xs py-1 px-2.5">
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                @empty
+                  <tr>
+                    <td colspan="9" class="py-6 text-center text-slate-400 text-sm">
+                      No hay registros que coincidan con la búsqueda en esta sucursal.
+                    </td>
+                  </tr>
+                @endforelse
+
+                @if(count($sucursal['empleados']) > 0)
+                  <tr class="bg-slate-50/80 font-semibold text-slate-800 text-xs border-t-2 border-slate-200">
+                    <td colspan="4" class="text-right py-2.5 px-4 uppercase tracking-wider text-slate-500">
+                      Subtotal {{ $sucursal['sucursal'] }}:
+                    </td>
+                    <td class="text-center py-2.5">
+                      <span class="text-amber-900 font-bold">{{ number_format($sucursal['total_minutos_atraso']) }} min</span>
+                    </td>
+                    <td class="text-center py-2.5">{{ $sucursal['total_dias_atraso'] }}</td>
+                    <td class="text-center py-2.5 text-rose-700 font-bold">{{ $sucursal['total_omisiones'] }}</td>
+                    <td class="text-center py-2.5">-</td>
+                    <td class="no-print"></td>
+                  </tr>
+                @endif
+              </tbody>
+            </table>
+          </div>
+        </div>
+      @empty
+        <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-400">
+          No se encontraron sucursales ni personal para el periodo y filtros seleccionados.
+        </div>
+      @endforelse
     </section>
 
     {{-- Gráfico de frecuencia --}}
@@ -455,19 +616,61 @@
   {{-- TAB 2: ATRASOS                                               --}}
   {{-- ============================================================ --}}
   <div x-show="tab === 'atrasos'" x-transition.opacity.duration.200ms role="tabpanel">
+
+    {{-- Resumen Ejecutivo Superior de Atrasos --}}
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total atrasos</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($atrasosStats['total_registros'] ?? 0) }}</p>
+        <p class="text-xs text-slate-400 mt-1">Registros con llegada tarde</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Minutos acumulados</p>
+        <p class="mt-2 text-2xl font-bold text-amber-900">{{ number_format($atrasosStats['total_minutos'] ?? 0) }} min</p>
+        <p class="text-xs text-slate-500 mt-1 font-medium">{{ $atrasosStats['total_minutos_formato'] ?? '0 min' }}</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal con atraso</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $atrasosStats['personal_afectado'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Funcionarios observados</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Promedio por atraso</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $atrasosStats['promedio_minutos'] ?? 0 }} min</p>
+        <p class="text-xs text-slate-400 mt-1">Máximo: {{ $atrasosStats['maximo_minutos'] ?? 0 }} min</p>
+      </div>
+    </section>
+
+    {{-- Desglose rápido por Sucursal --}}
+    @if(($atrasosStats['por_sucursal'] ?? null) && count($atrasosStats['por_sucursal']) > 0)
+      <div class="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center gap-2 shadow-xs">
+        <span class="font-bold text-slate-700 uppercase tracking-wider mr-1">Por sucursal:</span>
+        @foreach($atrasosStats['por_sucursal'] as $sucName => $sucData)
+          <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
+            <strong class="uppercase text-slate-800">{{ $sucName }}:</strong>
+            <span class="text-amber-800 font-bold">{{ $sucData['count'] }} tarde</span>
+            <span class="text-slate-400">({{ $sucData['formato'] }})</span>
+          </span>
+        @endforeach
+      </div>
+    @endif
+
     <section class="surface-card">
       <div class="history-header">
         <div>
-          <p class="section-kicker">Detalle de atrasos</p>
-          <h2 class="section-title">Registro de atrasos del mes</h2>
-          <p class="section-copy-sm">Todos los registros de llegada tarde en {{ $monthLabel }}.</p>
+          <p class="section-kicker">Detalle individual</p>
+          <h2 class="section-title">Registro de Atrasos del Mes</h2>
+          <p class="section-copy-sm">Marcaciones con ingreso posterior a la tolerancia en {{ $monthLabel }}.</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="status-badge status-warning">{{ $totalAtrasos }} atrasos</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
+          <span class="status-badge status-warning font-bold">{{ $totalAtrasos }} registros</span>
+          <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">PDF</button>
         </div>
       </div>
-      <div class="history-table-shell mt-8">
+      <div class="history-table-shell mt-6">
         <table class="history-table">
           <thead>
             <tr>
@@ -478,26 +681,38 @@
               <th>Fecha</th>
               <th>Hora prog.</th>
               <th>Hora real</th>
-              <th>Retraso</th>
-              <th>Estado</th>
+              <th class="text-center">Retraso</th>
+              <th class="text-center">Estado</th>
+              <th class="text-right no-print w-24">Acción</th>
             </tr>
           </thead>
           <tbody>
             @forelse($detalleAtrasos as $index => $item)
-              <tr class="report-atraso-row">
-                <td class="text-center font-bold text-slate-400">{{ ($detalleAtrasos->currentPage() - 1) * $detalleAtrasos->perPage() + $index + 1 }}</td>
-                <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
-                <td><span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
-                <td>{{ $item['sucursal'] }}</td>
-                <td>{{ $item['fecha'] }}</td>
-                <td>{{ $item['entrada_programada'] }}</td>
-                <td class="font-medium text-rose-700">{{ $item['entrada_real'] }}</td>
-                <td><span class="status-badge status-warning">{{ $item['retraso'] }}</span></td>
-                <td class="text-xs text-slate-500">{{ $item['estado'] }}</td>
+              <tr class="report-atraso-row hover:bg-slate-50/60 transition">
+                <td class="text-center font-bold text-slate-400 text-xs">{{ ($detalleAtrasos->currentPage() - 1) * $detalleAtrasos->perPage() + $index + 1 }}</td>
+                <td><span class="font-semibold text-slate-900">{{ $item['nombre'] }}</span></td>
+                <td><span class="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
+                <td class="text-xs text-slate-600">{{ $item['sucursal'] }}</td>
+                <td class="text-xs font-medium text-slate-700">{{ $item['fecha'] }}</td>
+                <td class="text-xs text-slate-500">{{ $item['entrada_programada'] }}</td>
+                <td class="text-xs font-bold text-slate-800">{{ $item['entrada_real'] }}</td>
+                <td class="text-center">
+                  <span class="inline-flex items-center rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-bold text-amber-800">
+                    {{ $item['retraso'] }}
+                  </span>
+                </td>
+                <td class="text-center text-xs text-slate-500">{{ $item['estado'] }}</td>
+                <td class="text-right no-print">
+                  @if(!empty($item['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['empleado_id'] }})" class="table-action-button text-xs py-1 px-2">
+                      Ver detalle
+                    </button>
+                  @endif
+                </td>
               </tr>
             @empty
               <tr>
-                <td colspan="9" class="py-12 text-center text-slate-400">
+                <td colspan="10" class="py-12 text-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
                   No hay atrasos registrados que coincidan con los filtros.
                 </td>
@@ -518,19 +733,60 @@
   {{-- TAB 3: OMISIONES                                             --}}
   {{-- ============================================================ --}}
   <div x-show="tab === 'omisiones'" x-transition.opacity.duration.200ms role="tabpanel">
+
+    {{-- Resumen Ejecutivo Superior de Omisiones --}}
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Omisiones</p>
+        <p class="mt-2 text-2xl font-bold text-rose-700">{{ number_format($omisionesStats['total_omisiones'] ?? 0) }}</p>
+        <p class="text-xs text-slate-400 mt-1">Registros observados</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Días sin marcar</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($omisionesStats['dias_sin_marcar'] ?? 0) }}</p>
+        <p class="text-xs text-slate-400 mt-1">Jornada completa sin asistencia</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Marcaciones incompletas</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($omisionesStats['marcas_incompletas'] ?? 0) }}</p>
+        <p class="text-xs text-slate-400 mt-1">Olvidos de entrada o salida</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal observado</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $omisionesStats['personal_afectado'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Funcionarios con omisión</p>
+      </div>
+    </section>
+
+    {{-- Desglose rápido por Sucursal --}}
+    @if(($omisionesStats['por_sucursal'] ?? null) && count($omisionesStats['por_sucursal']) > 0)
+      <div class="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center gap-2 shadow-xs">
+        <span class="font-bold text-slate-700 uppercase tracking-wider mr-1">Por sucursal:</span>
+        @foreach($omisionesStats['por_sucursal'] as $sucName => $sucCount)
+          <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
+            <strong class="uppercase text-slate-800">{{ $sucName }}:</strong>
+            <span class="text-rose-700 font-bold">{{ $sucCount['count'] ?? $sucCount }} omisiones</span>
+          </span>
+        @endforeach
+      </div>
+    @endif
+
     <section class="surface-card">
       <div class="history-header">
         <div>
-          <p class="section-kicker">Olvidos de marcación</p>
-          <h2 class="section-title">Omisiones del mes</h2>
-          <p class="section-copy-sm">Registros con entrada o salida faltante en {{ $monthLabel }}.</p>
+          <p class="section-kicker">Control de asistencia</p>
+          <h2 class="section-title">Registro de Omisiones</h2>
+          <p class="section-copy-sm">Días laborables sin marcación y registros incompletos (olvidos de entrada/salida) en {{ $monthLabel }}.</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="status-badge status-danger">{{ $totalOmisiones }} omisiones</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button">PDF</button>
+          <span class="status-badge status-danger font-bold">{{ $totalOmisiones }} omisiones</span>
+          <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">PDF</button>
         </div>
       </div>
-      <div class="history-table-shell mt-8">
+      <div class="history-table-shell mt-6">
         <table class="history-table">
           <thead>
             <tr>
@@ -539,28 +795,36 @@
               <th>CI / Código</th>
               <th>Sucursal</th>
               <th>Fecha</th>
-              <th>Entrada</th>
-              <th>Salida</th>
-              <th>Estado</th>
-              <th>Detalle</th>
+              <th class="text-center">Entrada</th>
+              <th class="text-center">Salida</th>
+              <th class="text-center">Estado</th>
+              <th>Detalle / Observación</th>
+              <th class="text-right no-print w-24">Acción</th>
             </tr>
           </thead>
           <tbody>
             @forelse($detalleOmisiones as $index => $item)
-              <tr class="report-omision-row">
-                <td class="text-center font-bold text-slate-400">{{ ($detalleOmisiones->currentPage() - 1) * $detalleOmisiones->perPage() + $index + 1 }}</td>
-                <td><span class="font-semibold text-slate-800">{{ $item['nombre'] }}</span></td>
-                <td><span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
-                <td>{{ $item['sucursal'] }}</td>
-                <td>{{ $item['fecha'] }}</td>
-                <td class="{{ blank($item['entrada'] ?? '') || ($item['entrada'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : '' }}">{{ $item['entrada'] ?? '--:--' }}</td>
-                <td class="{{ blank($item['salida'] ?? '') || ($item['salida'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : '' }}">{{ $item['salida'] ?? '--:--' }}</td>
-                <td><span class="status-badge status-danger">{{ $item['estado'] ?? 'Sin estado' }}</span></td>
-                <td class="text-xs text-slate-500">{{ $item['detalle'] ?? '' }}</td>
+              <tr class="report-omision-row hover:bg-slate-50/60 transition">
+                <td class="text-center font-bold text-slate-400 text-xs">{{ ($detalleOmisiones->currentPage() - 1) * $detalleOmisiones->perPage() + $index + 1 }}</td>
+                <td><span class="font-semibold text-slate-900">{{ $item['nombre'] }}</span></td>
+                <td><span class="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{{ $item['codigo'] ?: '-' }}</span></td>
+                <td class="text-xs text-slate-600">{{ $item['sucursal'] }}</td>
+                <td class="text-xs font-medium text-slate-700">{{ $item['fecha'] }}</td>
+                <td class="text-center text-xs {{ blank($item['entrada'] ?? '') || ($item['entrada'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : 'text-slate-700' }}">{{ $item['entrada'] ?? '--:--' }}</td>
+                <td class="text-center text-xs {{ blank($item['salida'] ?? '') || ($item['salida'] ?? '') === '--:--' ? 'text-rose-600 font-semibold' : 'text-slate-700' }}">{{ $item['salida'] ?? '--:--' }}</td>
+                <td class="text-center"><span class="status-badge status-danger font-bold">Omisión</span></td>
+                <td class="text-xs text-slate-500">{{ $item['detalle'] ?? 'Marcación incompleta o día sin registro' }}</td>
+                <td class="text-right no-print">
+                  @if(!empty($item['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['empleado_id'] }})" class="table-action-button text-xs py-1 px-2">
+                      Ver detalle
+                    </button>
+                  @endif
+                </td>
               </tr>
             @empty
               <tr>
-                <td colspan="9" class="py-12 text-center text-slate-400">
+                <td colspan="10" class="py-12 text-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="11" rx="2"/></svg>
                   No hay omisiones de marcacion que coincidan con los filtros.
                 </td>
@@ -643,138 +907,245 @@
   {{-- ============================================================ --}}
   <div x-show="tab === 'ranking'" x-transition.opacity.duration.200ms role="tabpanel">
 
-    {{-- Ranking Mensual --}}
-    <div class="grid gap-6 xl:grid-cols-2">
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Mes · {{ $monthLabel }}</p>
-          <h2 class="section-title">Más puntuales del mes</h2>
-          <p class="section-copy-sm">Empleados con menor retraso acumulado.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingMensual['mas_puntuales'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }}">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🥇</span>
-                @elseif($i === 1) <span class="ranking-medal">🥈</span>
-                @elseif($i === 2) <span class="ranking-medal">🥉</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_marcados'] }} días marcados</p>
-              </div>
-              <div class="ranking-stat ranking-stat-green">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin datos suficientes para el mes seleccionado.</p>
-          @endforelse
-        </div>
-      </section>
+    {{-- Resumen Ejecutivo Superior de Ranking --}}
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Líder puntual mensual</p>
+        <p class="mt-2 text-base font-bold text-slate-900 truncate">
+          {{ $rankingMensual['mas_puntuales'][0]['nombre'] ?? 'Sin datos' }}
+        </p>
+        <p class="text-xs text-slate-500 mt-1 font-medium">
+          @if(!empty($rankingMensual['mas_puntuales']))
+            {{ $rankingMensual['mas_puntuales'][0]['retraso_label'] }} · {{ $rankingMensual['mas_puntuales'][0]['dias_marcados'] }} días
+          @else
+            Sin registros en el mes
+          @endif
+        </p>
+      </div>
 
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Mes · {{ $monthLabel }}</p>
-          <h2 class="section-title">Más atrasados del mes</h2>
-          <p class="section-copy-sm">Empleados con mayor retraso acumulado.</p>
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mayor demora mensual</p>
+        <p class="mt-2 text-base font-bold text-slate-900 truncate">
+          {{ $rankingMensual['mas_atrasados'][0]['nombre'] ?? 'Sin demoras' }}
+        </p>
+        <p class="text-xs text-amber-900 mt-1 font-semibold">
+          @if(!empty($rankingMensual['mas_atrasados']))
+            {{ $rankingMensual['mas_atrasados'][0]['retraso_label'] }} ({{ $rankingMensual['mas_atrasados'][0]['dias_tarde'] }} días tarde)
+          @else
+            0 min retraso
+          @endif
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Líder semanal</p>
+        <p class="mt-2 text-base font-bold text-slate-900 truncate">
+          {{ $rankingSemanal['mas_puntuales'][0]['nombre'] ?? 'Sin datos' }}
+        </p>
+        <p class="text-xs text-slate-500 mt-1 font-medium">
+          @if(!empty($rankingSemanal['mas_puntuales']))
+            {{ $rankingSemanal['mas_puntuales'][0]['retraso_label'] }} esta semana
+          @else
+            Sin registros
+          @endif
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mayor demora semanal</p>
+        <p class="mt-2 text-base font-bold text-slate-900 truncate">
+          {{ $rankingSemanal['mas_atrasados'][0]['nombre'] ?? 'Sin demoras' }}
+        </p>
+        <p class="text-xs text-amber-900 mt-1 font-semibold">
+          @if(!empty($rankingSemanal['mas_atrasados']))
+            {{ $rankingSemanal['mas_atrasados'][0]['retraso_label'] }} ({{ $rankingSemanal['mas_atrasados'][0]['dias_tarde'] }} días tarde)
+          @else
+            0 min retraso
+          @endif
+        </p>
+      </div>
+    </section>
+
+    {{-- Ranking Mensual --}}
+    <div class="mb-8">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Ranking Mensual — {{ $monthLabel }}</h3>
+          <p class="text-xs text-slate-500">Evaluación consolidada del personal activo durante el mes calendario.</p>
         </div>
-        <div class="ranking-list">
-          @forelse($rankingMensual['mas_atrasados'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }} ranking-card-danger">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🔴</span>
-                @elseif($i === 1) <span class="ranking-medal">🟠</span>
-                @elseif($i === 2) <span class="ranking-medal">🟡</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar ranking-avatar-danger">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_tarde'] }} días tarde</p>
-              </div>
-              <div class="ranking-stat ranking-stat-red">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
+        <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">Imprimir / PDF</button>
+      </div>
+
+      <div class="grid gap-6 xl:grid-cols-2">
+        {{-- Más puntuales del mes --}}
+        <section class="surface-card">
+          <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Puntualidad Destacada</p>
+              <h4 class="text-base font-bold text-slate-900">Personal más puntual</h4>
             </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin atrasos registrados en el mes seleccionado.</p>
-          @endforelse
-        </div>
-      </section>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 border border-slate-200">
+              Top {{ count($rankingMensual['mas_puntuales'] ?? []) }}
+            </span>
+          </div>
+          <div class="space-y-3">
+            @forelse($rankingMensual['mas_puntuales'] ?? [] as $i => $emp)
+              <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $i === 0 ? 'bg-slate-900 text-white' : ($i === 1 ? 'bg-slate-700 text-white' : ($i === 2 ? 'bg-slate-500 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200')) }} text-xs font-bold">
+                  #{{ $i + 1 }}
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 border border-slate-200 text-sm">
+                  {{ $emp['inicial'] }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                  <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">{{ $emp['dias_marcados'] }} días con registro</p>
+                </div>
+                <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                  <span class="inline-block rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">
+                    {{ $emp['retraso_label'] }}
+                  </span>
+                  @if(!empty($emp['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $emp['empleado_id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                  @endif
+                </div>
+              </div>
+            @empty
+              <p class="py-8 text-center text-sm text-slate-400">Sin datos suficientes para el mes seleccionado.</p>
+            @endforelse
+          </div>
+        </section>
+
+        {{-- Más atrasados del mes --}}
+        <section class="surface-card">
+          <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Mayor Demora Acumulada</p>
+              <h4 class="text-base font-bold text-slate-900">Personal con más retraso</h4>
+            </div>
+            <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 border border-amber-200">
+              Top {{ count($rankingMensual['mas_atrasados'] ?? []) }}
+            </span>
+          </div>
+          <div class="space-y-3">
+            @forelse($rankingMensual['mas_atrasados'] ?? [] as $i => $emp)
+              <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $i === 0 ? 'bg-amber-900 text-white' : ($i === 1 ? 'bg-amber-800 text-white' : ($i === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200')) }} text-xs font-bold">
+                  #{{ $i + 1 }}
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 font-bold text-amber-900 border border-amber-200 text-sm">
+                  {{ $emp['inicial'] }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                  <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                  <p class="text-[11px] text-amber-900 mt-0.5 font-medium">{{ $emp['dias_tarde'] }} días con retraso</p>
+                </div>
+                <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                  <span class="inline-block rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-900">
+                    {{ $emp['retraso_label'] }}
+                  </span>
+                  @if(!empty($emp['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $emp['empleado_id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                  @endif
+                </div>
+              </div>
+            @empty
+              <p class="py-8 text-center text-sm text-slate-400">Sin atrasos registrados en el mes seleccionado.</p>
+            @endforelse
+          </div>
+        </section>
+      </div>
     </div>
 
     {{-- Ranking Semanal --}}
-    <div class="grid gap-6 xl:grid-cols-2">
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Semana actual</p>
-          <h2 class="section-title">Más puntuales de la semana</h2>
-          <p class="section-copy-sm">Empleados con menor retraso acumulado esta semana.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingSemanal['mas_puntuales'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }}">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🥇</span>
-                @elseif($i === 1) <span class="ranking-medal">🥈</span>
-                @elseif($i === 2) <span class="ranking-medal">🥉</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }}</p>
-              </div>
-              <div class="ranking-stat ranking-stat-green">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
-            </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin datos suficientes para la semana actual.</p>
-          @endforelse
-        </div>
-      </section>
+    <div>
+      <div class="mb-4">
+        <h3 class="text-lg font-bold text-slate-900">Ranking Semanal</h3>
+        <p class="text-xs text-slate-500">Comportamiento de asistencia durante la semana en curso.</p>
+      </div>
 
-      <section class="surface-card">
-        <div class="mb-6">
-          <p class="section-kicker">Semana actual</p>
-          <h2 class="section-title">Más atrasados de la semana</h2>
-          <p class="section-copy-sm">Empleados con mayor retraso acumulado esta semana.</p>
-        </div>
-        <div class="ranking-list">
-          @forelse($rankingSemanal['mas_atrasados'] ?? [] as $i => $emp)
-            <div class="ranking-card ranking-{{ $i === 0 ? 'gold' : ($i === 1 ? 'silver' : ($i === 2 ? 'bronze' : 'default')) }} ranking-card-danger">
-              <div class="ranking-position">
-                @if($i === 0) <span class="ranking-medal">🔴</span>
-                @elseif($i === 1) <span class="ranking-medal">🟠</span>
-                @elseif($i === 2) <span class="ranking-medal">🟡</span>
-                @else <span class="ranking-pos-num">{{ $i + 1 }}</span>
-                @endif
-              </div>
-              <div class="ranking-avatar ranking-avatar-danger">{{ $emp['inicial'] }}</div>
-              <div class="ranking-info">
-                <p class="ranking-name">{{ $emp['nombre'] }}</p>
-                <p class="ranking-meta">{{ $emp['sucursal'] }} · {{ $emp['dias_tarde'] }} días tarde</p>
-              </div>
-              <div class="ranking-stat ranking-stat-red">
-                <p class="ranking-stat-label">Retraso</p>
-                <strong class="ranking-stat-value">{{ $emp['retraso_label'] }}</strong>
-              </div>
+      <div class="grid gap-6 xl:grid-cols-2">
+        {{-- Más puntuales de la semana --}}
+        <section class="surface-card">
+          <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Semana en Curso</p>
+              <h4 class="text-base font-bold text-slate-900">Más puntuales de la semana</h4>
             </div>
-          @empty
-            <p class="py-6 text-center text-sm text-slate-400">Sin atrasos registrados esta semana.</p>
-          @endforelse
-        </div>
-      </section>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 border border-slate-200">
+              Top {{ count($rankingSemanal['mas_puntuales'] ?? []) }}
+            </span>
+          </div>
+          <div class="space-y-3">
+            @forelse($rankingSemanal['mas_puntuales'] ?? [] as $i => $emp)
+              <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 border border-slate-200 text-xs">
+                  #{{ $i + 1 }}
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 border border-slate-200 text-sm">
+                  {{ $emp['inicial'] }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                  <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                </div>
+                <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                  <span class="inline-block rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">
+                    {{ $emp['retraso_label'] }}
+                  </span>
+                  @if(!empty($emp['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $emp['empleado_id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                  @endif
+                </div>
+              </div>
+            @empty
+              <p class="py-8 text-center text-sm text-slate-400">Sin datos suficientes para la semana actual.</p>
+            @endforelse
+          </div>
+        </section>
+
+        {{-- Más atrasados de la semana --}}
+        <section class="surface-card">
+          <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Semana en Curso</p>
+              <h4 class="text-base font-bold text-slate-900">Más atrasados de la semana</h4>
+            </div>
+            <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 border border-amber-200">
+              Top {{ count($rankingSemanal['mas_atrasados'] ?? []) }}
+            </span>
+          </div>
+          <div class="space-y-3">
+            @forelse($rankingSemanal['mas_atrasados'] ?? [] as $i => $emp)
+              <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 font-bold text-amber-900 border border-amber-200 text-xs">
+                  #{{ $i + 1 }}
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 font-bold text-amber-900 border border-amber-200 text-sm">
+                  {{ $emp['inicial'] }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                  <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                  <p class="text-[11px] text-amber-900 mt-0.5 font-medium">{{ $emp['dias_tarde'] }} días con retraso</p>
+                </div>
+                <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                  <span class="inline-block rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-900">
+                    {{ $emp['retraso_label'] }}
+                  </span>
+                  @if(!empty($emp['empleado_id']))
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $emp['empleado_id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                  @endif
+                </div>
+              </div>
+            @empty
+              <p class="py-8 text-center text-sm text-slate-400">Sin atrasos registrados esta semana.</p>
+            @endforelse
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -782,75 +1153,119 @@
   {{-- TAB 6: ANTIGÜEDAD                                            --}}
   {{-- ============================================================ --}}
   <div x-show="tab === 'antiguedad'" x-transition.opacity.duration.200ms role="tabpanel">
+
+    {{-- Resumen Ejecutivo Superior de Antigüedad --}}
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal evaluado</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($reportesAntiguedad['metricas']['total_registrados'] ?? 0) }}</p>
+        <p class="text-xs text-slate-400 mt-1">Con fecha de contrato</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">+10 Años trayectoria</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $reportesAntiguedad['metricas']['veteranos_10_anios'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Personal consolidado</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ingresos recientes</p>
+        <p class="mt-2 text-2xl font-bold text-slate-900">{{ $reportesAntiguedad['metricas']['incorporaciones_recientes'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Menos de 1 año de servicio</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mayor antigüedad</p>
+        <p class="mt-2 text-lg font-bold text-slate-900 truncate">{{ $reportesAntiguedad['metricas']['maxima_trayectoria'] ?? '0 años' }}</p>
+        <p class="text-xs text-slate-500 mt-1 truncate">{{ $reportesAntiguedad['metricas']['maximo_veterano'] ?? 'Personal' }}</p>
+      </div>
+    </section>
+
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900">Reporte de Trayectoria Institucional</h3>
+        <p class="text-xs text-slate-500">Clasificación de personal por tiempo de vinculación laboral.</p>
+      </div>
+      <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">Imprimir / PDF</button>
+    </div>
+
     <div class="grid gap-6 xl:grid-cols-2">
       {{-- Personal más antiguo --}}
       <section class="surface-card">
-        <div class="mb-6 flex items-center justify-between">
+        <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <p class="section-kicker">Mayor Trayectoria</p>
-            <h2 class="section-title">Personal más antiguo</h2>
-            <p class="section-copy-sm">Empleados con mayor tiempo de servicio en la institución.</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Mayor Trayectoria</p>
+            <h4 class="text-base font-bold text-slate-900">Personal más antiguo</h4>
           </div>
-          <span class="status-badge status-available">🏛️ Veteranos</span>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 border border-slate-200">
+            Top {{ count($reportesAntiguedad['mas_antiguos'] ?? []) }}
+          </span>
         </div>
-        <div class="space-y-4">
+        <div class="space-y-3">
           @forelse($reportesAntiguedad['mas_antiguos'] ?? [] as $i => $emp)
-            <div class="flex items-center gap-4 rounded-[1.2rem] border border-amber-200/70 bg-gradient-to-r from-amber-50/40 via-white to-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-900 border border-amber-300">
+            <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 font-bold text-white text-xs">
                 #{{ $i + 1 }}
               </div>
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-base font-bold text-[#0f67c0]">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-800 border border-slate-200 text-sm">
                 {{ $emp['inicial'] }}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="truncate font-semibold text-slate-900 text-base">{{ $emp['nombre'] }}</p>
-                <p class="truncate text-xs text-slate-500 mt-0.5">{{ $emp['area'] }} · {{ $emp['sucursal'] }} · CI: <span class="font-mono">{{ $emp['codigo'] }}</span></p>
+                <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">CI: <span class="font-mono text-slate-600">{{ $emp['codigo'] }}</span> · Ingreso: {{ $emp['fecha_contratacion'] }}</p>
               </div>
-              <div class="shrink-0 text-right">
-                <span class="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+              <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                <span class="inline-block rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">
                   {{ $emp['antiguedad_texto'] }}
                 </span>
-                <p class="mt-1 text-[11px] text-slate-400">Ingreso: {{ $emp['fecha_contratacion'] }}</p>
+                @if(!empty($emp['id']))
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $emp['id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                @endif
               </div>
             </div>
           @empty
-            <p class="py-12 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
+            <p class="py-8 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
           @endforelse
         </div>
       </section>
 
       {{-- Personal más nuevo --}}
       <section class="surface-card">
-        <div class="mb-6 flex items-center justify-between">
+        <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <p class="section-kicker">Reciente Ingreso</p>
-            <h2 class="section-title">Personal más nuevo</h2>
-            <p class="section-copy-sm">Últimas incorporaciones al equipo de trabajo.</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Reciente Ingreso</p>
+            <h4 class="text-base font-bold text-slate-900">Personal más nuevo</h4>
           </div>
-          <span class="status-badge status-info">🌱 Nuevos</span>
+          <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-800 border border-sky-200">
+            Top {{ count($reportesAntiguedad['mas_nuevos'] ?? []) }}
+          </span>
         </div>
-        <div class="space-y-4">
+        <div class="space-y-3">
           @forelse($reportesAntiguedad['mas_nuevos'] ?? [] as $i => $emp)
-            <div class="flex items-center gap-4 rounded-[1.2rem] border border-blue-200/70 bg-gradient-to-r from-blue-50/40 via-white to-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-900 border border-blue-300">
+            <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition hover:border-slate-300">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-900 border border-sky-200 text-xs">
                 #{{ $i + 1 }}
               </div>
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f67c0]/10 text-base font-bold text-[#0f67c0]">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-800 border border-slate-200 text-sm">
                 {{ $emp['inicial'] }}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="truncate font-semibold text-slate-900 text-base">{{ $emp['nombre'] }}</p>
-                <p class="truncate text-xs text-slate-500 mt-0.5">{{ $emp['area'] }} · {{ $emp['sucursal'] }} · CI: <span class="font-mono">{{ $emp['codigo'] }}</span></p>
+                <p class="truncate font-semibold text-slate-900 text-sm">{{ $emp['nombre'] }}</p>
+                <p class="truncate text-xs text-slate-500">{{ $emp['area'] }} · {{ $emp['sucursal'] }}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">CI: <span class="font-mono text-slate-600">{{ $emp['codigo'] }}</span> · Ingreso: {{ $emp['fecha_contratacion'] }}</p>
               </div>
-              <div class="shrink-0 text-right">
-                <span class="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900">
+              <div class="shrink-0 text-right flex flex-col items-end gap-1.5">
+                <span class="inline-block rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-800">
                   {{ $emp['antiguedad_texto'] }}
                 </span>
-                <p class="mt-1 text-[11px] text-slate-400">Ingreso: {{ $emp['fecha_contratacion'] }}</p>
+                @if(!empty($emp['id']))
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $emp['id'] }})" class="table-action-button text-[11px] py-0.5 px-2 no-print">Ver detalle</button>
+                @endif
               </div>
             </div>
           @empty
-            <p class="py-12 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
+            <p class="py-8 text-center text-sm text-slate-400">No se registraron fechas de contratación para el personal.</p>
           @endforelse
         </div>
       </section>
@@ -939,5 +1354,38 @@
     </section>
   </div>
   @endif
+
+  {{-- Estilos de impresión limpia --}}
+  <style>
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+      .app-sidebar,
+      .app-header,
+      .report-hero,
+      .report-tab-nav,
+      .no-print,
+      .app-modal-backdrop,
+      button {
+        display: none !important;
+      }
+      .page-stack {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .branch-print-section {
+        page-break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        margin-bottom: 20px !important;
+      }
+      .history-table th, .history-table td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 5px 8px !important;
+      }
+    }
+  </style>
 
 </div>
