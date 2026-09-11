@@ -3002,4 +3002,356 @@
   </section>
   @endif
 
+  @if ($vista === 'sucursales')
+  <section>
+    <article class="surface-card">
+      <div class="section-head-row flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <p class="section-kicker !mb-0">REGISTRO DE ASISTENCIA</p>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 px-2.5 py-0.5 text-xs font-bold">
+              <svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+              {{ $sucursalSeleccionadaLabel }}
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium">
+              <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              {{ $sucursalesPeriodoLabel }}
+            </span>
+          </div>
+          <h3 class="section-title">Registro mensual de sucursales</h3>
+          <p class="section-copy-sm">Listado completo de todas las marcaciones registradas para la sucursal seleccionada, con detalle de horarios programados, entradas, salidas, horas efectivas y cálculo de retrasos.</p>
+        </div>
+
+        <div class="flex items-center gap-2.5 self-stretch sm:self-auto justify-end">
+          <button type="button" wire:click="descargarExcelSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span>Exportar Excel</span>
+          </button>
+          <button type="button" wire:click="descargarPdfSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs">
+            <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6M9 17h6"/></svg>
+            <span>Exportar PDF</span>
+          </button>
+        </div>
+      </div>
+
+      {{-- Filtros Mejorados (Sin buscador de personal redundante) --}}
+      <div class="mt-6 rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-slate-100/50 p-5 shadow-2xs">
+        <form wire:submit.prevent="aplicarFiltroSucursales">
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {{-- 1. Buscador / Selector de Sucursal --}}
+            <div class="space-y-1.5">
+              <label for="sucursales-sucursal" class="form-label text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Buscador de sucursal</span>
+              </label>
+              <div class="relative">
+                <select
+                  id="sucursales-sucursal"
+                  wire:model="sucursalesSucursal"
+                  class="form-input text-xs font-semibold text-slate-800 bg-white shadow-2xs !py-2.5">
+                  <option value="">Todas las sucursales</option>
+                  @foreach ($sucursalesLista as $sucursalNombre)
+                    <option value="{{ $sucursalNombre }}">{{ $sucursalNombre }}</option>
+                  @endforeach
+                </select>
+              </div>
+            </div>
+
+            {{-- 2. Modalidad: Día o Mes --}}
+            <div class="space-y-1.5">
+              <label class="form-label text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>Filtro de período</span>
+              </label>
+              <div class="flex rounded-xl border border-slate-300 bg-white p-1 shadow-2xs">
+                <button
+                  type="button"
+                  wire:click="setSucursalesPeriodoTipo('mes')"
+                  class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center {{ $sucursalesPeriodoTipo === 'mes' ? 'bg-[#0f172a] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}">
+                  Por Mes
+                </button>
+                <button
+                  type="button"
+                  wire:click="setSucursalesPeriodoTipo('dia')"
+                  class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center {{ $sucursalesPeriodoTipo === 'dia' ? 'bg-[#0f172a] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}">
+                  Por Día
+                </button>
+              </div>
+            </div>
+
+            {{-- 3. Selector de Fecha (Día o Mes según la modalidad activa) --}}
+            <div class="space-y-1.5 sm:col-span-2 lg:col-span-1">
+              @if ($sucursalesPeriodoTipo === 'dia')
+                <label for="sucursales-fecha-dia" class="form-label text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  <span>Fecha del día</span>
+                </label>
+                <input
+                  id="sucursales-fecha-dia"
+                  type="date"
+                  wire:model="sucursalesFechaDia"
+                  class="form-input text-xs font-semibold text-slate-800 bg-white shadow-2xs !py-2.5">
+              @else
+                <label for="sucursales-mes" class="form-label text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  <span>Mes a consultar</span>
+                </label>
+                <input
+                  id="sucursales-mes"
+                  type="month"
+                  wire:model="sucursalesMes"
+                  class="form-input text-xs font-semibold text-slate-800 bg-white shadow-2xs !py-2.5">
+              @endif
+            </div>
+          </div>
+
+          {{-- Fila Secundaria: Filtro de Estado, Ordenamiento y Botones de Acción --}}
+          <div class="mt-4 pt-3.5 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-600 font-semibold">Estado:</span>
+                <select wire:model="sucursalesEstadoFiltro" class="form-input !py-1.5 text-xs font-medium bg-white w-auto shadow-2xs">
+                  <option value="todos">Todos los estados</option>
+                  <option value="puntual">Solo puntuales</option>
+                  <option value="retraso">Con retraso</option>
+                  <option value="incompleto">Incompletas / Sin salida</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-600 font-semibold">Orden:</span>
+                <select wire:model="sucursalesOrden" class="form-input !py-1.5 text-xs font-medium bg-white w-auto shadow-2xs">
+                  <option value="fecha_desc">Fecha más reciente</option>
+                  <option value="fecha_asc">Fecha más antigua</option>
+                  <option value="retraso_desc">Mayor retraso primero</option>
+                  <option value="nombre_asc">Personal (A - Z)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                wire:click="limpiarFiltrosSucursales"
+                class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors cursor-pointer shadow-2xs">
+                Restablecer
+              </button>
+              <button
+                type="submit"
+                class="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-[#0f172a] hover:bg-[#1e293b] rounded-xl shadow-xs hover:shadow transition-all cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>Consultar marcaciones</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {{-- Barra informativa superior de la tabla --}}
+      <div class="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span class="text-xs font-bold text-slate-700">Listado de Marcaciones</span>
+          <span class="text-xs text-slate-400">•</span>
+          <span class="text-xs font-medium text-slate-500">
+            Total: <strong class="text-slate-800">{{ number_format($sucursalesRegistros->total()) }}</strong> marcaciones encontradas
+          </span>
+        </div>
+        <div class="text-[11px] text-slate-500">
+          Regional: <strong class="text-slate-700">{{ $sucursalSeleccionadaLabel }}</strong>
+        </div>
+      </div>
+
+      {{-- Tabla Mejorada de Marcaciones --}}
+      <div class="mt-3 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                <th class="py-3.5 px-4">Fecha y Día</th>
+                <th class="py-3.5 px-4">Personal / Funcionario</th>
+                <th class="py-3.5 px-4">Sucursal</th>
+                <th class="py-3.5 px-4 text-center">Horario Programado</th>
+                <th class="py-3.5 px-4 text-center">Hora Entrada</th>
+                <th class="py-3.5 px-4 text-center">Hora Salida</th>
+                <th class="py-3.5 px-4 text-center">Horas Trabajadas</th>
+                <th class="py-3.5 px-4 text-center">Tardanza / Retraso</th>
+                <th class="py-3.5 px-4 text-center">Estado de Asistencia</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @forelse ($sucursalesRegistros as $row)
+                <tr class="hover:bg-blue-50/30 transition-colors">
+                  {{-- Fecha --}}
+                  <td class="py-3 px-4 whitespace-nowrap">
+                    <div class="font-bold text-slate-900">{{ $row->fecha_formateada }}</div>
+                    <div class="text-[11px] text-slate-500 font-medium capitalize">{{ $row->dia }}</div>
+                  </td>
+
+                  {{-- Personal --}}
+                  <td class="py-3 px-4">
+                    <div class="font-bold text-slate-900 text-[12.5px] leading-tight">
+                      {{ $row->empleado?->nombre_completo ?? 'Sin asignar' }}
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono font-bold">
+                        ID: {{ $row->codigo }}
+                      </span>
+                      @if ($row->empleado?->area)
+                        <span class="text-slate-500 font-medium truncate max-w-[180px]">
+                          {{ $row->empleado->area }}
+                        </span>
+                      @endif
+                    </div>
+                  </td>
+
+                  {{-- Sucursal --}}
+                  <td class="py-3 px-4 whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 border border-slate-200/80 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                      {{ $row->empleado?->sucursal ?? 'N/D' }}
+                    </span>
+                  </td>
+
+                  {{-- Horario Programado --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                      <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
+                      {{ $row->horario_programado }}
+                    </span>
+                  </td>
+
+                  {{-- Entrada --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    @if ($row->hora_entrada !== '--:--')
+                      <span class="font-mono font-bold text-slate-800 text-[12px] bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+                        {{ $row->hora_entrada }}
+                      </span>
+                    @else
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">
+                        Sin entrada
+                      </span>
+                    @endif
+                  </td>
+
+                  {{-- Salida --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    @if ($row->hora_salida !== '--:--')
+                      <span class="font-mono font-bold text-slate-800 text-[12px] bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+                        {{ $row->hora_salida }}
+                      </span>
+                    @else
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                        Sin salida
+                      </span>
+                    @endif
+                  </td>
+
+                  {{-- Horas Trabajadas --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span class="font-mono font-bold text-slate-700 text-[11.5px]">
+                      {{ $row->horas_trabajadas }}
+                    </span>
+                  </td>
+
+                  {{-- Retraso --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    @if (($row->minutos_retraso ?? 0) > 0)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                        <svg class="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        +{{ $row->minutos_retraso }} min
+                      </span>
+                    @elseif ($row->hora_entrada !== '--:--')
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                        <svg class="w-3 h-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        Puntual
+                      </span>
+                    @else
+                      <span class="text-slate-400 font-mono">—</span>
+                    @endif
+                  </td>
+
+                  {{-- Estado --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    @if ($row->tipo_estado === 'puntual')
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-800">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        {{ $row->estado_marcacion }}
+                      </span>
+                    @elseif ($row->tipo_estado === 'retraso')
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-300 px-3 py-0.5 text-[11px] font-bold text-amber-800">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        {{ $row->estado_marcacion }}
+                      </span>
+                    @elseif ($row->tipo_estado === 'en_curso')
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-0.5 text-[11px] font-medium text-blue-700">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                        {{ $row->estado_marcacion }}
+                      </span>
+                    @elseif ($row->tipo_estado === 'incompleto')
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-3 py-0.5 text-[11px] font-bold text-rose-700">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        {{ $row->estado_marcacion }}
+                      </span>
+                    @else
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 border border-slate-200 px-3 py-0.5 text-[11px] font-medium text-slate-600">
+                        {{ $row->estado_marcacion }}
+                      </span>
+                    @endif
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="9" class="py-16 text-center text-slate-500">
+                    <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <p class="text-sm font-bold text-slate-700">No se encontraron marcaciones para la sucursal o período seleccionado</p>
+                    <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">Selecciona otra sucursal o ajusta la fecha para ver los registros de asistencia correspondientes.</p>
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+
+        {{-- Paginación --}}
+        @if ($sucursalesRegistros->hasPages())
+          <div class="table-pagination-shell border-t border-slate-200 px-5 py-3.5 bg-slate-50/70">
+            <div class="table-pagination-bar flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p class="table-pagination-copy text-xs text-slate-500">
+                Mostrando registros del <span class="font-bold text-slate-800">{{ $sucursalesRegistros->firstItem() }}</span> al <span class="font-bold text-slate-800">{{ $sucursalesRegistros->lastItem() }}</span> (Página {{ $sucursalesRegistros->currentPage() }} de {{ $sucursalesRegistros->lastPage() }})
+              </p>
+              <div class="table-pagination-actions flex items-center gap-1.5">
+                <button
+                  type="button"
+                  wire:click="previousPage('sucursalesPage')"
+                  @disabled($sucursalesRegistros->onFirstPage())
+                  class="table-pagination-button {{ $sucursalesRegistros->onFirstPage() ? 'table-pagination-button-disabled opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100' }}">
+                  Anterior
+                </button>
+                @foreach(range(max(1, $sucursalesRegistros->currentPage() - 2), min($sucursalesRegistros->lastPage(), $sucursalesRegistros->currentPage() + 2)) as $p)
+                  <button
+                    type="button"
+                    wire:click="gotoPage({{ $p }}, 'sucursalesPage')"
+                    class="table-pagination-button {{ $p === $sucursalesRegistros->currentPage() ? 'table-pagination-button-active !bg-[#0f172a] !text-white' : 'cursor-pointer hover:bg-slate-100' }}">
+                    {{ $p }}
+                  </button>
+                @endforeach
+                <button
+                  type="button"
+                  wire:click="nextPage('sucursalesPage')"
+                  @disabled(! $sucursalesRegistros->hasMorePages())
+                  class="table-pagination-button {{ ! $sucursalesRegistros->hasMorePages() ? 'table-pagination-button-disabled opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100' }}">
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        @endif
+      </div>
+    </article>
+  </section>
+  @endif
+
 </div>

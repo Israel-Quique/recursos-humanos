@@ -70,6 +70,24 @@ class PersonalPage extends Component
     public string $appliedControlMesNumero = '';
     public string $appliedControlAnio = '';
     public string $ordenControl = 'nombre_asc'; // nombre_asc, nombre_desc, horas_desc, horas_asc, retraso_desc, retraso_asc, excedido_primero
+
+    // Búsqueda y filtros para la vista Registro mensual de sucursales (personal?vista=sucursales)
+    public string $sucursalesPeriodoTipo = 'mes'; // 'mes', 'dia'
+    public string $sucursalesFechaDia = '';
+    public string $sucursalesMes = '';
+    public string $sucursalesSucursal = '';
+    public string $sucursalesSearch = '';
+    public string $sucursalesEstadoFiltro = 'todos'; // 'todos', 'puntual', 'retraso', 'incompleto'
+    public string $sucursalesOrden = 'fecha_desc'; // 'fecha_desc', 'fecha_asc', 'retraso_desc', 'nombre_asc'
+    public int $sucursalesPerPage = 15;
+    public string $appliedSucursalesPeriodoTipo = 'mes';
+    public string $appliedSucursalesFechaDia = '';
+    public string $appliedSucursalesMes = '';
+    public string $appliedSucursalesSucursal = '';
+    public string $appliedSucursalesSearch = '';
+    public string $appliedSucursalesEstadoFiltro = 'todos';
+    public string $appliedSucursalesOrden = 'fecha_desc';
+
     public ?int $detailEmpleadoId = null;
     public ?int $editingEmpleadoId = null;
     public bool $showCreateModal = false;
@@ -113,7 +131,7 @@ class PersonalPage extends Component
     {
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
-        if (!in_array($this->vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
+        if (!in_array($this->vista, ['personal', 'inactivos', 'marcaciones', 'control', 'sucursales'], true)) {
             $this->vista = 'personal';
         }
 
@@ -124,11 +142,16 @@ class PersonalPage extends Component
         $this->inputControlAnio = (string) $refMonth->year;
         $this->appliedControlMesNumero = (string) $refMonth->month;
         $this->appliedControlAnio = (string) $refMonth->year;
+
+        $this->sucursalesFechaDia = now()->toDateString();
+        $this->sucursalesMes = $refMonth->format('Y-m');
+        $this->appliedSucursalesFechaDia = now()->toDateString();
+        $this->appliedSucursalesMes = $refMonth->format('Y-m');
     }
 
     public function setVista(string $vista): void
     {
-        if (!in_array($vista, ['personal', 'inactivos', 'marcaciones', 'control'], true)) {
+        if (!in_array($vista, ['personal', 'inactivos', 'marcaciones', 'control', 'sucursales'], true)) {
             return;
         }
 
@@ -1263,6 +1286,352 @@ class PersonalPage extends Component
         ]);
     }
 
+    public function aplicarFiltroSucursales(): void
+    {
+        $this->appliedSucursalesPeriodoTipo = $this->sucursalesPeriodoTipo;
+        $this->appliedSucursalesFechaDia = $this->sucursalesFechaDia ?: now()->toDateString();
+        $this->appliedSucursalesMes = $this->sucursalesMes ?: now()->format('Y-m');
+        $this->appliedSucursalesSucursal = $this->sucursalesSucursal;
+        $this->appliedSucursalesSearch = trim($this->sucursalesSearch);
+        $this->appliedSucursalesEstadoFiltro = $this->sucursalesEstadoFiltro;
+        $this->appliedSucursalesOrden = $this->sucursalesOrden;
+
+        $this->resetPage('sucursalesPage');
+    }
+
+    public function limpiarFiltrosSucursales(): void
+    {
+        $refMonth = $this->referenceMonth();
+        $this->sucursalesPeriodoTipo = 'mes';
+        $this->sucursalesFechaDia = now()->toDateString();
+        $this->sucursalesMes = $refMonth->format('Y-m');
+        $this->sucursalesSucursal = '';
+        $this->sucursalesSearch = '';
+        $this->sucursalesEstadoFiltro = 'todos';
+        $this->sucursalesOrden = 'fecha_desc';
+
+        $this->aplicarFiltroSucursales();
+    }
+
+    public function setSucursalesPeriodoTipo(string $tipo): void
+    {
+        if (in_array($tipo, ['dia', 'mes'], true)) {
+            $this->sucursalesPeriodoTipo = $tipo;
+            $this->appliedSucursalesPeriodoTipo = $tipo;
+            $this->resetPage('sucursalesPage');
+        }
+    }
+
+    public function obtenerColeccionMarcacionesSucursales(bool $paginated = false): array
+    {
+        $searchOperator = $this->caseInsensitiveLikeOperator();
+
+        // Opciones de sucursales
+        $sucursalesLista = SucursalNormalizer::optionsFromValues(
+            Empleado::query()
+                ->select('sucursal')
+                ->whereNotNull('sucursal')
+                ->where('sucursal', '!=', '')
+                ->distinct()
+                ->orderBy('sucursal')
+                ->pluck('sucursal')
+        );
+
+        $query = RegistroAsistencia::query()
+            ->with(['empleado'])
+            ->whereHas('empleado')
+            ->where($this->excludeSaturdayRecords());
+
+        // Filtro de temporalidad
+        $tipo = $this->appliedSucursalesPeriodoTipo ?: 'mes';
+        if ($tipo === 'dia') {
+            $fechaDia = $this->appliedSucursalesFechaDia ?: now()->toDateString();
+            $query->whereDate('fecha', $fechaDia);
+            $carbonDia = Carbon::parse($fechaDia);
+            $periodoLabel = ucfirst($carbonDia->locale('es')->isoFormat('dddd D [de] MMMM [de] YYYY'));
+        } else {
+            $mesStr = $this->appliedSucursalesMes ?: now()->format('Y-m');
+            try {
+                $carbonMes = Carbon::parse($mesStr . '-01');
+            } catch (\Throwable $e) {
+                $carbonMes = now()->startOfMonth();
+            }
+            $query->whereBetween('fecha', [
+                $carbonMes->copy()->startOfMonth()->toDateString(),
+                $carbonMes->copy()->endOfMonth()->toDateString(),
+            ]);
+            $periodoLabel = ucfirst($carbonMes->locale('es')->translatedFormat('F Y'));
+        }
+
+        // Filtro por sucursal
+        if (filled($this->appliedSucursalesSucursal) && $this->appliedSucursalesSucursal !== 'todas') {
+            $query->whereHas('empleado', function ($q) {
+                SucursalNormalizer::applyFilter($q, 'sucursal', $this->appliedSucursalesSucursal);
+            });
+            $sucursalLabel = SucursalNormalizer::canonicalLabel($this->appliedSucursalesSucursal);
+        } else {
+            $sucursalLabel = 'Todas las sucursales';
+        }
+
+        // Filtro por texto (código, nombre, apellido)
+        if (filled($this->appliedSucursalesSearch)) {
+            $term = "%{$this->appliedSucursalesSearch}%";
+            $query->whereHas('empleado', function ($q) use ($searchOperator, $term) {
+                $q->where(function ($sub) use ($searchOperator, $term) {
+                    $sub->where('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
+                });
+            });
+        }
+
+        // Orden básico de base de datos
+        $query->orderBy('fecha', 'desc')->orderBy('hora_entrada', 'asc');
+
+        $progService = $this->programacionLaboral();
+        $todosLosRegistros = $query->get();
+
+        // Transformación y cálculo
+        $rows = $todosLosRegistros->map(function (RegistroAsistencia $registro) use ($progService) {
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
+            $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
+            $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
+            $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
+            $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
+
+            $empleado = $registro->empleado;
+            $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+            $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
+            $horaSalidaProg = $horario['hora_salida'] ?? config('asistencia.hora_salida', '16:30:00');
+            $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
+
+            $minutosRetraso = 0;
+            if ($tieneEntrada && $horaLimite) {
+                $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
+            }
+
+            $minutosTrabajados = 0;
+            $horasTrabajadas = '--:--';
+            if ($tieneEntrada && $tieneSalida) {
+                $minutosTrabajados = $this->calcularMinutosTrabajados($entradaVal, $salidaVal);
+                $horasTrabajadas = sprintf('%dh %02dm', intdiv($minutosTrabajados, 60), $minutosTrabajados % 60);
+            }
+
+            $codigoBio = $empleado?->codigo_biometrico ?: (string) ($empleado?->id ?? '');
+
+            if ($tieneEntrada && $tieneSalida) {
+                if ($minutosRetraso > 0) {
+                    $estado = "Retraso (+{$minutosRetraso} min)";
+                    $tipoEstado = 'retraso';
+                } else {
+                    $estado = 'Puntual';
+                    $tipoEstado = 'puntual';
+                }
+            } elseif ($tieneEntrada && ! $tieneSalida) {
+                if ($registro->fecha?->isToday()) {
+                    $estado = 'En jornada (sin salida)';
+                    $tipoEstado = 'en_curso';
+                } else {
+                    $estado = 'Falta marcar salida';
+                    $tipoEstado = 'incompleto';
+                }
+            } elseif (! $tieneEntrada && $tieneSalida) {
+                $estado = 'Falta marcar entrada';
+                $tipoEstado = 'incompleto';
+            } else {
+                $estado = 'Sin marcación';
+                $tipoEstado = 'sin_marcacion';
+            }
+
+            $horarioProgLabel = substr((string) $horaEntradaProg, 0, 5) . ' - ' . substr((string) $horaSalidaProg, 0, 5);
+
+            return (object) [
+                'id' => $registro->id,
+                'empleado' => $empleado,
+                'empleado_id' => $empleado?->id,
+                'codigo' => $codigoBio,
+                'fecha' => $registro->fecha,
+                'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
+                'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
+                'horario_programado' => $horarioProgLabel,
+                'hora_entrada' => $entradaVal ?: '--:--',
+                'hora_salida' => $salidaVal ?: '--:--',
+                'horas_trabajadas' => $horasTrabajadas,
+                'minutos_retraso' => $minutosRetraso,
+                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--',
+                'estado_marcacion' => $estado,
+                'tipo_estado' => $tipoEstado,
+                'observacion' => $registro->observacion,
+            ];
+        });
+
+        // Filtrar por estado si se especificó
+        if ($this->appliedSucursalesEstadoFiltro === 'puntual') {
+            $rows = $rows->filter(fn ($r) => $r->tipo_estado === 'puntual')->values();
+        } elseif ($this->appliedSucursalesEstadoFiltro === 'retraso') {
+            $rows = $rows->filter(fn ($r) => $r->tipo_estado === 'retraso' || $r->minutos_retraso > 0)->values();
+        } elseif ($this->appliedSucursalesEstadoFiltro === 'incompleto') {
+            $rows = $rows->filter(fn ($r) => in_array($r->tipo_estado, ['incompleto', 'en_curso', 'sin_marcacion'], true))->values();
+        }
+
+        // Ordenamiento
+        $rows = match ($this->appliedSucursalesOrden) {
+            'fecha_asc' => $rows->sortBy(fn ($r) => ($r->fecha?->toDateString() ?? '') . ' ' . $r->hora_entrada)->values(),
+            'retraso_desc' => $rows->sortByDesc(fn ($r) => $r->minutos_retraso)->values(),
+            'nombre_asc' => $rows->sortBy(fn ($r) => $r->empleado?->nombre_completo ?? '')->values(),
+            default => $rows->sortByDesc(fn ($r) => ($r->fecha?->toDateString() ?? '') . ' ' . $r->hora_entrada)->values(), // fecha_desc
+        };
+
+        // Estadísticas / KPIs
+        $totalMarcaciones = $rows->count();
+        $totalPuntuales = $rows->filter(fn ($r) => $r->tipo_estado === 'puntual')->count();
+        $pctPuntual = $totalMarcaciones > 0 ? round(($totalPuntuales / $totalMarcaciones) * 100, 1) : 0;
+        $totalRetrasos = $rows->filter(fn ($r) => $r->tipo_estado === 'retraso' || $r->minutos_retraso > 0)->count();
+        $totalMinutosRetraso = (int) $rows->sum(fn ($r) => $r->minutos_retraso);
+        $totalIncompletas = $rows->filter(fn ($r) => in_array($r->tipo_estado, ['incompleto', 'sin_marcacion'], true))->count();
+        $totalEmpleadosUnicos = $rows->pluck('empleado_id')->filter()->unique()->count();
+
+        $stats = [
+            'total_marcaciones' => $totalMarcaciones,
+            'total_puntuales' => $totalPuntuales,
+            'pct_puntual' => $pctPuntual,
+            'total_retrasos' => $totalRetrasos,
+            'total_minutos_retraso' => $totalMinutosRetraso,
+            'total_incompletas' => $totalIncompletas,
+            'total_empleados_unicos' => $totalEmpleadosUnicos,
+        ];
+
+        $paginatedResults = $paginated
+            ? $this->paginarColeccionConNombre($rows, $this->sucursalesPerPage, 'sucursalesPage')
+            : $rows;
+
+        return [
+            'registros' => $paginatedResults,
+            'allRows' => $rows,
+            'stats' => $stats,
+            'periodoLabel' => $periodoLabel,
+            'sucursalLabel' => $sucursalLabel,
+            'sucursalesLista' => $sucursalesLista,
+        ];
+    }
+
+    public function descargarPdfSucursales()
+    {
+        $data = $this->obtenerColeccionMarcacionesSucursales(false);
+        $periodoLabel = $data['periodoLabel'];
+        $sucursalLabel = $data['sucursalLabel'];
+        $stats = $data['stats'];
+        $rows = $data['allRows'];
+
+        $pdf = Pdf::loadView('pdf.marcaciones-sucursales', [
+            'periodoLabel' => $periodoLabel,
+            'sucursalLabel' => $sucursalLabel,
+            'stats' => $stats,
+            'registros' => $rows,
+            'filtroEstado' => $this->appliedSucursalesEstadoFiltro,
+        ])->setPaper('letter', 'landscape');
+
+        $slugSucursal = Str::slug($sucursalLabel);
+        $fileName = "Marcaciones_Sucursal_{$slugSucursal}_" . now()->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(fn () => print($pdf->output()), $fileName);
+    }
+
+    public function descargarExcelSucursales()
+    {
+        $data = $this->obtenerColeccionMarcacionesSucursales(false);
+        $periodoLabel = $data['periodoLabel'];
+        $sucursalLabel = $data['sucursalLabel'];
+        $rows = $data['allRows'];
+        $stats = $data['stats'];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Marcaciones Sucursales');
+
+        $currentRow = 1;
+
+        // Título
+        $sheet->setCellValue("A{$currentRow}", 'EMPRESA DE CORREOS DE BOLIVIA - REPORTE DE MARCACIONES POR SUCURSAL');
+        $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+        $currentRow++;
+
+        // Metadata
+        $sheet->setCellValue("A{$currentRow}", "Sucursal: {$sucursalLabel} | Período: {$periodoLabel} | Emisión: " . now()->format('d/m/Y H:i'));
+        $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9.5)->getColor()->setRGB('475569');
+        $currentRow++;
+
+        // Resumen métrico
+        $sheet->setCellValue(
+            "A{$currentRow}",
+            "Total Marcaciones: " . ($stats['total_marcaciones'] ?? 0) .
+            " | Puntuales: " . ($stats['total_puntuales'] ?? 0) . " ({$stats['pct_puntual']}%)" .
+            " | Con Retraso: " . ($stats['total_retrasos'] ?? 0) . " ({$stats['total_minutos_retraso']} min)" .
+            " | Incompletas: " . ($stats['total_incompletas'] ?? 0) .
+            " | Personal Único: " . ($stats['total_empleados_unicos'] ?? 0)
+        );
+        $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9)->getColor()->setRGB('334155');
+        $currentRow += 2;
+
+        $headerRow = $currentRow;
+        $headers = ['Fecha', 'Día', 'Personal', 'Código', 'Cargo / Área', 'Sucursal', 'Horario Prog.', 'Hora Entrada', 'Hora Salida', 'Horas Trab.', 'Minutos Retraso', 'Estado'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+
+        foreach ($headers as $idx => $headerText) {
+            $colLetter = $cols[$idx];
+            $sheet->setCellValue("{$colLetter}{$headerRow}", $headerText);
+        }
+
+        $lastCol = end($cols);
+        $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->setSize(9.5);
+        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('0F172A');
+        $sheet->getStyle($headerRange)->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("C{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+        $currentRow++;
+
+        foreach ($rows as $row) {
+            $c = 0;
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->fecha_formateada);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", ucfirst($row->dia ?? ''));
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->nombre_completo ?? 'N/D');
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->codigo);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->area ?? '');
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->sucursal ?? '');
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->horario_programado);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_entrada);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_salida);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->horas_trabajadas);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->minutos_retraso);
+            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->estado_marcacion);
+
+            $sheet->getStyle("A{$currentRow}:B{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("C{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getStyle("D{$currentRow}:L{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            $currentRow++;
+        }
+
+        $dataEndRow = max($headerRow, $currentRow - 1);
+        $tableRange = "A{$headerRow}:{$lastCol}{$dataEndRow}";
+        $sheet->getStyle($tableRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
+
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $slugSucursal = Str::slug($sucursalLabel);
+        $fileName = "Marcaciones_Sucursal_{$slugSucursal}_" . now()->format('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $fileName);
+    }
+
     public function render()
     {
         $referenceMonth = $this->referenceMonth();
@@ -1270,6 +1639,31 @@ class PersonalPage extends Component
         $monthEnd = $referenceMonth->copy()->endOfMonth()->toDateString();
 
         $searchOperator = $this->caseInsensitiveLikeOperator();
+
+        // ─── Vista Registro mensual de sucursales ───
+        if ($this->vista === 'sucursales') {
+            $dataSucursales = $this->obtenerColeccionMarcacionesSucursales(true);
+
+            return view('livewire.personal', [
+                'sucursalesRegistros' => $dataSucursales['registros'],
+                'sucursalesStats' => $dataSucursales['stats'],
+                'sucursalesPeriodoLabel' => $dataSucursales['periodoLabel'],
+                'sucursalesLista' => $dataSucursales['sucursalesLista'],
+                'sucursalSeleccionadaLabel' => $dataSucursales['sucursalLabel'],
+                'empleados' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, ['path' => request()->url(), 'pageName' => 'page']),
+                'registros' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, ['path' => request()->url(), 'pageName' => 'registrosPage']),
+                'mes_resumen' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
+                'sucursales' => $dataSucursales['sucursalesLista'],
+                'totalHorasMes' => '0h 0m',
+                'empleadosSancionadosModal' => collect([]),
+                'totalSancionadosAcumulativo2' => 0,
+                'totalSancionadosGeneral' => 0,
+                'totalActivosSistema' => Empleado::query()->activosLaboralmente()->count(),
+                'totalInactivosSistema' => Empleado::query()->inactivosLaboralmente()->count(),
+                'totalPadronSistema' => Empleado::query()->count(),
+                'totalMarcacionesHoySistema' => RegistroAsistencia::query()->whereDate('fecha', now()->toDateString())->whereNotNull('empleado_id')->distinct('empleado_id')->count('empleado_id'),
+            ])->layout('layouts.app', ['title' => $this->pageTitle()]);
+        }
 
         $empleadosBaseQuery = Empleado::query()
             ->withUltimaMarcacion();
@@ -2320,7 +2714,12 @@ class PersonalPage extends Component
 
     private function paginarColeccion(\Illuminate\Support\Collection $items, int $perPage): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $page = $this->getPage();
+        return $this->paginarColeccionConNombre($items, $perPage, 'page');
+    }
+
+    private function paginarColeccionConNombre(\Illuminate\Support\Collection $items, int $perPage, string $pageName = 'page'): \Illuminate\Pagination\LengthAwarePaginator
+    {
+        $page = $this->getPage($pageName);
         $total = $items->count();
         $results = $items->forPage($page, $perPage)->values();
 
@@ -2331,7 +2730,7 @@ class PersonalPage extends Component
             $page,
             [
                 'path' => request()->url(),
-                'pageName' => 'page',
+                'pageName' => $pageName,
                 'query' => request()->query(),
             ]
         );
@@ -2343,6 +2742,7 @@ class PersonalPage extends Component
             'inactivos' => 'Personal inactivo',
             'marcaciones' => 'Marcaciones del personal',
             'control' => 'Marcaciones por sucursales',
+            'sucursales' => 'Registro mensual de sucursales',
             default => 'Registro de personal',
         };
     }

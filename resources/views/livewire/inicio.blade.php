@@ -1,4 +1,4 @@
-<div class="page-stack">
+<div class="page-stack" wire:poll.60s>
   @if (session('status_success'))
     <div
       class="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/90 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm backdrop-blur-xs">

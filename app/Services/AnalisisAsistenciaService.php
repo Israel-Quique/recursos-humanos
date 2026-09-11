@@ -1962,7 +1962,7 @@ class AnalisisAsistenciaService
         return $entrada->greaterThanOrEqualTo($corteOmision);
     }
 
-    private function calcularMinutosRetraso(?string $horaEntrada, ?string $horaProgramada): int
+    public function calcularMinutosRetraso(?string $horaEntrada, ?string $horaProgramada): int
     {
         if (blank($horaEntrada) || blank($horaProgramada)) {
             return 0;

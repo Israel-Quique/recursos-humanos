@@ -35,6 +35,9 @@ class InicioPage extends Component
             return;
         }
 
+        @ini_set('max_execution_time', '300');
+        @set_time_limit(300);
+
         try {
             $service = app(SincronizacionBiometricoService::class);
             $results = $service->sincronizarTodos($force);
@@ -127,6 +130,17 @@ class InicioPage extends Component
             ->pluck('sucursal');
         $totalSucursales = count(SucursalNormalizer::optionsFromValues($sucursales));
         $hoy = Carbon::now()->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY');
+
+        if (!$this->syncResult) {
+            $lastDeviceSync = BiometricoDispositivo::query()
+                ->whereNotNull('last_seen_at')
+                ->orderByDesc('last_seen_at')
+                ->value('last_seen_at');
+
+            if ($lastDeviceSync) {
+                $this->lastSyncTime = Carbon::parse($lastDeviceSync)->locale('es')->diffForHumans();
+            }
+        }
 
         return view('livewire.inicio', [
             'user' => $user,

@@ -179,15 +179,20 @@ class ReportesPage extends Component
         $authUser = auth()->user()?->loadMissing('empleado');
         $reportePersonal = null;
         if ($authUser?->empleado_id) {
-            $reportePersonal = $analysis->detalleMensualPorEmpleado(
-                (int) $authUser->empleado_id,
-                $referenceMonth,
-                null
+            $empId = (int) $authUser->empleado_id;
+            $reportePersonal = Cache::remember(
+                "rep_personal_{$empId}_{$this->referenceMonth}",
+                60,
+                fn() => $analysis->detalleMensualPorEmpleado($empId, $referenceMonth, null)
             );
         }
 
-        // Datos de atrasos y omisiones del mes
-        $reporteAtrasoOmision = $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch);
+        // Datos de atrasos y omisiones del mes cacheados
+        $reporteAtrasoOmision = Cache::remember(
+            "rep_atraso_omision_{$this->referenceMonth}_{$this->selectedBranch}",
+            60,
+            fn() => $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch)
+        );
 
         // --- FILTRADO Y ORDENACIÓN DE ATRASOS ---
         $atrasosItems = collect($reporteAtrasoOmision['atrasos'] ?? []);
@@ -263,13 +268,19 @@ class ReportesPage extends Component
             ['pageName' => 'omisionesPage']
         );
 
-        // Reporte consolidado por sucursal para vista y agrupaciones
-        $reporteSucursales = $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch);
+        // Reporte consolidado por sucursal para vista y agrupaciones (cacheado base)
+        $reporteSucursalesBase = Cache::remember(
+            "rep_sucursales_{$this->referenceMonth}_{$this->selectedBranch}",
+            60,
+            fn() => $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch)
+        );
+
+        $reporteSucursales = $reporteSucursalesBase;
         if (filled($this->search)) {
             $term = Str::ascii(Str::lower(trim($this->search)));
             $filteredSucursales = [];
-            foreach ($reporteSucursales['sucursales'] as $suc) {
-                $matchedEmpleados = array_values(array_filter($suc['empleados'], function ($emp) use ($term) {
+            foreach ($reporteSucursalesBase['sucursales'] ?? [] as $suc) {
+                $matchedEmpleados = array_values(array_filter($suc['empleados'] ?? [], function ($emp) use ($term) {
                     $nombre = Str::ascii(Str::lower($emp['nombre'] ?? ''));
                     $codigo = Str::ascii(Str::lower($emp['codigo'] ?? ''));
                     return str_contains($nombre, $term) || str_contains($codigo, $term);
@@ -313,19 +324,21 @@ class ReportesPage extends Component
                 ]),
         ];
 
+        $cacheKeyBase = "rep_{$this->referenceMonth}_{$this->selectedBranch}";
+
         return view('livewire.reportes', [
-            'metrics'              => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch),
-            'frequency'            => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch),
-            'incidents'            => $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch),
-            'monthlyReport'        => $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch),
+            'metrics'              => Cache::remember("{$cacheKeyBase}_metrics", 60, fn() => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch)),
+            'frequency'            => Cache::remember("{$cacheKeyBase}_freq", 60, fn() => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch)),
+            'incidents'            => Cache::remember("{$cacheKeyBase}_incidents", 60, fn() => $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch)),
+            'monthlyReport'        => Cache::remember("{$cacheKeyBase}_monthly", 60, fn() => $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch)),
             'branches'             => $analysis->sucursalesParaReportes(),
             'monthLabel'           => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'detailEmployeeReport' => $this->detailEmployeeReport,
             // Reportes
-            'cumpleanos'           => $analysis->cumpleaniosMes($referenceMonth, $this->selectedBranch),
-            'rankingMensual'       => $analysis->rankingPuntualidadMensual($referenceMonth, $this->selectedBranch, 5),
-            'rankingSemanal'       => $analysis->rankingPuntualidadSemanal($this->selectedBranch, 5),
-            'reportesAntiguedad'   => $analysis->reportesAntiguedad($this->selectedBranch, 10),
+            'cumpleanos'           => Cache::remember("{$cacheKeyBase}_cumple", 60, fn() => $analysis->cumpleaniosMes($referenceMonth, $this->selectedBranch)),
+            'rankingMensual'       => Cache::remember("{$cacheKeyBase}_rank_m", 60, fn() => $analysis->rankingPuntualidadMensual($referenceMonth, $this->selectedBranch, 5)),
+            'rankingSemanal'       => Cache::remember("{$cacheKeyBase}_rank_s", 60, fn() => $analysis->rankingPuntualidadSemanal($this->selectedBranch, 5)),
+            'reportesAntiguedad'   => Cache::remember("{$cacheKeyBase}_antig", 60, fn() => $analysis->reportesAntiguedad($this->selectedBranch, 10)),
             'detalleAtrasos'       => $atrasosPaginados,
             'totalAtrasos'         => $atrasosItems->count(),
             'atrasosStats'         => $atrasosStats,

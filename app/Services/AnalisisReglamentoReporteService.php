@@ -14,7 +14,10 @@ class AnalisisReglamentoReporteService
     public function __construct(
         protected AnalisisAsistenciaService $analisisAsistencia,
         protected ReglamentoSancionService $reglamentoSancion,
-    ) {}
+        protected ?ProgramacionLaboralService $programacionLaboral = null,
+    ) {
+        $this->programacionLaboral ??= app(ProgramacionLaboralService::class);
+    }
 
     /**
      * Genera el reporte integral del reglamento institucional para el mes y sucursal dados.
@@ -30,6 +33,15 @@ class AnalisisReglamentoReporteService
             ->when(filled($branch), fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $branch));
 
         $empleados = $empleadosQuery->orderBy('sucursal')->orderBy('apellido')->orderBy('nombre')->get();
+
+        $yearStart = Carbon::createFromDate($gestion, 1, 1)->startOfDay();
+        $asistenciasPreviasGestion = RegistroAsistencia::query()
+            ->whereIn('empleado_id', $empleados->pluck('id'))
+            ->whereDate('fecha', '>=', $yearStart)
+            ->whereDate('fecha', '<', $start)
+            ->whereNotNull('hora_entrada')
+            ->get(['empleado_id', 'fecha', 'hora_entrada'])
+            ->groupBy('empleado_id');
 
         $enAlerta = [];
         $alertasArt45 = [];
@@ -60,7 +72,8 @@ class AnalisisReglamentoReporteService
             $codigoEmpleado = !empty($empleado->codigo_biometrico) ? (string) $empleado->codigo_biometrico : 'CI: ' . $empleado->id;
 
             // Calcular reincidencia anual de meses con más de 120 min en la gestión
-            $mesesGravesGestion = $this->contarMesesConAtrasoGraveEnGestion($empleado, $gestion, (int) $referenceMonth->format('m'));
+            $empPrevias = $asistenciasPreviasGestion->get($empleado->id);
+            $mesesGravesGestion = $this->contarMesesConAtrasoGraveEnGestion($empleado, $gestion, (int) $referenceMonth->format('m'), $empPrevias);
             if ($minutosAtraso >= 121) {
                 $mesesGravesGestion++;
             }
@@ -465,9 +478,9 @@ class AnalisisReglamentoReporteService
 
     /**
      * Cuenta cuántos meses previos en la gestión anual un empleado superó o igualó los 121 minutos de retraso.
-     * Optimizado para verificar únicamente meses donde existen registros biométricos del funcionario.
+     * Optimizado para verificar únicamente meses donde existen registros biométricos del funcionario de forma directa.
      */
-    protected function contarMesesConAtrasoGraveEnGestion(Empleado $empleado, int $gestion, int $mesExcluir): int
+    protected function contarMesesConAtrasoGraveEnGestion(Empleado $empleado, int $gestion, int $mesExcluir, ?Collection $preloadedRegistros = null): int
     {
         if ($mesExcluir <= 1) {
             return 0;
@@ -481,42 +494,36 @@ class AnalisisReglamentoReporteService
         $startDate = "{$gestion}-01-01";
         $endDate = Carbon::createFromDate($gestion, $mesExcluir, 1)->startOfMonth()->toDateString();
 
-        // Si no tiene registros tardíos tras tolerancia en meses anteriores, evitamos cálculos costosos
-        $hasLate = RegistroAsistencia::query()
+        $registros = $preloadedRegistros ?? RegistroAsistencia::query()
             ->where('empleado_id', $empleado->id)
             ->whereDate('fecha', '>=', $startDate)
             ->whereDate('fecha', '<', $endDate)
             ->whereNotNull('hora_entrada')
-            ->whereTime('hora_entrada', '>', '08:35:00')
-            ->exists();
+            ->get(['fecha', 'hora_entrada']);
 
-        if (! $hasLate) {
+        if (!$registros || $registros->isEmpty()) {
             return self::$reincidenciaCache[$cacheKey] = 0;
         }
 
-        $fechas = RegistroAsistencia::query()
-            ->where('empleado_id', $empleado->id)
-            ->whereDate('fecha', '>=', $startDate)
-            ->whereDate('fecha', '<', $endDate)
-            ->whereNotNull('hora_entrada')
-            ->pluck('fecha');
-
-        if ($fechas->isEmpty()) {
-            return self::$reincidenciaCache[$cacheKey] = 0;
-        }
-
-        $mesesConRegistros = $fechas->map(fn($f) => (int) Carbon::parse($f)->format('m'))->unique()->all();
+        $mesesConRegistros = $registros->groupBy(fn($r) => (int) $r->fecha?->format('m'));
 
         $conteo = 0;
-        foreach ($mesesConRegistros as $m) {
-            $mesRef = Carbon::createFromDate($gestion, $m, 1);
-            $detalle = $this->analisisAsistencia->detalleMensualPorEmpleado($empleado->id, $mesRef, $empleado->sucursal);
+        foreach ($mesesConRegistros as $m => $items) {
+            $minutosMes = 0;
+            foreach ($items as $reg) {
+                $horario = $this->programacionLaboral->resolverHorario($empleado, $reg->fecha);
+                if (!$horario['laborable']) {
+                    continue;
+                }
 
-            if (!$detalle) {
-                continue;
+                $horaProg = $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada'];
+                if (!$horaProg || !$reg->hora_entrada) {
+                    continue;
+                }
+
+                $delay = $this->analisisAsistencia->calcularMinutosRetraso($reg->hora_entrada, $horaProg);
+                $minutosMes += $delay;
             }
-
-            $minutosMes = (int) ($detalle['retraso_resumen']['total_minutos'] ?? 0);
 
             if ($minutosMes >= 121) {
                 $conteo++;

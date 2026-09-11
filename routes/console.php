@@ -35,4 +35,5 @@ Artisan::command('biometrico:sync {--force : Reprocesa todas las marcaciones enc
 Schedule::command('biometrico:sync')
     ->everyMinute()
     ->timezone(config('app.timezone'))
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
+
