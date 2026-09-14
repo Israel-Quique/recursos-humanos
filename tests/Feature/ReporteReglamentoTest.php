@@ -111,6 +111,9 @@ class ReporteReglamentoTest extends TestCase
             ->assertSee('Concurrencia de Leyes')
             ->assertSee('Días Totales a Deducir')
             ->assertSee('Control de Cumplimiento del Reglamento Interno')
+            ->assertSee('Detalle de Atrasos y Días a Descontar')
+            ->assertSee('Detalle de Omisiones de Marcación')
+            ->assertSee('Reporte de Reincidentes')
             ->call('descargarPdfReporteReglamento')
             ->assertFileDownloaded();
     }
@@ -147,6 +150,133 @@ class ReporteReglamentoTest extends TestCase
         $this->assertIsArray($reporte);
         $this->assertArrayHasKey('casos_criticos', $reporte);
         $this->assertArrayHasKey('metricas', $reporte);
+    }
+
+    public function test_evaluacion_reglamento_genera_detalle_atrasos_omisiones_y_reincidentes(): void
+    {
+        $this->travelTo(Carbon::parse('2026-05-20 12:00:00'));
+
+        $emp = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Mamani',
+            'codigo_biometrico' => 'CM-77',
+            'area' => 'Logística',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-10',
+        ]);
+
+        // Mes 1: 45 min de atraso (> 30 min)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-01-15',
+            'hora_entrada' => '09:20:00',
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Mes 2: 35 min de atraso (> 30 min)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-02-10',
+            'hora_entrada' => '09:10:00',
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Mes 5 (evaluado): 2 atrasos (15 min y 20 min = 35 min total > 30 min)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-05-04',
+            'hora_entrada' => '08:50:00', // 15 min tras tolerancia
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-05-06',
+            'hora_entrada' => '08:55:00', // 20 min tras tolerancia (Total 35 min)
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // 2 omisiones de marcación (olvido de entrada)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-05-11',
+            'hora_entrada' => null,
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Salida',
+            'evento_biometrico' => 'Verificado',
+        ]);
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-05-18',
+            'hora_entrada' => null,
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Salida',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Registrar asistencia normal para el resto de días laborables hasta el 20 de mayo
+        for ($d = 1; $d <= 20; $d++) {
+            $dt = Carbon::parse(sprintf('2026-05-%02d', $d));
+            if ($dt->isWeekend() || in_array($d, [4, 6, 11, 18])) {
+                continue;
+            }
+            RegistroAsistencia::query()->create([
+                'empleado_id' => $emp->id,
+                'fecha' => $dt->toDateString(),
+                'hora_entrada' => '08:30:00',
+                'hora_salida' => '16:30:00',
+                'estado_marcacion' => 'Completo',
+                'evento_biometrico' => 'Verificado',
+            ]);
+        }
+
+        $service = app(AnalisisReglamentoReporteService::class);
+        $reporte = $service->generarReporteReglamento(Carbon::parse('2026-05-01'));
+
+        // 1. Detalle de Atrasos
+        $this->assertArrayHasKey('detalle_atrasos', $reporte);
+        $detalleAtraso = collect($reporte['detalle_atrasos'])->firstWhere('id', $emp->id);
+        $this->assertNotNull($detalleAtraso);
+        $this->assertEquals(2, $detalleAtraso['dias_tarde']);
+        $this->assertEquals(35, $detalleAtraso['minutos_atraso']);
+        $this->assertEquals(0.5, $detalleAtraso['dias_descuento']);
+        $this->assertCount(2, $detalleAtraso['fechas']);
+        $this->assertStringContainsString('04/05/2026', $detalleAtraso['fechas_texto']);
+
+        // 2. Detalle de Omisiones
+        $this->assertArrayHasKey('detalle_omisiones', $reporte);
+        $detalleOmision = collect($reporte['detalle_omisiones'])->firstWhere('id', $emp->id);
+        $this->assertNotNull($detalleOmision);
+        $this->assertEquals(2, $detalleOmision['total_omisiones']);
+        $this->assertEquals(1.0, $detalleOmision['dias_descuento']);
+        $this->assertCount(2, $detalleOmision['fechas']);
+        $this->assertStringContainsString('11/05/2026', $detalleOmision['fechas_texto']);
+
+        // 3. Reincidentes (> 30 min en > 2 meses en el año: Mes 1, Mes 2, Mes 5 = 3 meses)
+        $this->assertArrayHasKey('detalle_reincidentes', $reporte);
+        $reincidenteAtraso = collect($reporte['detalle_reincidentes'])->first(function ($item) use ($emp) {
+            return $item['id'] === $emp->id && $item['tipo'] === 'atrasos';
+        });
+        $this->assertNotNull($reincidenteAtraso);
+        $this->assertGreaterThanOrEqual(3, $reincidenteAtraso['conteo_meses']);
+        $this->assertStringContainsString('Mayo', $reincidenteAtraso['detalle_texto']);
+
+        // 4. Reincidentes por Omisiones (2 omisiones)
+        $reincidenteOmision = collect($reporte['detalle_reincidentes'])->first(function ($item) use ($emp) {
+            return $item['id'] === $emp->id && $item['tipo'] === 'omisiones';
+        });
+        $this->assertNotNull($reincidenteOmision);
+        $this->assertStringContainsString('2 omisiones', $reincidenteOmision['frecuencia']);
+        $this->assertStringContainsString('11/05/2026', $reincidenteOmision['fechas_texto']);
     }
 }
 

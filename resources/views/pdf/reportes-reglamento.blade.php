@@ -1,116 +1,125 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <title>Reporte Disciplinario de Reglamento y Sanciones</title>
+    <title>Reporte de Reglamento y Sanciones - {{ $monthLabel }}</title>
     <style>
       @page {
-        margin: 18mm 15mm 18mm 15mm;
-        size: A4 portrait;
+        margin: 18px 20px 20px 20px;
+        size: a4 portrait;
       }
       body {
         font-family: DejaVu Sans, sans-serif;
-        color: #0f172a;
-        margin: 0;
-        padding: 0;
-        font-size: 9px;
+        color: #1e293b;
+        font-size: 8.5px;
         line-height: 1.35;
       }
-      h1, h2, h3, h4, p { margin: 0; }
-      
       .header-table {
         width: 100%;
-        border-bottom: 2px solid #0f172a;
-        padding-bottom: 8px;
+        border-collapse: collapse;
         margin-bottom: 12px;
+        border-bottom: 2px solid #0f67c0;
+        padding-bottom: 8px;
       }
       .org-name {
         font-size: 8px;
-        letter-spacing: 0.15em;
         text-transform: uppercase;
-        color: #475569;
+        letter-spacing: 0.12em;
+        color: #0f67c0;
         font-weight: bold;
       }
       .report-title {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: bold;
         color: #0f172a;
-        margin-top: 3px;
+        margin-top: 1px;
       }
       .report-subtitle {
-        font-size: 9px;
-        color: #475569;
+        font-size: 8px;
+        color: #64748b;
         margin-top: 2px;
       }
       .meta-box {
         text-align: right;
-        font-size: 8.5px;
-        color: #475569;
+        font-size: 8px;
+        color: #334155;
       }
-      
-      /* Tarjetas de Resumen */
+      .meta-box strong {
+        color: #0f172a;
+      }
+
+      /* KPI Cards */
       .kpi-table {
         width: 100%;
-        margin-bottom: 14px;
         border-collapse: separate;
         border-spacing: 6px 0;
+        margin-bottom: 14px;
       }
       .kpi-card {
-        border: 1px solid #cbd5e1;
         background-color: #f8fafc;
-        padding: 8px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 6px 8px;
         text-align: center;
-        border-radius: 4px;
       }
       .kpi-card-alert {
+        background-color: #fffbeb;
         border-color: #fde68a;
-        background-color: #fefce8;
       }
       .kpi-card-danger {
-        border-color: #fecdd3;
         background-color: #fff1f2;
+        border-color: #fecdd3;
       }
       .kpi-card-purple {
-        border-color: #ddd6fe;
         background-color: #f5f3ff;
+        border-color: #ddd6fe;
       }
       .kpi-title {
         font-size: 7.5px;
-        font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #475569;
+        color: #64748b;
+        font-weight: bold;
       }
       .kpi-value {
-        font-size: 16px;
+        font-size: 13px;
         font-weight: bold;
         color: #0f172a;
-        margin-top: 3px;
+        margin: 2px 0;
       }
       .kpi-desc {
-        font-size: 7.5px;
+        font-size: 7px;
         color: #64748b;
-        margin-top: 2px;
       }
 
-      /* Secciones y Tablas */
+      /* Data Tables */
       .section-header {
-        background-color: #f1f5f9;
-        border-left: 3px solid #0f172a;
-        padding: 4px 8px;
-        margin-top: 14px;
-        margin-bottom: 6px;
-        font-size: 10px;
+        font-size: 9.5px;
         font-weight: bold;
         color: #0f172a;
-      }
-      .section-kicker {
-        font-size: 7.5px;
-        font-weight: bold;
+        margin: 12px 0 6px 0;
+        padding: 4px 8px;
+        background-color: #f1f5f9;
+        border-left: 3px solid #0f67c0;
         text-transform: uppercase;
-        color: #64748b;
+        letter-spacing: 0.04em;
       }
-      
+      .section-header-amber {
+        border-left-color: #d97706;
+        background-color: #fef3c7;
+        color: #92400e;
+      }
+      .section-header-rose {
+        border-left-color: #e11d48;
+        background-color: #ffe4e6;
+        color: #9f1239;
+      }
+      .section-header-purple {
+        border-left-color: #7c3aed;
+        background-color: #f3e8ff;
+        color: #6b21a8;
+      }
+
       .data-table {
         width: 100%;
         border-collapse: collapse;
@@ -118,31 +127,37 @@
       }
       .data-table th {
         background-color: #f8fafc;
-        border: 1px solid #cbd5e1;
-        padding: 4px 6px;
-        font-size: 8px;
+        color: #475569;
         font-weight: bold;
+        font-size: 7.5px;
         text-transform: uppercase;
-        color: #334155;
+        letter-spacing: 0.04em;
+        padding: 5px 6px;
+        border: 1px solid #cbd5e1;
         text-align: left;
       }
       .data-table td {
-        border: 1px solid #cbd5e1;
-        padding: 4px 6px;
+        padding: 4.5px 6px;
+        border: 1px solid #e2e8f0;
         font-size: 8px;
-        color: #1e293b;
+        vertical-align: top;
       }
+      .data-table tr:nth-child(even) td {
+        background-color: #fcfdfe;
+      }
+
       .text-center { text-align: center; }
       .text-right { text-align: right; }
       .font-bold { font-weight: bold; }
-      .font-mono { font-family: monospace; }
-      
+      .font-mono { font-family: monospace; font-size: 7.5px; }
+
       .badge {
         display: inline-block;
-        padding: 1px 4px;
-        border-radius: 3px;
-        font-size: 7.5px;
+        padding: 1.5px 5px;
+        border-radius: 4px;
+        font-size: 7px;
         font-weight: bold;
+        text-transform: uppercase;
       }
       .badge-amber {
         background-color: #fef3c7;
@@ -159,9 +174,20 @@
         color: #6b21a8;
         border: 1px solid #d8b4fe;
       }
+      .badge-emerald {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+
+      .fechas-list {
+        font-size: 7.2px;
+        color: #475569;
+        line-height: 1.35;
+      }
       
       .footer-signatures {
-        margin-top: 28px;
+        margin-top: 24px;
         width: 100%;
         page-break-inside: avoid;
       }
@@ -178,13 +204,13 @@
   </head>
   <body>
 
-    <!-- Encabezado Formal -->
+    <!-- Encabezado Institucional -->
     <table class="header-table">
       <tr>
         <td style="width: 65%;">
           <div class="org-name">Agencia Boliviana de Correos · Recursos Humanos</div>
-          <div class="report-title">Informe Disciplinario y Control de Reglamento</div>
-          <div class="report-subtitle">Evaluación de Sanciones, Alertas Preventivas y Reincidencias (Art. 45 y Art. 48)</div>
+          <div class="report-title">Detalle de Atrasos, Omisiones y Sanciones de Reglamento</div>
+          <div class="report-subtitle">Cómputo Oficial de Faltas, Descuentos de Haber y Control de Reincidencias (Art. 45 y Art. 48)</div>
         </td>
         <td class="meta-box" style="width: 35%;">
           <div><strong>Periodo:</strong> {{ $monthLabel }}</div>
@@ -194,225 +220,183 @@
       </tr>
     </table>
 
-    <!-- Resumen Ejecutivo Superior con 5 KPIs -->
+    <!-- Resumen Ejecutivo Superior (KPIs) -->
     <table class="kpi-table">
       <tr>
-        <td class="kpi-card kpi-card-alert" style="width: 20%;">
-          <div class="kpi-title">Zona de Alerta</div>
-          <div class="kpi-value">{{ $reporte['metricas']['en_alerta_preventiva'] ?? 0 }}</div>
-          <div class="kpi-desc">A punto de ser sancionados</div>
+        <td class="kpi-card kpi-card-alert" style="width: 25%;">
+          <div class="kpi-title">Personal con Atraso</div>
+          <div class="kpi-value">{{ $reporte['metricas']['total_con_atraso'] ?? count($reporte['detalle_atrasos'] ?? []) }}</div>
+          <div class="kpi-desc">Art. 45.I (Escala de atrasos)</div>
         </td>
-        <td class="kpi-card" style="width: 20%;">
-          <div class="kpi-title">Con Sanción (Art. 45)</div>
-          <div class="kpi-value">{{ $reporte['metricas']['con_sancion_economica'] ?? 0 }}</div>
-          <div class="kpi-desc">Descuento en planilla</div>
+        <td class="kpi-card kpi-card-danger" style="width: 25%;">
+          <div class="kpi-title">Personal con Omisión</div>
+          <div class="kpi-value">{{ $reporte['metricas']['total_con_omision'] ?? count($reporte['detalle_omisiones'] ?? []) }}</div>
+          <div class="kpi-desc">Art. 45.III / 48.IV</div>
         </td>
-        <td class="kpi-card kpi-card-danger" style="width: 20%;">
-          <div class="kpi-title">Riesgo Crítico (Art. 48)</div>
-          <div class="kpi-value">{{ $reporte['metricas']['riesgo_critico'] ?? 0 }}</div>
-          <div class="kpi-desc">Faltas gravísimas</div>
+        <td class="kpi-card kpi-card-purple" style="width: 25%;">
+          <div class="kpi-title">Reincidentes (>30 min / Omis.)</div>
+          <div class="kpi-value">{{ $reporte['metricas']['total_reincidentes'] ?? count($reporte['detalle_reincidentes'] ?? []) }}</div>
+          <div class="kpi-desc">Gestión {{ $reporte['gestion'] ?? date('Y') }}</div>
         </td>
-        <td class="kpi-card kpi-card-purple" style="width: 20%;">
-          <div class="kpi-title">Concurrencia (45+48)</div>
-          <div class="kpi-value">{{ $reporte['metricas']['concurrencia_articulos'] ?? 0 }}</div>
-          <div class="kpi-desc">Infringe ambos artículos</div>
-        </td>
-        <td class="kpi-card" style="width: 20%;">
-          <div class="kpi-title">Días a Deducir</div>
+        <td class="kpi-card" style="width: 25%;">
+          <div class="kpi-title">Días a Descontar</div>
           <div class="kpi-value">{{ $reporte['metricas']['total_dias_sancion_formato'] ?? '0 días' }}</div>
-          <div class="kpi-desc">Cómputo DAF</div>
+          <div class="kpi-desc">Cómputo Total DAF</div>
         </td>
       </tr>
     </table>
 
-    <!-- SECCIÓN 1: PERSONAL EN ZONA DE ALERTA (A PUNTO DE SER SANCIONADO) -->
-    <div class="section-header">
-      <span class="section-kicker">Prevención y Control Temprano · </span>
-      1. Personal a Punto de ser Sancionado (Zona de Alerta)
+    <!-- ============================================================ -->
+    <!-- 1. TABLA: DETALLE DE ATRASOS Y SANCIONES (ART. 45.I)          -->
+    <!-- ============================================================ -->
+    <div class="section-header section-header-amber">
+      1. Detalle de Atrasos y Días a Descontar (Art. 45.I)
     </div>
     <table class="data-table">
       <thead>
         <tr>
           <th style="width: 20px;" class="text-center">#</th>
-          <th>Personal</th>
-          <th style="width: 60px;">CI / Código</th>
-          <th>Sucursal / Área</th>
-          <th style="width: 70px;" class="text-center">Tolerancia Usada</th>
-          <th style="width: 70px;" class="text-center">Falta p/ Sanción</th>
-          <th>Sanción Inminente</th>
+          <th style="width: 130px;">Nombre</th>
+          <th style="width: 60px;">Código</th>
+          <th style="width: 80px;">Sucursal / Área</th>
+          <th style="width: 60px;" class="text-center">Atraso</th>
+          <th style="width: 65px;" class="text-center">Días Tarde</th>
+          <th style="width: 75px;" class="text-center">Descuento</th>
+          <th>Detalle de Fechas (Minutos por día)</th>
         </tr>
       </thead>
       <tbody>
-        @forelse($reporte['personal_en_alerta'] ?? [] as $i => $emp)
+        @forelse($reporte['detalle_atrasos'] ?? [] as $i => $item)
           <tr>
             <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
-            <td class="font-bold">{{ $emp['nombre'] }}</td>
-            <td class="font-mono font-bold">{{ $emp['codigo'] }}</td>
-            <td>{{ $emp['sucursal'] }} - {{ $emp['area'] }}</td>
+            <td class="font-bold">{{ $item['nombre'] }}</td>
+            <td class="font-mono font-bold">{{ $item['codigo'] }}</td>
+            <td>{{ $item['sucursal'] }} - {{ $item['area'] }}</td>
             <td class="text-center font-bold" style="color: #92400e;">
-              {{ $emp['minutos_atraso'] }} min
+              {{ $item['minutos_texto'] }}
             </td>
+            <td class="text-center font-bold" style="color: #0f172a;">
+              {{ $item['dias_tarde_texto'] }}
+            </td>
+            <td class="text-center font-bold" style="color: {{ $item['es_sancionado'] ? '#b91c1c' : '#059669' }};">
+              {{ $item['dias_descuento_texto'] }}
+            </td>
+            <td class="fechas-list">
+              {{ $item['fechas_texto'] }}
+            </td>
+          </tr>
+        @empty
+          <tr>
+            <td colspan="8" class="text-center" style="padding: 10px; color: #64748b;">
+              No se registran funcionarios con atraso en este periodo.
+            </td>
+          </tr>
+        @endforelse
+      </tbody>
+    </table>
+
+    <!-- ============================================================ -->
+    <!-- 2. TABLA: DETALLE DE OMISIONES DE MARCACIÓN                  -->
+    <!-- ============================================================ -->
+    <div class="section-header section-header-rose">
+      2. Detalle de Omisiones de Marcación (Art. 45.III y Art. 48.IV)
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 20px;" class="text-center">#</th>
+          <th style="width: 130px;">Nombre</th>
+          <th style="width: 60px;">Código</th>
+          <th style="width: 80px;">Sucursal / Área</th>
+          <th style="width: 65px;" class="text-center">Omisiones</th>
+          <th style="width: 85px;" class="text-center">Descuento</th>
+          <th>Detalle de Fechas de Omisión</th>
+        </tr>
+      </thead>
+      <tbody>
+        @forelse($reporte['detalle_omisiones'] ?? [] as $i => $item)
+          <tr>
+            <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
+            <td class="font-bold">{{ $item['nombre'] }}</td>
+            <td class="font-mono font-bold">{{ $item['codigo'] }}</td>
+            <td>{{ $item['sucursal'] }} - {{ $item['area'] }}</td>
             <td class="text-center font-bold" style="color: #b91c1c;">
-              {{ $emp['distancia_umbral'] }}
+              {{ $item['total_omisiones_texto'] }}
             </td>
-            <td>{{ $emp['sancion_inminente'] ?? $emp['motivo_principal'] }}</td>
+            <td class="text-center font-bold" style="color: {{ $item['es_sancionado'] ? '#b91c1c' : '#475569' }};">
+              {{ $item['dias_descuento_texto'] }}
+            </td>
+            <td class="fechas-list">
+              {{ $item['fechas_texto'] }}
+            </td>
           </tr>
         @empty
           <tr>
             <td colspan="7" class="text-center" style="padding: 10px; color: #64748b;">
-              No se registran funcionarios en zona de riesgo preventivo en este periodo.
+              No se registran funcionarios con omisiones de marcación en este periodo.
             </td>
           </tr>
         @endforelse
       </tbody>
     </table>
 
-    <!-- SECCIÓN 2: PERSONAL MÁS SANCIONADO (TOP SANCIONADOS) -->
-    <div class="section-header">
-      <span class="section-kicker">Descuentos por Infracción Administrativa (Art. 45) · </span>
-      2. Personal Sancionado con Descuento en Planilla
+    <!-- ============================================================ -->
+    <!-- 3. TABLA: REPORTE DE REINCIDENTES (>30 MIN EN >2 MESES / OMIS.) -->
+    <!-- ============================================================ -->
+    <div class="section-header section-header-purple">
+      3. Reporte de Reincidentes (Gestión {{ $reporte['gestion'] ?? date('Y') }})
     </div>
     <table class="data-table">
       <thead>
         <tr>
           <th style="width: 20px;" class="text-center">#</th>
-          <th>Personal Sancionado</th>
-          <th style="width: 60px;">CI / Código</th>
-          <th>Sucursal / Área</th>
-          <th style="width: 65px;" class="text-center">Atrasos (45.I)</th>
-          <th style="width: 65px;" class="text-center">Faltas (45.II)</th>
-          <th style="width: 50px;" class="text-center">Omisiones</th>
-          <th style="width: 75px;" class="text-center">Días a Descontar</th>
-          <th>Desglose Oficial de Sanción</th>
+          <th style="width: 125px;">Nombre</th>
+          <th style="width: 60px;">Código</th>
+          <th style="width: 80px;">Sucursal / Área</th>
+          <th style="width: 100px;">Tipo de Reincidencia</th>
+          <th style="width: 75px;" class="text-center">Frecuencia</th>
+          <th style="width: 75px;" class="text-center">Descuento Actual</th>
+          <th>Detalle de Fechas y Meses Afectados</th>
         </tr>
       </thead>
       <tbody>
-        @forelse($reporte['mas_sancionados'] ?? [] as $i => $sancionado)
+        @forelse($reporte['detalle_reincidentes'] ?? [] as $i => $item)
           <tr>
             <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
-            <td class="font-bold">
-              {{ $sancionado['nombre'] }}
-              @if(!empty($sancionado['es_concurrente']))
-                <span class="badge badge-purple">Art. 45+48</span>
-              @elseif($sancionado['es_destitucion'])
-                <span class="badge badge-rose">Art. 48</span>
+            <td class="font-bold">{{ $item['nombre'] }}</td>
+            <td class="font-mono font-bold">{{ $item['codigo'] }}</td>
+            <td>{{ $item['sucursal'] }} - {{ $item['area'] }}</td>
+            <td>
+              @if($item['tipo'] === 'atrasos')
+                <span class="badge badge-amber">{{ $item['tipo_etiqueta'] }}</span>
+              @else
+                <span class="badge badge-rose">{{ $item['tipo_etiqueta'] }}</span>
               @endif
             </td>
-            <td class="font-mono font-bold">{{ $sancionado['codigo'] }}</td>
-            <td>{{ $sancionado['sucursal'] }} - {{ $sancionado['area'] }}</td>
-            <td class="text-center font-bold" style="color: #92400e;">
-              {{ $sancionado['minutos_atraso'] > 0 ? $sancionado['minutos_atraso'] . ' min' : '0 min' }}
+            <td class="text-center font-bold" style="color: #0f172a;">
+              {{ $item['frecuencia'] }}
             </td>
-            <td class="text-center font-bold" style="color: #c2410c;">
-              {{ $sancionado['faltas'] > 0 ? $sancionado['faltas'] . ' (' . $sancionado['dias_sancion_inasistencia_texto'] . ' doble)' : '0' }}
-            </td>
-            <td class="text-center">{{ $sancionado['omisiones'] }}</td>
             <td class="text-center font-bold" style="color: #b91c1c;">
-              {{ $sancionado['es_destitucion'] ? 'Destitución' : $sancionado['total_dias_sancion_texto'] }}
+              {{ $item['sancion_texto'] }}
             </td>
-            <td>{{ implode('; ', $sancionado['desglose']) ?: 'Sin descuento directo' }}</td>
+            <td class="fechas-list">
+              @if($item['tipo'] === 'atrasos')
+                <div><strong>Meses > 30 min:</strong> {{ $item['detalle_texto'] }}</div>
+                <div><strong>Fechas mes actual:</strong> {{ $item['fechas_texto'] }}</div>
+              @else
+                <div><strong>Fechas omisiones:</strong> {{ $item['fechas_texto'] }}</div>
+              @endif
+            </td>
           </tr>
         @empty
           <tr>
-            <td colspan="9" class="text-center" style="padding: 10px; color: #64748b;">
-              No se registraron sanciones aplicables en el periodo seleccionado.
+            <td colspan="8" class="text-center" style="padding: 10px; color: #64748b;">
+              No se registran funcionarios reincidentes en el periodo evaluado.
             </td>
           </tr>
         @endforelse
       </tbody>
     </table>
-
-    <!-- SECCIÓN 3: CONCURRENCIA DE LEYES Y SANCIONES -->
-    @if(count($reporte['concurrentes'] ?? []) > 0)
-      <div class="section-header" style="background-color: #f5f3ff; border-left-color: #7c3aed;">
-        <span class="section-kicker" style="color: #6d28d9;">Concurrencia Normativa (Art. 45 y Art. 48) · </span>
-        3. Casos con Doble Infracción y Cómputo de Sanciones
-      </div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 20px;" class="text-center">#</th>
-            <th style="width: 125px;">Personal</th>
-            <th style="width: 60px;">CI / Código</th>
-            <th style="width: 95px;">Sucursal / Área</th>
-            <th style="width: 140px;">Infracciones Detectadas</th>
-            <th>Sanción Aplicable / Cómputo Final</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($reporte['concurrentes'] as $i => $concurrente)
-            <tr>
-              <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
-              <td class="font-bold">
-                {{ $concurrente['nombre'] }}
-                <span class="badge badge-purple" style="margin-top: 2px; display: block; width: fit-content;">Art. 45 + 48</span>
-              </td>
-              <td class="font-mono font-bold">{{ $concurrente['codigo'] }}</td>
-              <td>{{ $concurrente['sucursal'] }}<br><span style="color: #64748b;">{{ $concurrente['area'] }}</span></td>
-              <td>
-                <div style="color: #92400e; font-size: 7.5px; margin-bottom: 2px;"><strong>• Art. 45:</strong> {{ $concurrente['infraccion_art45'] }}</div>
-                <div style="color: #9f1239; font-size: 7.5px;"><strong>• Art. 48:</strong> {{ $concurrente['infraccion_art48'] }}</div>
-              </td>
-              <td style="font-size: 8px;">
-                @if(!empty($concurrente['es_destitucion']))
-                  <strong style="color: #9f1239;">DESTITUCIÓN (Art. 48)</strong><br>
-                  <span style="color: #475569;">Días deducibles de haber: <strong>{{ $concurrente['total_dias_sancion_texto'] }}</strong></span>
-                @else
-                  <strong style="color: #92400e;">Descuento en planilla: {{ $concurrente['total_dias_sancion_texto'] }} de remuneración mensual</strong>
-                @endif
-              </td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-    @endif
-
-    <!-- SECCIÓN 4: CASOS CRÍTICOS Y REINCIDENTES (ART. 48) -->
-    @if(count($reporte['casos_criticos'] ?? []) > 0 || count($reporte['reincidentes'] ?? []) > 0)
-      <div class="section-header">
-        <span class="section-kicker">Normativa Disciplinaria Art. 48 · </span>
-        4. Casos Críticos y Reincidentes (Gestión {{ $reporte['gestion'] ?? '' }})
-      </div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 25px;" class="text-center">#</th>
-            <th>Personal</th>
-            <th style="width: 60px;">CI / Código</th>
-            <th>Sucursal / Área</th>
-            <th style="width: 90px;" class="text-center">Condición Legal</th>
-            <th>Causal / Detalle de Reincidencia</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($reporte['casos_criticos'] ?? [] as $i => $critico)
-            <tr>
-              <td class="text-center font-bold" style="color: #64748b;">{{ $i + 1 }}</td>
-              <td class="font-bold">{{ $critico['nombre'] }}</td>
-              <td class="font-mono">{{ $critico['codigo'] }}</td>
-              <td>{{ $critico['sucursal'] }} - {{ $critico['area'] }}</td>
-              <td class="text-center">
-                <span class="badge badge-rose">Destitución (Art. 48)</span>
-              </td>
-              <td class="font-bold" style="color: #9f1239;">{{ $critico['causal_principal'] }}</td>
-            </tr>
-          @endforeach
-
-          @foreach($reporte['reincidentes'] ?? [] as $i => $reincidente)
-            <tr>
-              <td class="text-center font-bold" style="color: #64748b;">{{ count($reporte['casos_criticos'] ?? []) + $i + 1 }}</td>
-              <td class="font-bold">{{ $reincidente['nombre'] }}</td>
-              <td class="font-mono">{{ $reincidente['codigo'] }}</td>
-              <td>{{ $reincidente['sucursal'] }} - {{ $reincidente['area'] }}</td>
-              <td class="text-center">
-                <span class="badge badge-amber">{{ $reincidente['meses_graves_gestion'] }}x en gestión</span>
-              </td>
-              <td>{{ $reincidente['detalle_reincidencia'] }}</td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-    @endif
 
     <!-- Firmas Formales -->
     <table class="footer-signatures">

@@ -1441,7 +1441,7 @@
       </div>
     @endif
 
-  <div x-data="{ filtroArticulo: 'todos' }">
+  <div x-data="{ filtroArticulo: 'atrasos' }">
     {{-- Título y Barra de Navegación por Artículos --}}
     <div class="mb-5 flex flex-wrap items-center justify-between gap-4 no-print border-b border-slate-200 pb-4">
       <div>
@@ -1450,44 +1450,59 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
-        <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-sm">
-          <button type="button" @click="filtroArticulo = 'todos'"
-            :class="filtroArticulo === 'todos' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+        <div class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-sm">
+          <button type="button" @click="filtroArticulo = 'atrasos'"
+            :class="filtroArticulo === 'atrasos' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
             class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span>Todos los Casos</span>
-            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-              {{ count($reporteReglamento['personal_en_alerta'] ?? []) + count($reporteReglamento['mas_sancionados'] ?? []) + count($reporteReglamento['casos_criticos'] ?? []) }}
+            <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+            <span>Detalle Atrasos</span>
+            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+              {{ count($reporteReglamento['detalle_atrasos'] ?? []) }}
+            </span>
+          </button>
+
+          <button type="button" @click="filtroArticulo = 'omisiones'"
+            :class="filtroArticulo === 'omisiones' ? 'bg-white text-rose-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+            <span>Detalle Omisiones</span>
+            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900">
+              {{ count($reporteReglamento['detalle_omisiones'] ?? []) }}
+            </span>
+          </button>
+
+          <button type="button" @click="filtroArticulo = 'reincidentes'"
+            :class="filtroArticulo === 'reincidentes' ? 'bg-white text-purple-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            <span class="h-2 w-2 rounded-full bg-purple-600"></span>
+            <span>Reincidentes</span>
+            <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
+              {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }}
             </span>
           </button>
 
           <button type="button" @click="filtroArticulo = 'concurrente'"
             :class="filtroArticulo === 'concurrente' ? 'bg-white text-purple-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
             class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-purple-600"></span>
-            <span>Concurrencia (Art. 45 + 48)</span>
+            <span>Concurrencia (45+48)</span>
             <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
               {{ $reporteReglamento['metricas']['concurrencia_articulos'] ?? 0 }}
             </span>
           </button>
 
-          <button type="button" @click="filtroArticulo = 'art45'"
-            :class="filtroArticulo === 'art45' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+          <button type="button" @click="filtroArticulo = 'alertas'"
+            :class="filtroArticulo === 'alertas' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
             class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-            <span>Art. 45 (Atrasos/Faltas)</span>
+            <span>Zona de Alerta</span>
             <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-              {{ ($reporteReglamento['art_45']['total_alertas'] ?? 0) + ($reporteReglamento['art_45']['total_sancionados'] ?? 0) }}
+              {{ $reporteReglamento['metricas']['en_alerta_preventiva'] ?? 0 }}
             </span>
           </button>
 
-          <button type="button" @click="filtroArticulo = 'art48'"
-            :class="filtroArticulo === 'art48' ? 'bg-white text-rose-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+          <button type="button" @click="filtroArticulo = 'todos'"
+            :class="filtroArticulo === 'todos' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
             class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-rose-500"></span>
-            <span>Art. 48 (Destitución)</span>
-            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900">
-              {{ ($reporteReglamento['art_48']['total_alertas'] ?? 0) + ($reporteReglamento['art_48']['total_criticos'] ?? 0) }}
-            </span>
+            <span>Ver Todo</span>
           </button>
         </div>
 
@@ -1498,6 +1513,243 @@
           <span>Descargar PDF Reglamento</span>
         </button>
       </div>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- TABLA 1: DETALLE DE ATRASOS Y SANCIONES (ART. 45.I)          --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'atrasos'" class="space-y-4 mb-8">
+      <section class="surface-card border-amber-200 bg-amber-50/20">
+        <div class="mb-4 flex items-center justify-between border-b border-amber-100 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-xs shadow-xs">⏱️</span>
+            <div>
+              <h5 class="text-sm font-bold text-amber-950">1. Detalle de Atrasos y Días a Descontar (Art. 45.I)</h5>
+              <p class="text-xs text-amber-800">Cómputo de minutos de retraso, sumatoria de días tarde, días de haber a descontar y desglose de fechas.</p>
+            </div>
+          </div>
+          <span class="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+            {{ count($reporteReglamento['detalle_atrasos'] ?? []) }} funcionarios con atraso
+          </span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-amber-200/70 bg-white shadow-xs">
+          <table class="history-table w-full">
+            <thead>
+              <tr class="bg-amber-50/60 border-b border-amber-100 text-[11px] text-amber-900 uppercase">
+                <th class="py-3 pl-4 pr-2 text-center" style="width: 30px;">#</th>
+                <th class="py-3 px-3">Funcionario</th>
+                <th class="py-3 px-3">Código</th>
+                <th class="py-3 px-3">Sucursal / Área</th>
+                <th class="py-3 px-3 text-center">Atraso</th>
+                <th class="py-3 px-3 text-center">Días Tarde</th>
+                <th class="py-3 px-3 text-center">Días Descuento</th>
+                <th class="py-3 px-3">Detalle de Fechas (Minutos)</th>
+                <th class="py-3 pr-4 pl-2 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
+              @forelse($reporteReglamento['detalle_atrasos'] ?? [] as $i => $item)
+                <tr class="hover:bg-amber-50/30 transition-colors">
+                  <td class="py-3 pl-4 pr-2 text-center font-bold text-slate-400">{{ $i + 1 }}</td>
+                  <td class="py-3 px-3">
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs bg-amber-500 text-white shadow-xs">
+                        {{ $item['inicial'] }}
+                      </div>
+                      <span class="font-bold text-slate-900">{{ $item['nombre'] }}</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-3 font-mono font-bold text-slate-700">{{ $item['codigo'] }}</td>
+                  <td class="py-3 px-3 text-slate-500">{{ $item['sucursal'] }} <span class="text-[10px]">· {{ $item['area'] }}</span></td>
+                  <td class="py-3 px-3 text-center font-black text-amber-950">{{ $item['minutos_texto'] }}</td>
+                  <td class="py-3 px-3 text-center font-bold text-slate-800">{{ $item['dias_tarde_texto'] }}</td>
+                  <td class="py-3 px-3 text-center font-bold">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs {{ $item['es_sancionado'] ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
+                      {{ $item['dias_descuento_texto'] }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-xs">
+                    {{ $item['fechas_texto'] }}
+                  </td>
+                  <td class="py-3 pr-4 pl-2 text-right">
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-amber-700" title="Ver detalle mensual del empleado">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="9" class="py-6 text-center text-xs text-slate-400">
+                    No se registran atrasos en este periodo.
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- TABLA 2: DETALLE DE OMISIONES DE MARCACIÓN                  --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'omisiones'" class="space-y-4 mb-8">
+      <section class="surface-card border-rose-200 bg-rose-50/20">
+        <div class="mb-4 flex items-center justify-between border-b border-rose-100 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-600 text-white font-bold text-xs shadow-xs">📋</span>
+            <div>
+              <h5 class="text-sm font-bold text-rose-950">2. Detalle de Omisiones de Marcación (Art. 45.III y Art. 48.IV)</h5>
+              <p class="text-xs text-rose-800">Cómputo de omisiones de entrada o salida, fechas registradas y sanciones aplicables.</p>
+            </div>
+          </div>
+          <span class="rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-xs font-bold text-rose-900">
+            {{ count($reporteReglamento['detalle_omisiones'] ?? []) }} funcionarios con omisión
+          </span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-rose-200/70 bg-white shadow-xs">
+          <table class="history-table w-full">
+            <thead>
+              <tr class="bg-rose-50/60 border-b border-rose-100 text-[11px] text-rose-900 uppercase">
+                <th class="py-3 pl-4 pr-2 text-center" style="width: 30px;">#</th>
+                <th class="py-3 px-3">Funcionario</th>
+                <th class="py-3 px-3">Código</th>
+                <th class="py-3 px-3">Sucursal / Área</th>
+                <th class="py-3 px-3 text-center">Omisiones</th>
+                <th class="py-3 px-3 text-center">Descuento</th>
+                <th class="py-3 px-3">Detalle de Fechas de Omisión</th>
+                <th class="py-3 pr-4 pl-2 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
+              @forelse($reporteReglamento['detalle_omisiones'] ?? [] as $i => $item)
+                <tr class="hover:bg-rose-50/30 transition-colors">
+                  <td class="py-3 pl-4 pr-2 text-center font-bold text-slate-400">{{ $i + 1 }}</td>
+                  <td class="py-3 px-3">
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs bg-rose-600 text-white shadow-xs">
+                        {{ $item['inicial'] }}
+                      </div>
+                      <span class="font-bold text-slate-900">{{ $item['nombre'] }}</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-3 font-mono font-bold text-slate-700">{{ $item['codigo'] }}</td>
+                  <td class="py-3 px-3 text-slate-500">{{ $item['sucursal'] }} <span class="text-[10px]">· {{ $item['area'] }}</span></td>
+                  <td class="py-3 px-3 text-center font-black text-rose-950">{{ $item['total_omisiones_texto'] }}</td>
+                  <td class="py-3 px-3 text-center font-bold">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs {{ $item['es_sancionado'] ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-700 border border-slate-200' }}">
+                      {{ $item['dias_descuento_texto'] }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-xs">
+                    {{ $item['fechas_texto'] }}
+                  </td>
+                  <td class="py-3 pr-4 pl-2 text-right">
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-rose-700" title="Ver detalle mensual del empleado">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="8" class="py-6 text-center text-xs text-slate-400">
+                    No se registran omisiones de marcación en este periodo.
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- TABLA 3: REPORTE DE REINCIDENTES (>30 MIN EN >2 MESES / OMIS) --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'reincidentes'" class="space-y-4 mb-8">
+      <section class="surface-card border-purple-200 bg-purple-50/20">
+        <div class="mb-4 flex items-center justify-between border-b border-purple-100 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-600 text-white font-bold text-xs shadow-xs">🔄</span>
+            <div>
+              <h5 class="text-sm font-bold text-purple-950">3. Reporte de Reincidentes (Gestión {{ $reporteReglamento['gestion'] ?? date('Y') }})</h5>
+              <p class="text-xs text-purple-800">Funcionarios con más de dos meses superando los 30 minutos de tolerancia y casos con omisiones reiteradas.</p>
+            </div>
+          </div>
+          <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
+            {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }} casos reincidentes
+          </span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-purple-200/70 bg-white shadow-xs">
+          <table class="history-table w-full">
+            <thead>
+              <tr class="bg-purple-50/60 border-b border-purple-100 text-[11px] text-purple-900 uppercase">
+                <th class="py-3 pl-4 pr-2 text-center" style="width: 30px;">#</th>
+                <th class="py-3 px-3">Funcionario</th>
+                <th class="py-3 px-3">Código</th>
+                <th class="py-3 px-3">Sucursal / Área</th>
+                <th class="py-3 px-3">Tipo Reincidencia</th>
+                <th class="py-3 px-3 text-center">Frecuencia</th>
+                <th class="py-3 px-3 text-center">Sanción Actual</th>
+                <th class="py-3 px-3">Detalle de Fechas y Meses</th>
+                <th class="py-3 pr-4 pl-2 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
+              @forelse($reporteReglamento['detalle_reincidentes'] ?? [] as $i => $item)
+                <tr class="hover:bg-purple-50/30 transition-colors">
+                  <td class="py-3 pl-4 pr-2 text-center font-bold text-slate-400">{{ $i + 1 }}</td>
+                  <td class="py-3 px-3">
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs bg-purple-600 text-white shadow-xs">
+                        {{ $item['inicial'] }}
+                      </div>
+                      <span class="font-bold text-slate-900">{{ $item['nombre'] }}</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-3 font-mono font-bold text-slate-700">{{ $item['codigo'] }}</td>
+                  <td class="py-3 px-3 text-slate-500">{{ $item['sucursal'] }} <span class="text-[10px]">· {{ $item['area'] }}</span></td>
+                  <td class="py-3 px-3">
+                    @if($item['tipo'] === 'atrasos')
+                      <span class="inline-flex items-center rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                        {{ $item['tipo_etiqueta'] }}
+                      </span>
+                    @else
+                      <span class="inline-flex items-center rounded-full bg-rose-100 border border-rose-300 px-2 py-0.5 text-[11px] font-bold text-rose-900">
+                        {{ $item['tipo_etiqueta'] }}
+                      </span>
+                    @endif
+                  </td>
+                  <td class="py-3 px-3 text-center font-bold text-slate-800">{{ $item['frecuencia'] }}</td>
+                  <td class="py-3 px-3 text-center font-bold text-rose-900">{{ $item['sancion_texto'] }}</td>
+                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-sm">
+                    @if($item['tipo'] === 'atrasos')
+                      <div><strong>Meses > 30 min:</strong> {{ $item['detalle_texto'] }}</div>
+                      <div class="text-[10.5px] text-slate-500"><strong>Fechas mes actual:</strong> {{ $item['fechas_texto'] }}</div>
+                    @else
+                      <div><strong>Fechas:</strong> {{ $item['fechas_texto'] }}</div>
+                    @endif
+                  </td>
+                  <td class="py-3 pr-4 pl-2 text-right">
+                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-purple-700" title="Ver detalle mensual del empleado">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="9" class="py-6 text-center text-xs text-slate-400">
+                    No se registran funcionarios reincidentes en el periodo evaluado.
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
     {{-- ============================================================ --}}

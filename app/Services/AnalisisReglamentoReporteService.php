@@ -51,6 +51,11 @@ class AnalisisReglamentoReporteService
         $casosCriticos = [];
         $concurrentes = [];
 
+        // Nuevos listados de detalle operativo solicitados
+        $detalleAtrasos = [];
+        $detalleOmisiones = [];
+        $detalleReincidentes = [];
+
         $totalDiasSancionInstitucional = 0.0;
         $totalConSancionEconomica = 0;
         $totalEnAlertaPreventiva = 0;
@@ -66,12 +71,45 @@ class AnalisisReglamentoReporteService
             }
 
             $minutosAtraso = (int) ($detalle['retraso_resumen']['total_minutos'] ?? 0);
-            $diasTarde = count($detalle['tardanzas'] ?? []);
-            $omisionesCount = (int) ($detalle['total_omisiones'] ?? (count($detalle['no_marcados'] ?? []) + count($detalle['faltas'] ?? [])));
-            $faltasInjustificadas = count($detalle['faltas'] ?? []);
+            $tardanzas = $detalle['tardanzas'] ?? [];
+            $diasTarde = count($tardanzas);
+            $noMarcados = $detalle['no_marcados'] ?? [];
+            $faltasLista = $detalle['faltas'] ?? [];
+            $omisionesLista = array_merge($noMarcados, $faltasLista);
+            $omisionesCount = (int) ($detalle['total_omisiones'] ?? count($omisionesLista));
+            $faltasInjustificadas = count($faltasLista);
             $codigoEmpleado = !empty($empleado->codigo_biometrico) ? (string) $empleado->codigo_biometrico : 'CI: ' . $empleado->id;
 
-            // Calcular reincidencia anual de meses con más de 120 min en la gestión
+            // Extraer detalle de fechas de atrasos
+            $fechasAtrasos = [];
+            foreach ($tardanzas as $t) {
+                $min = (int) ($t['retraso_minutos'] ?? 0);
+                $fechasAtrasos[] = [
+                    'fecha' => $t['fecha'] ?? '',
+                    'minutos' => $min,
+                    'entrada' => $t['entrada'] ?? '--:--',
+                    'salida' => $t['salida'] ?? '--:--',
+                    'etiqueta' => ($t['fecha'] ?? '') . ' (' . $min . ' min)',
+                ];
+            }
+            $fechasAtrasosTexto = collect($fechasAtrasos)->pluck('etiqueta')->implode(', ');
+
+            // Extraer detalle de fechas de omisiones
+            $fechasOmisiones = [];
+            foreach ($omisionesLista as $o) {
+                $detalleTipo = $o['detalle'] ?? $o['estado'] ?? 'Omisión';
+                $tipoCorto = str_contains($detalleTipo, 'Falta entrada') ? 'Sin entrada'
+                    : (str_contains($detalleTipo, 'Falta salida') ? 'Sin salida'
+                    : (str_contains($detalleTipo, 'Falta') ? 'Inasistencia' : 'Sin marcación'));
+                $fechasOmisiones[] = [
+                    'fecha' => $o['fecha'] ?? '',
+                    'tipo' => $tipoCorto,
+                    'etiqueta' => ($o['fecha'] ?? '') . ' (' . $tipoCorto . ')',
+                ];
+            }
+            $fechasOmisionesTexto = collect($fechasOmisiones)->pluck('etiqueta')->implode(', ');
+
+            // Calcular reincidencia anual de meses con más de 120 min en la gestión (Art. 48.I)
             $empPrevias = $asistenciasPreviasGestion->get($empleado->id);
             $mesesGravesGestion = $this->contarMesesConAtrasoGraveEnGestion($empleado, $gestion, (int) $referenceMonth->format('m'), $empPrevias);
             if ($minutosAtraso >= 121) {
@@ -102,7 +140,6 @@ class AnalisisReglamentoReporteService
             $totalDiasSancionEmpleado = $diasSancionAtraso + $diasSancionInasistencia + $diasSancionOmision;
 
             // 4. Art. 48: Causales de Destitución con Proceso Interno
-            // Se valida que la falta gravísima esté vigente en el mes y gestión evaluados
             $causalesCriticas = [];
             $gravisimasVigentes = ReglaSancion::query()
                 ->gravisimas()
@@ -164,14 +201,117 @@ class AnalisisReglamentoReporteService
             }
 
             // -------------------------------------------------------------
-            // 1. EVALUAR: PERSONAL A PUNTO DE SER SANCIONADO (ZONA DE ALERTA)
+            // A. DETALLE DIRECTO DE ATRASOS (SOLICITADO: nombre, codigo, atraso, dias tarde, descuento, fechas)
+            // -------------------------------------------------------------
+            if ($minutosAtraso > 0 || $diasTarde > 0) {
+                $detalleAtrasos[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $codigoEmpleado,
+                    'sucursal' => $empleado->sucursal ?: $sucursalNormalizada,
+                    'area' => $empleado->area ?: 'General',
+                    'minutos_atraso' => $minutosAtraso,
+                    'minutos_texto' => "{$minutosAtraso} min",
+                    'dias_tarde' => $diasTarde,
+                    'dias_tarde_texto' => $diasTarde . ' ' . ($diasTarde === 1 ? 'día' : 'días'),
+                    'dias_descuento' => $diasSancionAtraso,
+                    'dias_descuento_texto' => $diasSancionAtraso > 0 ? $this->formatearDiasSancion($diasSancionAtraso) : '0 días (En tolerancia)',
+                    'fechas' => $fechasAtrasos,
+                    'fechas_texto' => $fechasAtrasosTexto ?: 'Sin detalle registrado',
+                    'es_sancionado' => $diasSancionAtraso > 0,
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            // -------------------------------------------------------------
+            // B. DETALLE DIRECTO DE OMISIONES (SOLICITADO: nombre, codigo, omisiones, fechas, descuento)
+            // -------------------------------------------------------------
+            if ($omisionesCount > 0) {
+                $detalleOmisiones[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $codigoEmpleado,
+                    'sucursal' => $empleado->sucursal ?: $sucursalNormalizada,
+                    'area' => $empleado->area ?: 'General',
+                    'total_omisiones' => $omisionesCount,
+                    'total_omisiones_texto' => $omisionesCount . ' ' . ($omisionesCount === 1 ? 'omisión' : 'omisiones'),
+                    'dias_descuento' => $diasSancionOmision,
+                    'dias_descuento_texto' => ($omisionesCount >= 4)
+                        ? 'Causal Destitución (Art. 48.IV)'
+                        : ($diasSancionOmision > 0 ? $this->formatearDiasSancion($diasSancionOmision) : 'Llamada de atención'),
+                    'fechas' => $fechasOmisiones,
+                    'fechas_texto' => $fechasOmisionesTexto ?: 'Sin detalle registrado',
+                    'es_sancionado' => $diasSancionOmision > 0 || $omisionesCount >= 4,
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            // -------------------------------------------------------------
+            // C. REPORTE DE REINCIDENTES:
+            // 1) Si en más de dos meses superó sus 30 min de tolerancia
+            // 2) Si tuvo omisiones reiteradas (>= 2) con el detalle de fechas
+            // -------------------------------------------------------------
+            $mesesPreviosExcedidos30 = $this->obtenerMesesConAtrasoMayorA30($empleado, $gestion, (int) $referenceMonth->format('m'), $empPrevias);
+            $todosMeses30 = $mesesPreviosExcedidos30;
+            if ($minutosAtraso > 30) {
+                $nombreMesActual = ucfirst($referenceMonth->locale('es')->translatedFormat('F'));
+                $todosMeses30[] = [
+                    'numero' => (int) $referenceMonth->format('m'),
+                    'mes' => $nombreMesActual,
+                    'minutos' => $minutosAtraso,
+                    'etiqueta' => "{$nombreMesActual} ({$minutosAtraso} min)",
+                ];
+            }
+
+            $esReincidenteTolerancia = count($todosMeses30) >= 2;
+            $esReincidenteOmisiones = $omisionesCount >= 2;
+
+            if ($esReincidenteTolerancia) {
+                $detalleReincidentes[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $codigoEmpleado,
+                    'sucursal' => $empleado->sucursal ?: $sucursalNormalizada,
+                    'area' => $empleado->area ?: 'General',
+                    'tipo' => 'atrasos',
+                    'tipo_etiqueta' => 'Superó 30 min (> 2 meses)',
+                    'frecuencia' => count($todosMeses30) . ' meses en la gestión',
+                    'conteo_meses' => count($todosMeses30),
+                    'meses_detalle' => $todosMeses30,
+                    'detalle_texto' => collect($todosMeses30)->pluck('etiqueta')->implode(', '),
+                    'sancion_texto' => $diasSancionAtraso > 0 ? $this->formatearDiasSancion($diasSancionAtraso) . ' (Mes actual)' : 'En tolerancia este mes',
+                    'fechas_texto' => $fechasAtrasosTexto ?: 'Sin atrasos este mes',
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            if ($esReincidenteOmisiones) {
+                $detalleReincidentes[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $codigoEmpleado,
+                    'sucursal' => $empleado->sucursal ?: $sucursalNormalizada,
+                    'area' => $empleado->area ?: 'General',
+                    'tipo' => 'omisiones',
+                    'tipo_etiqueta' => 'Omisiones Reiteradas',
+                    'frecuencia' => "{$omisionesCount} omisiones registradas",
+                    'conteo_meses' => 1,
+                    'meses_detalle' => [],
+                    'detalle_texto' => "Acumula {$omisionesCount} omisiones de registro en el periodo.",
+                    'sancion_texto' => ($omisionesCount >= 4) ? 'Causal Destitución (Art. 48.IV)' : ($diasSancionOmision > 0 ? $this->formatearDiasSancion($diasSancionOmision) : 'Llamada de atención'),
+                    'fechas_texto' => $fechasOmisionesTexto ?: 'N/D',
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            // -------------------------------------------------------------
+            // ZONAS DE ALERTA Y REGLAMENTO GENERAL (Compatibilidad)
             // -------------------------------------------------------------
             $motivosAlerta = [];
             $distanciaAlerta = '';
             $articuloAlerta = 'Art. 45';
             $articuloTituloAlerta = 'Atrasos';
 
-            // Atraso entre 20 y 30 minutos (Art. 45: a punto del descuento de 1/2 día a los 31 min)
             if ($minutosAtraso >= 20 && $minutosAtraso <= 30) {
                 $restantesParaSancion = 31 - $minutosAtraso;
                 $motivosAlerta[] = "Atraso de {$minutosAtraso} min (a {$restantesParaSancion} min de descuento de 1/2 día)";
@@ -201,7 +341,6 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            // Omisiones: exactamente 3 (Art. 48: a 1 de destitución por Art. 48.IV)
             if ($omisionesCount === 3) {
                 $motivosAlerta[] = "Registra 3 omisiones en el mes (a solo 1 omisión de destitución según Art. 48.IV)";
                 $distanciaAlerta = "A 1 omisión de destitución";
@@ -230,7 +369,6 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            // Reincidencia anual: exactamente 2 meses con 121+ min (Art. 48: a 1 reincidencia de destitución)
             if ($mesesGravesGestion === 2 && $minutosAtraso < 121) {
                 $motivosAlerta[] = "Acumula 2 meses en el año con más de 120 min (si supera 120 min este mes, alcanzará la 3ra vez y destitución)";
                 $distanciaAlerta = "A 1 mes grave de destitución";
@@ -279,9 +417,6 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            // -------------------------------------------------------------
-            // 2. EVALUAR: PERSONAL MÁS SANCIONADO (ART. 45 Y ART. 48)
-            // -------------------------------------------------------------
             if ($totalDiasSancionEmpleado > 0 || $esDestitucion) {
                 $totalConSancionEconomica++;
                 $totalDiasSancionInstitucional += $totalDiasSancionEmpleado;
@@ -315,9 +450,6 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            // -------------------------------------------------------------
-            // 3. EVALUAR: CASOS CRÍTICOS Y REINCIDENTES (ART. 48)
-            // -------------------------------------------------------------
             if ($mesesGravesGestion >= 2) {
                 $reincidentes[] = [
                     'id' => $empleado->id,
@@ -357,9 +489,6 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            // -------------------------------------------------------------
-            // 4. EVALUAR: CASOS CONCURRENTES (ART. 45 Y ART. 48)
-            // -------------------------------------------------------------
             if ($esConcurrente) {
                 $concurrentes[] = [
                     'id' => $empleado->id,
@@ -425,28 +554,43 @@ class AnalisisReglamentoReporteService
             ->values()
             ->all();
 
-        // Ordenar personal en alerta por cercanía al umbral (mayor retraso o más omisiones primero)
+        // Ordenar personal en alerta por cercanía al umbral
         $enAlerta = collect($enAlerta)
             ->sortByDesc(fn($i) => ($i['omisiones'] * 100) + $i['minutos_atraso'])
             ->values()
             ->all();
 
-        // Ordenar reincidentes de mayor número de meses graves a menor
+        // Ordenar reincidentes
         $reincidentes = collect($reincidentes)
             ->sortByDesc('meses_graves_gestion')
             ->values()
             ->all();
 
-        // Ordenar casos concurrentes de mayor gravedad a menor
+        // Ordenar casos concurrentes
         $concurrentes = collect($concurrentes)
             ->sortByDesc(fn($i) => ($i['es_destitucion'] ? 1000 : 0) + $i['dias_sancion_total'])
             ->unique('id')
             ->values()
             ->all();
 
-        // Separar estrictamente el personal sancionado por el Art. 45 (descuentos salariales > 0)
         $sancionadosArt45 = collect($masSancionados)
             ->filter(fn($i) => ($i['dias_sancion_total'] ?? 0) > 0)
+            ->values()
+            ->all();
+
+        // Ordenar las listas de detalle
+        $detalleAtrasos = collect($detalleAtrasos)
+            ->sortByDesc('minutos_atraso')
+            ->values()
+            ->all();
+
+        $detalleOmisiones = collect($detalleOmisiones)
+            ->sortByDesc('total_omisiones')
+            ->values()
+            ->all();
+
+        $detalleReincidentes = collect($detalleReincidentes)
+            ->sortByDesc(fn($r) => ($r['tipo'] === 'atrasos' ? 100 : 50) + ($r['conteo_meses'] ?? 1))
             ->values()
             ->all();
 
@@ -459,7 +603,18 @@ class AnalisisReglamentoReporteService
                 'concurrencia_articulos' => count($concurrentes),
                 'total_dias_sancion' => $totalDiasSancionInstitucional,
                 'total_dias_sancion_formato' => $this->formatearDiasSancion($totalDiasSancionInstitucional),
+                'total_con_atraso' => count($detalleAtrasos),
+                'total_con_omision' => count($detalleOmisiones),
+                'total_reincidentes' => count($detalleReincidentes),
             ],
+            // Listados directos detallados
+            'detalle_atrasos' => $detalleAtrasos,
+            'detalle_omisiones' => $detalleOmisiones,
+            'detalle_reincidentes' => $detalleReincidentes,
+            'reincidentes_atrasos' => collect($detalleReincidentes)->where('tipo', 'atrasos')->values()->all(),
+            'reincidentes_omisiones' => collect($detalleReincidentes)->where('tipo', 'omisiones')->values()->all(),
+
+            // Listados previos conservados para retrocompatibilidad
             'personal_en_alerta' => $enAlerta,
             'mas_sancionados' => $masSancionados,
             'masSancionados' => $masSancionados,
@@ -491,8 +646,6 @@ class AnalisisReglamentoReporteService
 
     /**
      * Cuenta cuántos meses previos en la gestión anual un empleado superó o igualó los 121 minutos de retraso.
-     * Toma como punto de referencia el mes y gestión de entrada en vigencia del reglamento o de la falta gravísima,
-     * para no computar reincidencias de periodos anteriores donde regían otras normas.
      */
     protected function contarMesesConAtrasoGraveEnGestion(Empleado $empleado, int $gestion, int $mesExcluir, ?Collection $preloadedRegistros = null): int
     {
@@ -500,7 +653,6 @@ class AnalisisReglamentoReporteService
             return 0;
         }
 
-        // Determinar el mes inicial de vigencia de la regla de reincidencia por atraso (Art. 48.I)
         $reglaGravisimaAtraso = ReglaSancion::query()
             ->gravisimas()
             ->where('unidad', 'minutos')
@@ -523,7 +675,6 @@ class AnalisisReglamentoReporteService
             }
         }
 
-        // Si el mes a evaluar es menor o igual al inicio de vigencia, no hay reincidencias previas válidas
         if ($mesExcluir <= $mesInicioVigencia) {
             return 0;
         }
@@ -577,6 +728,71 @@ class AnalisisReglamentoReporteService
         }
 
         return self::$reincidenciaCache[$cacheKey] = $conteo;
+    }
+
+    /**
+     * Obtiene los meses previos de la gestión donde el empleado superó los 30 minutos de tolerancia mensual.
+     */
+    protected function obtenerMesesConAtrasoMayorA30(Empleado $empleado, int $gestion, int $mesExcluir, ?Collection $preloadedRegistros = null): array
+    {
+        if ($mesExcluir <= 1) {
+            return [];
+        }
+
+        $startDate = Carbon::createFromDate($gestion, 1, 1)->startOfMonth()->toDateString();
+        $endDate = Carbon::createFromDate($gestion, $mesExcluir, 1)->startOfMonth()->toDateString();
+
+        $registros = $preloadedRegistros ?? RegistroAsistencia::query()
+            ->where('empleado_id', $empleado->id)
+            ->whereDate('fecha', '>=', $startDate)
+            ->whereDate('fecha', '<', $endDate)
+            ->whereNotNull('hora_entrada')
+            ->get(['fecha', 'hora_entrada']);
+
+        if (!$registros || $registros->isEmpty()) {
+            return [];
+        }
+
+        $mesesConRegistros = $registros->groupBy(fn($r) => (int) $r->fecha?->format('m'));
+        $nombresMeses = [
+            1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
+            5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
+            9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
+        ];
+
+        $mesesExcedidos = [];
+        foreach ($mesesConRegistros as $m => $items) {
+            if ($m >= $mesExcluir) {
+                continue;
+            }
+
+            $minutosMes = 0;
+            foreach ($items as $reg) {
+                $horario = $this->programacionLaboral->resolverHorario($empleado, $reg->fecha);
+                if (!$horario['laborable']) {
+                    continue;
+                }
+
+                $horaProg = $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada'];
+                if (!$horaProg || !$reg->hora_entrada) {
+                    continue;
+                }
+
+                $delay = $this->analisisAsistencia->calcularMinutosRetraso($reg->hora_entrada, $horaProg);
+                $minutosMes += $delay;
+            }
+
+            if ($minutosMes > 30) {
+                $mesesExcedidos[] = [
+                    'numero' => $m,
+                    'mes' => $nombresMeses[$m] ?? "Mes {$m}",
+                    'minutos' => $minutosMes,
+                    'etiqueta' => ($nombresMeses[$m] ?? "Mes {$m}") . " ({$minutosMes} min)",
+                ];
+            }
+        }
+
+        return $mesesExcedidos;
     }
 
     /**
