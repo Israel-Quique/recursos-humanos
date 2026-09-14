@@ -2,51 +2,55 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <title>Reporte general de asistencia</title>
+    <title>Reporte General de Asistencia y Puntualidad</title>
     <style>
       @page {
-        margin: 20mm 15mm 20mm 15mm;
+        margin: 12mm 10mm 12mm 10mm;
         size: A4 portrait;
+      }
+      * {
+        box-sizing: border-box;
       }
       body {
         font-family: DejaVu Sans, sans-serif;
         color: #1e293b;
         margin: 0;
         padding: 0;
-        font-size: 10px;
-        line-height: 1.4;
+        font-size: 9px;
+        line-height: 1.35;
       }
       h1, h2, h3, h4, p { margin: 0; }
       
       /* Encabezado formal */
       .header-table {
         width: 100%;
-        border-bottom: 2px solid #334155;
-        padding-bottom: 8px;
-        margin-bottom: 12px;
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 6px;
+        margin-bottom: 10px;
       }
       .org-name {
-        font-size: 9px;
-        letter-spacing: 0.15em;
+        font-size: 8px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: #475569;
         font-weight: bold;
       }
       .report-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: bold;
         color: #0f172a;
-        margin-top: 3px;
+        margin-top: 2px;
       }
       .report-subtitle {
-        font-size: 10px;
+        font-size: 9px;
         color: #475569;
         margin-top: 2px;
       }
       .meta-box {
         text-align: right;
-        font-size: 9px;
+        font-size: 8.5px;
         color: #475569;
+        vertical-align: top;
       }
       .meta-box strong {
         color: #0f172a;
@@ -56,76 +60,95 @@
       .summary-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
       }
       .summary-card {
         border: 1px solid #cbd5e1;
-        padding: 8px 10px;
+        padding: 6px 8px;
         text-align: center;
         background: #f8fafc;
       }
       .summary-label {
-        font-size: 8px;
+        font-size: 7.5px;
         text-transform: uppercase;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.05em;
         color: #64748b;
         font-weight: bold;
       }
       .summary-value {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: bold;
         color: #0f172a;
-        margin-top: 3px;
+        margin-top: 2px;
       }
       .summary-subtext {
-        font-size: 8px;
+        font-size: 7.5px;
         color: #64748b;
         margin-top: 1px;
       }
 
       /* Bloques por Sucursal */
       .branch-block {
-        margin-top: 14px;
-        page-break-inside: avoid;
+        margin-top: 10px;
+        margin-bottom: 8px;
       }
-      .branch-header {
+      .branch-header-table {
+        width: 100%;
+        border-collapse: collapse;
         background: #f1f5f9;
         border: 1px solid #94a3b8;
         border-left: 4px solid #0f172a;
-        padding: 6px 10px;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
+        page-break-after: avoid;
+      }
+      .branch-header-table td {
+        padding: 5px 8px;
+        vertical-align: middle;
       }
       .branch-header-title {
-        font-size: 12px;
+        font-size: 10.5px;
         font-weight: bold;
         color: #0f172a;
         text-transform: uppercase;
-        display: inline-block;
       }
       .branch-header-meta {
-        float: right;
-        font-size: 9px;
+        text-align: right;
+        font-size: 8px;
         color: #475569;
+      }
+      .branch-header-meta strong {
+        color: #0f172a;
       }
 
       /* Tablas de datos sobrias para impresión */
       table.data-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
+        page-break-inside: auto;
+      }
+      table.data-table thead {
+        display: table-header-group;
+      }
+      table.data-table tfoot {
+        display: table-footer-group;
+      }
+      table.data-table tr {
+        page-break-inside: avoid;
       }
       .data-table th, .data-table td {
         border: 1px solid #cbd5e1;
-        padding: 5px 6px;
+        padding: 4px 5px;
         text-align: left;
         vertical-align: middle;
+        font-size: 8px;
       }
       .data-table th {
         background: #f8fafc;
         color: #334155;
-        font-size: 8px;
+        font-size: 7.5px;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         font-weight: bold;
       }
       .text-center { text-align: center !important; }
@@ -134,28 +157,35 @@
       .font-bold { font-weight: bold; }
       .badge-omision {
         font-weight: bold;
-        color: #b91c1c;
+        color: #000000;
+        background-color: #e2e8f0;
+        border: 1px solid #0f172a;
+        padding: 1px 4px;
+        border-radius: 2px;
+        display: inline-block;
       }
       .subtotal-row td {
         background: #f8fafc;
         font-weight: bold;
-        border-top: 1.5px solid #64748b;
-        border-bottom: 1.5px solid #64748b;
+        border-top: 1.5px solid #0f172a;
+        border-bottom: 1.5px solid #0f172a;
+        font-size: 8px;
+        color: #000000;
       }
       .empty-row td {
         text-align: center;
-        color: #94a3b8;
+        color: #64748b;
         font-style: italic;
-        padding: 10px;
+        padding: 8px;
       }
 
       /* Pie de página */
       .footer {
-        margin-top: 20px;
-        padding-top: 8px;
-        border-top: 1px solid #cbd5e1;
-        font-size: 8px;
-        color: #94a3b8;
+        margin-top: 14px;
+        padding-top: 6px;
+        border-top: 1px solid #0f172a;
+        font-size: 7.5px;
+        color: #475569;
         text-align: right;
       }
     </style>
@@ -165,15 +195,20 @@
     <!-- Encabezado -->
     <table class="header-table">
       <tr>
-        <td style="width: 70%;">
+        <td style="width: 65%;">
           <p class="org-name">Agencia Boliviana de Correos · Recursos Humanos</p>
-          <h1 class="report-title">Reporte de Asistencia y Puntualidad</h1>
-          <p class="report-subtitle">Resumen consolidado por sucursal · Total de atrasos en minutos y control de omisiones</p>
+          <h1 class="report-title">Reporte General de Asistencia</h1>
+          <p class="report-subtitle">Resumen consolidado por sucursales · Cómputo de puntualidad, atrasos y omisiones</p>
         </td>
-        <td class="meta-box" style="width: 30%;">
+        <td class="meta-box" style="width: 35%;">
           <p><strong>Periodo:</strong> {{ $monthLabel }}</p>
           <p><strong>Filtro:</strong> {{ $branchLabel }}</p>
           <p><strong>Fecha emisión:</strong> {{ now()->format('d/m/Y H:i') }}</p>
+          @if(!empty($reporteSucursales['es_mes_en_curso']))
+            <p style="font-size: 7.5px; color: #0f172a; font-weight: bold; margin-top: 2px;">
+              * Mes en curso: {{ $reporteSucursales['dias_laborables_transcurridos'] ?? 1 }} de {{ $reporteSucursales['dias_laborables_mes'] ?? 22 }} días hábiles a la fecha
+            </p>
+          @endif
         </td>
       </tr>
     </table>
@@ -189,17 +224,17 @@
         <td class="summary-card" style="width: 25%;">
           <div class="summary-label">Atrasos acumulados</div>
           <div class="summary-value">{{ number_format($reporteSucursales['total_minutos_atraso'] ?? 0) }} min</div>
-          <div class="summary-subtext">{{ $reporteSucursales['total_minutos_formato'] ?? '0 min' }}</div>
+          <div class="summary-subtext">Total acumulado en minutos</div>
         </td>
         <td class="summary-card" style="width: 25%;">
           <div class="summary-label">Días con atraso</div>
           <div class="summary-value">{{ $reporteSucursales['total_dias_atraso'] ?? 0 }}</div>
-          <div class="summary-subtext">Incidencias de llegada tardía</div>
+          <div class="summary-subtext">Llegadas tardías totales</div>
         </td>
         <td class="summary-card" style="width: 25%;">
           <div class="summary-label">Total Omisiones</div>
           <div class="summary-value">{{ $reporteSucursales['total_omisiones'] ?? 0 }}</div>
-          <div class="summary-subtext">Días no marcados y sin marcar</div>
+          <div class="summary-subtext">Días sin marcar y sin salida</div>
         </td>
       </tr>
     </table>
@@ -211,45 +246,53 @@
 
     @forelse($sucursalesList as $sucursal)
       <div class="branch-block">
-        <div class="branch-header">
-          <span class="branch-header-title">{{ strtoupper($sucursal['sucursal']) }}</span>
-          <span class="branch-header-meta">
-            {{ $sucursal['total_empleados'] }} empleados &bull; 
-            Atrasos: <strong>{{ number_format($sucursal['total_minutos_atraso']) }} min</strong> ({{ $sucursal['total_minutos_formato'] }}) &bull; 
-            Omisiones: <strong>{{ $sucursal['total_omisiones'] }}</strong>
-          </span>
-          <div style="clear: both;"></div>
-        </div>
+        <table class="branch-header-table">
+          <tr>
+            <td style="width: 45%;">
+              <span class="branch-header-title">{{ strtoupper($sucursal['sucursal']) }}</span>
+            </td>
+            <td class="branch-header-meta" style="width: 55%;">
+              <strong>{{ $sucursal['total_empleados'] }}</strong> personal &bull; 
+              Atrasos: <strong>{{ number_format($sucursal['total_minutos_atraso']) }} min</strong> &bull; 
+              Omisiones: <strong>{{ $sucursal['total_omisiones'] }}</strong>
+            </td>
+          </tr>
+        </table>
 
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 25px;" class="text-center">#</th>
-              <th style="width: 65px;">Código / CI</th>
+              <th style="width: 22px;" class="text-center">#</th>
+              <th style="width: 62px;">Código / CI</th>
               <th>Apellidos y Nombres</th>
-              <th style="width: 110px;">Área / Cargo</th>
-              <th style="width: 85px;" class="text-center">Atraso total</th>
-              <th style="width: 60px;" class="text-center">Días tarde</th>
-              <th style="width: 65px;" class="text-center">Omisiones</th>
-              <th style="width: 70px;" class="text-center">Asistencia</th>
+              <th style="width: 100px;">Área / Cargo</th>
+              <th style="width: 75px;" class="text-center">Atraso total</th>
+              <th style="width: 45px;" class="text-center">Días tarde</th>
+              <th style="width: 50px;" class="text-center">Omisiones</th>
+              <th style="width: 82px;" class="text-center">Asistencia</th>
             </tr>
           </thead>
           <tbody>
             @forelse($sucursal['empleados'] as $idx => $emp)
               <tr>
-                <td class="text-center">{{ $idx + 1 }}</td>
+                <td class="text-center" style="color: #475569;">{{ $idx + 1 }}</td>
                 <td class="font-mono">{{ $emp['codigo'] ?: '-' }}</td>
                 <td class="font-bold">{{ $emp['nombre'] }}</td>
                 <td>{{ $emp['area'] }}</td>
                 <td class="text-center">
                   @if($emp['minutos_atraso'] > 0)
                     <strong>{{ $emp['minutos_atraso'] }} min</strong>
-                    <div style="font-size: 7.5px; color: #64748b;">({{ $emp['minutos_atraso_formato'] }})</div>
                   @else
                     <span style="color: #64748b;">0 min</span>
                   @endif
                 </td>
-                <td class="text-center">{{ $emp['dias_atraso'] }}</td>
+                <td class="text-center">
+                  @if($emp['dias_atraso'] > 0)
+                    <strong>{{ $emp['dias_atraso'] }}</strong>
+                  @else
+                    <span style="color: #64748b;">0</span>
+                  @endif
+                </td>
                 <td class="text-center">
                   @if($emp['omisiones'] > 0)
                     <span class="badge-omision">{{ $emp['omisiones'] }}</span>
@@ -258,7 +301,13 @@
                   @endif
                 </td>
                 <td class="text-center" style="font-size: 8px;">
-                  {{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables'] }}
+                  <strong>{{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables_transcurridos'] }}</strong>
+                  <div style="font-size: 7.5px; font-weight: bold; color: #0f172a;">
+                    {{ $emp['porcentaje_asistencia'] }}%
+                    @if(!empty($emp['es_mes_en_curso']))
+                      <span style="font-size: 6.5px; color: #475569; font-weight: normal;">(de {{ $emp['dias_laborables_mes'] }} d.)</span>
+                    @endif
+                  </div>
                 </td>
               </tr>
             @empty
@@ -287,7 +336,7 @@
     @endforelse
 
     <div class="footer">
-      Documento institucional oficial · Impresión optimizada para archivo y supervisión · Correos de Bolivia
+      Documento institucional oficial · Cómputo verificado por Recursos Humanos · Correos de Bolivia
     </div>
 
   </body>

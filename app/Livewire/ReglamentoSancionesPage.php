@@ -318,14 +318,14 @@ class ReglamentoSancionesPage extends Component
         $this->ejecutarSimulador();
     }
 
-    public function openModalVigenciaMasiva(string $categoria = 'atraso'): void
+    public function openModalVigenciaMasiva(string $categoria = 'todas'): void
     {
         $this->masivaCategoria = $categoria;
         $this->masivaActivo = true;
         $this->masivaTipoVigencia = 'desde_fecha';
         $this->masivaDesdeGestion = (int) date('Y');
         $this->masivaDesdeMes = (int) date('n');
-        $this->masivaExplicacion = 'Reglamento entrando en vigencia progresiva';
+        $this->masivaExplicacion = 'Reglamento en vigencia';
         $this->showModalVigenciaMasiva = true;
     }
 
@@ -353,10 +353,12 @@ class ReglamentoSancionesPage extends Component
             'explicacion_vigencia' => $this->masivaExplicacion,
         ]);
 
+        $etiqueta = $this->masivaCategoria === 'todas' ? 'todas las escalas del reglamento' : "la categoría '{$this->masivaCategoria}'";
+
         app(AuditoriaService::class)->registrar(
             'Reglamento Sanciones',
             'vigencia_masiva',
-            "Se actualizó la vigencia masiva de {$afectadas} reglas en categoría '{$this->masivaCategoria}'.",
+            "Se actualizó la vigencia masiva de {$afectadas} reglas ({$etiqueta}).",
             null,
             null,
             [
@@ -369,7 +371,7 @@ class ReglamentoSancionesPage extends Component
         );
 
         $this->closeModalVigenciaMasiva();
-        session()->flash('status', "Vigencia actualizada exitosamente para {$afectadas} reglas de la categoría.");
+        session()->flash('status', "Vigencia actualizada exitosamente para {$afectadas} reglas ({$etiqueta}).");
         $this->ejecutarSimulador();
     }
 

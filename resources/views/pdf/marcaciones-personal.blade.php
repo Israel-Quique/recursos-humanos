@@ -146,42 +146,42 @@
         font-size: 9px;
       }
       .badge-ok {
-        font-weight: bold;
-        color: #047857;
-        background: #ecfdf5;
-        border: 0.5px solid #a7f3d0;
-        padding: 1.5px 6px;
-        border-radius: 4px;
+        font-weight: normal;
+        color: #111827;
+        background: #f3f4f6;
+        border: 1px solid #9ca3af;
+        padding: 1.5px 5px;
+        border-radius: 2px;
         font-size: 8px;
         display: inline-block;
       }
       .badge-late {
         font-weight: bold;
-        color: #b45309;
-        background: #fffbeb;
-        border: 0.5px solid #fde68a;
-        padding: 1.5px 6px;
-        border-radius: 4px;
+        color: #000000;
+        background: #e5e7eb;
+        border: 1px solid #4b5563;
+        padding: 1.5px 5px;
+        border-radius: 2px;
         font-size: 8px;
         display: inline-block;
       }
-      .badge-absent {
+      .badge-absent, .badge-omision {
         font-weight: bold;
-        color: #be123c;
-        background: #fff1f2;
-        border: 0.5px solid #fecdd3;
-        padding: 1.5px 6px;
-        border-radius: 4px;
+        color: #000000;
+        background: #e2e8f0;
+        border: 1.5px solid #0f172a;
+        padding: 1.5px 5px;
+        border-radius: 2px;
         font-size: 8px;
         display: inline-block;
       }
       .badge-warn {
         font-weight: bold;
-        color: #c2410c;
-        background: #fff7ed;
-        border: 0.5px solid #fed7aa;
-        padding: 1.5px 6px;
-        border-radius: 4px;
+        color: #000000;
+        background: #f3f4f6;
+        border: 1px dashed #374151;
+        padding: 1.5px 5px;
+        border-radius: 2px;
         font-size: 8px;
         display: inline-block;
       }
@@ -274,8 +274,8 @@
             </td>
             <td class="stat-cell">
               <div class="stat-title">Retraso Total</div>
-              <div class="stat-num" style="color: {{ ($stats['minutos_atraso_totales'] ?? 0) > 0 ? '#b45309' : '#047857' }};">
-                {{ $stats['retraso_acumulado_formateado'] ?? '0 min' }}
+              <div class="stat-num" style="color: #0f172a;">
+                {{ $stats['minutos_atraso_totales'] ?? 0 }} min
               </div>
               <div class="stat-sub">{{ $stats['total_atrasos'] ?? 0 }} día(s) con retraso</div>
             </td>
@@ -289,7 +289,7 @@
             </td>
             <td class="stat-cell">
               <div class="stat-title">Tolerancia Mensual</div>
-              <div class="stat-num" style="font-size: 11px; margin-top: 4px; color: {{ ($stats['estado_tolerancia'] ?? '') === 'Excedido' ? '#be123c' : '#047857' }};">
+              <div class="stat-num" style="font-size: 11px; margin-top: 4px; color: #0f172a;">
                 {{ $stats['estado_tolerancia'] ?? 'Dentro de tolerancia' }}
               </div>
               <div class="stat-sub">{{ $stats['saldo_tolerancia'] ?? '' }}</div>
@@ -324,30 +324,30 @@
             @if (!$empleadoInfo)
               <td>
                 <strong>{{ $row->empleado?->nombre_completo ?? 'Sin nombre' }}</strong>
-                <span style="display: block; font-size: 7.5px; color: #64748b;">Cód: {{ $row->codigo ?? $row->empleado?->codigo_biometrico }}</span>
+                <span style="display: block; font-size: 7.5px; color: #475569;">Cód: {{ $row->codigo ?? $row->empleado?->codigo_biometrico }}</span>
               </td>
             @endif
             <td class="center"><strong>{{ $row->fecha_formateada ?? (\Carbon\Carbon::parse($row->fecha)->format('d/m/Y')) }}</strong></td>
             <td class="center" style="text-transform: capitalize; color: #475569;">{{ $row->dia ?? (\Carbon\Carbon::parse($row->fecha)->locale('es')->isoFormat('dddd')) }}</td>
             <td class="center font-mono">
               @if(($row->hora_entrada ?? '--:--') !== '--:--')
-                <strong style="color: #047857;">{{ $row->hora_entrada }}</strong>
+                <strong style="color: #0f172a;">{{ $row->hora_entrada }}</strong>
               @else
-                <span style="color: #94a3b8;">--:--</span>
+                <span style="font-weight: bold; color: #000000; background: #e2e8f0; padding: 1px 3px; border: 1px solid #475569; font-size: 8px;">[Sin marcar]</span>
               @endif
             </td>
             <td class="center font-mono">
               @if(($row->hora_salida ?? '--:--') !== '--:--')
-                <strong style="color: #334155;">{{ $row->hora_salida }}</strong>
+                <strong style="color: #0f172a;">{{ $row->hora_salida }}</strong>
               @else
-                <span style="color: #94a3b8;">--:--</span>
+                <span style="font-weight: bold; color: #000000; background: #e2e8f0; padding: 1px 3px; border: 1px solid #475569; font-size: 8px;">[Sin marcar]</span>
               @endif
             </td>
             <td class="center font-mono">
               @if(($row->horas_trabajadas ?? '--:--') !== '--:--')
-                <strong style="color: #0f172a;">{{ $row->horas_trabajadas }}</strong>
+                <strong>{{ $row->horas_trabajadas }}</strong>
               @else
-                <span style="color: #94a3b8;">--:--</span>
+                <span style="color: #64748b;">--:--</span>
               @endif
             </td>
             <td class="center">
@@ -356,7 +356,7 @@
               @elseif(($row->hora_entrada ?? '--:--') !== '--:--')
                 <span class="badge-ok">Puntual</span>
               @else
-                <span style="color: #94a3b8;">--</span>
+                <span class="badge-absent">Omisión</span>
               @endif
             </td>
           </tr>

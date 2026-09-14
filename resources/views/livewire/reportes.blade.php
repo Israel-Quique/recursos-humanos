@@ -38,7 +38,7 @@
           </div>
         </div>
 
-        <div class="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div class="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           @foreach(($detailEmployeeReport['metrics'] ?? []) as $metric)
             <div class="rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-center">
               <p class="metric-label text-[11px]">{{ $metric['label'] }}</p>
@@ -336,6 +336,30 @@
       <p class="text-xs text-slate-600">Periodo: {{ $monthLabel }} | Sucursal: {{ $selectedBranch ?: 'Todas las sucursales' }} | Fecha de emisión: {{ now()->format('d/m/Y H:i') }}</p>
     </div>
 
+    {{-- Banner explicativo del periodo y cómputo de días --}}
+    @if(!empty($reporteSucursales['es_mes_en_curso']))
+      <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-linear-to-r from-sky-50 via-white to-blue-50/50 p-4 shadow-xs no-print">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white font-bold text-sm shadow-xs">
+            ℹ️
+          </span>
+          <div>
+            <h4 class="text-sm font-bold text-slate-900">
+              Mes en curso evaluado al {{ $reporteSucursales['fecha_corte_label'] ?? now()->format('d/m/Y') }}
+            </h4>
+            <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">
+              Actualmente han transcurrido <strong>{{ $reporteSucursales['dias_laborables_transcurridos'] ?? 1 }} días hábiles laborales</strong> de un total previsto de <strong>{{ $reporteSucursales['dias_laborables_mes'] ?? 22 }} días</strong> en {{ $monthLabel }}. La columna de <strong>Asistencia</strong> evalúa el cumplimiento sobre los días efectivamente transcurridos a la fecha.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold shrink-0">
+          <span class="rounded-lg bg-sky-100/80 border border-sky-200 px-3 py-1.5 text-sky-900">
+            Día hábil {{ $reporteSucursales['dias_laborables_transcurridos'] ?? 1 }} de {{ $reporteSucursales['dias_laborables_mes'] ?? 22 }}
+          </span>
+        </div>
+      </div>
+    @endif
+
     {{-- Resumen Ejecutivo Superior --}}
     <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
       <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
@@ -402,7 +426,7 @@
                   <th class="text-center">Atraso Sumado</th>
                   <th class="text-center">Días Tarde</th>
                   <th class="text-center">Omisiones</th>
-                  <th class="text-center">Asistencia</th>
+                  <th class="text-center w-36">Asistencia</th>
                   <th class="text-right no-print w-28">Acción</th>
                 </tr>
               </thead>
@@ -441,8 +465,18 @@
                         <span class="text-slate-400 text-xs">0</span>
                       @endif
                     </td>
-                    <td class="text-center text-xs text-slate-600">
-                      {{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables'] }}
+                    <td class="text-center text-xs">
+                      <div class="font-bold text-slate-900">
+                        {{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables_transcurridos'] }}
+                        <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold {{ $emp['porcentaje_asistencia'] >= 90 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($emp['porcentaje_asistencia'] >= 75 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-rose-50 text-rose-800 border border-rose-200') }}">
+                          {{ $emp['porcentaje_asistencia'] }}%
+                        </span>
+                      </div>
+                      @if(!empty($emp['es_mes_en_curso']))
+                        <span class="block text-[10px] text-slate-400 mt-0.5 font-medium">al día {{ now()->day }} (de {{ $emp['dias_laborables_mes'] }} mes)</span>
+                      @else
+                        <span class="block text-[10px] text-slate-400 mt-0.5 font-medium">{{ $emp['dias_laborables_mes'] }} d. laborables</span>
+                      @endif
                     </td>
                     <td class="text-right no-print">
                       <button type="button" wire:click="openEmployeeDetailModal({{ $emp['id'] }})" class="table-action-button text-xs py-1 px-2.5">
@@ -481,6 +515,31 @@
           No se encontraron sucursales ni personal para el periodo y filtros seleccionados.
         </div>
       @endforelse
+
+      {{-- Guía explicativa de columnas para claridad de supervisión --}}
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-600 shadow-xs no-print">
+        <p class="font-bold text-slate-800 uppercase tracking-wider text-[11px] mb-2.5 flex items-center gap-1.5">
+          <span>📌</span> <span>Guía de interpretación de columnas del reporte general:</span>
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+            <strong class="block text-slate-800 text-xs">🕒 Atraso Sumado:</strong>
+            <span class="text-slate-500 text-[11px] leading-relaxed">Minutos acumulados fuera del horario y tolerancia asignada a su regional.</span>
+          </div>
+          <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+            <strong class="block text-slate-800 text-xs">📅 Días Tarde:</strong>
+            <span class="text-slate-500 text-[11px] leading-relaxed">Total de días en que se marcó el ingreso posterior al horario límite.</span>
+          </div>
+          <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+            <strong class="block text-slate-800 text-xs">🚫 Omisiones:</strong>
+            <span class="text-slate-500 text-[11px] leading-relaxed">Olvidos de marcación (sin entrada o salida) o jornadas enteras sin asistencia.</span>
+          </div>
+          <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+            <strong class="block text-slate-800 text-xs">✅ Asistencia al Día:</strong>
+            <span class="text-slate-500 text-[11px] leading-relaxed">Días cumplidos vs. días laborables transcurridos a la fecha (con % efectivo).</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     {{-- Gráfico de frecuencia --}}
@@ -672,6 +731,19 @@
       </div>
     @endif
 
+    {{-- Guía explicativa de Atrasos --}}
+    <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-xs text-amber-950 shadow-xs no-print">
+      <div class="flex items-start gap-3">
+        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white font-bold text-xs shadow-xs">ℹ️</span>
+        <div>
+          <h4 class="text-xs font-bold text-amber-950">Norma de Tolerancia y Cómputo de Retrasos:</h4>
+          <p class="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+            Se computa retraso cuando la marcación de ingreso excede la tolerancia permitida (10 o 15 minutos según el horario y regional del personal). Los minutos acumulados determinan la aplicación del <strong>Artículo 45</strong> (descuento fraccionado o completo de haberes) y el seguimiento del <strong>Artículo 48.I</strong> por reincidencia mensual superior a 120 minutos.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <section class="surface-card">
       <div class="history-header">
         <div>
@@ -787,6 +859,19 @@
         @endforeach
       </div>
     @endif
+
+    {{-- Guía explicativa de Omisiones --}}
+    <div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-xs text-rose-950 shadow-xs no-print">
+      <div class="flex items-start gap-3">
+        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white font-bold text-xs shadow-xs">ℹ️</span>
+        <div>
+          <h4 class="text-xs font-bold text-rose-950">Clasificación Reglamentaria de Omisiones:</h4>
+          <p class="text-[11px] text-rose-900 mt-0.5 leading-relaxed">
+            Una omisión se genera por <strong>Marcación Incompleta</strong> (falta de marcado de entrada o salida) o <strong>Día sin Marcar</strong> (jornada laboral hábil sin registro biométrico ni boleta de permiso aprobada). Según el <strong>Artículo 48.IV</strong> del Reglamento Interno, acumular cuatro (4) o más omisiones en un mismo mes constituye causal grave de destitución.
+          </p>
+        </div>
+      </div>
+    </div>
 
     <section class="surface-card">
       <div class="history-header">
@@ -982,10 +1067,12 @@
 
     {{-- Ranking Mensual --}}
     <div class="mb-8">
-      <div class="mb-4 flex items-center justify-between">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div>
-          <h3 class="text-lg font-bold text-slate-900">Ranking Mensual — {{ $monthLabel }}</h3>
-          <p class="text-xs text-slate-500">Evaluación consolidada del personal activo durante el mes calendario.</p>
+          <h3 class="text-lg font-bold text-slate-900">Ranking Mensual Institucional — {{ $monthLabel }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <strong>Criterios de Evaluación:</strong> El líder de puntualidad premia la mayor cantidad de jornadas laboradas con 0 retraso y menor tiempo acumulado. La mayor demora evidencia a quienes requieren seguimiento preventivo de tolerancia.
+          </p>
         </div>
         <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">Imprimir / PDF</button>
       </div>
@@ -1636,7 +1723,7 @@
         @endif
       </section>
 
-      {{-- Sección: Personal Sancionado (Art. 45) con Tarjetas de Resumen y Tabla --}}
+      {{-- Sección: Personal Sancionado (Art. 45) en Cards por Artículo (Mismo formato de Alertas) --}}
       <section class="surface-card">
         <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div>
@@ -1644,99 +1731,95 @@
               <span class="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-orange-900 text-xs">📉</span>
               <h5 class="text-sm font-bold text-slate-900">Personal con Descuento Salarial Aplicable (Art. 45)</h5>
             </div>
-            <p class="text-xs text-slate-500 mt-0.5">Minutos de atraso acumulados, inasistencias (al doble) y total de días de haber que se descontarán en la planilla de {{ $monthLabel }}.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Minutos de atraso acumulados, inasistencias y total de días de haber descontables en la planilla de {{ $monthLabel }}.</p>
           </div>
           <span class="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-900 border border-orange-200">
             {{ count($reporteReglamento['art_45']['sancionados'] ?? []) }} sancionados
           </span>
         </div>
 
-        {{-- Tabla detallada de Personal Sancionado --}}
-        <div class="overflow-x-auto">
-          <table class="history-table w-full text-left">
-            <thead>
-              <tr>
-                <th class="w-10 text-center">#</th>
-                <th>Personal Sancionado</th>
-                <th>CI / Código</th>
-                <th>Sucursal / Área</th>
-                <th class="text-center">Atrasos (Art. 45.I)</th>
-                <th class="text-center">Faltas (Art. 45.II)</th>
-                <th class="text-center">Omisiones (Art. 45.III)</th>
-                <th class="text-center">Días a Descontar</th>
-                <th>Detalle Oficial de Descuentos</th>
-                <th class="text-right no-print w-28">Acción</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              @forelse($reporteReglamento['art_45']['sancionados'] ?? [] as $idx => $sancionado)
-                <tr class="hover:bg-slate-50/60 transition">
-                  <td class="text-center font-semibold text-slate-400 text-xs">{{ $idx + 1 }}</td>
-                  <td>
-                    <span class="font-bold text-slate-900">{{ $sancionado['nombre'] }}</span>
+        @if(count($reporteReglamento['art_45']['sancionados'] ?? []) > 0)
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            @foreach($reporteReglamento['art_45']['sancionados'] as $sancionado)
+              <div class="flex flex-col justify-between rounded-xl border border-orange-200 bg-linear-to-b from-orange-50/40 via-white to-white p-3.5 shadow-sm hover:border-orange-300 transition">
+                <div>
+                  {{-- Encabezado con Nombre destacado y CI --}}
+                  <div class="flex items-start justify-between gap-2 mb-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white font-bold text-sm shadow-xs">
+                        {{ $sancionado['inicial'] ?? 'F' }}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <h6 class="truncate font-bold text-slate-900 text-sm leading-tight">{{ $sancionado['nombre'] }}</h6>
+                          <span class="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">CI: {{ $sancionado['codigo'] }}</span>
+                        </div>
+                        <p class="truncate text-[11px] text-slate-500 mt-0.5">{{ $sancionado['sucursal'] }} · {{ $sancionado['area'] }}</p>
+                      </div>
+                    </div>
+
                     @if(!empty($sancionado['es_concurrente']))
-                      <span class="ml-1.5 inline-block rounded bg-purple-100 text-purple-900 border border-purple-200 px-1.5 py-0.2 text-[10px] font-bold">Art. 45 + 48</span>
-                    @elseif($sancionado['es_destitucion'])
-                      <span class="ml-1.5 inline-block rounded bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-900">Art. 48</span>
-                    @endif
-                  </td>
-                  <td><span class="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-bold">{{ $sancionado['codigo'] }}</span></td>
-                  <td class="text-xs text-slate-600">{{ $sancionado['sucursal'] }} · {{ $sancionado['area'] }}</td>
-                  <td class="text-center">
-                    @if($sancionado['minutos_atraso'] > 0)
-                      <strong class="text-amber-950 text-xs font-bold">{{ $sancionado['minutos_atraso'] }} min</strong>
-                      <span class="block text-[10px] text-slate-500 font-medium">({{ $sancionado['dias_sancion_atraso_texto'] }})</span>
-                    @else
-                      <span class="text-slate-400 text-xs">0 min</span>
-                    @endif
-                  </td>
-                  <td class="text-center">
-                    @if($sancionado['faltas'] > 0)
-                      <strong class="text-orange-950 text-xs font-bold">{{ $sancionado['faltas'] }} falta(s)</strong>
-                      <span class="block text-[10px] text-orange-800 font-medium">({{ $sancionado['dias_sancion_inasistencia_texto'] }} doble)</span>
-                    @else
-                      <span class="text-slate-400 text-xs">0</span>
-                    @endif
-                  </td>
-                  <td class="text-center">
-                    @if($sancionado['omisiones'] > 0)
-                      <strong class="text-rose-900 text-xs font-bold">{{ $sancionado['omisiones'] }} omis.</strong>
-                      <span class="block text-[10px] text-rose-700 font-medium">({{ $sancionado['dias_sancion_omision_texto'] }})</span>
-                    @else
-                      <span class="text-slate-400 text-xs">0</span>
-                    @endif
-                  </td>
-                  <td class="text-center">
-                    @if($sancionado['es_destitucion'])
-                      <span class="inline-block rounded-lg bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-xs font-bold text-rose-900">
-                        Destitución
+                      <span class="inline-block rounded-full bg-purple-100 border border-purple-300 px-2 py-0.5 text-[10px] font-extrabold text-purple-950 shrink-0">
+                        Art. 45 + 48
                       </span>
-                      <span class="block text-[10px] text-slate-500 mt-0.5 font-bold">({{ $sancionado['total_dias_sancion_texto'] }} deducibles)</span>
                     @else
-                      <span class="inline-block rounded-lg bg-orange-100 border border-orange-300 px-2.5 py-0.5 text-xs font-black text-orange-950">
-                        {{ $sancionado['total_dias_sancion_texto'] }}
+                      <span class="inline-block rounded-full bg-orange-100 border border-orange-300 px-2 py-0.5 text-[10px] font-extrabold text-orange-950 shrink-0">
+                        Sanción Art. 45
                       </span>
                     @endif
-                  </td>
-                  <td class="text-xs text-slate-600">
-                    <span class="block font-medium text-slate-800 leading-snug">{{ implode(' · ', $sancionado['desglose']) ?: 'Atrasos acumulados' }}</span>
-                  </td>
-                  <td class="text-right no-print">
-                    <button type="button" wire:click="openEmployeeDetailModal({{ $sancionado['id'] }})" class="table-action-button text-xs py-1 px-2.5">
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              @empty
-                <tr>
-                  <td colspan="10" class="py-8 text-center text-xs text-slate-400">
-                    No se registran sanciones salariales aplicables en este periodo.
-                  </td>
-                </tr>
-              @endforelse
-            </tbody>
-          </table>
-        </div>
+                  </div>
+
+                  {{-- Cajas métricas: Días a Descontar y Atraso --}}
+                  <div class="grid grid-cols-2 gap-2 text-center my-2.5">
+                    <div class="rounded-lg bg-orange-100/80 border border-orange-300 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-orange-900">Total a Descontar</span>
+                      <span class="text-lg font-black text-orange-950">{{ $sancionado['total_dias_sancion_texto'] }}</span>
+                      <span class="block text-[9px] text-orange-800">de haber mensual</span>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-2">
+                      <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-600">Atraso Acumulado</span>
+                      <span class="text-lg font-black text-slate-900">{{ $sancionado['minutos_atraso'] }} min</span>
+                      <span class="block text-[9px] text-slate-500">{{ $sancionado['dias_sancion_atraso_texto'] }} desc.</span>
+                    </div>
+                  </div>
+
+                  {{-- Desglose por causales si existen faltas u omisiones --}}
+                  @if(($sancionado['faltas'] ?? 0) > 0 || ($sancionado['omisiones'] ?? 0) > 0)
+                    <div class="flex items-center gap-2 flex-wrap text-[11px] mb-2.5">
+                      @if(($sancionado['faltas'] ?? 0) > 0)
+                        <span class="inline-flex items-center gap-1 rounded bg-rose-50 border border-rose-200 px-2 py-0.5 text-rose-800 font-bold">
+                          🚫 {{ $sancionado['faltas'] }} falta(s) ({{ $sancionado['dias_sancion_inasistencia_texto'] }})
+                        </span>
+                      @endif
+                      @if(($sancionado['omisiones'] ?? 0) > 0)
+                        <span class="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-900 font-bold">
+                          📝 {{ $sancionado['omisiones'] }} omisión(es) ({{ $sancionado['dias_sancion_omision_texto'] }})
+                        </span>
+                      @endif
+                    </div>
+                  @endif
+
+                  {{-- Explicación reglamentaria oficial --}}
+                  <div class="rounded-lg bg-white p-2.5 border border-orange-200 text-[11px] text-orange-950 leading-relaxed shadow-xs">
+                    📉 <strong>Detalle oficial:</strong> {{ implode(' · ', $sancionado['desglose']) ?: $sancionado['resumen_total_descuento'] }}
+                  </div>
+                </div>
+
+                {{-- Footer de card con CI y botón Ver Detalle --}}
+                <div class="mt-3 pt-2 border-t border-orange-200/60 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>CI: <strong class="font-mono text-slate-700">{{ $sancionado['codigo'] }}</strong></span>
+                  <button type="button" wire:click="openEmployeeDetailModal({{ $sancionado['id'] }})" class="table-action-button text-[10px] py-1 px-2.5">
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        @else
+          <div class="py-8 text-center text-xs text-slate-400">
+            No se registran sanciones salariales aplicables (Art. 45) en este periodo.
+          </div>
+        @endif
       </section>
     </div>
 

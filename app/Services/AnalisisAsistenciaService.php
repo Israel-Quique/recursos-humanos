@@ -773,6 +773,8 @@ class AnalisisAsistenciaService
 
         $lateRows = [];
         $forgotRows = [];
+        $asistenciasRows = [];
+        $diasAsistidosSet = [];
         $totalRetrasoMinutos = 0;
 
         foreach ($attendance as $registro) {
@@ -789,6 +791,22 @@ class AnalisisAsistenciaService
                 $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
+
+            $tieneMarcacion = filled($marcacion['entrada']) || filled($horaSalidaReal) || filled($registro->hora_entrada) || filled($registro->hora_salida);
+            if ($tieneMarcacion) {
+                $fechaStr = $registro->fecha?->toDateString();
+                if ($fechaStr) {
+                    $diasAsistidosSet[$fechaStr] = true;
+                }
+                $asistenciasRows[] = [
+                    'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
+                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
+                    'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
+                    'retraso' => $this->formatearMinutosEtiqueta($delay),
+                    'retraso_minutos' => $delay,
+                    'estado' => $delay > 0 ? 'Con atraso' : 'Puntual',
+                ];
+            }
 
             if ($delay > 0) {
                 $totalRetrasoMinutos += $delay;
@@ -842,6 +860,47 @@ class AnalisisAsistenciaService
         $toleranciaMensual = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
         $excesoTolerancia = max(0, $totalRetrasoMinutos - $toleranciaMensual);
 
+        // Cómputo exacto de días laborables totales y transcurridos a la fecha
+        $today = now()->startOfDay();
+        $esMesEnCurso = $start->lte($today) && $end->gte($today);
+        $fechaCorte = $esMesEnCurso ? $today : ($today->lt($start) ? $start->copy()->subDay() : $end->copy());
+
+        $diasLaborablesMes = 0;
+        $diasLaborablesTranscurridos = 0;
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            $h = $this->programacionLaboral->resolverHorario($empleado, $cursor);
+            if ($h['laborable'] ?? false) {
+                $diasLaborablesMes++;
+                if ($cursor->lte($fechaCorte)) {
+                    $diasLaborablesTranscurridos++;
+                }
+            }
+            $cursor->addDay();
+        }
+
+        if ($diasLaborablesMes === 0) {
+            $cursor = $start->copy();
+            while ($cursor->lte($end)) {
+                if (!$cursor->isWeekend()) {
+                    $diasLaborablesMes++;
+                    if ($cursor->lte($fechaCorte)) {
+                        $diasLaborablesTranscurridos++;
+                    }
+                }
+                $cursor->addDay();
+            }
+        }
+
+        $diasAsistidos = count($diasAsistidosSet);
+        $baseDias = $esMesEnCurso ? $diasLaborablesTranscurridos : $diasLaborablesMes;
+        $porcentajeAsistencia = $baseDias > 0 ? (int) round(($diasAsistidos / $baseDias) * 100) : 100;
+        $porcentajeAsistencia = min(100, max(0, $porcentajeAsistencia));
+
+        $asistenciaLabel = $esMesEnCurso
+            ? "{$diasAsistidos} / {$diasLaborablesTranscurridos} ({$porcentajeAsistencia}%)"
+            : "{$diasAsistidos} / {$diasLaborablesMes} ({$porcentajeAsistencia}%)";
+
         return [
             'empleado' => [
                 'id' => $empleado->id,
@@ -862,12 +921,22 @@ class AnalisisAsistenciaService
                 'excedio_tolerancia' => $totalRetrasoMinutos > $toleranciaMensual,
             ],
             'metrics' => [
+                ['label' => 'Asistencia al día', 'value' => $asistenciaLabel],
                 ['label' => 'Total atrasos', 'value' => $totalRetrasoMinutos . ' min (' . $this->formatearMinutosEtiqueta($totalRetrasoMinutos) . ')'],
                 ['label' => 'Dias con retraso', 'value' => (string) count($lateRows)],
                 ['label' => 'Total omisiones', 'value' => (string) $totalOmisiones],
                 ['label' => 'Tolerancia mensual', 'value' => $this->formatearMinutosEtiqueta($toleranciaMensual)],
                 ['label' => 'Exceso mensual', 'value' => $this->formatearMinutosEtiqueta($excesoTolerancia)],
             ],
+            'asistencias' => $asistenciasRows,
+            'dias_asistidos' => $diasAsistidos,
+            'dias_laborables' => $diasLaborablesTranscurridos,
+            'dias_laborables_transcurridos' => $diasLaborablesTranscurridos,
+            'dias_laborables_mes' => $diasLaborablesMes,
+            'porcentaje_asistencia' => $porcentajeAsistencia,
+            'asistencia_label' => $asistenciaLabel,
+            'es_mes_en_curso' => $esMesEnCurso,
+            'fecha_corte_label' => $fechaCorte->format('d/m/Y'),
             'tardanzas' => $lateRows,
             'no_marcados' => $forgotRows,
             'faltas' => $faltas,
@@ -1002,6 +1071,36 @@ class AnalisisAsistenciaService
     {
         $monthStart = $referenceMonth->copy()->startOfMonth();
         $monthEnd = $referenceMonth->copy()->endOfMonth();
+        $today = now()->startOfDay();
+        $esMesEnCurso = $monthStart->lte($today) && $monthEnd->gte($today);
+        $fechaCorte = $esMesEnCurso ? $today : ($today->lt($monthStart) ? $monthStart->copy()->subDay() : $monthEnd->copy());
+
+        // Cómputo global de días laborables en el mes y transcurridos a la fecha de corte
+        $generalLaborablesMes = 0;
+        $generalLaborablesTranscurridos = 0;
+        $cursorGeneral = $monthStart->copy();
+        while ($cursorGeneral->lte($monthEnd)) {
+            if (!$this->programacionLaboral->esDiaNoLaborable($cursorGeneral, $branch)) {
+                $generalLaborablesMes++;
+                if ($cursorGeneral->lte($fechaCorte)) {
+                    $generalLaborablesTranscurridos++;
+                }
+            }
+            $cursorGeneral->addDay();
+        }
+
+        if ($generalLaborablesMes === 0) {
+            $cursorGeneral = $monthStart->copy();
+            while ($cursorGeneral->lte($monthEnd)) {
+                if (!$cursorGeneral->isWeekend()) {
+                    $generalLaborablesMes++;
+                    if ($cursorGeneral->lte($fechaCorte)) {
+                        $generalLaborablesTranscurridos++;
+                    }
+                }
+                $cursorGeneral->addDay();
+            }
+        }
 
         $empleadosQuery = Empleado::query()
             ->activosLaboralmente($monthEnd)
@@ -1053,8 +1152,13 @@ class AnalisisAsistenciaService
                     'retraso_etiqueta' => $minutos > 0 ? $minutos . ' min (' . $this->formatearMinutosEtiqueta($minutos) . ')' : '0 min',
                     'minutos_atraso_formato' => $minutos > 0 ? $this->formatearMinutosEtiqueta($minutos) : '0 min',
                     'omisiones' => $omisiones,
-                    'dias_asistidos' => count($detalle['asistencias'] ?? $detalle['tardanzas'] ?? []),
-                    'dias_laborables' => $detalle['dias_laborables'] ?? 22,
+                    'dias_asistidos' => $detalle['dias_asistidos'] ?? 0,
+                    'dias_laborables' => $detalle['dias_laborables_transcurridos'] ?? $generalLaborablesTranscurridos,
+                    'dias_laborables_transcurridos' => $detalle['dias_laborables_transcurridos'] ?? $generalLaborablesTranscurridos,
+                    'dias_laborables_mes' => $detalle['dias_laborables_mes'] ?? $generalLaborablesMes,
+                    'porcentaje_asistencia' => $detalle['porcentaje_asistencia'] ?? 0,
+                    'asistencia_label' => $detalle['asistencia_label'] ?? '0 / 0',
+                    'es_mes_en_curso' => $esMesEnCurso,
                 ];
             }
 
@@ -1092,6 +1196,10 @@ class AnalisisAsistenciaService
             'gran_total_atrasos' => $granTotalAtrasos,
             'total_omisiones' => $granTotalOmisiones,
             'gran_total_omisiones' => $granTotalOmisiones,
+            'dias_laborables_transcurridos' => $generalLaborablesTranscurridos,
+            'dias_laborables_mes' => $generalLaborablesMes,
+            'es_mes_en_curso' => $esMesEnCurso,
+            'fecha_corte_label' => $fechaCorte->format('d/m/Y'),
             'sucursales' => $consolidadas,
         ];
     }

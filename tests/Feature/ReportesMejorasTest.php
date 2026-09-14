@@ -178,5 +178,52 @@ class ReportesMejorasTest extends TestCase
             ->assertSee('Roberto Vargas')
             ->assertSee('Lucia Paredes');
     }
+
+    public function test_asistencia_computa_dias_transcurridos_y_no_muestra_cero_injustificado(): void
+    {
+        // Simulamos 14 de septiembre de 2026
+        $this->travelTo(Carbon::parse('2026-09-14 10:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Mateo',
+            'apellido' => 'Quispe',
+            'codigo_biometrico' => 'MQ-99',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-01-01',
+        ]);
+
+        // Registrar asistencia puntual en 3 días hábiles
+        foreach (['2026-09-01', '2026-09-02', '2026-09-03'] as $fecha) {
+            RegistroAsistencia::query()->create([
+                'empleado_id' => $empleado->id,
+                'fecha' => $fecha,
+                'hora_entrada' => '08:25:00',
+                'hora_salida' => '16:30:00',
+                'estado_marcacion' => 'Completo',
+                'evento_biometrico' => 'Verificado',
+            ]);
+        }
+
+        $service = app(AnalisisAsistenciaService::class);
+        $detalle = $service->detalleMensualPorEmpleado($empleado->id, Carbon::parse('2026-09-01'));
+
+        $this->assertSame(3, $detalle['dias_asistidos']);
+        $this->assertSame(10, $detalle['dias_laborables_transcurridos']);
+        $this->assertSame(22, $detalle['dias_laborables_mes']);
+        $this->assertSame(30, $detalle['porcentaje_asistencia']); // 3 de 10 = 30%
+        $this->assertTrue($detalle['es_mes_en_curso']);
+
+        $consolidado = $service->reporteConsolidadoPorSucursal(Carbon::parse('2026-09-01'), 'La Paz');
+        $colaborador = collect($consolidado['sucursales']['La Paz']['empleados'])->firstWhere('id', $empleado->id);
+
+        $this->assertNotNull($colaborador);
+        $this->assertSame(3, $colaborador['dias_asistidos']);
+        $this->assertSame(10, $colaborador['dias_laborables_transcurridos']);
+        $this->assertSame(22, $colaborador['dias_laborables_mes']);
+        $this->assertSame(30, $colaborador['porcentaje_asistencia']);
+    }
 }
 

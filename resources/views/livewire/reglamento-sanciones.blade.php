@@ -60,6 +60,57 @@
             @error('reglaObservaciones') <p class="form-error">{{ $message }}</p> @enderror
           </div>
 
+          {{-- Configuración de Vigencia y Punto de Referencia Temporal --}}
+          <div class="md:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+            <div>
+              <span class="text-xs font-black uppercase tracking-wider text-indigo-950 block">📅 Vigencia y Punto de Referencia</span>
+              <p class="text-[11px] text-indigo-800">Indica a partir de qué gestión y mes entra en vigor esta regla de sanción.</p>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="md:col-span-2">
+                <label class="form-label text-indigo-950">Tipo de vigencia</label>
+                <select wire:model.live="reglaTipoVigencia" class="form-input">
+                  <option value="siempre">♾️ Vigente siempre (En todas las gestiones y meses)</option>
+                  <option value="desde_fecha">📅 Aplica a partir de un Mes y Gestión (Punto de referencia)</option>
+                  <option value="solo_gestion">🗓️ Aplica solo en una Gestión específica</option>
+                  <option value="no_aplica">🔒 No aplica / Inactiva temporalmente</option>
+                </select>
+              </div>
+
+              @if($reglaTipoVigencia === 'desde_fecha' || $reglaTipoVigencia === 'solo_gestion')
+                <div>
+                  <label class="form-label text-indigo-950">Gestión de inicio *</label>
+                  <select wire:model="reglaDesdeGestion" class="form-input font-bold">
+                    <option value="">Seleccionar año...</option>
+                    @for($g = 2024; $g <= 2030; $g++)
+                      <option value="{{ $g }}">Gestión {{ $g }}</option>
+                    @endfor
+                  </select>
+                  @error('reglaDesdeGestion') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+
+                @if($reglaTipoVigencia === 'desde_fecha')
+                  <div>
+                    <label class="form-label text-indigo-950">Mes de inicio *</label>
+                    <select wire:model="reglaDesdeMes" class="form-input font-bold">
+                      <option value="">Seleccionar mes...</option>
+                      @foreach(\App\Models\ReglaSancion::nombresMeses() as $numMes => $nombreMes)
+                        <option value="{{ $numMes }}">{{ $numMes }} - {{ $nombreMes }}</option>
+                      @endforeach
+                    </select>
+                    @error('reglaDesdeMes') <p class="form-error">{{ $message }}</p> @enderror
+                  </div>
+                @endif
+              @endif
+
+              <div class="md:col-span-2">
+                <label class="form-label text-indigo-950">Fundamento o resolución de vigencia (Opcional)</label>
+                <input type="text" wire:model="reglaExplicacionVigencia" class="form-input" placeholder="Ej: Vigente según resolución administrativa">
+              </div>
+            </div>
+          </div>
+
           <div class="md:col-span-2 flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
             <div>
               <span class="text-xs font-bold text-slate-900 block">¿Es falta gravísima con destitución?</span>
@@ -148,6 +199,57 @@
             <textarea wire:model="newReglaObservaciones" rows="2" class="form-input" placeholder="Fundamento legal o memorándum DAF..."></textarea>
           </div>
 
+          {{-- Configuración de Vigencia y Punto de Referencia Temporal --}}
+          <div class="md:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+            <div>
+              <span class="text-xs font-black uppercase tracking-wider text-indigo-950 block">📅 Vigencia y Punto de Referencia</span>
+              <p class="text-[11px] text-indigo-800">Indica a partir de qué gestión y mes entra en vigor esta nueva regla.</p>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="md:col-span-2">
+                <label class="form-label text-indigo-950">Tipo de vigencia</label>
+                <select wire:model.live="newReglaTipoVigencia" class="form-input">
+                  <option value="siempre">♾️ Vigente siempre (En todas las gestiones y meses)</option>
+                  <option value="desde_fecha">📅 Aplica a partir de un Mes y Gestión (Punto de referencia)</option>
+                  <option value="solo_gestion">🗓️ Aplica solo en una Gestión específica</option>
+                  <option value="no_aplica">🔒 No aplica / Inactiva temporalmente</option>
+                </select>
+              </div>
+
+              @if($newReglaTipoVigencia === 'desde_fecha' || $newReglaTipoVigencia === 'solo_gestion')
+                <div>
+                  <label class="form-label text-indigo-950">Gestión de inicio *</label>
+                  <select wire:model="newReglaDesdeGestion" class="form-input font-bold">
+                    <option value="">Seleccionar año...</option>
+                    @for($g = 2024; $g <= 2030; $g++)
+                      <option value="{{ $g }}">Gestión {{ $g }}</option>
+                    @endfor
+                  </select>
+                  @error('newReglaDesdeGestion') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+
+                @if($newReglaTipoVigencia === 'desde_fecha')
+                  <div>
+                    <label class="form-label text-indigo-950">Mes de inicio *</label>
+                    <select wire:model="newReglaDesdeMes" class="form-input font-bold">
+                      <option value="">Seleccionar mes...</option>
+                      @foreach(\App\Models\ReglaSancion::nombresMeses() as $numMes => $nombreMes)
+                        <option value="{{ $numMes }}">{{ $numMes }} - {{ $nombreMes }}</option>
+                      @endforeach
+                    </select>
+                    @error('newReglaDesdeMes') <p class="form-error">{{ $message }}</p> @enderror
+                  </div>
+                @endif
+              @endif
+
+              <div class="md:col-span-2">
+                <label class="form-label text-indigo-950">Fundamento o resolución de vigencia (Opcional)</label>
+                <input type="text" wire:model="newReglaExplicacionVigencia" class="form-input" placeholder="Ej: Aprobado según resolución institucional">
+              </div>
+            </div>
+          </div>
+
           <div class="md:col-span-2 flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
             <div>
               <span class="text-xs font-bold text-slate-900 block">¿Es causal de destitución?</span>
@@ -162,6 +264,86 @@
           <div class="md:col-span-2 app-modal-actions">
             <button type="button" wire:click="closeCreateReglaModal" class="app-modal-secondary">Cancelar</button>
             <button type="submit" class="login-submit app-modal-submit">Crear regla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  @endif
+
+  {{-- MODAL DE VIGENCIA GENERAL Y MASIVA DEL REGLAMENTO --}}
+  @if ($showModalVigenciaMasiva)
+    <div class="app-modal-backdrop" wire:click="closeModalVigenciaMasiva">
+      <div class="app-modal-card" x-on:click.stop style="max-width: 38rem;">
+        <button type="button" wire:click="closeModalVigenciaMasiva" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">✕</button>
+        <div class="app-modal-head">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+              ⚙️ Configuración Global
+            </span>
+            <h3 class="section-title app-modal-title mt-1.5">Vigencia y punto de referencia de las reglas</h3>
+            <p class="section-copy-sm">Define desde qué gestión y mes entra en vigor el reglamento institucional para evitar computar despidos o sanciones de periodos históricos anteriores.</p>
+          </div>
+        </div>
+
+        <form wire:submit="guardarVigenciaMasiva" class="mt-6 grid gap-4 md:grid-cols-2">
+          <div class="md:col-span-2">
+            <label class="form-label">Alcance de la normativa *</label>
+            <select wire:model="masivaCategoria" class="form-input font-bold">
+              <option value="todas">🏛️ Todas las normativas y escalas del reglamento (Recomendado)</option>
+              <option value="atraso">Capítulo I · Solo Atrasos en Horario de Ingreso</option>
+              <option value="inasistencia">Capítulo II · Solo Inasistencias y Ausencias</option>
+              <option value="omision">Capítulo III · Solo Omisiones en el Registro</option>
+              <option value="gravisima">Capítulo IV · Solo Faltas Gravísimas y Destitución</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="form-label">Tipo de vigencia *</label>
+            <select wire:model.live="masivaTipoVigencia" class="form-input">
+              <option value="desde_fecha">📅 Aplica a partir de un Mes y Gestión específico (Punto de referencia)</option>
+              <option value="solo_gestion">🗓️ Aplica solo en una Gestión específica completa</option>
+              <option value="siempre">♾️ Vigente siempre (Sin filtro de fecha)</option>
+              <option value="no_aplica">🔒 En pausa / No aplicar en ningún periodo</option>
+            </select>
+          </div>
+
+          @if($masivaTipoVigencia === 'desde_fecha' || $masivaTipoVigencia === 'solo_gestion')
+            <div>
+              <label class="form-label">Gestión desde la cual aplica *</label>
+              <select wire:model="masivaDesdeGestion" class="form-input font-bold">
+                @for($g = 2024; $g <= 2030; $g++)
+                  <option value="{{ $g }}">Gestión {{ $g }}</option>
+                @endfor
+              </select>
+              @error('masivaDesdeGestion') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+
+            @if($masivaTipoVigencia === 'desde_fecha')
+              <div>
+                <label class="form-label">Mes desde el cual aplica *</label>
+                <select wire:model="masivaDesdeMes" class="form-input font-bold">
+                  <option value="">Seleccionar mes...</option>
+                  @foreach(\App\Models\ReglaSancion::nombresMeses() as $numMes => $nombreMes)
+                    <option value="{{ $numMes }}">{{ $numMes }} - {{ $nombreMes }}</option>
+                  @endforeach
+                </select>
+                @error('masivaDesdeMes') <p class="form-error">{{ $message }}</p> @enderror
+              </div>
+            @endif
+          @endif
+
+          <div class="md:col-span-2">
+            <label class="form-label">Motivo / Fundamento de vigencia (Opcional)</label>
+            <input type="text" wire:model="masivaExplicacion" class="form-input" placeholder="Ej: Implementación de nuevo reglamento institucional">
+          </div>
+
+          <div class="md:col-span-2 p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs text-indigo-950 font-medium">
+            💡 <strong>Efecto en el sistema:</strong> Al definir el mes y gestión de vigencia, el cómputo de despidos por reincidencias graves y deducciones salariales tomará como punto de partida dicha fecha, ignorando automáticamente los meses anteriores donde regían otras normas.
+          </div>
+
+          <div class="md:col-span-2 app-modal-actions">
+            <button type="button" wire:click="closeModalVigenciaMasiva" class="app-modal-secondary">Cancelar</button>
+            <button type="submit" class="login-submit app-modal-submit">Aplicar vigencia</button>
           </div>
         </form>
       </div>
@@ -190,6 +372,16 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            wire:click="openModalVigenciaMasiva('todas')"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs shadow-xs transition cursor-pointer"
+            title="Configurar gestión y mes de entrada en vigor de las reglas"
+          >
+            <svg class="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>⚙️ Vigencia del Reglamento</span>
+          </button>
+
           <button
             type="button"
             wire:click="openCreateReglaModal"
@@ -416,9 +608,10 @@
               <th style="min-width: 200px;">CAUSAL<br><span class="font-normal text-[11px] text-slate-400">En minutos de atraso acumulados en el mes</span></th>
               <th>RANGO MIN</th>
               <th>RANGO MAX</th>
-              <th style="min-width: 220px;">SANCIÓN<br><span class="font-normal text-[11px] text-slate-400">En días de la remuneración mensual</span></th>
+              <th style="min-width: 200px;">SANCIÓN<br><span class="font-normal text-[11px] text-slate-400">En días de la remuneración mensual</span></th>
               <th>DÍAS</th>
-              <th class="text-center" style="min-width: 100px;">ACCIONES</th>
+              <th style="min-width: 170px;">VIGENCIA</th>
+              <th class="text-center" style="min-width: 90px;">ACCIONES</th>
             </tr>
           </thead>
           <tbody>
@@ -459,6 +652,13 @@
                     {{ number_format($regla->dias_sancion, 2) }}
                   </span>
                 </td>
+                <td>
+                  @php $badgeV = $regla->getEstadoVigenciaBadge(); @endphp
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $badgeV['bg'] }}">
+                    <span class="h-1.5 w-1.5 rounded-full {{ $badgeV['punto'] }}"></span>
+                    <span>{{ $badgeV['detalle'] }}</span>
+                  </span>
+                </td>
                 <td class="text-center">
                   <button
                     type="button"
@@ -474,7 +674,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="6" class="text-center text-slate-400 py-6">No hay reglas de atraso registradas. Haz clic en "Restaurar originales" o agrega una nueva regla.</td>
+                <td colspan="7" class="text-center text-slate-400 py-6">No hay reglas de atraso registradas. Haz clic en "Restaurar originales" o agrega una nueva regla.</td>
               </tr>
             @endforelse
           </tbody>
@@ -541,7 +741,8 @@
               <th style="min-width: 250px;">CAUSAL<br><span class="font-normal text-[11px] text-slate-400">En días de inasistencia o ausencia en el puesto</span></th>
               <th style="min-width: 200px;">SANCIÓN<br><span class="font-normal text-[11px] text-slate-400">En días de la remuneración mensual</span></th>
               <th>DÍAS</th>
-              <th class="text-center" style="min-width: 100px;">ACCIONES</th>
+              <th style="min-width: 170px;">VIGENCIA</th>
+              <th class="text-center" style="min-width: 90px;">ACCIONES</th>
             </tr>
           </thead>
           <tbody>
@@ -563,6 +764,13 @@
                     {{ number_format($regla->dias_sancion, 2) }}
                   </span>
                 </td>
+                <td>
+                  @php $badgeV = $regla->getEstadoVigenciaBadge(); @endphp
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $badgeV['bg'] }}">
+                    <span class="h-1.5 w-1.5 rounded-full {{ $badgeV['punto'] }}"></span>
+                    <span>{{ $badgeV['detalle'] }}</span>
+                  </span>
+                </td>
                 <td class="text-center">
                   <button
                     type="button"
@@ -578,7 +786,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="4" class="text-center text-slate-400 py-6">No hay reglas de inasistencia configuradas.</td>
+                <td colspan="5" class="text-center text-slate-400 py-6">No hay reglas de inasistencia configuradas.</td>
               </tr>
             @endforelse
           </tbody>
@@ -642,7 +850,8 @@
               <th style="min-width: 250px;">CAUSAL<br><span class="font-normal text-[11px] text-slate-400">Número de omisiones en el mes, en el Registro</span></th>
               <th style="min-width: 200px;">SANCIÓN<br><span class="font-normal text-[11px] text-slate-400">En días de la remuneración mensual</span></th>
               <th>DÍAS</th>
-              <th class="text-center" style="min-width: 100px;">ACCIONES</th>
+              <th style="min-width: 170px;">VIGENCIA</th>
+              <th class="text-center" style="min-width: 90px;">ACCIONES</th>
             </tr>
           </thead>
           <tbody>
@@ -664,6 +873,13 @@
                     {{ number_format($regla->dias_sancion, 2) }}
                   </span>
                 </td>
+                <td>
+                  @php $badgeV = $regla->getEstadoVigenciaBadge(); @endphp
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $badgeV['bg'] }}">
+                    <span class="h-1.5 w-1.5 rounded-full {{ $badgeV['punto'] }}"></span>
+                    <span>{{ $badgeV['detalle'] }}</span>
+                  </span>
+                </td>
                 <td class="text-center">
                   <button
                     type="button"
@@ -679,7 +895,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="4" class="text-center text-slate-400 py-6">No hay reglas de omisión configuradas.</td>
+                <td colspan="5" class="text-center text-slate-400 py-6">No hay reglas de omisión configuradas.</td>
               </tr>
             @endforelse
           </tbody>
@@ -742,7 +958,8 @@
             <tr>
               <th style="min-width: 320px;">CAUSAL</th>
               <th style="min-width: 220px;">SANCIÓN</th>
-              <th class="text-center" style="min-width: 100px;">ACCIONES</th>
+              <th style="min-width: 170px;">VIGENCIA</th>
+              <th class="text-center" style="min-width: 90px;">ACCIONES</th>
             </tr>
           </thead>
           <tbody>
@@ -762,6 +979,13 @@
                     ⚖️ {{ $regla->sancion_texto }}
                   </span>
                 </td>
+                <td>
+                  @php $badgeV = $regla->getEstadoVigenciaBadge(); @endphp
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $badgeV['bg'] }}">
+                    <span class="h-1.5 w-1.5 rounded-full {{ $badgeV['punto'] }}"></span>
+                    <span>{{ $badgeV['detalle'] }}</span>
+                  </span>
+                </td>
                 <td class="text-center">
                   <button
                     type="button"
@@ -777,7 +1001,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="3" class="text-center text-slate-400 py-6">No hay faltas gravísimas configuradas.</td>
+                <td colspan="4" class="text-center text-slate-400 py-6">No hay faltas gravísimas configuradas.</td>
               </tr>
             @endforelse
           </tbody>

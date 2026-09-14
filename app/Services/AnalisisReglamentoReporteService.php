@@ -78,52 +78,58 @@ class AnalisisReglamentoReporteService
                 $mesesGravesGestion++;
             }
 
-            // 1. Art. 45.I: Escala de Atrasos
+            // 1. Art. 45.I: Escala de Atrasos (evaluada dinámicamente según vigencia de la regla)
             $diasSancionAtraso = 0.0;
-            if ($minutosAtraso >= 31 && $minutosAtraso <= 45) {
-                $diasSancionAtraso = 0.5;
-            } elseif ($minutosAtraso >= 46 && $minutosAtraso <= 60) {
-                $diasSancionAtraso = 1.0;
-            } elseif ($minutosAtraso >= 61 && $minutosAtraso <= 90) {
-                $diasSancionAtraso = 2.0;
-            } elseif ($minutosAtraso >= 91 && $minutosAtraso <= 120) {
-                $diasSancionAtraso = 3.0;
-            } elseif ($minutosAtraso >= 121) {
-                $diasSancionAtraso = 4.0;
+            $reglaAtraso = $this->reglamentoSancion->evaluarAtraso($minutosAtraso, 1, $referenceMonth);
+            if ($reglaAtraso) {
+                $diasSancionAtraso = (float) $reglaAtraso->dias_sancion;
             }
 
-            // 2. Art. 45.II: Inasistencias y Ausencias en el Puesto de Trabajo
-            // Según Art. 45.II: Genera el DOBLE de descuento (engloba el día no trabajado más infracción administrativa)
-            // 1/2 día de falta = 1 día descuento; 1 día de falta = 2 días descuento
-            $diasSancionInasistencia = (float) ($faltasInjustificadas * 2.0);
+            // 2. Art. 45.II: Inasistencias y Ausencias en el Puesto de Trabajo (evaluada según vigencia)
+            $diasSancionInasistencia = 0.0;
+            $reglaInasistencia = $this->reglamentoSancion->evaluarInasistencia($faltasInjustificadas, $referenceMonth);
+            if ($reglaInasistencia) {
+                $diasSancionInasistencia = (float) ($faltasInjustificadas * 2.0);
+            }
 
-            // 3. Art. 45.III: Omisiones en el Registro de Asistencia
-            // 1ra vez = 1/2 día; 2da vez = 1 día; 3ra vez = 1.5 días; 4ta vez = destitución (Art. 48.IV) + 2 días
+            // 3. Art. 45.III: Omisiones en el Registro de Asistencia (evaluada según vigencia)
             $diasSancionOmision = 0.0;
-            if ($omisionesCount === 1) {
-                $diasSancionOmision = 0.5;
-            } elseif ($omisionesCount === 2) {
-                $diasSancionOmision = 1.0;
-            } elseif ($omisionesCount === 3) {
-                $diasSancionOmision = 1.5;
-            } elseif ($omisionesCount >= 4) {
-                $diasSancionOmision = 2.0;
+            $reglaOmision = $this->reglamentoSancion->evaluarOmision($omisionesCount, $referenceMonth);
+            if ($reglaOmision) {
+                $diasSancionOmision = (float) $reglaOmision->dias_sancion;
             }
 
             $totalDiasSancionEmpleado = $diasSancionAtraso + $diasSancionInasistencia + $diasSancionOmision;
 
             // 4. Art. 48: Causales de Destitución con Proceso Interno
+            // Se valida que la falta gravísima esté vigente en el mes y gestión evaluados
             $causalesCriticas = [];
-            if ($minutosAtraso >= 121 && $mesesGravesGestion >= 3) {
+            $gravisimasVigentes = ReglaSancion::query()
+                ->gravisimas()
+                ->activo()
+                ->get()
+                ->filter(fn(ReglaSancion $r) => $r->aplicaEnPeriodo($referenceMonth));
+
+            // Art. 48.I: Reincidencia en atrasos gravísimos (121+ min por 3ra vez)
+            $reglaAtrasoGravisima = $gravisimasVigentes->first(fn($r) => $r->unidad === 'minutos' && $r->es_destitucion);
+            if ($reglaAtrasoGravisima && $minutosAtraso >= 121 && $mesesGravesGestion >= 3) {
                 $causalesCriticas[] = "121+ min de atraso acumulado por 3ra vez en la gestión anual (Art. 48.I)";
             }
-            if ($omisionesCount >= 4) {
+
+            // Art. 48.IV: Omisiones en el registro de asistencia (>= 4)
+            $reglaOmisionGravisima = $gravisimasVigentes->first(fn($r) => $r->unidad === 'ocurrencias' && $r->es_destitucion);
+            if ($reglaOmisionGravisima && $omisionesCount >= 4) {
                 $causalesCriticas[] = "{$omisionesCount} omisiones de registro de asistencia en el mes (Art. 48.IV)";
             }
-            if ($faltasInjustificadas >= 6) {
-                $causalesCriticas[] = "{$faltasInjustificadas} días discontinuos de inasistencia/ausencia en el mes (Art. 48.III)";
-            } elseif ($faltasInjustificadas >= 3) {
-                $causalesCriticas[] = "{$faltasInjustificadas} días de inasistencia/ausencia en el mes (Art. 48.II)";
+
+            // Art. 48.II y 48.III: Inasistencias o abandono (>3 continuos o >6 discontinuos)
+            $reglasInasistenciaGravisima = $gravisimasVigentes->filter(fn($r) => $r->unidad === 'dias' && $r->es_destitucion);
+            if ($reglasInasistenciaGravisima->isNotEmpty()) {
+                if ($faltasInjustificadas >= 6) {
+                    $causalesCriticas[] = "{$faltasInjustificadas} días discontinuos de inasistencia/ausencia en el mes (Art. 48.III)";
+                } elseif ($faltasInjustificadas >= 3) {
+                    $causalesCriticas[] = "{$faltasInjustificadas} días de inasistencia/ausencia en el mes (Art. 48.II)";
+                }
             }
 
             $esDestitucion = !empty($causalesCriticas);
@@ -438,11 +444,17 @@ class AnalisisReglamentoReporteService
             ->values()
             ->all();
 
+        // Separar estrictamente el personal sancionado por el Art. 45 (descuentos salariales > 0)
+        $sancionadosArt45 = collect($masSancionados)
+            ->filter(fn($i) => ($i['dias_sancion_total'] ?? 0) > 0)
+            ->values()
+            ->all();
+
         return [
             'metricas' => [
                 'total_evaluados' => $empleados->count(),
                 'en_alerta_preventiva' => $totalEnAlertaPreventiva,
-                'con_sancion_economica' => $totalConSancionEconomica,
+                'con_sancion_economica' => count($sancionadosArt45),
                 'riesgo_critico' => $totalRiesgoCritico,
                 'concurrencia_articulos' => count($concurrentes),
                 'total_dias_sancion' => $totalDiasSancionInstitucional,
@@ -450,15 +462,16 @@ class AnalisisReglamentoReporteService
             ],
             'personal_en_alerta' => $enAlerta,
             'mas_sancionados' => $masSancionados,
+            'masSancionados' => $masSancionados,
             'reincidentes' => $reincidentes,
             'casos_criticos' => $casosCriticos,
             'concurrentes' => $concurrentes,
             'art_45' => [
                 'titulo' => 'Artículo 45 · Atrasos, Inasistencias y Sanciones Salariales',
                 'alertas' => $alertasArt45,
-                'sancionados' => $masSancionados,
+                'sancionados' => $sancionadosArt45,
                 'total_alertas' => count($alertasArt45),
-                'total_sancionados' => count($masSancionados),
+                'total_sancionados' => count($sancionadosArt45),
             ],
             'art_48' => [
                 'titulo' => 'Artículo 48 · Causales Graves y Destitución',
@@ -478,7 +491,8 @@ class AnalisisReglamentoReporteService
 
     /**
      * Cuenta cuántos meses previos en la gestión anual un empleado superó o igualó los 121 minutos de retraso.
-     * Optimizado para verificar únicamente meses donde existen registros biométricos del funcionario de forma directa.
+     * Toma como punto de referencia el mes y gestión de entrada en vigencia del reglamento o de la falta gravísima,
+     * para no computar reincidencias de periodos anteriores donde regían otras normas.
      */
     protected function contarMesesConAtrasoGraveEnGestion(Empleado $empleado, int $gestion, int $mesExcluir, ?Collection $preloadedRegistros = null): int
     {
@@ -486,12 +500,40 @@ class AnalisisReglamentoReporteService
             return 0;
         }
 
-        $cacheKey = "{$empleado->id}_{$gestion}_{$mesExcluir}";
+        // Determinar el mes inicial de vigencia de la regla de reincidencia por atraso (Art. 48.I)
+        $reglaGravisimaAtraso = ReglaSancion::query()
+            ->gravisimas()
+            ->where('unidad', 'minutos')
+            ->first();
+
+        $mesInicioVigencia = 1;
+        if ($reglaGravisimaAtraso) {
+            if (! $reglaGravisimaAtraso->activo || $reglaGravisimaAtraso->tipo_vigencia === 'no_aplica') {
+                return 0;
+            }
+            if ($reglaGravisimaAtraso->aplica_desde_gestion !== null) {
+                if ($gestion < (int) $reglaGravisimaAtraso->aplica_desde_gestion) {
+                    return 0;
+                }
+                if ($gestion === (int) $reglaGravisimaAtraso->aplica_desde_gestion && $reglaGravisimaAtraso->aplica_desde_mes !== null) {
+                    $mesInicioVigencia = (int) $reglaGravisimaAtraso->aplica_desde_mes;
+                }
+            } elseif ($reglaGravisimaAtraso->aplica_desde_mes !== null) {
+                $mesInicioVigencia = (int) $reglaGravisimaAtraso->aplica_desde_mes;
+            }
+        }
+
+        // Si el mes a evaluar es menor o igual al inicio de vigencia, no hay reincidencias previas válidas
+        if ($mesExcluir <= $mesInicioVigencia) {
+            return 0;
+        }
+
+        $cacheKey = "{$empleado->id}_{$gestion}_{$mesExcluir}_{$mesInicioVigencia}";
         if (isset(self::$reincidenciaCache[$cacheKey])) {
             return self::$reincidenciaCache[$cacheKey];
         }
 
-        $startDate = "{$gestion}-01-01";
+        $startDate = Carbon::createFromDate($gestion, $mesInicioVigencia, 1)->startOfMonth()->toDateString();
         $endDate = Carbon::createFromDate($gestion, $mesExcluir, 1)->startOfMonth()->toDateString();
 
         $registros = $preloadedRegistros ?? RegistroAsistencia::query()
@@ -509,6 +551,10 @@ class AnalisisReglamentoReporteService
 
         $conteo = 0;
         foreach ($mesesConRegistros as $m => $items) {
+            if ($m < $mesInicioVigencia) {
+                continue;
+            }
+
             $minutosMes = 0;
             foreach ($items as $reg) {
                 $horario = $this->programacionLaboral->resolverHorario($empleado, $reg->fecha);

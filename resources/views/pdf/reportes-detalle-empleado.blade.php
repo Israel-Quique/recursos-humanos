@@ -135,15 +135,20 @@
       }
       .badge-omision {
         font-weight: bold;
-        color: #b91c1c;
+        color: #000000;
+        background: #e2e8f0;
+        border: 1px solid #0f172a;
+        padding: 1.5px 5px;
+        border-radius: 2px;
+        display: inline-block;
       }
 
       .footer {
         margin-top: 20px;
         padding-top: 8px;
-        border-top: 1px solid #cbd5e1;
+        border-top: 1px solid #0f172a;
         font-size: 8px;
-        color: #94a3b8;
+        color: #475569;
         text-align: right;
       }
     </style>
@@ -215,11 +220,11 @@
       <tbody>
         @forelse(($detailEmployeeReport['tardanzas'] ?? []) as $i => $item)
           <tr>
-            <td class="text-center">{{ $i + 1 }}</td>
+            <td class="text-center" style="color: #475569;">{{ $i + 1 }}</td>
             <td class="font-bold">{{ $item['fecha'] }}</td>
-            <td class="text-center">{{ $item['entrada'] }}</td>
+            <td class="text-center font-bold">{{ $item['entrada'] }}</td>
             <td class="text-center">{{ $item['salida'] }}</td>
-            <td class="text-center font-bold" style="color: #b45309;">{{ $item['retraso'] }}</td>
+            <td class="text-center font-bold" style="color: #0f172a;">{{ $item['retraso_minutos'] ?? (int)$item['retraso'] }} min</td>
             <td class="text-center">{{ $item['estado'] }}</td>
           </tr>
         @empty
@@ -253,12 +258,24 @@
       <tbody>
         @forelse($omisionesCombinadas as $i => $item)
           <tr>
-            <td class="text-center">{{ $i + 1 }}</td>
+            <td class="text-center" style="color: #475569;">{{ $i + 1 }}</td>
             <td class="font-bold">{{ $item['fecha'] }}</td>
-            <td class="text-center">{{ $item['entrada'] ?? '--:--' }}</td>
-            <td class="text-center">{{ $item['salida'] ?? '--:--' }}</td>
-            <td class="text-center badge-omision">Omisión</td>
-            <td>{{ $item['detalle'] ?? 'Marcación incompleta o día sin registro' }}</td>
+            <td class="text-center">
+              @if(blank($item['entrada'] ?? '') || ($item['entrada'] ?? '') === '--:--')
+                <span style="font-weight: bold; color: #000; background: #e2e8f0; padding: 1px 3px; border: 1px solid #475569; font-size: 8px;">[Sin marcar]</span>
+              @else
+                <span class="font-mono font-bold">{{ $item['entrada'] }}</span>
+              @endif
+            </td>
+            <td class="text-center">
+              @if(blank($item['salida'] ?? '') || ($item['salida'] ?? '') === '--:--')
+                <span style="font-weight: bold; color: #000; background: #e2e8f0; padding: 1px 3px; border: 1px solid #475569; font-size: 8px;">[Sin marcar]</span>
+              @else
+                <span class="font-mono font-bold">{{ $item['salida'] }}</span>
+              @endif
+            </td>
+            <td class="text-center"><span class="badge-omision">Omisión</span></td>
+            <td><strong>{{ $item['detalle'] ?? 'Marcación incompleta o día sin registro' }}</strong></td>
           </tr>
         @empty
           <tr class="empty-row">

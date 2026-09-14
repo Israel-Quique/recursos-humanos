@@ -2,8 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Models\Empleado;
 use App\Models\User;
 use App\Services\AuditoriaService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 use Spatie\Permission\Models\Role;
@@ -12,21 +14,38 @@ class GestionAccesosPage extends Component
 {
     private const ALLOWED_ROLES = ['administrador', 'gestor'];
 
+    public string $search = '';
+    public string $roleFilter = '';
+
     public ?int $selectedUserId = null;
     public string $selectedRole = 'gestor';
+
+    // Altas (Crear)
     public bool $showCreateModal = false;
-    public bool $showEditModal = false;
     public string $name = '';
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
     public string $newUserRole = 'gestor';
+    public ?int $newEmpleadoId = null;
+
+    // Modificaciones (Editar)
+    public bool $showEditModal = false;
     public ?int $editingUserId = null;
     public string $editName = '';
     public string $editEmail = '';
     public string $editPassword = '';
     public string $editPassword_confirmation = '';
     public string $editRole = 'gestor';
+    public ?int $editEmpleadoId = null;
+
+    // Bajas (Eliminar)
+    public bool $showDeleteModal = false;
+    public ?int $pendingDeleteUserId = null;
+    public string $pendingDeleteUserName = '';
+    public string $pendingDeleteUserEmail = '';
+    public string $pendingDeleteUserRole = '';
+    public ?string $pendingDeleteUserEmpleado = null;
 
     public function mount(): void
     {
@@ -51,8 +70,8 @@ class GestionAccesosPage extends Component
 
     public function updated(string $property): void
     {
-        $createFields = ['name', 'email', 'password', 'password_confirmation', 'newUserRole'];
-        $editFields = ['editName', 'editEmail', 'editPassword', 'editPassword_confirmation', 'editRole'];
+        $createFields = ['name', 'email', 'password', 'password_confirmation', 'newUserRole', 'newEmpleadoId'];
+        $editFields = ['editName', 'editEmail', 'editPassword', 'editPassword_confirmation', 'editRole', 'editEmpleadoId'];
 
         if ($this->showCreateModal && in_array($property, $createFields, true)) {
             $this->validateOnly($property, $this->createRules(), $this->validationMessages());
@@ -63,37 +82,15 @@ class GestionAccesosPage extends Component
         }
     }
 
-    public function updateUserRole(): void
+    public function clearFilters(): void
     {
-        $data = $this->validate([
-            'selectedUserId' => ['required', 'integer', 'exists:users,id'],
-            'selectedRole' => ['required', 'string', 'in:administrador,gestor'],
-        ], [
-            'selectedUserId.required' => 'Selecciona un usuario.',
-            'selectedRole.required' => 'Selecciona un rol.',
-            'selectedRole.in' => 'Solo se permite asignar administrador o gestor.',
-        ]);
-
-        $user = User::query()->findOrFail($data['selectedUserId']);
-        $antes = ['rol' => $user->getRoleNames()->first() ?? 'sin rol'];
-        $user->syncRoles([$data['selectedRole']]);
-
-        app(AuditoriaService::class)->registrar(
-            'Accesos',
-            'cambiar_rol',
-            'Se actualizo el rol de un usuario del sistema.',
-            $user,
-            $antes,
-            ['rol' => $data['selectedRole']]
-        );
-
-        session()->flash('status', 'Rol actualizado correctamente.');
+        $this->reset(['search', 'roleFilter']);
     }
 
     public function openCreateModal(): void
     {
         $this->resetValidation();
-        $this->reset(['name', 'email', 'password', 'password_confirmation']);
+        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId']);
         $this->newUserRole = 'gestor';
         $this->showCreateModal = true;
     }
@@ -102,28 +99,6 @@ class GestionAccesosPage extends Component
     {
         $this->showCreateModal = false;
         $this->resetValidation();
-    }
-
-    public function openEditModal(int $userId): void
-    {
-        $user = User::query()->findOrFail($userId);
-
-        $this->resetValidation();
-        $this->editingUserId = $user->id;
-        $this->editName = $user->name;
-        $this->editEmail = $this->extractCorreosLocalPart($user->email);
-        $this->editPassword = '';
-        $this->editPassword_confirmation = '';
-        $this->editRole = $this->normalizeRole($user->getRoleNames()->first());
-        $this->showEditModal = true;
-    }
-
-    public function closeEditModal(): void
-    {
-        $this->showEditModal = false;
-        $this->resetValidation();
-        $this->reset(['editingUserId', 'editName', 'editEmail', 'editPassword', 'editPassword_confirmation']);
-        $this->editRole = 'gestor';
     }
 
     public function createUser(): void
@@ -139,13 +114,14 @@ class GestionAccesosPage extends Component
         ], [
             'email.email' => 'Ingresa un correo valido.',
             'email.ends_with' => 'El correo debe pertenecer al dominio @correos.com.',
-            'email.unique' => 'Ese correo ya existe.',
+            'email.unique' => 'Ese correo corporativo ya esta registrado.',
         ])->validate();
 
         $user = User::query()->create([
             'name' => trim($data['name']),
             'email' => $normalizedEmail,
             'password' => Hash::make($data['password']),
+            'empleado_id' => ! empty($data['newEmpleadoId']) ? (int) $data['newEmpleadoId'] : null,
         ]);
 
         $user->syncRoles([$data['newUserRole']]);
@@ -153,7 +129,7 @@ class GestionAccesosPage extends Component
         app(AuditoriaService::class)->registrar(
             'Accesos',
             'crear',
-            'Se creo un nuevo usuario del sistema.',
+            'Se creo y dio de alta a un nuevo usuario del sistema (' . $user->name . ').',
             $user,
             null,
             $this->snapshotUser($user)
@@ -161,12 +137,35 @@ class GestionAccesosPage extends Component
 
         $this->selectedUserId = $user->id;
         $this->selectedRole = $data['newUserRole'];
-        $this->reset(['name', 'email', 'password', 'password_confirmation']);
+        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId']);
         $this->newUserRole = 'gestor';
         $this->resetValidation();
         $this->showCreateModal = false;
 
-        session()->flash('status', 'Usuario creado correctamente y listo para ingresar al sistema.');
+        session()->flash('status', 'Usuario dado de alta exitosamente y habilitado para ingresar al sistema.');
+    }
+
+    public function openEditModal(int $userId): void
+    {
+        $user = User::query()->findOrFail($userId);
+
+        $this->resetValidation();
+        $this->editingUserId = $user->id;
+        $this->editName = $user->name;
+        $this->editEmail = $this->extractCorreosLocalPart($user->email);
+        $this->editPassword = '';
+        $this->editPassword_confirmation = '';
+        $this->editRole = $this->normalizeRole($user->getRoleNames()->first());
+        $this->editEmpleadoId = $user->empleado_id;
+        $this->showEditModal = true;
+    }
+
+    public function closeEditModal(): void
+    {
+        $this->showEditModal = false;
+        $this->resetValidation();
+        $this->reset(['editingUserId', 'editName', 'editEmail', 'editPassword', 'editPassword_confirmation', 'editEmpleadoId']);
+        $this->editRole = 'gestor';
     }
 
     public function updateUser(): void
@@ -184,14 +183,22 @@ class GestionAccesosPage extends Component
             'editName' => ['required', 'string', 'max:120', 'unique:users,name,'.$user->id],
             'editEmail' => ['required', 'email', 'max:255', 'ends_with:@correos.com', 'unique:users,email,'.$user->id],
         ], [
-            'editName.unique' => 'Ese nombre de usuario ya existe.',
+            'editName.unique' => 'Ese nombre de usuario ya esta en uso.',
             'editEmail.email' => 'Ingresa un correo valido.',
             'editEmail.ends_with' => 'El correo debe pertenecer al dominio @correos.com.',
-            'editEmail.unique' => 'Ese correo ya existe.',
+            'editEmail.unique' => 'Ese correo corporativo ya esta en uso.',
         ])->validate();
+
+        // Prevencion: no degradar al ultimo administrador
+        $currentRole = $user->getRoleNames()->first();
+        if ($currentRole === 'administrador' && $data['editRole'] !== 'administrador' && User::role('administrador')->count() <= 1) {
+            session()->flash('error', 'No es posible cambiar el rol del unico administrador del sistema.');
+            return;
+        }
 
         $user->name = $validated['editName'];
         $user->email = $validated['editEmail'];
+        $user->empleado_id = ! empty($data['editEmpleadoId']) ? (int) $data['editEmpleadoId'] : null;
 
         if ($data['editPassword'] !== '') {
             $user->password = Hash::make($data['editPassword']);
@@ -203,7 +210,7 @@ class GestionAccesosPage extends Component
         app(AuditoriaService::class)->registrar(
             'Accesos',
             'editar',
-            'Se editaron los datos de un usuario del sistema.',
+            'Se modificaron los datos de acceso del usuario ' . $user->name . '.',
             $user->fresh(),
             $antes,
             $this->snapshotUser($user->fresh())
@@ -213,21 +220,139 @@ class GestionAccesosPage extends Component
         $this->selectedRole = $data['editRole'];
         $this->closeEditModal();
 
-        session()->flash('status', 'Usuario actualizado correctamente.');
+        session()->flash('status', 'Datos del usuario modificados correctamente.');
+    }
+
+    public function confirmDelete(int $userId): void
+    {
+        if ($userId === auth()->id()) {
+            session()->flash('error', 'No puedes dar de baja tu propia cuenta de acceso en uso.');
+            return;
+        }
+
+        $user = User::query()->with('empleado')->findOrFail($userId);
+        $roleName = $user->getRoleNames()->first() ?? 'sin rol';
+
+        if ($roleName === 'administrador' && User::role('administrador')->count() <= 1) {
+            session()->flash('error', 'No se puede dar de baja al unico administrador del sistema.');
+            return;
+        }
+
+        $this->pendingDeleteUserId = $user->id;
+        $this->pendingDeleteUserName = $user->name;
+        $this->pendingDeleteUserEmail = $user->email;
+        $this->pendingDeleteUserRole = $roleName;
+        $this->pendingDeleteUserEmpleado = $user->empleado?->nombre_completo;
+        $this->showDeleteModal = true;
+    }
+
+    public function closeDeleteModal(): void
+    {
+        $this->showDeleteModal = false;
+        $this->reset([
+            'pendingDeleteUserId',
+            'pendingDeleteUserName',
+            'pendingDeleteUserEmail',
+            'pendingDeleteUserRole',
+            'pendingDeleteUserEmpleado',
+        ]);
+    }
+
+    public function deleteUser(): void
+    {
+        if (! $this->pendingDeleteUserId) {
+            return;
+        }
+
+        if ($this->pendingDeleteUserId === auth()->id()) {
+            session()->flash('error', 'No puedes dar de baja tu propia cuenta de acceso.');
+            $this->closeDeleteModal();
+            return;
+        }
+
+        $user = User::query()->with('empleado')->findOrFail($this->pendingDeleteUserId);
+        $roleName = $user->getRoleNames()->first() ?? 'sin rol';
+
+        if ($roleName === 'administrador' && User::role('administrador')->count() <= 1) {
+            session()->flash('error', 'No se puede dar de baja al unico administrador del sistema.');
+            $this->closeDeleteModal();
+            return;
+        }
+
+        $snapshot = $this->snapshotUser($user);
+
+        app(AuditoriaService::class)->registrar(
+            'Accesos',
+            'eliminar',
+            'Se dio de baja y elimino al usuario "' . $user->name . '" del sistema de accesos.',
+            $user,
+            $snapshot,
+            null
+        );
+
+        $user->syncRoles([]);
+
+        DB::table('sessions')
+            ->where('user_id', $user->id)
+            ->delete();
+
+        $user->delete();
+
+        if ($this->selectedUserId === $this->pendingDeleteUserId) {
+            $firstUser = User::query()->orderBy('name')->first();
+            $this->selectedUserId = $firstUser?->id;
+            $this->selectedRole = $this->normalizeRole($firstUser?->getRoleNames()->first());
+        }
+
+        $this->closeDeleteModal();
+        session()->flash('status', 'Usuario dado de baja y eliminado correctamente.');
     }
 
     public function render()
     {
-        $users = User::query()->with('empleado')->orderBy('name')->get();
+        $query = User::query()->with('empleado');
+
+        if (trim($this->search) !== '') {
+            $searchTerm = '%' . trim($this->search) . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', $searchTerm)
+                  ->orWhere('email', 'like', $searchTerm)
+                  ->orWhereHas('empleado', function ($eq) use ($searchTerm) {
+                      $eq->where('nombre', 'like', $searchTerm)
+                         ->orWhere('apellido', 'like', $searchTerm);
+                  });
+            });
+        }
+
+        if (in_array($this->roleFilter, self::ALLOWED_ROLES, true)) {
+            $query->role($this->roleFilter);
+        }
+
+        $users = $query->orderBy('name')->get();
+
         $roles = Role::query()
             ->whereIn('name', self::ALLOWED_ROLES)
             ->get()
             ->sortBy(fn (Role $role) => array_search($role->name, self::ALLOWED_ROLES, true))
             ->values();
 
+        $empleados = Empleado::query()
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->get(['id', 'nombre', 'apellido', 'area', 'sucursal']);
+
+        $stats = [
+            'total' => User::count(),
+            'admins' => User::role('administrador')->count(),
+            'gestores' => User::role('gestor')->count(),
+            'vinculados' => User::whereNotNull('empleado_id')->count(),
+        ];
+
         return view('livewire.gestion-accesos', [
             'users' => $users,
             'roles' => $roles,
+            'empleados' => $empleados,
+            'stats' => $stats,
         ])->layout('layouts.app', ['title' => 'Administracion de accesos']);
     }
 
@@ -239,6 +364,7 @@ class GestionAccesosPage extends Component
             'password' => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
             'password_confirmation' => ['required', 'string', 'min:8', 'max:72'],
             'newUserRole' => ['required', 'string', 'in:administrador,gestor'],
+            'newEmpleadoId' => ['nullable', 'integer', 'exists:empleados,id'],
         ];
     }
 
@@ -251,6 +377,7 @@ class GestionAccesosPage extends Component
             'editPassword' => ['nullable', 'string', 'min:8', 'max:72', 'confirmed', 'required_with:editPassword_confirmation'],
             'editPassword_confirmation' => ['nullable', 'string', 'min:8', 'max:72', 'required_with:editPassword'],
             'editRole' => ['required', 'string', 'in:administrador,gestor'],
+            'editEmpleadoId' => ['nullable', 'integer', 'exists:empleados,id'],
         ];
     }
 
@@ -262,7 +389,7 @@ class GestionAccesosPage extends Component
             'name.max' => 'El nombre de usuario no puede superar los 120 caracteres.',
             'name.regex' => 'El nombre de usuario solo puede usar letras, numeros, puntos, guiones y guion bajo.',
             'name.unique' => 'Ese nombre de usuario ya existe.',
-            'email.required' => 'Ingresa el correo del usuario.',
+            'email.required' => 'Ingresa el correo corporativo.',
             'email.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.com.',
             'email.max' => 'El correo no puede superar los 120 caracteres antes de @correos.com.',
             'email.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.com.',
@@ -275,12 +402,13 @@ class GestionAccesosPage extends Component
             'password_confirmation.max' => 'La confirmacion no puede superar los 72 caracteres.',
             'newUserRole.required' => 'Selecciona un rol para el usuario.',
             'newUserRole.in' => 'Solo se permite crear usuarios administrador o gestor.',
+            'newEmpleadoId.exists' => 'El empleado seleccionado no es valido.',
             'editingUserId.required' => 'Selecciona un usuario valido.',
             'editName.required' => 'Ingresa el nombre del usuario.',
             'editName.min' => 'El nombre de usuario debe tener al menos 3 caracteres.',
             'editName.max' => 'El nombre de usuario no puede superar los 120 caracteres.',
             'editName.regex' => 'El nombre de usuario solo puede usar letras, numeros, puntos, guiones y guion bajo.',
-            'editEmail.required' => 'Ingresa el correo del usuario.',
+            'editEmail.required' => 'Ingresa el correo corporativo.',
             'editEmail.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.com.',
             'editEmail.max' => 'El correo no puede superar los 120 caracteres antes de @correos.com.',
             'editEmail.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.com.',
@@ -293,6 +421,7 @@ class GestionAccesosPage extends Component
             'editPassword_confirmation.required_with' => 'Confirma la nueva contrasena.',
             'editRole.required' => 'Selecciona un rol para el usuario.',
             'editRole.in' => 'Solo se permite asignar administrador o gestor.',
+            'editEmpleadoId.exists' => 'El empleado seleccionado no es valido.',
         ];
     }
 

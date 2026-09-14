@@ -386,7 +386,7 @@
             <th>Periodo</th>
             <th>Boleta Oficial</th>
             <th>Estado</th>
-            <th class="text-center" style="min-width: 130px;">Acciones</th>
+            <th class="text-center">Comprobante</th>
           </tr>
         </thead>
         <tbody>
@@ -453,10 +453,10 @@
                 @endif
               </td>
 
-              {{-- Acciones: 3 Íconos (Ojito, Check, Cruz) --}}
+              {{-- Comprobante Fotográfico / Acciones --}}
               <td class="table-actions-cell">
-                <div class="flex items-center justify-center gap-1.5">
-                  {{-- 1. Ojito (Solo Ver Comprobante) --}}
+                <div class="flex items-center justify-center">
+                  {{-- Ojito (Ver Comprobante) --}}
                   <button
                     type="button"
                     wire:click="verComprobante({{ $item->id }})"
@@ -468,58 +468,6 @@
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                   </button>
-
-                  {{-- 2. Check (Aprobar) con Popup y Bloqueo --}}
-                  @if ($item->estado === 'pendiente')
-                    <button
-                      type="button"
-                      wire:click="abrirConfirmacion({{ $item->id }}, 'aprobado')"
-                      class="h-8 w-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer border border-emerald-200 flex items-center justify-center transition shadow-2xs hover:scale-105 active:scale-95"
-                      title="Aprobar solicitud de {{ $item->empleado?->nombre_completo ?? 'personal' }}"
-                    >
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    </button>
-                  @else
-                    <button
-                      type="button"
-                      disabled
-                      class="h-8 w-8 rounded-lg {{ $item->estado === 'aprobado' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200' }} flex items-center justify-center cursor-not-allowed opacity-60 shadow-none"
-                      title="Esta solicitud ya fue {{ $item->estado }} y no se puede volver a modificar"
-                    >
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    </button>
-                  @endif
-
-                  {{-- 3. Cruz (Rechazar) con Popup y Bloqueo --}}
-                  @if ($item->estado === 'pendiente')
-                    <button
-                      type="button"
-                      wire:click="abrirConfirmacion({{ $item->id }}, 'rechazado')"
-                      class="h-8 w-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer border border-rose-200 flex items-center justify-center transition shadow-2xs hover:scale-105 active:scale-95"
-                      title="Rechazar solicitud de {{ $item->empleado?->nombre_completo ?? 'personal' }}"
-                    >
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  @else
-                    <button
-                      type="button"
-                      disabled
-                      class="h-8 w-8 rounded-lg {{ $item->estado === 'rechazado' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 border border-slate-200' }} flex items-center justify-center cursor-not-allowed opacity-60 shadow-none"
-                      title="Esta solicitud ya fue {{ $item->estado }} y no se puede volver a modificar"
-                    >
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  @endif
                 </div>
               </td>
             </tr>
@@ -581,78 +529,6 @@
         <div style="margin-top:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
           <span style="font-size:.75rem;color:#475569;font-weight:600;">🔒 Respaldo fotográfico almacenado en base de datos</span>
           <button type="button" wire:click="cerrarComprobanteModal" class="login-submit !w-auto !py-2 !px-5" style="background:#334155;">Cerrar visor</button>
-        </div>
-      </div>
-    </div>
-  @endif
-
-  {{-- POPUP MODAL DE CONFIRMACIÓN PARA APROBAR / RECHAZAR --}}
-  @if ($showConfirmModal)
-    <div class="app-modal-backdrop" wire:click="cancelarConfirmacion" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(6px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:1.25rem;">
-      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.5rem;max-width:28rem;width:100%;padding:2rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);border:1px solid #e2e8f0;text-align:center;">
-        
-        @if ($confirmandoNuevoEstado === 'aprobado')
-          <div style="width:4.5rem;height:4.5rem;border-radius:50%;background:#ecfdf5;border:2px solid #a7f3d0;color:#059669;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem auto;">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <h3 style="font-size:1.25rem;font-weight:900;color:#065f46;margin:0 0 .5rem 0;">¿Aprobar esta solicitud?</h3>
-        @else
-          <div style="width:4.5rem;height:4.5rem;border-radius:50%;background:#fff1f2;border:2px solid #fecdd3;color:#e11d48;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem auto;">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </div>
-          <h3 style="font-size:1.25rem;font-weight:900;color:#9f1239;margin:0 0 .5rem 0;">¿Rechazar esta solicitud?</h3>
-        @endif
-
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem;margin:1.25rem 0;text-align:left;">
-          <p style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:800;margin:0 0 .25rem 0;">Funcionario</p>
-          <p style="font-size:.95rem;font-weight:800;color:#0f172a;margin:0 0 .6rem 0;">{{ $confirmandoEmpleadoNombre }}</p>
-          <p style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:800;margin:0 0 .25rem 0;">Detalle de la Solicitud</p>
-          <p style="font-size:.82rem;font-weight:600;color:#334155;margin:0;">{{ $confirmandoDetalle }}</p>
-        </div>
-
-        @if ($confirmandoNuevoEstado === 'rechazado')
-          <div style="text-align:left;margin-bottom:1.25rem;">
-            <label style="display:block;font-size:.75rem;font-weight:800;color:#9f1239;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em;">
-              Motivo o Justificación del Rechazo *
-            </label>
-            <textarea
-              wire:model="motivoRechazo"
-              rows="3"
-              placeholder="Indica el motivo por el cual se rechaza la solicitud (ej: Falta firma de jefatura, comprobante ilegible, fuera de plazo...)"
-              style="width:100%;border-radius:.75rem;border:1.5px solid #fecdd3;background:#fff1f2;padding:.6rem .75rem;font-size:.82rem;font-weight:600;color:#881337;box-sizing:border-box;resize:vertical;"
-            ></textarea>
-            @error('motivoRechazo')
-              <p style="font-size:.72rem;color:#e11d48;font-weight:800;margin:.3rem 0 0 0;">{{ $message }}</p>
-            @enderror
-            <p style="font-size:.68rem;color:#64748b;margin:.35rem 0 0 0;font-weight:500;">
-              ✉️ Este motivo se enviará automáticamente por correo electrónico al funcionario.
-            </p>
-          </div>
-        @else
-          <div style="text-align:left;background:#ecfdf5;border:1px solid #a7f3d0;padding:.6rem .85rem;border-radius:.75rem;margin-bottom:1.25rem;">
-            <p style="font-size:.75rem;color:#065f46;font-weight:700;margin:0;">
-              ✉️ Se enviará un correo electrónico de confirmación de aprobación al funcionario.
-            </p>
-          </div>
-        @endif
-
-        <p style="font-size:.78rem;color:#64748b;margin:0 0 1.5rem 0;line-height:1.45;">
-          ⚠️ <strong>Aviso importante:</strong> Una vez confirmada como <span style="font-weight:900;text-transform:uppercase;color:{{ $confirmandoNuevoEstado === 'aprobado' ? '#059669' : '#e11d48' }};">{{ $confirmandoNuevoEstado }}</span>, la decisión quedará registrada de forma definitiva y ya no se podrá modificar.
-        </p>
-
-        <div style="display:flex;gap:.75rem;justify-content:center;">
-          <button type="button" wire:click="cancelarConfirmacion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-weight:700;font-size:.85rem;cursor:pointer;">
-            Cancelar
-          </button>
-          @if ($confirmandoNuevoEstado === 'aprobado')
-            <button type="button" wire:click="confirmarAccion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:none;background:#059669;color:#fff;font-weight:800;font-size:.85rem;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.35);">
-              ✓ Sí, Aprobar
-            </button>
-          @else
-            <button type="button" wire:click="confirmarAccion" style="flex:1;padding:.75rem 1rem;border-radius:.75rem;border:none;background:#e11d48;color:#fff;font-weight:800;font-size:.85rem;cursor:pointer;box-shadow:0 4px 12px rgba(225,29,72,0.35);">
-              ✕ Sí, Rechazar
-            </button>
-          @endif
         </div>
       </div>
     </div>
