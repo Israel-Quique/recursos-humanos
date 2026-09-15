@@ -344,7 +344,7 @@ class AnalisisAsistenciaService
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $horaSalidaReal = $this->horaSalidaReal($registro);
-                $olvidoEntrada = blank($marcacion['entrada']) || $this->esEntradaOmisionPorHoraTardia($marcacion['entrada']);
+                $olvidoEntrada = blank($marcacion['entrada']);
                 $olvidoSalida = blank($horaSalidaReal);
 
                 $detalle = 'Marcación incompleta';
@@ -820,16 +820,26 @@ class AnalisisAsistenciaService
                 ];
             }
 
-            if (! $soloEntrada && (blank($marcacion['entrada']) || blank($horaSalidaReal))) {
-                $detalleOmision = blank($marcacion['entrada']) && blank($horaSalidaReal)
-                    ? 'Omisión (Sin marcaciones)'
-                    : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)');
+            $tieneEntrada = filled($marcacion['entrada']);
+            $tieneSalida = filled($horaSalidaReal);
+
+            if ($tieneEntrada && !$tieneSalida) {
+                if (!$this->salidaSiguePendienteDentroDeJornada($registro, $empleado)) {
+                    $forgotRows[] = [
+                        'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
+                        'entrada' => substr($marcacion['entrada'], 0, 5),
+                        'salida' => '--:--',
+                        'estado' => 'Omisión (Falta salida)',
+                        'detalle' => 'Omisión (Falta salida)',
+                    ];
+                }
+            } elseif (!$tieneEntrada && $tieneSalida) {
                 $forgotRows[] = [
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
-                    'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
-                    'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
-                    'estado' => $detalleOmision,
-                    'detalle' => $detalleOmision,
+                    'entrada' => '--:--',
+                    'salida' => substr($horaSalidaReal, 0, 5),
+                    'estado' => 'Omisión (Falta entrada)',
+                    'detalle' => 'Omisión (Falta entrada)',
                 ];
             }
         }
@@ -851,12 +861,13 @@ class AnalisisAsistenciaService
                 ->filter(fn(array $item) => ($item['nombre'] ?? null) === $empleado->nombre_completo)
                 ->map(fn(array $item) => [
                     'fecha' => str((string) ($item['detalle'] ?? ''))->before(' -')->toString(),
-                    'detalle' => 'Omisión (Día sin marcación)',
-                    'estado' => 'Omisión',
+                    'detalle' => 'Inasistencia (Día sin marcación)',
+                    'estado' => 'Falta',
                 ])->values()->all(),
         ];
 
-        $totalOmisiones = count($forgotRows) + count($faltas);
+        $totalOmisiones = count($forgotRows);
+        $totalFaltas = count($faltas);
         $toleranciaMensual = $this->programacionLaboral->resolverToleranciaMensual($empleado->sucursal);
         $excesoTolerancia = max(0, $totalRetrasoMinutos - $toleranciaMensual);
 
@@ -925,6 +936,7 @@ class AnalisisAsistenciaService
                 ['label' => 'Total atrasos', 'value' => $totalRetrasoMinutos . ' min (' . $this->formatearMinutosEtiqueta($totalRetrasoMinutos) . ')'],
                 ['label' => 'Dias con retraso', 'value' => (string) count($lateRows)],
                 ['label' => 'Total omisiones', 'value' => (string) $totalOmisiones],
+                ['label' => 'Total faltas', 'value' => (string) $totalFaltas],
                 ['label' => 'Tolerancia mensual', 'value' => $this->formatearMinutosEtiqueta($toleranciaMensual)],
                 ['label' => 'Exceso mensual', 'value' => $this->formatearMinutosEtiqueta($excesoTolerancia)],
             ],
@@ -939,8 +951,10 @@ class AnalisisAsistenciaService
             'fecha_corte_label' => $fechaCorte->format('d/m/Y'),
             'tardanzas' => $lateRows,
             'no_marcados' => $forgotRows,
+            'omisiones' => $forgotRows,
             'faltas' => $faltas,
             'total_omisiones' => $totalOmisiones,
+            'total_faltas' => $totalFaltas,
         ];
     }
 
@@ -965,9 +979,10 @@ class AnalisisAsistenciaService
             ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
-                $detalleOmision = blank($marcacion['entrada']) && blank($marcacion['salida'])
-                    ? 'Omisión (Sin marcaciones)'
-                    : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)');
+                $horaSalidaReal = $this->horaSalidaReal($registro);
+                $detalleOmision = blank($marcacion['entrada'])
+                    ? 'Omisión (Falta entrada)'
+                    : 'Omisión (Falta salida)';
 
                 return [
                     'empleado_id' => (int) $registro->empleado_id,
@@ -976,7 +991,7 @@ class AnalisisAsistenciaService
                     'codigo' => $registro->empleado?->codigo_biometrico ?? '',
                     'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
-                    'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
+                    'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
                     'estado' => 'Omisión',
                     'detalle' => $detalleOmision,
                 ];
@@ -992,11 +1007,12 @@ class AnalisisAsistenciaService
                 'sucursal' => $falta['sucursal'] ?? 'Sin sucursal',
                 'entrada' => '--:--',
                 'salida' => '--:--',
-                'estado' => 'Omisión',
-                'detalle' => 'Omisión (Día sin marcación)',
+                'estado' => 'Falta',
+                'detalle' => 'Inasistencia (Día sin marcación)',
             ]);
 
-        $todasLasOmisiones = $forgotMarks->concat($diasSinMarcar)->sortByDesc('fecha')->values();
+        $omisionesOrdenadas = $forgotMarks->sortByDesc('fecha')->values();
+        $faltasOrdenadas = $diasSinMarcar->sortByDesc('fecha')->values();
 
         $lateRows = [];
         $lateEmployees = [];
@@ -1057,11 +1073,15 @@ class AnalisisAsistenciaService
                 ['label' => 'Total atrasos (minutos)', 'value' => $lateMinutes . ' min (' . $this->formatearMinutosEtiqueta($lateMinutes) . ')'],
                 ['label' => 'Registros con atraso', 'value' => (string) count($lateRows)],
                 ['label' => 'Personal con atrasos', 'value' => (string) count($lateSummary)],
-                ['label' => 'Total omisiones', 'value' => (string) $todasLasOmisiones->count()],
+                ['label' => 'Total omisiones', 'value' => (string) $omisionesOrdenadas->count()],
+                ['label' => 'Total faltas', 'value' => (string) $faltasOrdenadas->count()],
             ],
             'total_minutos_retraso' => $lateMinutes,
-            'total_omisiones' => $todasLasOmisiones->count(),
-            'no_marcados' => $todasLasOmisiones->all(),
+            'total_omisiones' => $omisionesOrdenadas->count(),
+            'total_faltas' => $faltasOrdenadas->count(),
+            'omisiones' => $omisionesOrdenadas->all(),
+            'no_marcados' => $omisionesOrdenadas->all(),
+            'faltas' => $faltasOrdenadas->all(),
             'atrasos' => $lateRows,
             'resumen_atrasos' => $lateSummary,
         ];
@@ -1118,6 +1138,7 @@ class AnalisisAsistenciaService
         $granTotalMinutosRetraso = 0;
         $granTotalAtrasos = 0;
         $granTotalOmisiones = 0;
+        $granTotalFaltas = 0;
         $granTotalEmpleados = $empleados->count();
 
         foreach ($sucursalesAgrupadas as $sucursalNombre => $personalList) {
@@ -1125,16 +1146,19 @@ class AnalisisAsistenciaService
             $subtotalMinutos = 0;
             $subtotalDiasTarde = 0;
             $subtotalOmisiones = 0;
+            $subtotalFaltas = 0;
 
             foreach ($personalList as $empleado) {
                 $detalle = $this->detalleMensualPorEmpleado($empleado->id, $referenceMonth, $empleado->sucursal);
                 $minutos = (int) ($detalle['retraso_resumen']['total_minutos'] ?? 0);
                 $diasTarde = count($detalle['tardanzas'] ?? []);
-                $omisiones = (int) ($detalle['total_omisiones'] ?? (count($detalle['no_marcados'] ?? []) + count($detalle['faltas'] ?? [])));
+                $omisiones = (int) ($detalle['total_omisiones'] ?? count($detalle['no_marcados'] ?? []));
+                $faltas = (int) ($detalle['total_faltas'] ?? count($detalle['faltas'] ?? []));
 
                 $subtotalMinutos += $minutos;
                 $subtotalDiasTarde += $diasTarde;
                 $subtotalOmisiones += $omisiones;
+                $subtotalFaltas += $faltas;
 
                 $colaboradores[] = [
                     'id' => $empleado->id,
@@ -1152,6 +1176,7 @@ class AnalisisAsistenciaService
                     'retraso_etiqueta' => $minutos > 0 ? $minutos . ' min (' . $this->formatearMinutosEtiqueta($minutos) . ')' : '0 min',
                     'minutos_atraso_formato' => $minutos > 0 ? $this->formatearMinutosEtiqueta($minutos) : '0 min',
                     'omisiones' => $omisiones,
+                    'faltas' => $faltas,
                     'dias_asistidos' => $detalle['dias_asistidos'] ?? 0,
                     'dias_laborables' => $detalle['dias_laborables_transcurridos'] ?? $generalLaborablesTranscurridos,
                     'dias_laborables_transcurridos' => $detalle['dias_laborables_transcurridos'] ?? $generalLaborablesTranscurridos,
@@ -1165,6 +1190,7 @@ class AnalisisAsistenciaService
             $granTotalMinutosRetraso += $subtotalMinutos;
             $granTotalAtrasos += $subtotalDiasTarde;
             $granTotalOmisiones += $subtotalOmisiones;
+            $granTotalFaltas += $subtotalFaltas;
 
             $itemsOrdenados = collect($colaboradores)->sortBy('nombre')->values()->all();
 
@@ -1180,6 +1206,8 @@ class AnalisisAsistenciaService
                 'total_dias_atraso' => $subtotalDiasTarde,
                 'subtotal_omisiones' => $subtotalOmisiones,
                 'total_omisiones' => $subtotalOmisiones,
+                'subtotal_faltas' => $subtotalFaltas,
+                'total_faltas' => $subtotalFaltas,
                 'colaboradores' => $itemsOrdenados,
                 'empleados' => $itemsOrdenados,
             ];
@@ -1196,6 +1224,8 @@ class AnalisisAsistenciaService
             'gran_total_atrasos' => $granTotalAtrasos,
             'total_omisiones' => $granTotalOmisiones,
             'gran_total_omisiones' => $granTotalOmisiones,
+            'total_faltas' => $granTotalFaltas,
+            'gran_total_faltas' => $granTotalFaltas,
             'dias_laborables_transcurridos' => $generalLaborablesTranscurridos,
             'dias_laborables_mes' => $generalLaborablesMes,
             'es_mes_en_curso' => $esMesEnCurso,
@@ -2076,11 +2106,6 @@ class AnalisisAsistenciaService
             return 0;
         }
 
-        // Si la marcación de entrada es a las 12:30 PM o posterior, se considera omisión de entrada y no un retraso de 8 horas
-        if ($this->esEntradaOmisionPorHoraTardia($horaEntrada)) {
-            return 0;
-        }
-
         $entrada = $this->parseTimeToCarbon($horaEntrada);
         $programada = $this->parseTimeToCarbon($horaProgramada);
 
@@ -2109,15 +2134,25 @@ class AnalisisAsistenciaService
 
     private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro): bool
     {
-        if (blank($registro->hora_entrada) || $this->esEntradaOmisionPorHoraTardia($registro->hora_entrada)) {
-            return true;
-        }
+        $marcacion = $this->normalizarMarcacionAsistencia($registro);
+        $tieneEntrada = filled($marcacion['entrada']);
+        $tieneSalida = filled($this->horaSalidaReal($registro));
 
-        if (!blank($this->horaSalidaReal($registro))) {
+        // Omisión según la definición: no haya marcado o bien la entrada pero sí la salida,
+        // o si marcó la entrada pero no la salida.
+        if ($tieneEntrada && $tieneSalida) {
             return false;
         }
 
-        return !$this->salidaSiguePendienteDentroDeJornada($registro, $registro->empleado);
+        if (!$tieneEntrada && !$tieneSalida) {
+            return false;
+        }
+
+        if ($tieneEntrada && !$tieneSalida) {
+            return !$this->salidaSiguePendienteDentroDeJornada($registro, $registro->empleado);
+        }
+
+        return true;
     }
 
     private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, ?Empleado $empleado = null): bool
@@ -2167,14 +2202,14 @@ class AnalisisAsistenciaService
         int $delay
     ): string {
         $marcacion = $this->normalizarMarcacionAsistencia($registro);
-        $olvidoEntrada = blank($marcacion['entrada']) || $this->esEntradaOmisionPorHoraTardia($marcacion['entrada']);
-        $olvidoSalida = blank($horaSalidaReal);
+        $tieneEntrada = filled($marcacion['entrada']);
+        $tieneSalida = filled($horaSalidaReal);
 
-        if ($olvidoEntrada && $olvidoSalida) {
+        if (!$tieneEntrada && !$tieneSalida) {
             return 'Sin entrada ni salida';
         }
 
-        if ($olvidoEntrada) {
+        if (!$tieneEntrada) {
             return 'Olvido de entrada';
         }
 
@@ -2182,7 +2217,7 @@ class AnalisisAsistenciaService
             return 'En su puesto';
         }
 
-        if ($olvidoSalida) {
+        if (!$tieneSalida) {
             return 'Olvido de salida';
         }
 

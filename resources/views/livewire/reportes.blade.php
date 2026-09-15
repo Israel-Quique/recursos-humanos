@@ -361,7 +361,7 @@
     @endif
 
     {{-- Resumen Ejecutivo Superior --}}
-    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-5">
       <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal evaluado</p>
         <p class="mt-2 text-2xl font-bold text-slate-900">{{ $reporteSucursales['total_empleados'] ?? 0 }}</p>
@@ -383,7 +383,13 @@
       <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Omisiones</p>
         <p class="mt-2 text-2xl font-bold text-rose-700">{{ $reporteSucursales['total_omisiones'] ?? 0 }}</p>
-        <p class="text-xs text-slate-400 mt-1">Días sin marcar y sin registro</p>
+        <p class="text-xs text-slate-400 mt-1">Solo entrada o salida</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Faltas</p>
+        <p class="mt-2 text-2xl font-bold text-red-700">{{ $reporteSucursales['total_faltas'] ?? 0 }}</p>
+        <p class="text-xs text-slate-400 mt-1">Días sin marcación</p>
       </div>
     </section>
 
@@ -411,6 +417,9 @@
               <span class="rounded-md bg-white border border-slate-200 px-2.5 py-1">
                 Omisiones: <strong class="text-rose-700">{{ $sucursal['total_omisiones'] }}</strong>
               </span>
+              <span class="rounded-md bg-white border border-slate-200 px-2.5 py-1">
+                Faltas: <strong class="text-red-700">{{ $sucursal['total_faltas'] ?? 0 }}</strong>
+              </span>
             </div>
           </div>
 
@@ -422,10 +431,11 @@
                   <th class="w-10 text-center">#</th>
                   <th class="w-24">CI / Código</th>
                   <th>Personal</th>
-                  <th>Área / Cargo</th>
+                  <th>Sucursal</th>
                   <th class="text-center">Atraso Sumado</th>
                   <th class="text-center">Días Tarde</th>
                   <th class="text-center">Omisiones</th>
+                  <th class="text-center">Faltas</th>
                   <th class="text-center w-36">Asistencia</th>
                   <th class="text-right no-print w-28">Acción</th>
                 </tr>
@@ -438,7 +448,7 @@
                     <td>
                       <span class="font-semibold text-slate-900">{{ $emp['nombre'] }}</span>
                     </td>
-                    <td class="text-xs text-slate-600">{{ $emp['area'] }}</td>
+                    <td class="text-xs text-slate-600">{{ $emp['sucursal'] }}</td>
                     <td class="text-center">
                       @if($emp['minutos_atraso'] > 0)
                         <span class="font-bold text-amber-900 text-sm">{{ $emp['minutos_atraso'] }} min</span>
@@ -465,6 +475,15 @@
                         <span class="text-slate-400 text-xs">0</span>
                       @endif
                     </td>
+                    <td class="text-center">
+                      @if(($emp['faltas'] ?? 0) > 0)
+                        <span class="inline-flex items-center justify-center rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-800">
+                          {{ $emp['faltas'] }}
+                        </span>
+                      @else
+                        <span class="text-slate-400 text-xs">0</span>
+                      @endif
+                    </td>
                     <td class="text-center text-xs">
                       <div class="font-bold text-slate-900">
                         {{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables_transcurridos'] }}
@@ -486,7 +505,7 @@
                   </tr>
                 @empty
                   <tr>
-                    <td colspan="9" class="py-6 text-center text-slate-400 text-sm">
+                    <td colspan="10" class="py-6 text-center text-slate-400 text-sm">
                       No hay registros que coincidan con la búsqueda en esta sucursal.
                     </td>
                   </tr>
@@ -502,6 +521,7 @@
                     </td>
                     <td class="text-center py-2.5">{{ $sucursal['total_dias_atraso'] }}</td>
                     <td class="text-center py-2.5 text-rose-700 font-bold">{{ $sucursal['total_omisiones'] }}</td>
+                    <td class="text-center py-2.5 text-red-700 font-bold">{{ $sucursal['total_faltas'] ?? 0 }}</td>
                     <td class="text-center py-2.5">-</td>
                     <td class="no-print"></td>
                   </tr>
@@ -1516,6 +1536,181 @@
     </div>
 
     {{-- ============================================================ --}}
+    {{-- BUSCADOR INDIVIDUAL DE REGLAMENTO Y CÁLCULO DE DESCUENTO     --}}
+    {{-- ============================================================ --}}
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-xs">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="max-w-xl">
+          <div class="flex items-center gap-2">
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-xs">🔍</span>
+            <h4 class="text-base font-bold text-slate-900">Consulta de Cumplimiento y Sanción Individual</h4>
+          </div>
+          <p class="mt-1 text-xs text-slate-600">
+            Busque al funcionario para verificar si supera los <strong>30 minutos de tolerancia</strong>, sus días de retraso, omisiones y generar su reporte con el descuento debido.
+          </p>
+        </div>
+
+        <div class="w-full md:w-96 relative">
+          <div class="relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <input 
+              type="text" 
+              wire:model.live.debounce.300ms="searchReglamento"
+              placeholder="Buscar por nombre o código biométrico..."
+              class="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-8 text-xs text-slate-800 placeholder-slate-400 shadow-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition"
+            />
+            @if(filled($searchReglamento))
+              <button 
+                type="button" 
+                wire:click="limpiarBusquedaReglamento" 
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                title="Limpiar búsqueda">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            @endif
+          </div>
+        </div>
+      </div>
+
+      {{-- RESULTADO DEL FUNCIONARIO CONSULTADO --}}
+      @if(filled($searchReglamento))
+        @if($funcionarioReglamentoConsultado)
+          <div class="mt-5 rounded-xl border {{ $funcionarioReglamentoConsultado['se_pasa_reglamento'] ? 'border-rose-300 bg-rose-50/40' : 'border-emerald-300 bg-emerald-50/40' }} p-4 transition-all shadow-sm">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b {{ $funcionarioReglamentoConsultado['se_pasa_reglamento'] ? 'border-rose-200' : 'border-emerald-200' }} pb-3">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold text-sm text-white shadow-xs {{ $funcionarioReglamentoConsultado['se_pasa_reglamento'] ? 'bg-rose-600' : 'bg-emerald-600' }}">
+                  {{ $funcionarioReglamentoConsultado['inicial'] }}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h5 class="text-sm font-bold text-slate-900">{{ $funcionarioReglamentoConsultado['nombre'] }}</h5>
+                    <span class="font-mono text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">
+                      Código: {{ $funcionarioReglamentoConsultado['codigo'] }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    {{ $funcionarioReglamentoConsultado['sucursal'] }} · {{ $funcionarioReglamentoConsultado['area'] }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                @if($funcionarioReglamentoConsultado['se_pasa_reglamento'])
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 border border-rose-300 px-3 py-1 text-xs font-bold text-rose-900">
+                    <span class="h-2 w-2 rounded-full bg-rose-600 animate-pulse"></span>
+                    SE EXCEDE DEL REGLAMENTO INTERNO
+                  </span>
+                @else
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-xs font-bold text-emerald-900">
+                    <span class="h-2 w-2 rounded-full bg-emerald-600"></span>
+                    DENTRO DE LA TOLERANCIA REGLAMENTARIA (≤ 30 min)
+                  </span>
+                @endif
+              </div>
+            </div>
+
+            {{-- Métricas clave del funcionario --}}
+            <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
+                <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Atraso Total</p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span class="text-xl font-black {{ $funcionarioReglamentoConsultado['minutos_atraso'] > 30 ? 'text-rose-700' : 'text-slate-800' }}">
+                    {{ $funcionarioReglamentoConsultado['minutos_atraso'] }}
+                  </span>
+                  <span class="text-xs font-bold text-slate-500">minutos</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-0.5">
+                  {{ $funcionarioReglamentoConsultado['minutos_atraso'] > 30 ? 'Supera tolerancia de 30 min' : 'Tolerancia permitida: 30 min' }}
+                </p>
+              </div>
+
+              <div class="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
+                <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Días Llegó Tarde</p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span class="text-xl font-black text-slate-800">
+                    {{ $funcionarioReglamentoConsultado['dias_tarde'] }}
+                  </span>
+                  <span class="text-xs font-bold text-slate-500">días con atraso</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-0.5">En el mes de {{ $monthLabel }}</p>
+              </div>
+
+              <div class="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
+                <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Omisiones / Faltas</p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span class="text-xl font-black {{ $funcionarioReglamentoConsultado['omisiones_count'] > 0 ? 'text-rose-700' : 'text-slate-800' }}">
+                    {{ $funcionarioReglamentoConsultado['omisiones_count'] }}
+                  </span>
+                  <span class="text-xs font-bold text-slate-500">registradas</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-0.5">Entradas o salidas no marcadas</p>
+              </div>
+
+              <div class="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
+                <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Descuento de Haber</p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span class="text-xl font-black {{ $funcionarioReglamentoConsultado['total_dias_descuento'] > 0 ? 'text-rose-700' : 'text-emerald-700' }}">
+                    {{ $funcionarioReglamentoConsultado['total_dias_descuento_texto'] }}
+                  </span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-0.5">Según escala de Art. 45 y Art. 48</p>
+              </div>
+            </div>
+
+            {{-- Desglose si tiene sanciones --}}
+            @if(!empty($funcionarioReglamentoConsultado['desglose_sanciones']))
+              <div class="mt-3 rounded-lg bg-white/80 border border-rose-200 p-2.5 text-xs text-rose-900">
+                <strong class="font-bold">Desglose de días a descontar:</strong>
+                <ul class="list-disc list-inside mt-1 space-y-0.5 text-[11px]">
+                  @foreach($funcionarioReglamentoConsultado['desglose_sanciones'] as $sancion)
+                    <li>{{ $sancion }}</li>
+                  @endforeach
+                </ul>
+              </div>
+            @endif
+
+            {{-- Botones de Acción para el Funcionario Consultado --}}
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div class="text-xs text-slate-500">
+                @if($funcionarioReglamentoConsultado['se_pasa_reglamento'])
+                  <span>El reporte individual incluirá la liquidación de <strong>{{ $funcionarioReglamentoConsultado['total_dias_descuento_texto'] }} de descuento</strong> y el desglose de fechas.</span>
+                @else
+                  <span>El funcionario no tiene sanciones económicas aplicables en este mes.</span>
+                @endif
+              </div>
+
+              <div class="flex items-center gap-2">
+                {{-- Botón Ojito para ver desglose completo en modal --}}
+                <button 
+                  type="button" 
+                  wire:click="openEmployeeDetailModal({{ $funcionarioReglamentoConsultado['id'] }})"
+                  class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-xs transition">
+                  <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>Ver Desglose en Pantalla</span>
+                </button>
+
+                {{-- Botón Generar Reporte con Descuento PDF --}}
+                <button 
+                  type="button" 
+                  wire:click="descargarPdfIndividualReglamento({{ $funcionarioReglamentoConsultado['id'] }})"
+                  class="inline-flex items-center gap-1.5 rounded-xl {{ $funcionarioReglamentoConsultado['se_pasa_reglamento'] ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white' }} px-3.5 py-1.5 text-xs font-bold shadow-sm transition">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                  <span>{{ $funcionarioReglamentoConsultado['se_pasa_reglamento'] ? 'Generar Reporte con Descuento (PDF)' : 'Generar Reporte Individual (PDF)' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        @else
+          <div class="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-6 text-center text-xs text-slate-500">
+            No se encontró ningún funcionario que coincida con "<strong>{{ $searchReglamento }}</strong>" en esta sucursal o periodo.
+          </div>
+        @endif
+      @endif
+    </div>
+
+    {{-- ============================================================ --}}
     {{-- TABLA 1: DETALLE DE ATRASOS Y SANCIONES (ART. 45.I)          --}}
     {{-- ============================================================ --}}
     <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'atrasos'" class="space-y-4 mb-8">
@@ -1525,7 +1720,7 @@
             <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-xs shadow-xs">⏱️</span>
             <div>
               <h5 class="text-sm font-bold text-amber-950">1. Detalle de Atrasos y Días a Descontar (Art. 45.I)</h5>
-              <p class="text-xs text-amber-800">Cómputo de minutos de retraso, sumatoria de días tarde, días de haber a descontar y desglose de fechas.</p>
+              <p class="text-xs text-amber-800">Cómputo de minutos de retraso, sumatoria de días tarde y días de haber a descontar según escala.</p>
             </div>
           </div>
           <span class="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-900">
@@ -1544,7 +1739,6 @@
                 <th class="py-3 px-3 text-center">Atraso</th>
                 <th class="py-3 px-3 text-center">Días Tarde</th>
                 <th class="py-3 px-3 text-center">Días Descuento</th>
-                <th class="py-3 px-3">Detalle de Fechas (Minutos)</th>
                 <th class="py-3 pr-4 pl-2 text-right">Acción</th>
               </tr>
             </thead>
@@ -1569,18 +1763,20 @@
                       {{ $item['dias_descuento_texto'] }}
                     </span>
                   </td>
-                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-xs">
-                    {{ $item['fechas_texto'] }}
-                  </td>
                   <td class="py-3 pr-4 pl-2 text-right">
-                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-amber-700" title="Ver detalle mensual del empleado">
-                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-amber-700 hover:bg-amber-100/50 transition-colors" title="Ver desglose completo de fechas">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button type="button" wire:click="descargarPdfIndividualReglamento({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-100/50 transition-colors" title="Descargar reporte individual con descuento">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               @empty
                 <tr>
-                  <td colspan="9" class="py-6 text-center text-xs text-slate-400">
+                  <td colspan="8" class="py-6 text-center text-xs text-slate-400">
                     No se registran atrasos en este periodo.
                   </td>
                 </tr>
@@ -1601,7 +1797,7 @@
             <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-600 text-white font-bold text-xs shadow-xs">📋</span>
             <div>
               <h5 class="text-sm font-bold text-rose-950">2. Detalle de Omisiones de Marcación (Art. 45.III y Art. 48.IV)</h5>
-              <p class="text-xs text-rose-800">Cómputo de omisiones de entrada o salida, fechas registradas y sanciones aplicables.</p>
+              <p class="text-xs text-rose-800">Cómputo de omisiones de entrada o salida y sanciones aplicables según reglamento.</p>
             </div>
           </div>
           <span class="rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-xs font-bold text-rose-900">
@@ -1619,7 +1815,6 @@
                 <th class="py-3 px-3">Sucursal / Área</th>
                 <th class="py-3 px-3 text-center">Omisiones</th>
                 <th class="py-3 px-3 text-center">Descuento</th>
-                <th class="py-3 px-3">Detalle de Fechas de Omisión</th>
                 <th class="py-3 pr-4 pl-2 text-right">Acción</th>
               </tr>
             </thead>
@@ -1643,18 +1838,20 @@
                       {{ $item['dias_descuento_texto'] }}
                     </span>
                   </td>
-                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-xs">
-                    {{ $item['fechas_texto'] }}
-                  </td>
                   <td class="py-3 pr-4 pl-2 text-right">
-                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-rose-700" title="Ver detalle mensual del empleado">
-                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-100/50 transition-colors" title="Ver desglose completo de fechas">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button type="button" wire:click="descargarPdfIndividualReglamento({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-100/50 transition-colors" title="Descargar reporte individual con descuento">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               @empty
                 <tr>
-                  <td colspan="8" class="py-6 text-center text-xs text-slate-400">
+                  <td colspan="7" class="py-6 text-center text-xs text-slate-400">
                     No se registran omisiones de marcación en este periodo.
                   </td>
                 </tr>
@@ -1694,7 +1891,6 @@
                 <th class="py-3 px-3">Tipo Reincidencia</th>
                 <th class="py-3 px-3 text-center">Frecuencia</th>
                 <th class="py-3 px-3 text-center">Sanción Actual</th>
-                <th class="py-3 px-3">Detalle de Fechas y Meses</th>
                 <th class="py-3 pr-4 pl-2 text-right">Acción</th>
               </tr>
             </thead>
@@ -1725,23 +1921,20 @@
                   </td>
                   <td class="py-3 px-3 text-center font-bold text-slate-800">{{ $item['frecuencia'] }}</td>
                   <td class="py-3 px-3 text-center font-bold text-rose-900">{{ $item['sancion_texto'] }}</td>
-                  <td class="py-3 px-3 text-[11px] text-slate-600 max-w-sm">
-                    @if($item['tipo'] === 'atrasos')
-                      <div><strong>Meses > 30 min:</strong> {{ $item['detalle_texto'] }}</div>
-                      <div class="text-[10.5px] text-slate-500"><strong>Fechas mes actual:</strong> {{ $item['fechas_texto'] }}</div>
-                    @else
-                      <div><strong>Fechas:</strong> {{ $item['fechas_texto'] }}</div>
-                    @endif
-                  </td>
                   <td class="py-3 pr-4 pl-2 text-right">
-                    <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-purple-700" title="Ver detalle mensual del empleado">
-                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-100/50 transition-colors" title="Ver desglose completo de fechas">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button type="button" wire:click="descargarPdfIndividualReglamento({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-100/50 transition-colors" title="Descargar reporte individual con descuento">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               @empty
                 <tr>
-                  <td colspan="9" class="py-6 text-center text-xs text-slate-400">
+                  <td colspan="8" class="py-6 text-center text-xs text-slate-400">
                     No se registran funcionarios reincidentes en el periodo evaluado.
                   </td>
                 </tr>

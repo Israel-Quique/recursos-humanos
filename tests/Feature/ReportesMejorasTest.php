@@ -225,5 +225,96 @@ class ReportesMejorasTest extends TestCase
         $this->assertSame(22, $colaborador['dias_laborables_mes']);
         $this->assertSame(30, $colaborador['porcentaje_asistencia']);
     }
+
+    public function test_omisiones_y_faltas_estan_separadas_y_desvinculadas_de_atrasos(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-20 12:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Roberto',
+            'apellido' => 'Gomez',
+            'codigo_biometrico' => 'LP-555',
+            'area' => 'Sistemas',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-08-01',
+        ]);
+
+        // Caso 1: Atraso puro (marcó entrada y salida, con retraso)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-03',
+            'hora_entrada' => '08:50:00',
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Caso 2: Omisión de salida (marcó entrada pero no salida)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-04',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => null,
+            'estado_marcacion' => 'Entrada',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Caso 3: Omisión de entrada (no marcó entrada pero sí salida)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-05',
+            'hora_entrada' => null,
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Salida',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // 2026-08-06: No marcó nada (es una falta / inasistencia, no una omisión)
+
+        $service = app(AnalisisAsistenciaService::class);
+        $detalle = $service->detalleMensualPorEmpleado($empleado->id, Carbon::parse('2026-08-01'));
+
+        // Atraso: solo el día 2026-08-03 (15 min)
+        $this->assertSame(1, count($detalle['tardanzas']));
+        $this->assertSame(15, $detalle['retraso_resumen']['total_minutos']);
+
+        // Omisiones: exactamente 2 (el 4 falta salida y el 5 falta entrada)
+        $this->assertSame(2, $detalle['total_omisiones']);
+        $this->assertSame(2, count($detalle['no_marcados']));
+
+        // Faltas: al menos 1 día sin marcación (el 2026-08-06 y posteriores hasta el 20)
+        $this->assertGreaterThanOrEqual(1, $detalle['total_faltas']);
+        $this->assertGreaterThanOrEqual(1, count($detalle['faltas']));
+
+        // Verificar el consolidado por sucursal
+        $consolidado = $service->reporteConsolidadoPorSucursal(Carbon::parse('2026-08-01'), 'La Paz');
+        $this->assertArrayHasKey('total_omisiones', $consolidado);
+        $this->assertArrayHasKey('total_faltas', $consolidado);
+        $laPaz = $consolidado['sucursales']['La Paz'];
+        $this->assertSame(2, $laPaz['total_omisiones']);
+        $this->assertGreaterThanOrEqual(1, $laPaz['total_faltas']);
+
+        $empConsolidado = collect($laPaz['empleados'])->firstWhere('id', $empleado->id);
+        $this->assertSame(2, $empConsolidado['omisiones']);
+        $this->assertGreaterThanOrEqual(1, $empConsolidado['faltas']);
+        $this->assertSame(15, $empConsolidado['minutos_atraso']);
+        $this->assertSame('La Paz', $empConsolidado['sucursal']);
+
+        // Verificar que el PDF renderiza la columna 'Sucursal' y no 'Área / Cargo'
+        $viewContent = view('pdf.reportes-general', [
+            'monthLabel' => 'Agosto 2026',
+            'branchLabel' => 'La Paz',
+            'reporteSucursales' => $consolidado,
+        ])->render();
+
+        $this->assertStringContainsString('Correos de Bolivia', $viewContent);
+        $this->assertStringContainsString('>Sucursal</th>', $viewContent);
+        $this->assertStringNotContainsString('Área / Cargo', $viewContent);
+        $this->assertStringContainsString('>Faltas</th>', $viewContent);
+        $this->assertStringContainsString('>Omisiones</th>', $viewContent);
+    }
 }
+
 

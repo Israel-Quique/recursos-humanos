@@ -161,6 +161,42 @@ class PersonalPageTest extends TestCase
         $component->assertFileDownloaded();
     }
 
+    public function test_personal_page_descarga_pdf_marcaciones_resalta_omisiones(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Gomez',
+            'codigo_biometrico' => 'CG-100',
+            'area' => 'Sistemas',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        // Registro con omisión de salida
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => now()->subDay()->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => null,
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Entrada',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        $component = Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->call('descargarPdfMarcaciones');
+
+        $component->assertFileDownloaded();
+    }
+
     public function test_personal_page_descarga_pdf_y_excel_control_correctamente(): void
     {
         $user = $this->crearUsuarioConPermisoPersonal();

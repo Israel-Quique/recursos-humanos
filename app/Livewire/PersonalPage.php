@@ -2330,16 +2330,22 @@ class PersonalPage extends Component
     private function debeContarComoOlvidoMarcacion(RegistroAsistencia $registro, Empleado $empleado): bool
     {
         $marcacion = $this->normalizarMarcacionAsistencia($registro);
+        $tieneEntrada = filled($marcacion['entrada']);
+        $tieneSalida = filled($marcacion['salida']);
 
-        if (blank($marcacion['entrada'])) {
-            return true;
-        }
-
-        if (!blank($marcacion['salida'])) {
+        if ($tieneEntrada && $tieneSalida) {
             return false;
         }
 
-        return !$this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
+        if (!$tieneEntrada && !$tieneSalida) {
+            return false;
+        }
+
+        if ($tieneEntrada && !$tieneSalida) {
+            return !$this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
+        }
+
+        return true;
     }
 
     private function salidaSiguePendienteDentroDeJornada(RegistroAsistencia $registro, Empleado $empleado): bool

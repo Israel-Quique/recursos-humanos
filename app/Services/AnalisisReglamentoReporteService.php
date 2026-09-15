@@ -22,7 +22,7 @@ class AnalisisReglamentoReporteService
     /**
      * Genera el reporte integral del reglamento institucional para el mes y sucursal dados.
      */
-    public function generarReporteReglamento(Carbon $referenceMonth, ?string $branch = null): array
+    public function generarReporteReglamento(Carbon $referenceMonth, ?string $branch = null, ?array $preloadedBase = null): array
     {
         $start = $referenceMonth->copy()->startOfMonth();
         $end = $referenceMonth->copy()->endOfMonth();
@@ -42,6 +42,11 @@ class AnalisisReglamentoReporteService
             ->whereNotNull('hora_entrada')
             ->get(['empleado_id', 'fecha', 'hora_entrada'])
             ->groupBy('empleado_id');
+
+        $reporteBase = $preloadedBase ?? $this->analisisAsistencia->reporteMensualNoMarcadosYAtrasos($referenceMonth, $branch);
+        $atrasosPorEmpleado = collect($reporteBase['atrasos'] ?? [])->groupBy('empleado_id');
+        $omisionesPorEmpleado = collect($reporteBase['omisiones'] ?? $reporteBase['no_marcados'] ?? [])->groupBy('empleado_id');
+        $faltasPorEmpleado = collect($reporteBase['faltas'] ?? [])->groupBy('empleado_id');
 
         $enAlerta = [];
         $alertasArt45 = [];
@@ -64,30 +69,26 @@ class AnalisisReglamentoReporteService
         $desgloseSucursal = [];
 
         foreach ($empleados as $empleado) {
-            $detalle = $this->analisisAsistencia->detalleMensualPorEmpleado($empleado->id, $referenceMonth, $empleado->sucursal);
+            $tardanzasEmp = $atrasosPorEmpleado->get($empleado->id, collect());
+            $omisionesEmp = $omisionesPorEmpleado->get($empleado->id, collect());
+            $faltasEmp = $faltasPorEmpleado->get($empleado->id, collect());
 
-            if (!$detalle) {
-                continue;
-            }
-
-            $minutosAtraso = (int) ($detalle['retraso_resumen']['total_minutos'] ?? 0);
-            $tardanzas = $detalle['tardanzas'] ?? [];
+            $minutosAtraso = (int) $tardanzasEmp->sum(fn($t) => $t['minutos_retraso'] ?? ($t['retraso_minutos'] ?? 0));
+            $tardanzas = $tardanzasEmp->all();
             $diasTarde = count($tardanzas);
-            $noMarcados = $detalle['no_marcados'] ?? [];
-            $faltasLista = $detalle['faltas'] ?? [];
-            $omisionesLista = array_merge($noMarcados, $faltasLista);
-            $omisionesCount = (int) ($detalle['total_omisiones'] ?? count($omisionesLista));
-            $faltasInjustificadas = count($faltasLista);
+            $omisionesLista = $omisionesEmp->all();
+            $omisionesCount = count($omisionesLista);
+            $faltasInjustificadas = $faltasEmp->count();
             $codigoEmpleado = !empty($empleado->codigo_biometrico) ? (string) $empleado->codigo_biometrico : 'CI: ' . $empleado->id;
 
             // Extraer detalle de fechas de atrasos
             $fechasAtrasos = [];
             foreach ($tardanzas as $t) {
-                $min = (int) ($t['retraso_minutos'] ?? 0);
+                $min = (int) ($t['minutos_retraso'] ?? ($t['retraso_minutos'] ?? 0));
                 $fechasAtrasos[] = [
                     'fecha' => $t['fecha'] ?? '',
                     'minutos' => $min,
-                    'entrada' => $t['entrada'] ?? '--:--',
+                    'entrada' => $t['entrada_real'] ?? ($t['entrada'] ?? '--:--'),
                     'salida' => $t['salida'] ?? '--:--',
                     'etiqueta' => ($t['fecha'] ?? '') . ' (' . $min . ' min)',
                 ];
@@ -100,7 +101,7 @@ class AnalisisReglamentoReporteService
                 $detalleTipo = $o['detalle'] ?? $o['estado'] ?? 'Omisión';
                 $tipoCorto = str_contains($detalleTipo, 'Falta entrada') ? 'Sin entrada'
                     : (str_contains($detalleTipo, 'Falta salida') ? 'Sin salida'
-                    : (str_contains($detalleTipo, 'Falta') ? 'Inasistencia' : 'Sin marcación'));
+                    : (str_contains($detalleTipo, 'Día sin marcación') ? 'Inasistencia' : 'Sin marcación'));
                 $fechasOmisiones[] = [
                     'fecha' => $o['fecha'] ?? '',
                     'tipo' => $tipoCorto,
@@ -639,6 +640,97 @@ class AnalisisReglamentoReporteService
             'por_sucursal' => $desgloseSucursal,
             'periodo_label' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'gestion' => $gestion,
+        ];
+    }
+
+    /**
+     * Evalúa individualmente a un funcionario frente al reglamento interno en el mes dado.
+     */
+    public function evaluarEmpleadoIndividual(int $empleadoId, Carbon $referenceMonth): ?array
+    {
+        $empleado = Empleado::query()->find($empleadoId);
+        if (! $empleado) {
+            return null;
+        }
+
+        $reporteMensual = $this->analisisAsistencia->reporteMensualNoMarcadosYAtrasos($referenceMonth, null);
+        $atrasosEmp = collect($reporteMensual['atrasos'] ?? [])->where('empleado_id', $empleadoId)->values();
+        $omisionesEmp = collect($reporteMensual['omisiones'] ?? $reporteMensual['no_marcados'] ?? [])->where('empleado_id', $empleadoId)->values();
+        $faltasEmp = collect($reporteMensual['faltas'] ?? [])->where('empleado_id', $empleadoId)->values();
+
+        $minutosAtraso = (int) $atrasosEmp->sum(fn($t) => $t['minutos_retraso'] ?? ($t['retraso_minutos'] ?? 0));
+        $diasTarde = $atrasosEmp->count();
+        $omisionesCount = $omisionesEmp->count();
+        $faltasInjustificadas = $faltasEmp->count();
+
+        // 1. Evaluar Art. 45.I (Escala de atrasos)
+        $diasSancionAtraso = 0.0;
+        $reglaAtraso = $this->reglamentoSancion->evaluarAtraso($minutosAtraso, 1, $referenceMonth);
+        if ($reglaAtraso) {
+            $diasSancionAtraso = (float) $reglaAtraso->dias_sancion;
+        }
+
+        // 2. Evaluar Art. 45.III (Escala de omisiones)
+        $diasSancionOmision = 0.0;
+        $reglaOmision = $this->reglamentoSancion->evaluarOmision($omisionesCount, $referenceMonth);
+        if ($reglaOmision) {
+            $diasSancionOmision = (float) $reglaOmision->dias_sancion;
+        }
+
+        // 3. Evaluar Art. 45.II (Inasistencias al doble)
+        $diasSancionInasistencia = (float) ($faltasInjustificadas * 2.0);
+
+        $totalDiasDescuento = $diasSancionAtraso + $diasSancionOmision + $diasSancionInasistencia;
+        $esDestitucion = ($omisionesCount >= 4) || ($faltasInjustificadas >= 3);
+        $sePasaReglamento = ($minutosAtraso > 30 || $omisionesCount > 0 || $totalDiasDescuento > 0 || $esDestitucion);
+
+        $fechasAtrasos = $atrasosEmp->map(fn($t) => [
+            'fecha' => $t['fecha'] ?? '',
+            'minutos' => (int) ($t['minutos_retraso'] ?? ($t['retraso_minutos'] ?? 0)),
+            'entrada' => $t['entrada_real'] ?? ($t['entrada'] ?? '--:--'),
+            'salida' => $t['salida'] ?? '--:--',
+        ])->all();
+
+        $fechasOmisiones = $omisionesEmp->map(fn($o) => [
+            'fecha' => $o['fecha'] ?? '',
+            'detalle' => $o['detalle'] ?? 'Omisión',
+        ])->all();
+
+        $desgloseTextos = [];
+        if ($diasSancionAtraso > 0) {
+            $desgloseTextos[] = "Atrasos ({$minutosAtraso} min): {$this->formatearDiasSancion($diasSancionAtraso)}";
+        }
+        if ($diasSancionOmision > 0) {
+            $desgloseTextos[] = "Omisiones ({$omisionesCount}): {$this->formatearDiasSancion($diasSancionOmision)}";
+        }
+        if ($diasSancionInasistencia > 0) {
+            $desgloseTextos[] = "Inasistencias ({$faltasInjustificadas}): {$this->formatearDiasSancion($diasSancionInasistencia)}";
+        }
+
+        return [
+            'id' => $empleado->id,
+            'nombre' => $empleado->nombre_completo,
+            'codigo' => !empty($empleado->codigo_biometrico) ? (string) $empleado->codigo_biometrico : 'CI: ' . $empleado->id,
+            'sucursal' => $empleado->sucursal ?: 'General',
+            'area' => $empleado->area ?: 'General',
+            'minutos_atraso' => $minutosAtraso,
+            'dias_tarde' => $diasTarde,
+            'omisiones_count' => $omisionesCount,
+            'faltas_count' => $faltasInjustificadas,
+            'dias_sancion_atraso' => $diasSancionAtraso,
+            'dias_sancion_atraso_texto' => $this->formatearDiasSancion($diasSancionAtraso),
+            'dias_sancion_omision' => $diasSancionOmision,
+            'dias_sancion_omision_texto' => $this->formatearDiasSancion($diasSancionOmision),
+            'dias_sancion_inasistencia' => $diasSancionInasistencia,
+            'total_dias_descuento' => $totalDiasDescuento,
+            'total_dias_descuento_texto' => $this->formatearDiasSancion($totalDiasDescuento),
+            'desglose_sanciones' => $desgloseTextos,
+            'es_sancionado' => $totalDiasDescuento > 0 || $esDestitucion,
+            'es_destitucion' => $esDestitucion,
+            'se_pasa_reglamento' => $sePasaReglamento,
+            'fechas_atrasos' => $fechasAtrasos,
+            'fechas_omisiones' => $fechasOmisiones,
+            'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
         ];
     }
 

@@ -270,16 +270,19 @@ class ProgramacionLaboralService
         return $horaFinal->format('H:i:s');
     }
 
+    private ?Collection $todasLasFechasEspeciales = null;
+
     private function fechasEspecialesPorDia(string $fecha): Collection
     {
         if (array_key_exists($fecha, $this->cacheFechasPorDia)) {
             return $this->cacheFechasPorDia[$fecha];
         }
 
-        return $this->cacheFechasPorDia[$fecha] = FechaEspecialLaboral::query()
-            ->whereDate('fecha', $fecha)
-            ->orderBy('sucursal')
-            ->get();
+        $this->todasLasFechasEspeciales ??= FechaEspecialLaboral::query()->orderBy('sucursal')->get();
+
+        return $this->cacheFechasPorDia[$fecha] = $this->todasLasFechasEspeciales->filter(
+            fn(FechaEspecialLaboral $f) => $f->fecha?->toDateString() === $fecha
+        )->values();
     }
 
     private function minutosEntreHoras(?string $horaInicio, ?string $horaFin): int

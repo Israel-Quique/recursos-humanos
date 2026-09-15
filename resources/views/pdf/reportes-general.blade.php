@@ -196,7 +196,7 @@
     <table class="header-table">
       <tr>
         <td style="width: 65%;">
-          <p class="org-name">Agencia Boliviana de Correos · Recursos Humanos</p>
+          <p class="org-name">Correos de Bolivia · Recursos Humanos</p>
           <h1 class="report-title">Reporte General de Asistencia</h1>
           <p class="report-subtitle">Resumen consolidado por sucursales · Cómputo de puntualidad, atrasos y omisiones</p>
         </td>
@@ -212,29 +212,33 @@
         </td>
       </tr>
     </table>
-
     <!-- Resumen Ejecutivo Superior -->
     <table class="summary-table">
       <tr>
-        <td class="summary-card" style="width: 25%;">
+        <td class="summary-card" style="width: 20%;">
           <div class="summary-label">Personal evaluado</div>
           <div class="summary-value">{{ $reporteSucursales['total_empleados'] ?? 0 }}</div>
           <div class="summary-subtext">Activos en el periodo</div>
         </td>
-        <td class="summary-card" style="width: 25%;">
+        <td class="summary-card" style="width: 20%;">
           <div class="summary-label">Atrasos acumulados</div>
           <div class="summary-value">{{ number_format($reporteSucursales['total_minutos_atraso'] ?? 0) }} min</div>
           <div class="summary-subtext">Total acumulado en minutos</div>
         </td>
-        <td class="summary-card" style="width: 25%;">
+        <td class="summary-card" style="width: 20%;">
           <div class="summary-label">Días con atraso</div>
           <div class="summary-value">{{ $reporteSucursales['total_dias_atraso'] ?? 0 }}</div>
           <div class="summary-subtext">Llegadas tardías totales</div>
         </td>
-        <td class="summary-card" style="width: 25%;">
+        <td class="summary-card" style="width: 20%;">
           <div class="summary-label">Total Omisiones</div>
           <div class="summary-value">{{ $reporteSucursales['total_omisiones'] ?? 0 }}</div>
-          <div class="summary-subtext">Días sin marcar y sin salida</div>
+          <div class="summary-subtext">Solo entrada o salida</div>
+        </td>
+        <td class="summary-card" style="width: 20%;">
+          <div class="summary-label">Total Faltas</div>
+          <div class="summary-value">{{ $reporteSucursales['total_faltas'] ?? 0 }}</div>
+          <div class="summary-subtext">Días sin marcación</div>
         </td>
       </tr>
     </table>
@@ -248,13 +252,14 @@
       <div class="branch-block">
         <table class="branch-header-table">
           <tr>
-            <td style="width: 45%;">
+            <td style="width: 40%;">
               <span class="branch-header-title">{{ strtoupper($sucursal['sucursal']) }}</span>
             </td>
-            <td class="branch-header-meta" style="width: 55%;">
+            <td class="branch-header-meta" style="width: 60%;">
               <strong>{{ $sucursal['total_empleados'] }}</strong> personal &bull; 
               Atrasos: <strong>{{ number_format($sucursal['total_minutos_atraso']) }} min</strong> &bull; 
-              Omisiones: <strong>{{ $sucursal['total_omisiones'] }}</strong>
+              Omisiones: <strong>{{ $sucursal['total_omisiones'] }}</strong> &bull; 
+              Faltas: <strong>{{ $sucursal['total_faltas'] ?? 0 }}</strong>
             </td>
           </tr>
         </table>
@@ -262,14 +267,15 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 22px;" class="text-center">#</th>
-              <th style="width: 62px;">Código / CI</th>
+              <th style="width: 20px;" class="text-center">#</th>
+              <th style="width: 60px;">Código / CI</th>
               <th>Apellidos y Nombres</th>
-              <th style="width: 100px;">Área / Cargo</th>
-              <th style="width: 75px;" class="text-center">Atraso total</th>
+              <th style="width: 75px;">Sucursal</th>
+              <th style="width: 70px;" class="text-center">Atraso total</th>
               <th style="width: 45px;" class="text-center">Días tarde</th>
-              <th style="width: 50px;" class="text-center">Omisiones</th>
-              <th style="width: 82px;" class="text-center">Asistencia</th>
+              <th style="width: 48px;" class="text-center">Omisiones</th>
+              <th style="width: 45px;" class="text-center">Faltas</th>
+              <th style="width: 78px;" class="text-center">Asistencia</th>
             </tr>
           </thead>
           <tbody>
@@ -278,7 +284,7 @@
                 <td class="text-center" style="color: #475569;">{{ $idx + 1 }}</td>
                 <td class="font-mono">{{ $emp['codigo'] ?: '-' }}</td>
                 <td class="font-bold">{{ $emp['nombre'] }}</td>
-                <td>{{ $emp['area'] }}</td>
+                <td>{{ $emp['sucursal'] }}</td>
                 <td class="text-center">
                   @if($emp['minutos_atraso'] > 0)
                     <strong>{{ $emp['minutos_atraso'] }} min</strong>
@@ -300,6 +306,13 @@
                     <span style="color: #64748b;">0</span>
                   @endif
                 </td>
+                <td class="text-center">
+                  @if(($emp['faltas'] ?? 0) > 0)
+                    <strong style="color: #b91c1c;">{{ $emp['faltas'] }}</strong>
+                  @else
+                    <span style="color: #64748b;">0</span>
+                  @endif
+                </td>
                 <td class="text-center" style="font-size: 8px;">
                   <strong>{{ $emp['dias_asistidos'] }} / {{ $emp['dias_laborables_transcurridos'] }}</strong>
                   <div style="font-size: 7.5px; font-weight: bold; color: #0f172a;">
@@ -312,7 +325,7 @@
               </tr>
             @empty
               <tr class="empty-row">
-                <td colspan="8">No se registraron empleados activos en esta sucursal.</td>
+                <td colspan="9">No se registraron empleados activos en esta sucursal.</td>
               </tr>
             @endforelse
 
@@ -325,6 +338,7 @@
                 </td>
                 <td class="text-center">{{ $sucursal['total_dias_atraso'] }}</td>
                 <td class="text-center">{{ $sucursal['total_omisiones'] }}</td>
+                <td class="text-center">{{ $sucursal['total_faltas'] ?? 0 }}</td>
                 <td class="text-center">-</td>
               </tr>
             @endif

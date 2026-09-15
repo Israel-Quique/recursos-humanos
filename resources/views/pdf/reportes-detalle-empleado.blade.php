@@ -159,7 +159,7 @@
     <table class="header-table">
       <tr>
         <td style="width: 70%;">
-          <p class="org-name">Agencia Boliviana de Correos · Recursos Humanos</p>
+          <p class="org-name">Correos de Bolivia · Recursos Humanos</p>
           <h1 class="report-title">Detalle Individual de Asistencia</h1>
           <p style="font-size: 9.5px; color: #475569; margin-top: 2px;">Informe mensual individual con registro de atrasos y omisiones</p>
         </td>
@@ -203,6 +203,64 @@
         @endforeach
       </tr>
     </table>
+
+    @if(!empty($evaluacionReglamento))
+      <!-- Control y Liquidación Reglamentaria (Art. 45 y Art. 48) -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px; border: 1.5px solid {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#e11d48' : '#10b981' }};">
+        <tr style="background-color: {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#fff1f2' : '#f0fdf4' }};">
+          <td style="padding: 7px 10px; border-bottom: 1px solid {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#fecdd3' : '#bbf7d0' }};" colspan="4">
+            <div style="font-size: 10px; font-weight: bold; color: {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#9f1239' : '#166534' }};">
+              CONTROL DE CUMPLIMIENTO REGLAMENTARIO Y DESCUENTOS APLICABLES (ART. 45 Y ART. 48)
+            </div>
+            <div style="font-size: 8px; color: #475569; margin-top: 2px;">
+              Evaluación institucional de puntualidad, asistencia y escala formal de sanciones del Reglamento Interno de Personal.
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 10px; width: 25%; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+            <div style="font-size: 8px; color: #64748b; text-transform: uppercase; font-weight: bold;">Atraso Acumulado</div>
+            <div style="font-size: 13px; font-weight: bold; color: {{ $evaluacionReglamento['minutos_atraso'] > 30 ? '#be123c' : '#0f172a' }}; margin-top: 2px;">
+              {{ $evaluacionReglamento['minutos_atraso'] }} min
+            </div>
+            <div style="font-size: 7.5px; color: #64748b;">(Tolerancia: hasta 30 min)</div>
+          </td>
+          <td style="padding: 6px 10px; width: 25%; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+            <div style="font-size: 8px; color: #64748b; text-transform: uppercase; font-weight: bold;">Días que Llegó Tarde</div>
+            <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-top: 2px;">
+              {{ $evaluacionReglamento['dias_tarde'] }} días
+            </div>
+            <div style="font-size: 7.5px; color: #64748b;">En el mes de evaluación</div>
+          </td>
+          <td style="padding: 6px 10px; width: 25%; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+            <div style="font-size: 8px; color: #64748b; text-transform: uppercase; font-weight: bold;">Omisiones / Faltas</div>
+            <div style="font-size: 13px; font-weight: bold; color: {{ $evaluacionReglamento['omisiones_count'] > 0 ? '#be123c' : '#0f172a' }}; margin-top: 2px;">
+              {{ $evaluacionReglamento['omisiones_count'] }}
+            </div>
+            <div style="font-size: 7.5px; color: #64748b;">Entrada/Salida sin registro</div>
+          </td>
+          <td style="padding: 6px 10px; width: 25%; border-bottom: 1px solid #cbd5e1; text-align: center; background: {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#fff1f2' : '#f0fdf4' }};">
+            <div style="font-size: 8px; color: {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#9f1239' : '#166534' }}; text-transform: uppercase; font-weight: bold;">Total Días a Descontar</div>
+            <div style="font-size: 13px; font-weight: bold; color: {{ $evaluacionReglamento['total_dias_descuento'] > 0 ? '#be123c' : '#166534' }}; margin-top: 2px;">
+              {{ $evaluacionReglamento['total_dias_descuento_texto'] }}
+            </div>
+            <div style="font-size: 7.5px; font-weight: bold; color: {{ $evaluacionReglamento['se_pasa_reglamento'] ? '#be123c' : '#166534' }};">
+              {{ $evaluacionReglamento['se_pasa_reglamento'] ? 'EXCEDE REGLAMENTO' : 'DENTRO DE TOLERANCIA' }}
+            </div>
+          </td>
+        </tr>
+        @if(!empty($evaluacionReglamento['desglose_sanciones']))
+          <tr>
+            <td colspan="4" style="padding: 6px 10px; background: #fff5f5; font-size: 8px; color: #881337;">
+              <strong>Detalle de liquidación de descuentos:</strong>
+              @foreach($evaluacionReglamento['desglose_sanciones'] as $sancion)
+                <span style="display: inline-block; margin-right: 10px; font-weight: bold;">• {{ $sancion }}</span>
+              @endforeach
+            </td>
+          </tr>
+        @endif
+      </table>
+    @endif
 
     <!-- Tabla 1: Tardanzas -->
     <div class="section-header">Registro de Tardanzas / Llegadas Tarde</div>

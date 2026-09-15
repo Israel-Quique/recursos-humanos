@@ -278,5 +278,49 @@ class ReporteReglamentoTest extends TestCase
         $this->assertStringContainsString('2 omisiones', $reincidenteOmision['frecuencia']);
         $this->assertStringContainsString('11/05/2026', $reincidenteOmision['fechas_texto']);
     }
+
+    public function test_busqueda_individual_funcionario_en_reglamento_y_descarga_con_descuento(): void
+    {
+        $user = User::query()->create([
+            'name' => 'Auditor RRHH',
+            'email' => 'auditor.rrhh@correos.gob.bo',
+            'password' => bcrypt('secret123'),
+        ]);
+        $this->actingAs($user);
+
+        $emp = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Quispe Mamani',
+            'codigo_biometrico' => 'CQ-555',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-10',
+        ]);
+
+        // Atraso de 45 min (> 30 min tolerancia -> sanción 0.5 días según Art. 45.I)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-08-10',
+            'hora_entrada' => '09:25:00', // 45 min de retraso
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->set('searchReglamento', 'Carlos Quispe')
+            ->assertStatus(200)
+            ->assertSee('Consulta de Cumplimiento y Sanción Individual')
+            ->assertSee('Carlos Quispe Mamani')
+            ->assertSee('CQ-555')
+            ->assertSee('SE EXCEDE DEL REGLAMENTO INTERNO')
+            ->assertSee('45') // minutos de atraso
+            ->assertSee('1/2 día') // descuento calculado
+            ->call('descargarPdfIndividualReglamento', $emp->id)
+            ->assertFileDownloaded();
+    }
 }
 
