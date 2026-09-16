@@ -110,10 +110,10 @@ class GestionAccesosPage extends Component
         validator([
             'email' => $normalizedEmail,
         ], [
-            'email' => ['required', 'email', 'max:255', 'ends_with:@correos.com', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', 'ends_with:@correos.gob.bo', 'unique:users,email'],
         ], [
             'email.email' => 'Ingresa un correo valido.',
-            'email.ends_with' => 'El correo debe pertenecer al dominio @correos.com.',
+            'email.ends_with' => 'El correo debe pertenecer al dominio @correos.gob.bo.',
             'email.unique' => 'Ese correo corporativo ya esta registrado.',
         ])->validate();
 
@@ -181,11 +181,11 @@ class GestionAccesosPage extends Component
             'editEmail' => $normalizedEmail,
         ], [
             'editName' => ['required', 'string', 'max:120', 'unique:users,name,'.$user->id],
-            'editEmail' => ['required', 'email', 'max:255', 'ends_with:@correos.com', 'unique:users,email,'.$user->id],
+            'editEmail' => ['required', 'email', 'max:255', 'ends_with:@correos.gob.bo', 'unique:users,email,'.$user->id],
         ], [
             'editName.unique' => 'Ese nombre de usuario ya esta en uso.',
             'editEmail.email' => 'Ingresa un correo valido.',
-            'editEmail.ends_with' => 'El correo debe pertenecer al dominio @correos.com.',
+            'editEmail.ends_with' => 'El correo debe pertenecer al dominio @correos.gob.bo.',
             'editEmail.unique' => 'Ese correo corporativo ya esta en uso.',
         ])->validate();
 
@@ -360,7 +360,7 @@ class GestionAccesosPage extends Component
     {
         return [
             'name' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,name'],
-            'email' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+(?:@correos\.com)?$/i'],
+            'email' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+(?:@correos\.gob\.bo)?$/i'],
             'password' => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
             'password_confirmation' => ['required', 'string', 'min:8', 'max:72'],
             'newUserRole' => ['required', 'string', 'in:administrador,gestor'],
@@ -373,7 +373,7 @@ class GestionAccesosPage extends Component
         return [
             'editingUserId' => ['required', 'integer', 'exists:users,id'],
             'editName' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
-            'editEmail' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+(?:@correos\.com)?$/i'],
+            'editEmail' => ['required', 'string', 'min:3', 'max:120', 'regex:/^[A-Za-z0-9._-]+(?:@correos\.gob\.bo)?$/i'],
             'editPassword' => ['nullable', 'string', 'min:8', 'max:72', 'confirmed', 'required_with:editPassword_confirmation'],
             'editPassword_confirmation' => ['nullable', 'string', 'min:8', 'max:72', 'required_with:editPassword'],
             'editRole' => ['required', 'string', 'in:administrador,gestor'],
@@ -390,9 +390,9 @@ class GestionAccesosPage extends Component
             'name.regex' => 'El nombre de usuario solo puede usar letras, numeros, puntos, guiones y guion bajo.',
             'name.unique' => 'Ese nombre de usuario ya existe.',
             'email.required' => 'Ingresa el correo corporativo.',
-            'email.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.com.',
-            'email.max' => 'El correo no puede superar los 120 caracteres antes de @correos.com.',
-            'email.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.com.',
+            'email.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.gob.bo.',
+            'email.max' => 'El correo no puede superar los 120 caracteres antes de @correos.gob.bo.',
+            'email.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.gob.bo.',
             'password.required' => 'Ingresa una contrasena.',
             'password.min' => 'La contrasena debe tener al menos 8 caracteres.',
             'password.max' => 'La contrasena no puede superar los 72 caracteres.',
@@ -409,9 +409,9 @@ class GestionAccesosPage extends Component
             'editName.max' => 'El nombre de usuario no puede superar los 120 caracteres.',
             'editName.regex' => 'El nombre de usuario solo puede usar letras, numeros, puntos, guiones y guion bajo.',
             'editEmail.required' => 'Ingresa el correo corporativo.',
-            'editEmail.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.com.',
-            'editEmail.max' => 'El correo no puede superar los 120 caracteres antes de @correos.com.',
-            'editEmail.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.com.',
+            'editEmail.min' => 'El correo debe tener al menos 3 caracteres antes de @correos.gob.bo.',
+            'editEmail.max' => 'El correo no puede superar los 120 caracteres antes de @correos.gob.bo.',
+            'editEmail.regex' => 'Ingresa solo el nombre del correo corporativo antes de @correos.gob.bo.',
             'editPassword.min' => 'La contrasena debe tener al menos 8 caracteres.',
             'editPassword.max' => 'La contrasena no puede superar los 72 caracteres.',
             'editPassword.confirmed' => 'La confirmacion de contrasena no coincide.',
@@ -458,7 +458,7 @@ class GestionAccesosPage extends Component
     {
         $localPart = $this->extractCorreosLocalPart($value);
 
-        return $localPart === '' ? '' : $localPart.'@correos.com';
+        return $localPart === '' ? '' : $localPart.'@correos.gob.bo';
     }
 
     private function normalizeRole(?string $role): string

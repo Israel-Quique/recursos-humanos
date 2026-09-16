@@ -145,8 +145,8 @@
               Correo corporativo
             </label>
             <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
-              <input type="text" wire:model.live="email" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3.5 text-slate-700 focus:outline-none focus:ring-0 text-sm" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
-              <span class="inline-flex items-center border-l border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-500">@correos.com</span>
+              <input type="text" wire:model.live="email" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3.5 text-slate-700 focus:outline-none focus:ring-0 text-sm" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.gob\.bo)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-500">@correos.gob.bo</span>
             </div>
             @error('email') <p class="form-error">{{ $message }}</p> @enderror
           </div>
@@ -259,8 +259,8 @@
               Correo corporativo
             </label>
             <div class="flex overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white transition focus-within:border-[#0f67c0] focus-within:ring-4 focus-within:ring-[#0f67c0]/10">
-              <input type="text" wire:model.live="editEmail" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3.5 text-slate-700 focus:outline-none focus:ring-0 text-sm" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.com)?" autocomplete="off" spellcheck="false">
-              <span class="inline-flex items-center border-l border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-500">@correos.com</span>
+              <input type="text" wire:model.live="editEmail" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3.5 text-slate-700 focus:outline-none focus:ring-0 text-sm" placeholder="israel" required minlength="3" maxlength="120" pattern="[A-Za-z0-9._-]+(@correos\.gob\.bo)?" autocomplete="off" spellcheck="false">
+              <span class="inline-flex items-center border-l border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-500">@correos.gob.bo</span>
             </div>
             @error('editEmail') <p class="form-error">{{ $message }}</p> @enderror
           </div>

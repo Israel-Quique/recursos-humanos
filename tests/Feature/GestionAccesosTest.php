@@ -26,7 +26,7 @@ class GestionAccesosTest extends TestCase
 
         $this->adminUser = User::query()->create([
             'name' => 'admin.principal',
-            'email' => 'admin@correos.com',
+            'email' => 'admin@correos.gob.bo',
             'password' => bcrypt('password123'),
         ]);
 
@@ -58,7 +58,7 @@ class GestionAccesosTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'name' => 'gestor.nuevo',
-            'email' => 'gestor.nuevo@correos.com',
+            'email' => 'gestor.nuevo@correos.gob.bo',
         ]);
 
         $nuevo = User::where('name', 'gestor.nuevo')->firstOrFail();
@@ -69,7 +69,7 @@ class GestionAccesosTest extends TestCase
     {
         $usuario = User::query()->create([
             'name' => 'usuario.modificar',
-            'email' => 'usuario.modificar@correos.com',
+            'email' => 'usuario.modificar@correos.gob.bo',
             'password' => bcrypt('password1234'),
         ]);
         $usuario->assignRole('gestor');
@@ -87,7 +87,7 @@ class GestionAccesosTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $usuario->id,
             'name' => 'usuario.actualizado',
-            'email' => 'usuario.actualizado@correos.com',
+            'email' => 'usuario.actualizado@correos.gob.bo',
         ]);
     }
 
@@ -95,7 +95,7 @@ class GestionAccesosTest extends TestCase
     {
         $usuario = User::query()->create([
             'name' => 'usuario.eliminar',
-            'email' => 'usuario.eliminar@correos.com',
+            'email' => 'usuario.eliminar@correos.gob.bo',
             'password' => bcrypt('password1234'),
         ]);
         $usuario->assignRole('gestor');
@@ -136,7 +136,7 @@ class GestionAccesosTest extends TestCase
     {
         $admin2 = User::query()->create([
             'name' => 'admin.secundario',
-            'email' => 'admin.secundario@correos.com',
+            'email' => 'admin.secundario@correos.gob.bo',
             'password' => bcrypt('password1234'),
         ]);
         $admin2->assignRole('administrador');
@@ -164,7 +164,7 @@ class GestionAccesosTest extends TestCase
     {
         $gestor = User::query()->create([
             'name' => 'carlos.gestor',
-            'email' => 'carlos.gestor@correos.com',
+            'email' => 'carlos.gestor@correos.gob.bo',
             'password' => bcrypt('password1234'),
         ]);
         $gestor->assignRole('gestor');
