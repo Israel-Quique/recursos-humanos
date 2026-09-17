@@ -129,6 +129,36 @@
         </div>
 
         <form wire:submit="createUser" class="mt-6 grid gap-5 md:grid-cols-2">
+          {{-- FOTO DE PERFIL --}}
+          <div class="md:col-span-2 flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div class="user-photo-preview-box" style="width: 64px; height: 64px; min-width: 64px; min-height: 64px; max-width: 64px; max-height: 64px; border-radius: 1rem; overflow: hidden; position: relative; flex-shrink: 0;">
+              @if ($userFotoNueva)
+                <img src="{{ $userFotoNueva->temporaryUrl() }}" alt="Vista previa" width="64" height="64" style="width: 64px; height: 64px; min-width: 64px; max-width: 64px; min-height: 64px; max-height: 64px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="user-photo-img border-2 border-indigo-500 shadow-sm">
+              @else
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 0.9rem; color: #94a3b8;">
+                  <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 24px; height: 24px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+              @endif
+              <div wire:loading wire:target="userFotoNueva" class="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center" style="position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center;">
+                <span class="text-[10px] text-indigo-600 font-bold animate-pulse">...</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">Foto de perfil (Opcional)</label>
+              <p class="text-[11px] text-slate-500 mb-1.5">Si se vincula a un funcionario, heredará su foto automáticamente.</p>
+              <div class="flex items-center gap-2">
+                <label for="create-user-foto" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer transition-colors shadow-2xs">
+                  <span>{{ $userFotoNueva ? 'Cambiar foto' : 'Subir foto' }}</span>
+                </label>
+                <input type="file" id="create-user-foto" wire:model="userFotoNueva" accept="image/jpeg,image/png,image/webp" class="hidden">
+                @if ($userFotoNueva)
+                  <button type="button" wire:click="quitarUserFoto" class="text-rose-600 hover:bg-rose-50 px-2 py-1 rounded text-xs font-semibold">✕ Quitar</button>
+                @endif
+              </div>
+              @error('userFotoNueva') <p class="form-error mt-1">{{ $message }}</p> @enderror
+            </div>
+          </div>
+
           <div>
             <label class="form-label flex items-center gap-1.5">
               <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -244,6 +274,41 @@
         </div>
 
         <form wire:submit="updateUser" class="mt-6 grid gap-5 md:grid-cols-2">
+          {{-- FOTO DE PERFIL --}}
+          <div class="md:col-span-2 flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div class="user-photo-preview-box" style="width: 64px; height: 64px; min-width: 64px; min-height: 64px; max-width: 64px; max-height: 64px; border-radius: 1rem; overflow: hidden; position: relative; flex-shrink: 0;">
+              @if ($userFotoNueva)
+                <img src="{{ $userFotoNueva->temporaryUrl() }}" alt="Nueva foto" width="64" height="64" style="width: 64px; height: 64px; min-width: 64px; max-width: 64px; min-height: 64px; max-height: 64px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="user-photo-img border-2 border-indigo-500 shadow-sm">
+              @elseif ($editUserFotoActual && !$eliminarUserFoto)
+                <img src="{{ $editUserFotoActual }}" alt="Foto actual" width="64" height="64" style="width: 64px; height: 64px; min-width: 64px; max-width: 64px; min-height: 64px; max-height: 64px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="user-photo-img border border-slate-200 shadow-sm">
+              @else
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 0.9rem; color: #94a3b8;">
+                  <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 24px; height: 24px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+              @endif
+              <div wire:loading wire:target="userFotoNueva" class="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center" style="position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center;">
+                <span class="text-[10px] text-indigo-600 font-bold animate-pulse">...</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">Foto de perfil de usuario</label>
+              <p class="text-[11px] text-slate-500 mb-1.5">Personaliza la foto de acceso al sistema (JPG, PNG, máx 4MB).</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <label for="edit-user-foto" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer transition-colors shadow-2xs">
+                  <span>{{ ($editUserFotoActual && !$eliminarUserFoto) || $userFotoNueva ? 'Cambiar foto' : 'Subir foto' }}</span>
+                </label>
+                <input type="file" id="edit-user-foto" wire:model="userFotoNueva" accept="image/jpeg,image/png,image/webp" class="hidden">
+                @if (($editUserFotoActual && !$eliminarUserFoto) || $userFotoNueva)
+                  <button type="button" wire:click="quitarUserFoto" class="text-rose-600 hover:bg-rose-50 px-2 py-1 rounded text-xs font-semibold">✕ Quitar foto</button>
+                @endif
+                @if ($eliminarUserFoto)
+                  <span class="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">Se eliminará al guardar</span>
+                @endif
+              </div>
+              @error('userFotoNueva') <p class="form-error mt-1">{{ $message }}</p> @enderror
+            </div>
+          </div>
+
           <div>
             <label class="form-label flex items-center gap-1.5">
               <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -493,9 +558,13 @@
               <tr class="hover:bg-slate-50/60 transition-colors">
                 <td class="py-4 pl-6 pr-4">
                   <div class="flex items-center gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl font-bold text-xs shadow-sm {{ $roleName === 'administrador' ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-emerald-600 text-white shadow-emerald-200' }}">
-                      {{ $initials }}
-                    </div>
+                    @if($user->foto_url)
+                      <img src="{{ $user->foto_url }}" alt="{{ $user->name }}" width="38" height="38" style="width: 38px; height: 38px; min-width: 38px; max-width: 38px; min-height: 38px; max-height: 38px; border-radius: 0.85rem; object-fit: cover; object-position: center top; display: block; flex-shrink: 0;" class="emp-photo-table-thumb">
+                    @else
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl font-bold text-xs shadow-sm {{ $roleName === 'administrador' ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-emerald-600 text-white shadow-emerald-200' }}" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 0.85rem;">
+                        {{ $initials }}
+                      </div>
+                    @endif
                     <div>
                       <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-800 text-sm">{{ $user->name }}</span>

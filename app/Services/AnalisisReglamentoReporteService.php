@@ -60,6 +60,7 @@ class AnalisisReglamentoReporteService
         $detalleAtrasos = [];
         $detalleOmisiones = [];
         $detalleReincidentes = [];
+        $detalleFaltas = [];
 
         $totalDiasSancionInstitucional = 0.0;
         $totalConSancionEconomica = 0;
@@ -109,6 +110,17 @@ class AnalisisReglamentoReporteService
                 ];
             }
             $fechasOmisionesTexto = collect($fechasOmisiones)->pluck('etiqueta')->implode(', ');
+
+            // Extraer detalle de fechas de faltas e inasistencias
+            $fechasFaltas = [];
+            foreach ($faltasEmp as $f) {
+                $fechasFaltas[] = [
+                    'fecha' => $f['fecha'] ?? '',
+                    'detalle' => $f['detalle'] ?? 'Inasistencia injustificada',
+                    'etiqueta' => $f['fecha'] ?? '',
+                ];
+            }
+            $fechasFaltasTexto = collect($fechasFaltas)->pluck('etiqueta')->filter()->implode(', ');
 
             // Calcular reincidencia anual de meses con más de 120 min en la gestión (Art. 48.I)
             $empPrevias = $asistenciasPreviasGestion->get($empleado->id);
@@ -203,8 +215,9 @@ class AnalisisReglamentoReporteService
 
             // -------------------------------------------------------------
             // A. DETALLE DIRECTO DE ATRASOS (SOLICITADO: nombre, codigo, atraso, dias tarde, descuento, fechas)
+            // Solo funcionarios con sanción económica por exceder el margen de tolerancia (> 30 min)
             // -------------------------------------------------------------
-            if ($minutosAtraso > 0 || $diasTarde > 0) {
+            if ($diasSancionAtraso > 0) {
                 $detalleAtrasos[] = [
                     'id' => $empleado->id,
                     'nombre' => $empleado->nombre_completo,
@@ -216,10 +229,10 @@ class AnalisisReglamentoReporteService
                     'dias_tarde' => $diasTarde,
                     'dias_tarde_texto' => $diasTarde . ' ' . ($diasTarde === 1 ? 'día' : 'días'),
                     'dias_descuento' => $diasSancionAtraso,
-                    'dias_descuento_texto' => $diasSancionAtraso > 0 ? $this->formatearDiasSancion($diasSancionAtraso) : '0 días (En tolerancia)',
+                    'dias_descuento_texto' => $this->formatearDiasSancion($diasSancionAtraso),
                     'fechas' => $fechasAtrasos,
                     'fechas_texto' => $fechasAtrasosTexto ?: 'Sin detalle registrado',
-                    'es_sancionado' => $diasSancionAtraso > 0,
+                    'es_sancionado' => true,
                     'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
                 ];
             }
@@ -248,7 +261,37 @@ class AnalisisReglamentoReporteService
             }
 
             // -------------------------------------------------------------
-            // C. REPORTE DE REINCIDENTES:
+            // C. DETALLE DIRECTO DE FALTAS / INASISTENCIAS (Art. 45.II y Art. 48.II/III)
+            // -------------------------------------------------------------
+            if ($faltasInjustificadas > 0) {
+                $esCriticoFalta = $faltasInjustificadas >= 3;
+                $causalDisciplinariaFalta = $faltasInjustificadas >= 6
+                    ? "Causal Destitución: {$faltasInjustificadas} faltas discontinuas (Art. 48.III)"
+                    : ($faltasInjustificadas >= 3
+                        ? "Causal Destitución: {$faltasInjustificadas} faltas consecutivas/graves (Art. 48.II)"
+                        : "Sanción económica Art. 45.II (Descuento al doble)");
+
+                $detalleFaltas[] = [
+                    'id' => $empleado->id,
+                    'nombre' => $empleado->nombre_completo,
+                    'codigo' => $codigoEmpleado,
+                    'sucursal' => $empleado->sucursal ?: $sucursalNormalizada,
+                    'area' => $empleado->area ?: 'General',
+                    'total_faltas' => $faltasInjustificadas,
+                    'total_faltas_texto' => $faltasInjustificadas . ' ' . ($faltasInjustificadas === 1 ? 'falta' : 'faltas'),
+                    'dias_descuento' => $diasSancionInasistencia,
+                    'dias_descuento_texto' => $this->formatearDiasSancion($diasSancionInasistencia) . ' (Doble)',
+                    'causal_disciplinaria' => $causalDisciplinariaFalta,
+                    'fechas' => $fechasFaltas,
+                    'fechas_texto' => $fechasFaltasTexto ?: 'Sin detalle registrado',
+                    'es_critico' => $esCriticoFalta,
+                    'es_sancionado' => true,
+                    'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
+                ];
+            }
+
+            // -------------------------------------------------------------
+            // D. REPORTE DE REINCIDENTES:
             // 1) Si en más de dos meses superó sus 30 min de tolerancia
             // 2) Si tuvo omisiones reiteradas (>= 2) con el detalle de fechas
             // -------------------------------------------------------------
@@ -264,7 +307,7 @@ class AnalisisReglamentoReporteService
                 ];
             }
 
-            $esReincidenteTolerancia = count($todosMeses30) >= 2;
+            $esReincidenteTolerancia = count($todosMeses30) >= 2 && ($minutosAtraso > 30 || $diasSancionAtraso > 0);
             $esReincidenteOmisiones = $omisionesCount >= 2;
 
             if ($esReincidenteTolerancia) {
@@ -280,7 +323,7 @@ class AnalisisReglamentoReporteService
                     'conteo_meses' => count($todosMeses30),
                     'meses_detalle' => $todosMeses30,
                     'detalle_texto' => collect($todosMeses30)->pluck('etiqueta')->implode(', '),
-                    'sancion_texto' => $diasSancionAtraso > 0 ? $this->formatearDiasSancion($diasSancionAtraso) . ' (Mes actual)' : 'En tolerancia este mes',
+                    'sancion_texto' => $this->formatearDiasSancion($diasSancionAtraso) . ' (Mes actual)',
                     'fechas_texto' => $fechasAtrasosTexto ?: 'Sin atrasos este mes',
                     'inicial' => strtoupper(mb_substr($empleado->nombre, 0, 1)),
                 ];
@@ -590,6 +633,11 @@ class AnalisisReglamentoReporteService
             ->values()
             ->all();
 
+        $detalleFaltas = collect($detalleFaltas)
+            ->sortByDesc('total_faltas')
+            ->values()
+            ->all();
+
         $detalleReincidentes = collect($detalleReincidentes)
             ->sortByDesc(fn($r) => ($r['tipo'] === 'atrasos' ? 100 : 50) + ($r['conteo_meses'] ?? 1))
             ->values()
@@ -606,11 +654,13 @@ class AnalisisReglamentoReporteService
                 'total_dias_sancion_formato' => $this->formatearDiasSancion($totalDiasSancionInstitucional),
                 'total_con_atraso' => count($detalleAtrasos),
                 'total_con_omision' => count($detalleOmisiones),
+                'total_con_faltas' => count($detalleFaltas),
                 'total_reincidentes' => count($detalleReincidentes),
             ],
             // Listados directos detallados
             'detalle_atrasos' => $detalleAtrasos,
             'detalle_omisiones' => $detalleOmisiones,
+            'detalle_faltas' => $detalleFaltas,
             'detalle_reincidentes' => $detalleReincidentes,
             'reincidentes_atrasos' => collect($detalleReincidentes)->where('tipo', 'atrasos')->values()->all(),
             'reincidentes_omisiones' => collect($detalleReincidentes)->where('tipo', 'omisiones')->values()->all(),

@@ -1257,6 +1257,7 @@ class AnalisisAsistenciaService
                         . ' - ' .
                         ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
                     'email' => $empleado->email ?: null,
+                    'foto_url' => $empleado->foto_url,
                 ],
                 'metrics' => [
                     ['label' => 'Dias con marcacion', 'value' => '0'],
@@ -1318,14 +1319,33 @@ class AnalisisAsistenciaService
                 $lateDays++;
             }
 
-            $missingMark = ! $soloEntrada && (blank($marcacion['entrada']) || blank($horaSalidaReal));
+            $tieneEntrada = filled($marcacion['entrada']) && $marcacion['entrada'] !== '--:--';
+            $tieneSalida = filled($horaSalidaReal) && $horaSalidaReal !== '--:--';
+            $salidaPendienteHoy = $tieneEntrada && ! $tieneSalida && $this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
+
+            $esFalta = ! $tieneEntrada && ! $tieneSalida;
+            $esOmision = ! $salidaPendienteHoy && (($tieneEntrada && ! $tieneSalida) || (! $tieneEntrada && $tieneSalida));
+            $esRetraso = $delay > 0;
+
             $dateCarbon = $registro->fecha ? $registro->fecha->copy() : null;
             $diaSemana = $dateCarbon ? ucfirst($dateCarbon->locale('es')->shortDayName) : '';
 
-            $rowTone = $soloEntrada ? 'default' : ($missingMark ? 'warning' : ($delay > 0 ? 'late' : 'default'));
-            $estadoCalculado = $missingMark
-                ? (blank($marcacion['entrada']) && blank($horaSalidaReal) ? 'Omisión (Sin marcación)' : (blank($marcacion['entrada']) ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)'))
-                : $this->resolverEstadoRegistroPersonalizado($registro, $soloEntrada, $horaSalidaReal, $delay);
+            if ($esFalta) {
+                $rowTone = 'danger';
+                $estadoCalculado = 'Falta (Sin marcación)';
+            } elseif ($salidaPendienteHoy) {
+                $rowTone = 'default';
+                $estadoCalculado = 'En su puesto';
+            } elseif ($esOmision) {
+                $rowTone = 'warning';
+                $estadoCalculado = ! $tieneEntrada ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)';
+            } elseif ($esRetraso) {
+                $rowTone = 'late';
+                $estadoCalculado = $this->resolverEstadoRegistroPersonalizado($registro, false, $horaSalidaReal, $delay);
+            } else {
+                $rowTone = 'default';
+                $estadoCalculado = $this->resolverEstadoRegistroPersonalizado($registro, false, $horaSalidaReal, $delay);
+            }
 
             $rows[] = [
                 'raw_date' => $registro->fecha?->toDateString(),
@@ -1342,9 +1362,9 @@ class AnalisisAsistenciaService
                 'estado_biometrico' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
                 'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
                 'row_tone' => $rowTone,
-                'es_retraso' => $delay > 0,
-                'es_omision' => $missingMark,
-                'es_falta' => false,
+                'es_retraso' => $esRetraso,
+                'es_omision' => $esOmision,
+                'es_falta' => $esFalta,
             ];
         }
 
@@ -1396,12 +1416,12 @@ class AnalisisAsistenciaService
                 'horas' => '00:00',
                 'retraso' => '0 min',
                 'retraso_minutos' => 0,
-                'estado' => $hasFaltaPermission ? 'Permiso (Falta)' : 'Omisión (Día sin marcación)',
+                'estado' => $hasFaltaPermission ? 'Permiso (Falta)' : 'Falta (Inasistencia)',
                 'estado_biometrico' => 'Sin marcacion',
-                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Omisión de marcación',
+                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Inasistencia injustificada',
                 'row_tone' => 'danger',
                 'es_retraso' => false,
-                'es_omision' => true,
+                'es_omision' => false,
                 'es_falta' => true,
             ];
 
@@ -1428,6 +1448,7 @@ class AnalisisAsistenciaService
                     . ' - ' .
                     ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
                 'email' => $empleado->email ?: null,
+                'foto_url' => $empleado->foto_url,
             ],
             'retraso_resumen' => [
                 'total_minutos' => $lateMinutes,

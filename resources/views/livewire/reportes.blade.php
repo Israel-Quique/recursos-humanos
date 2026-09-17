@@ -773,7 +773,11 @@
         </div>
         <div class="flex items-center gap-3">
           <span class="status-badge status-warning font-bold">{{ $totalAtrasos }} registros</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">PDF</button>
+          <button type="button" wire:click="descargarPdfReporte"
+            class="inline-flex items-center gap-2 rounded-xl bg-[#0f67c0] hover:bg-[#0b4d93] active:scale-[0.98] text-white px-4 py-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer no-print">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Exportar PDF</span>
+          </button>
         </div>
       </div>
       <div class="history-table-shell mt-6">
@@ -902,7 +906,11 @@
         </div>
         <div class="flex items-center gap-3">
           <span class="status-badge status-danger font-bold">{{ $totalOmisiones }} omisiones</span>
-          <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">PDF</button>
+          <button type="button" wire:click="descargarPdfReporte"
+            class="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white px-4 py-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer no-print">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Exportar PDF</span>
+          </button>
         </div>
       </div>
       <div class="history-table-shell mt-6">
@@ -1094,7 +1102,11 @@
             <strong>Criterios de Evaluación:</strong> El líder de puntualidad premia la mayor cantidad de jornadas laboradas con 0 retraso y menor tiempo acumulado. La mayor demora evidencia a quienes requieren seguimiento preventivo de tolerancia.
           </p>
         </div>
-        <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">Imprimir / PDF</button>
+        <button type="button" wire:click="descargarPdfReporte"
+          class="inline-flex items-center gap-2 rounded-xl bg-[#0f67c0] hover:bg-[#0b4d93] active:scale-[0.98] text-white px-4 py-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer no-print">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+          <span>Imprimir / PDF</span>
+        </button>
       </div>
 
       <div class="grid gap-6 xl:grid-cols-2">
@@ -1307,7 +1319,11 @@
         <h3 class="text-lg font-bold text-slate-900">Reporte de Trayectoria Institucional</h3>
         <p class="text-xs text-slate-500">Clasificación de personal por tiempo de vinculación laboral.</p>
       </div>
-      <button type="button" wire:click="descargarPdfReporte" class="section-action-button no-print">Imprimir / PDF</button>
+      <button type="button" wire:click="descargarPdfReporte"
+        class="inline-flex items-center gap-2 rounded-xl bg-[#0f67c0] hover:bg-[#0b4d93] active:scale-[0.98] text-white px-4 py-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer no-print">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+        <span>Imprimir / PDF</span>
+      </button>
     </div>
 
     <div class="grid gap-6 xl:grid-cols-2">
@@ -1470,68 +1486,150 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
-        <div class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 border border-slate-200 shadow-sm">
+        <div class="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-slate-200/90 p-1.5 border border-slate-300 shadow-inner">
+          {{-- BOTÓN: Detalle Atrasos --}}
           <button type="button" @click="filtroArticulo = 'atrasos'"
-            :class="filtroArticulo === 'atrasos' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+            :class="filtroArticulo === 'atrasos' 
+              ? 'bg-amber-500 text-white font-bold shadow-md ring-2 ring-amber-400/50' 
+              : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span class="h-2.5 w-2.5 rounded-full" :class="filtroArticulo === 'atrasos' ? 'bg-white' : 'bg-amber-500'"></span>
             <span>Detalle Atrasos</span>
-            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            <span :class="filtroArticulo === 'atrasos' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-900 border border-amber-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
               {{ count($reporteReglamento['detalle_atrasos'] ?? []) }}
             </span>
           </button>
 
+          {{-- BOTÓN: Detalle Omisiones --}}
           <button type="button" @click="filtroArticulo = 'omisiones'"
-            :class="filtroArticulo === 'omisiones' ? 'bg-white text-rose-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+            :class="filtroArticulo === 'omisiones' 
+              ? 'bg-rose-600 text-white font-bold shadow-md ring-2 ring-rose-400/50' 
+              : 'bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span class="h-2.5 w-2.5 rounded-full" :class="filtroArticulo === 'omisiones' ? 'bg-white' : 'bg-rose-600'"></span>
             <span>Detalle Omisiones</span>
-            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900">
+            <span :class="filtroArticulo === 'omisiones' ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-900 border border-rose-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
               {{ count($reporteReglamento['detalle_omisiones'] ?? []) }}
             </span>
           </button>
 
-          <button type="button" @click="filtroArticulo = 'reincidentes'"
-            :class="filtroArticulo === 'reincidentes' ? 'bg-white text-purple-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span class="h-2 w-2 rounded-full bg-purple-600"></span>
-            <span>Reincidentes</span>
-            <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
-              {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }}
+          {{-- BOTÓN: Detalle Faltas --}}
+          <button type="button" @click="filtroArticulo = 'faltas'"
+            :class="filtroArticulo === 'faltas' 
+              ? 'bg-red-700 text-white font-bold shadow-md ring-2 ring-red-500/50' 
+              : 'bg-white hover:bg-red-50 text-slate-700 hover:text-red-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span class="h-2.5 w-2.5 rounded-full" :class="filtroArticulo === 'faltas' ? 'bg-white' : 'bg-red-700'"></span>
+            <span>Detalle Faltas</span>
+            <span :class="filtroArticulo === 'faltas' ? 'bg-red-800 text-white' : 'bg-red-100 text-red-900 border border-red-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
+              {{ count($reporteReglamento['detalle_faltas'] ?? []) }}
             </span>
           </button>
 
-          <button type="button" @click="filtroArticulo = 'concurrente'"
-            :class="filtroArticulo === 'concurrente' ? 'bg-white text-purple-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span>Concurrencia (45+48)</span>
-            <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
-              {{ $reporteReglamento['metricas']['concurrencia_articulos'] ?? 0 }}
-            </span>
-          </button>
-
+          {{-- BOTÓN: Zona de Alerta / Peligro --}}
           <button type="button" @click="filtroArticulo = 'alertas'"
-            :class="filtroArticulo === 'alertas' ? 'bg-white text-amber-950 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
-            <span>Zona de Alerta</span>
-            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            :class="filtroArticulo === 'alertas' 
+              ? 'bg-amber-600 text-white font-bold shadow-md ring-2 ring-amber-500/50' 
+              : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span>Zona de Peligro</span>
+            <span :class="filtroArticulo === 'alertas' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-900 border border-amber-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
               {{ $reporteReglamento['metricas']['en_alerta_preventiva'] ?? 0 }}
             </span>
           </button>
 
+          {{-- BOTÓN: Reincidentes --}}
+          <button type="button" @click="filtroArticulo = 'reincidentes'"
+            :class="filtroArticulo === 'reincidentes' 
+              ? 'bg-purple-600 text-white font-bold shadow-md ring-2 ring-purple-400/50' 
+              : 'bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span class="h-2.5 w-2.5 rounded-full" :class="filtroArticulo === 'reincidentes' ? 'bg-white' : 'bg-purple-600'"></span>
+            <span>Reincidentes</span>
+            <span :class="filtroArticulo === 'reincidentes' ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-900 border border-purple-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
+              {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }}
+            </span>
+          </button>
+
+          {{-- BOTÓN: Concurrencia (45+48) --}}
+          <button type="button" @click="filtroArticulo = 'concurrente'"
+            :class="filtroArticulo === 'concurrente' 
+              ? 'bg-indigo-600 text-white font-bold shadow-md ring-2 ring-indigo-400/50' 
+              : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-900 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
+            <span>Concurrencia (45+48)</span>
+            <span :class="filtroArticulo === 'concurrente' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-900 border border-indigo-300/80'"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-black">
+              {{ $reporteReglamento['metricas']['concurrencia_articulos'] ?? 0 }}
+            </span>
+          </button>
+
+          {{-- BOTÓN: Ver Todo --}}
           <button type="button" @click="filtroArticulo = 'todos'"
-            :class="filtroArticulo === 'todos' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition">
+            :class="filtroArticulo === 'todos' 
+              ? 'bg-slate-800 text-white font-bold shadow-md ring-2 ring-slate-600/50' 
+              : 'bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-950 border border-slate-200/90 font-semibold shadow-2xs'"
+            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 cursor-pointer">
             <span>Ver Todo</span>
           </button>
         </div>
 
-        <button type="button" wire:click="descargarPdfReporteReglamento" class="report-hero-pdf-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>
-          </svg>
-          <span>Descargar PDF Reglamento</span>
-        </button>
+        {{-- BOTÓN DINÁMICO LADO A LADO CON SU RESPECTIVO NOMBRE SEGÚN VISTA ACTIVA --}}
+        <div class="flex items-center gap-2 shrink-0">
+          {{-- Vista Atrasos --}}
+          <button type="button" x-show="filtroArticulo === 'atrasos'" wire:click="descargarPdfReglamentoCategoria('atrasos')"
+            class="inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-amber-400/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Atrasos (Art. 45.I)</span>
+          </button>
+
+          {{-- Vista Omisiones --}}
+          <button type="button" x-show="filtroArticulo === 'omisiones'" wire:click="descargarPdfReglamentoCategoria('omisiones')"
+            class="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-rose-400/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Omisiones (Art. 45/48)</span>
+          </button>
+
+          {{-- Vista Faltas --}}
+          <button type="button" x-show="filtroArticulo === 'faltas'" wire:click="descargarPdfReglamentoCategoria('faltas')"
+            class="inline-flex items-center gap-2 rounded-xl bg-red-700 hover:bg-red-800 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-red-500/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Faltas (Art. 45.II / 48)</span>
+          </button>
+
+          {{-- Vista Zona de Peligro / Alertas --}}
+          <button type="button" x-show="filtroArticulo === 'alertas'" wire:click="descargarPdfReglamentoCategoria('alertas')"
+            class="inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-amber-400/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Zona de Peligro (Alertas)</span>
+          </button>
+
+          {{-- Vista Reincidentes --}}
+          <button type="button" x-show="filtroArticulo === 'reincidentes'" wire:click="descargarPdfReglamentoCategoria('reincidentes')"
+            class="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-purple-400/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Reincidentes (Gestión {{ $reporteReglamento['gestion'] ?? date('Y') }})</span>
+          </button>
+
+          {{-- Vista Concurrencia --}}
+          <button type="button" x-show="filtroArticulo === 'concurrente'" wire:click="descargarPdfReglamentoCategoria('concurrente')"
+            class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-indigo-400/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Concurrencia (45+48)</span>
+          </button>
+
+          {{-- Vista Ver Todo / Consolidado --}}
+          <button type="button" x-show="filtroArticulo === 'todos'" wire:click="descargarPdfReglamentoCategoria('todos')"
+            class="inline-flex items-center gap-2 rounded-xl bg-[#0f67c0] hover:bg-[#0b4d93] active:scale-[0.98] text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer border border-blue-500/40">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            <span>Descargar PDF Consolidado Reglamento</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1715,7 +1813,7 @@
     {{-- ============================================================ --}}
     <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'atrasos'" class="space-y-4 mb-8">
       <section class="surface-card border-amber-200 bg-amber-50/20">
-        <div class="mb-4 flex items-center justify-between border-b border-amber-100 pb-2.5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-xs shadow-xs">⏱️</span>
             <div>
@@ -1723,9 +1821,16 @@
               <p class="text-xs text-amber-800">Cómputo de minutos de retraso, sumatoria de días tarde y días de haber a descontar según escala.</p>
             </div>
           </div>
-          <span class="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-900">
-            {{ count($reporteReglamento['detalle_atrasos'] ?? []) }} funcionarios con atraso
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+              {{ count($reporteReglamento['detalle_atrasos'] ?? []) }} funcionarios con sanción
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('atrasos')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-amber-400/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Atrasos</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-amber-200/70 bg-white shadow-xs">
@@ -1759,7 +1864,7 @@
                   <td class="py-3 px-3 text-center font-black text-amber-950">{{ $item['minutos_texto'] }}</td>
                   <td class="py-3 px-3 text-center font-bold text-slate-800">{{ $item['dias_tarde_texto'] }}</td>
                   <td class="py-3 px-3 text-center font-bold">
-                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs {{ $item['es_sancionado'] ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs bg-rose-100 text-rose-800 border border-rose-200">
                       {{ $item['dias_descuento_texto'] }}
                     </span>
                   </td>
@@ -1777,7 +1882,7 @@
               @empty
                 <tr>
                   <td colspan="8" class="py-6 text-center text-xs text-slate-400">
-                    No se registran atrasos en este periodo.
+                    No se registran funcionarios con sanciones por atraso en este periodo (todos se encuentran dentro de la tolerancia permitida).
                   </td>
                 </tr>
               @endforelse
@@ -1792,7 +1897,7 @@
     {{-- ============================================================ --}}
     <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'omisiones'" class="space-y-4 mb-8">
       <section class="surface-card border-rose-200 bg-rose-50/20">
-        <div class="mb-4 flex items-center justify-between border-b border-rose-100 pb-2.5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-rose-100 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-600 text-white font-bold text-xs shadow-xs">📋</span>
             <div>
@@ -1800,9 +1905,16 @@
               <p class="text-xs text-rose-800">Cómputo de omisiones de entrada o salida y sanciones aplicables según reglamento.</p>
             </div>
           </div>
-          <span class="rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-xs font-bold text-rose-900">
-            {{ count($reporteReglamento['detalle_omisiones'] ?? []) }} funcionarios con omisión
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-rose-100 border border-rose-300 px-2.5 py-0.5 text-xs font-bold text-rose-900">
+              {{ count($reporteReglamento['detalle_omisiones'] ?? []) }} funcionarios con omisión
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('omisiones')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-rose-400/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Omisiones</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-rose-200/70 bg-white shadow-xs">
@@ -1863,21 +1975,123 @@
     </div>
 
     {{-- ============================================================ --}}
-    {{-- TABLA 3: REPORTE DE REINCIDENTES (>30 MIN EN >2 MESES / OMIS) --}}
+    {{-- TABLA 3: DETALLE DE FALTAS E INASISTENCIAS (ART. 45.II / 48) --}}
+    {{-- ============================================================ --}}
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'faltas'" class="space-y-4 mb-8">
+      <section class="surface-card border-red-200 bg-red-50/20">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-red-100 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-xs shadow-xs">🚫</span>
+            <div>
+              <h5 class="text-sm font-bold text-red-950">3. Detalle de Faltas e Inasistencias (Art. 45.II y Art. 48.II/III)</h5>
+              <p class="text-xs text-red-800">Días no trabajados con sanción al doble (2 días por falta) y causales disciplinarias graves por abandono.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-red-100 border border-red-300 px-2.5 py-0.5 text-xs font-bold text-red-900">
+              {{ count($reporteReglamento['detalle_faltas'] ?? []) }} funcionarios con faltas
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('faltas')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-red-700 hover:bg-red-800 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-red-500/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Faltas (Art. 45.II / 48)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-red-200/70 bg-white shadow-xs">
+          <table class="history-table w-full">
+            <thead>
+              <tr class="bg-red-50/60 border-b border-red-100 text-[11px] text-red-900 uppercase">
+                <th class="py-3 pl-4 pr-2 text-center" style="width: 30px;">#</th>
+                <th class="py-3 px-3">Funcionario</th>
+                <th class="py-3 px-3">Código</th>
+                <th class="py-3 px-3">Sucursal / Área</th>
+                <th class="py-3 px-3 text-center">Faltas Registradas</th>
+                <th class="py-3 px-3 text-center">Descuento (Doble)</th>
+                <th class="py-3 px-3">Causal Disciplinaria</th>
+                <th class="py-3 pr-4 pl-2 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
+              @forelse($reporteReglamento['detalle_faltas'] ?? [] as $i => $item)
+                <tr class="hover:bg-red-50/30 transition-colors">
+                  <td class="py-3 pl-4 pr-2 text-center font-bold text-slate-400">{{ $i + 1 }}</td>
+                  <td class="py-3 px-3">
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs bg-red-600 text-white shadow-xs">
+                        {{ $item['inicial'] }}
+                      </div>
+                      <span class="font-bold text-slate-900">{{ $item['nombre'] }}</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-3 font-mono font-bold text-slate-700">{{ $item['codigo'] }}</td>
+                  <td class="py-3 px-3 text-slate-500">{{ $item['sucursal'] }} <span class="text-[10px]">· {{ $item['area'] }}</span></td>
+                  <td class="py-3 px-3 text-center font-black text-red-950">{{ $item['total_faltas_texto'] }}</td>
+                  <td class="py-3 px-3 text-center font-bold">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs bg-rose-100 text-rose-800 border border-rose-200">
+                      {{ $item['dias_descuento_texto'] }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3">
+                    @if(!empty($item['es_critico']))
+                      <span class="inline-flex items-center rounded-full bg-rose-100 border border-rose-300 px-2 py-0.5 text-[11px] font-bold text-rose-900">
+                        🛑 Destitución (Art. 48)
+                      </span>
+                    @else
+                      <span class="inline-flex items-center rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                        📉 Sanción Art. 45.II
+                      </span>
+                    @endif
+                    <span class="block text-[10px] text-slate-500 mt-0.5">{{ $item['causal_disciplinaria'] }}</span>
+                  </td>
+                  <td class="py-3 pr-4 pl-2 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" wire:click="openEmployeeDetailModal({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-slate-600 hover:text-red-700 hover:bg-red-100/50 transition-colors" title="Ver desglose completo de fechas">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button type="button" wire:click="descargarPdfIndividualReglamento({{ $item['id'] }})" class="table-action-button p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-100/50 transition-colors" title="Descargar reporte individual con descuento">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="8" class="py-6 text-center text-xs text-slate-400">
+                    No se registran faltas o inasistencias injustificadas en este periodo.
+                  </td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- TABLA 4: REPORTE DE REINCIDENTES (>30 MIN EN >2 MESES / OMIS) --}}
     {{-- ============================================================ --}}
     <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'reincidentes'" class="space-y-4 mb-8">
       <section class="surface-card border-purple-200 bg-purple-50/20">
-        <div class="mb-4 flex items-center justify-between border-b border-purple-100 pb-2.5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-purple-100 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-600 text-white font-bold text-xs shadow-xs">🔄</span>
             <div>
-              <h5 class="text-sm font-bold text-purple-950">3. Reporte de Reincidentes (Gestión {{ $reporteReglamento['gestion'] ?? date('Y') }})</h5>
+              <h5 class="text-sm font-bold text-purple-950">4. Reporte de Reincidentes (Gestión {{ $reporteReglamento['gestion'] ?? date('Y') }})</h5>
               <p class="text-xs text-purple-800">Funcionarios con más de dos meses superando los 30 minutos de tolerancia y casos con omisiones reiteradas.</p>
             </div>
           </div>
-          <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
-            {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }} casos reincidentes
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
+              {{ count($reporteReglamento['detalle_reincidentes'] ?? []) }} casos reincidentes
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('reincidentes')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-purple-400/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Reincidentes</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-purple-200/70 bg-white shadow-xs">
@@ -1951,7 +2165,7 @@
     <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'concurrente'" class="space-y-4 mb-8">
       @if(count($reporteReglamento['concurrentes'] ?? []) > 0)
         <section class="surface-card border-purple-200 bg-purple-50/20">
-          <div class="mb-4 flex items-center justify-between border-b border-purple-100 pb-2.5">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-purple-100 pb-2.5">
             <div>
               <div class="flex items-center gap-2">
                 <span class="flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold">⚖️</span>
@@ -1959,9 +2173,16 @@
               </div>
               <p class="text-xs text-purple-800 mt-0.5">Funcionarios que registran a la vez descuentos por atrasos/faltas (Art. 45) y causales disciplinarias graves (Art. 48).</p>
             </div>
-            <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
-              {{ count($reporteReglamento['concurrentes']) }} casos registrados
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="rounded-full bg-purple-100 border border-purple-300 px-2.5 py-0.5 text-xs font-bold text-purple-900">
+                {{ count($reporteReglamento['concurrentes']) }} casos registrados
+              </span>
+              <button type="button" wire:click="descargarPdfReglamentoCategoria('concurrente')"
+                class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-indigo-400/40">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+                <span>Descargar PDF Concurrencia</span>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
@@ -2042,9 +2263,9 @@
     {{-- ============================================================ --}}
     {{-- BLOQUE 1: ARTÍCULO 45 (ATRASOS, INASISTENCIAS Y DESCUENTOS)  --}}
     {{-- ============================================================ --}}
-    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art45'" class="space-y-6 mb-8">
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art45' || filtroArticulo === 'alertas'" class="space-y-6 mb-8">
       {{-- Banner explicativo Art. 45 --}}
-      <div class="rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50/70 via-white to-amber-50/40 p-4 shadow-sm">
+      <div x-show="filtroArticulo !== 'alertas'" class="rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50/70 via-white to-amber-50/40 p-4 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 pb-2.5 mb-2.5">
           <div class="flex items-center gap-2.5">
             <span class="inline-flex items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-xs px-2.5 py-1 shadow-xs">
@@ -2078,7 +2299,7 @@
 
       {{-- Alertas Preventivas Art. 45 (Cards compactas y amigables) --}}
       <section class="surface-card">
-        <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
           <div>
             <div class="flex items-center gap-2">
               <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-900 text-xs">⚠️</span>
@@ -2086,9 +2307,16 @@
             </div>
             <p class="text-xs text-slate-500 mt-0.5">Funcionarios que rozan los 31 minutos; una llegada tarde más activará el descuento de 1/2 día.</p>
           </div>
-          <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900 border border-amber-200">
-            {{ count($reporteReglamento['art_45']['alertas'] ?? []) }} en alerta
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900 border border-amber-200">
+              {{ count($reporteReglamento['art_45']['alertas'] ?? []) }} en alerta
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('alertas')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-amber-400/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Zona de Peligro</span>
+            </button>
+          </div>
         </div>
 
         @if(count($reporteReglamento['art_45']['alertas'] ?? []) > 0)
@@ -2169,7 +2397,7 @@
       </section>
 
       {{-- Sección: Personal Sancionado (Art. 45) en Cards por Artículo (Mismo formato de Alertas) --}}
-      <section class="surface-card">
+      <section x-show="filtroArticulo !== 'alertas'" class="surface-card">
         <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div>
             <div class="flex items-center gap-2">
@@ -2271,9 +2499,9 @@
     {{-- ============================================================ --}}
     {{-- BLOQUE 2: ARTÍCULO 48 (CAUSALES GRAVES Y DESTITUCIÓN)        --}}
     {{-- ============================================================ --}}
-    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art48'" class="space-y-6 mb-8">
+    <div x-show="filtroArticulo === 'todos' || filtroArticulo === 'art48' || filtroArticulo === 'alertas'" class="space-y-6 mb-8">
       {{-- Banner explicativo Art. 48 --}}
-      <div class="rounded-2xl border border-rose-200 bg-linear-to-r from-rose-50/70 via-white to-red-50/40 p-4 shadow-sm">
+      <div x-show="filtroArticulo !== 'alertas'" class="rounded-2xl border border-rose-200 bg-linear-to-r from-rose-50/70 via-white to-red-50/40 p-4 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-rose-200/70 pb-2.5 mb-2.5">
           <div class="flex items-center gap-2.5">
             <span class="inline-flex items-center justify-center rounded-lg bg-rose-600 text-white font-bold text-xs px-2.5 py-1 shadow-xs">
@@ -2301,7 +2529,7 @@
 
       {{-- Alertas Tempranas de Destitución (Cards compactas y amigables) --}}
       <section class="surface-card">
-        <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
           <div>
             <div class="flex items-center gap-2">
               <span class="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-900 text-xs">⚠️</span>
@@ -2309,9 +2537,16 @@
             </div>
             <p class="text-xs text-slate-500 mt-0.5">Funcionarios que con una sola falta adicional ingresarán en causal de destitución.</p>
           </div>
-          <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-900 border border-rose-200">
-            {{ count($reporteReglamento['art_48']['alertas'] ?? []) }} en riesgo
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-900 border border-rose-200">
+              {{ count($reporteReglamento['art_48']['alertas'] ?? []) }} en riesgo
+            </span>
+            <button type="button" wire:click="descargarPdfReglamentoCategoria('alertas')"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white px-3 py-1.5 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer border border-amber-400/40">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+              <span>Descargar PDF Zona de Peligro</span>
+            </button>
+          </div>
         </div>
 
         @if(count($reporteReglamento['art_48']['alertas'] ?? []) > 0)
@@ -2401,7 +2636,7 @@
 
       {{-- Casos Críticos Activos (Causal de Destitución Incurrida) --}}
       @if(count($reporteReglamento['art_48']['casos_criticos'] ?? []) > 0)
-        <section class="surface-card border-rose-300 bg-rose-50/20">
+        <section x-show="filtroArticulo !== 'alertas'" class="surface-card border-rose-300 bg-rose-50/20">
           <div class="mb-4 flex items-center justify-between border-b border-rose-200 pb-2.5">
             <div>
               <div class="flex items-center gap-2">

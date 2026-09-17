@@ -179,5 +179,95 @@ class AnalisisAsistenciaServiceTest extends TestCase
         $this->assertNotContains('Pedro Gomez', $faltasNombres);
         $this->assertNotContains('Maria Lopez', $faltasNombres);
     }
+
+    public function test_reporte_personalizado_valida_omision_vs_falta(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-14 18:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Mamani',
+            'codigo_biometrico' => 'CM-1234',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-08-01',
+        ]);
+
+        // 1. Día con solo Entrada marcada (Omisión de salida)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-10',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => null,
+            'estado_marcacion' => 'Entrada',
+        ]);
+
+        // 2. Día con solo Salida marcada (Omisión de entrada)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-11',
+            'hora_entrada' => null,
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Salida',
+        ]);
+
+        // 3. Día laborable sin ninguna marcación (2026-08-12 Miércoles) -> FALTA
+        // No creamos registro para el 12.
+
+        // 4. Día completo normal (2026-08-13 Jueves)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-13',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+        ]);
+
+        $service = app(AnalisisAsistenciaService::class);
+        $reporte = $service->reportePersonalizado(
+            $empleado->id,
+            Carbon::parse('2026-08-10'),
+            Carbon::parse('2026-08-13')
+        );
+
+        $this->assertNotNull($reporte);
+        $rows = collect($reporte['rows']);
+
+        // Día 10: Omisión (Falta salida)
+        $row10 = $rows->firstWhere('fecha', '10/08/2026');
+        $this->assertNotNull($row10);
+        $this->assertTrue($row10['es_omision'], 'El día con solo entrada debe ser omisión');
+        $this->assertFalse($row10['es_falta'], 'El día con solo entrada NO debe ser falta');
+        $this->assertSame('Omisión (Falta salida)', $row10['estado']);
+        $this->assertSame('warning', $row10['row_tone']);
+
+        // Día 11: Omisión (Falta entrada)
+        $row11 = $rows->firstWhere('fecha', '11/08/2026');
+        $this->assertNotNull($row11);
+        $this->assertTrue($row11['es_omision'], 'El día con solo salida debe ser omisión');
+        $this->assertFalse($row11['es_falta'], 'El día con solo salida NO debe ser falta');
+        $this->assertSame('Omisión (Falta entrada)', $row11['estado']);
+        $this->assertSame('warning', $row11['row_tone']);
+
+        // Día 12: Falta (Sin marcación de entrada ni salida)
+        $row12 = $rows->firstWhere('fecha', '12/08/2026');
+        $this->assertNotNull($row12);
+        $this->assertFalse($row12['es_omision'], 'El día sin ninguna marcación NO debe ser omisión');
+        $this->assertTrue($row12['es_falta'], 'El día sin ninguna marcación debe ser falta');
+        $this->assertSame('Falta (Inasistencia)', $row12['estado']);
+        $this->assertSame('danger', $row12['row_tone']);
+
+        // Día 13: Asistencia normal puntual
+        $row13 = $rows->firstWhere('fecha', '13/08/2026');
+        $this->assertNotNull($row13);
+        $this->assertFalse($row13['es_omision']);
+        $this->assertFalse($row13['es_falta']);
+
+        // Validar conteos en metrics
+        $metrics = collect($reporte['metrics'])->keyBy('label');
+        $this->assertSame('2', $metrics['Omisiones']['value']);
+        $this->assertSame('1', $metrics['Faltas']['value']);
+    }
 }
 

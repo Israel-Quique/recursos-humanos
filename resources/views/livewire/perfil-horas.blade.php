@@ -145,6 +145,13 @@
   color: #fff;
   flex-shrink: 0;
   box-shadow: 0 6px 18px rgba(15,103,192,.25);
+  overflow: hidden;
+}
+.ph-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .ph-emp-name {
@@ -650,6 +657,269 @@
   box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.3) !important;
   transform: scale(1.02) !important;
 }
+
+/* ─── RESPONSIVE MOBILE ADAPTATIONS ─────────────────── */
+.ph-table-scroll-hint {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .ph-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .65rem;
+    padding: .85rem 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .ph-topbar {
+    padding: .6rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .5rem;
+  }
+  .ph-topbar-brand {
+    font-size: .72rem;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ph-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    width: 100%;
+    padding-bottom: 3px;
+  }
+  .ph-topbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+  .ph-topbar-actions .ph-btn-ghost,
+  .ph-topbar-actions .ph-btn-primary {
+    flex-shrink: 0;
+    padding: .38rem .7rem;
+    font-size: .7rem;
+    white-space: nowrap;
+  }
+
+  .ph-table {
+    min-width: 780px;
+  }
+  .ph-table th, .ph-table td {
+    padding: .6rem .65rem;
+  }
+  .ph-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .ph-table-scroll-hint {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    padding: .45rem 1rem;
+    background: #eff6ff;
+    border-bottom: 1px solid #bfdbfe;
+    font-size: .68rem;
+    font-weight: 700;
+    color: #1e40af;
+    letter-spacing: .02em;
+  }
+}
+
+@media (max-width: 640px) {
+  .ph-wrapper {
+    padding: 1rem .75rem 2.5rem;
+    gap: 1rem;
+  }
+
+  .ph-emp-card {
+    padding: 1rem;
+    border-radius: 1.1rem;
+    gap: .85rem;
+  }
+  .ph-avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1rem;
+    border-radius: .75rem;
+  }
+  .ph-emp-name {
+    font-size: 1.1rem;
+  }
+  .ph-emp-meta {
+    gap: .35rem;
+  }
+  .ph-tag {
+    font-size: .68rem;
+    padding: .2rem .55rem;
+  }
+  .ph-emp-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .75rem;
+    padding-top: .75rem;
+  }
+  .ph-emp-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: .5rem !important;
+    width: 100%;
+  }
+  .ph-emp-actions > div {
+    width: 100%;
+  }
+  .ph-select {
+    width: 100%;
+  }
+  .ph-btn-boleta-hero {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0 !important;
+  }
+
+  .ph-kpi-row {
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+  }
+  .ph-kpi {
+    padding: .85rem .75rem;
+    border-radius: 1rem;
+    gap: .2rem;
+  }
+  .ph-kpi-label {
+    font-size: .62rem;
+  }
+  .ph-kpi-value {
+    font-size: 1.3rem;
+  }
+  .ph-kpi-sub {
+    font-size: .66rem;
+    white-space: normal;
+  }
+
+  .ph-normativa-banner {
+    padding: 1rem .85rem !important;
+    border-radius: 1rem !important;
+  }
+  .ph-btn-normativa {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: .5rem 1rem !important;
+  }
+
+  .ph-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: .5rem;
+  }
+  .ph-metric {
+    padding: .65rem .45rem;
+    border-radius: .85rem;
+  }
+  .ph-metric-label {
+    font-size: .58rem;
+  }
+  .ph-metric-value {
+    font-size: 1.15rem;
+  }
+
+  .ph-table-card {
+    border-radius: 1.1rem;
+  }
+  .ph-table-head {
+    padding: 1rem 1rem 0;
+  }
+  .ph-table-title {
+    font-size: 1.05rem;
+  }
+  .ph-filter-btns {
+    gap: .3rem;
+  }
+  .ph-fbtn {
+    padding: .32rem .65rem;
+    font-size: .68rem;
+  }
+  .ph-filter-right {
+    width: 100%;
+    gap: .4rem;
+  }
+  .ph-search-field {
+    flex: 1;
+    min-width: 0;
+  }
+  .ph-search-field input {
+    min-width: 0 !important;
+    width: 100%;
+    font-size: .75rem;
+    padding: .4rem .6rem .4rem 2rem;
+  }
+  .ph-sort-btn {
+    font-size: .68rem;
+    padding: .4rem .65rem;
+  }
+
+  /* Modals on mobile */
+  .app-modal-backdrop {
+    padding: .5rem !important;
+  }
+  .app-modal-card {
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+    max-height: 94vh !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  .ph-modal-normativa-body {
+    padding: 1rem .85rem !important;
+    gap: 1rem !important;
+  }
+  .ph-modal-normativa-head {
+    padding: 1rem 1rem !important;
+  }
+  .ph-modal-normativa-foot {
+    padding: .85rem 1rem !important;
+    flex-direction: column !important;
+    gap: .5rem !important;
+  }
+  .ph-modal-normativa-foot button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .ph-norm-grid-items {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-grid-func {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-grid-func > div {
+    grid-column: span 1 !important;
+  }
+  .ph-radio-permiso {
+    grid-template-columns: 1fr !important;
+    gap: .4rem !important;
+  }
+  .ph-grid-fechas {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-grid-emision {
+    grid-template-columns: 1fr !important;
+  }
+  .ph-modal-actions {
+    flex-direction: column-reverse !important;
+    gap: .5rem !important;
+  }
+  .ph-modal-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .ph-dropzone {
+    min-height: 160px !important;
+    padding: 1.5rem 1rem !important;
+  }
+}
 </style>
 
 <div class="ph-root">
@@ -659,7 +929,7 @@
       <span class="ph-topbar-brand-dot"></span>
       Portal de Asistencia · Consulta por Carnet
     </div>
-    <div style="display:flex;align-items:center;gap:.5rem;">
+    <div class="ph-topbar-actions" style="display:flex;align-items:center;gap:.5rem;">
       <button wire:click="abrirModalNormativa" type="button" class="ph-btn-ghost" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>📢 Normativa y Faltas (Art. 45)</span>
@@ -697,7 +967,13 @@
       {{-- Tarjeta empleado --}}
       <div class="ph-emp-card">
         <div class="ph-emp-top">
-          <div class="ph-avatar">{{ $initials }}</div>
+          <div class="ph-avatar">
+            @if(!empty($emp['foto_url']))
+              <img src="{{ $emp['foto_url'] }}" alt="{{ $emp['nombre'] }}" class="ph-avatar-img">
+            @else
+              {{ $initials }}
+            @endif
+          </div>
           <div style="flex:1; min-width:0;">
             <div class="ph-emp-name">{{ $emp['nombre'] }}</div>
             <div class="ph-emp-meta">
@@ -716,7 +992,7 @@
           </div>
         </div>
         <div class="ph-emp-bottom">
-          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div class="ph-emp-actions" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
             <div>
               <div class="ph-month-label">Mes de consulta</div>
               <select id="shared-profile-month" wire:model.live="referenceMonth" class="ph-select">
@@ -725,7 +1001,7 @@
                 @endforeach
               </select>
             </div>
-            <button wire:click="abrirBoletaModal" type="button" class="ph-btn-ghost" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;margin-top:.85rem;">
+            <button wire:click="abrirBoletaModal" type="button" class="ph-btn-ghost ph-btn-boleta-hero" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;margin-top:.85rem;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               <span>Generar Boleta Oficial</span>
             </button>
@@ -759,7 +1035,7 @@
     </div>
 
     {{-- ── AVISO INSTITUCIONAL DE NORMATIVA Y FALTAS (ARTÍCULO 45) ── --}}
-    <div style="background:#fff;border:1.5px solid {{ $excedio ? '#fecdd3' : '#cbd5e1' }};border-radius:1.25rem;padding:1.15rem 1.35rem;box-shadow:0 4px 18px rgba(15,23,42,.04);position:relative;overflow:hidden;">
+    <div class="ph-normativa-banner" style="background:#fff;border:1.5px solid {{ $excedio ? '#fecdd3' : '#cbd5e1' }};border-radius:1.25rem;padding:1.15rem 1.35rem;box-shadow:0 4px 18px rgba(15,23,42,.04);position:relative;overflow:hidden;">
       <div style="position:absolute;top:0;left:0;bottom:0;width:5px;background:{{ $excedio ? '#e11d48' : '#0f67c0' }};"></div>
       
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
@@ -796,7 +1072,7 @@
           <button
             type="button"
             wire:click="abrirModalNormativa"
-            class="ph-btn-ghost"
+            class="ph-btn-ghost ph-btn-normativa"
             style="background:#f8fafc;border:1.5px solid #cbd5e1;color:#0f67c0;font-weight:800;font-size:.75rem;padding:.5rem 1rem;white-space:nowrap;"
           >
             📖 Ver Faltas y Reglamento (Art. 45)
@@ -875,6 +1151,10 @@
 
       {{-- Tabla --}}
       <div class="ph-table-wrap">
+        <div class="ph-table-scroll-hint no-print">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 16l-4-4m0 0l4-4m-4 4h18m-4 4l4-4m0 0l-4-4"/></svg>
+          <span>Desliza horizontalmente para ver todas las columnas</span>
+        </div>
         <table class="ph-table">
           <thead>
             <tr>
@@ -1096,7 +1376,7 @@
   {{-- MODAL DE GENERACIÓN DE BOLETA / PAPELETA EN PERFIL DE HORAS --}}
   @if ($showBoletaModal)
     <div class="app-modal-backdrop no-print" wire:click="cerrarBoletaModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;">
-      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.25rem;max-width:56rem;width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
+      <div class="app-modal-card ph-modal-card" x-on:click.stop style="background:#fff;border-radius:1.25rem;max-width:56rem;width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
         
         <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding-bottom:1rem;">
           <div style="display:flex;align-items:center;gap:.75rem;">
@@ -1128,7 +1408,7 @@
               Datos del Funcionario
             </h3>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:.85rem;">
+            <div class="ph-grid-func" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:.85rem;">
               <div style="grid-column: span 2;">
                 <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
                   Nombre del Funcionario <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
@@ -1166,7 +1446,7 @@
 
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.5rem;">Tipo de Permiso *</label>
-              <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;">
+              <div class="ph-radio-permiso" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;">
                 <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="particular">
                   <span>PARTICULAR</span>
@@ -1213,7 +1493,7 @@
               </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
+            <div class="ph-grid-fechas" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
               <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
                 <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Desde</span>
                 <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
@@ -1259,7 +1539,7 @@
           </div>
 
           {{-- CIUDAD (SUCURSAL READONLY) Y FECHA EMISIÓN READONLY --}}
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
+          <div class="ph-grid-emision" style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.25rem;">
                 Ciudad / Sucursal <span style="font-size:.68rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
@@ -1372,7 +1652,7 @@
         @endphp
 
         {{-- BOTONES (SOLO APARECE CUANDO SE CUMPLEN TODOS LOS REQUISITOS) --}}
-        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+        <div class="ph-modal-actions" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
           <button type="button" wire:click="cerrarBoletaModal" style="padding:.5rem 1rem;font-size:.75rem;font-weight:700;color:#475569;background:#f1f5f9;border:none;border-radius:.75rem;cursor:pointer;">
             Cancelar
           </button>
@@ -1406,10 +1686,10 @@
   {{-- ── MODAL: ARTÍCULO 45 - REGLAMENTO DE FALTAS Y CONSECUENCIAS DISCIPLINARIAS ── --}}
   @if ($mostrarModalNormativa)
     <div class="app-modal-backdrop" wire:click="cerrarModalNormativa" style="background:rgba(15,23,42,0.78);backdrop-filter:blur(5px);z-index:99999;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;">
-      <div class="app-modal-card" x-on:click.stop style="background:#fff;border-radius:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #cbd5e1;max-width:920px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="app-modal-card ph-modal-card" x-on:click.stop style="background:#fff;border-radius:1.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #cbd5e1;max-width:920px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
         
         {{-- Modal Header --}}
-        <div style="padding:1.25rem 1.75rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;background:#f8fafc;">
+        <div class="ph-modal-normativa-head" style="padding:1.25rem 1.75rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;background:#f8fafc;">
           <div>
             <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .65rem;border-radius:9999px;font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">
               🏛️ Normativa Interna de Recursos Humanos
@@ -1432,7 +1712,7 @@
         </div>
 
         {{-- Modal Body --}}
-        <div style="padding:1.5rem 1.75rem;overflow-y:auto;display:flex;flex-direction:column;gap:1.25rem;">
+        <div class="ph-modal-normativa-body" style="padding:1.5rem 1.75rem;overflow-y:auto;display:flex;flex-direction:column;gap:1.25rem;">
           
           {{-- Regla de 48 Horas Alert Box --}}
           <div style="border-radius:1rem;border:1.5px solid #a7f3d0;background:#ecfdf5;padding:1rem 1.25rem;display:flex;align-items:flex-start;gap:.85rem;">
@@ -1515,7 +1795,7 @@
                   {{ $cat['descripcion'] }}
                 </p>
 
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:.75rem;">
+                <div class="ph-norm-grid-items" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:.75rem;">
                   @foreach ($cat['items'] as $item)
                     @php
                       $badgeColors = [
@@ -1557,7 +1837,7 @@
         </div>
 
         {{-- Modal Footer --}}
-        <div style="padding:1rem 1.75rem;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
+        <div class="ph-modal-normativa-foot" style="padding:1rem 1.75rem;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
           <span style="font-size:.72rem;color:#64748b;font-weight:600;">
             Reglamento Interno de Personal · Agencia Boliviana de Correos
           </span>

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Empleado extends Model
@@ -21,6 +22,7 @@ class Empleado extends Model
         'apellido',
         'codigo_biometrico',
         'email',
+        'foto',
         'area',
         'sucursal',
         'es_especial',
@@ -48,9 +50,38 @@ class Empleado extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class, 'empleado_id');
+    }
+
     public function asistencias(): HasMany
     {
         return $this->hasMany(RegistroAsistencia::class, 'empleado_id');
+    }
+
+    public function getFotoUrlAttribute(): ?string
+    {
+        if (! empty($this->foto)) {
+            if (str_starts_with($this->foto, 'http://') || str_starts_with($this->foto, 'https://') || str_starts_with($this->foto, 'data:')) {
+                return $this->foto;
+            }
+            return asset('storage/' . ltrim($this->foto, '/'));
+        }
+
+        // Si no tiene foto propia, verificar si tiene usuario vinculado con foto
+        $linkedUserFoto = $this->relationLoaded('user')
+            ? $this->user?->foto
+            : $this->user()->value('foto');
+
+        if (! empty($linkedUserFoto)) {
+            if (str_starts_with($linkedUserFoto, 'http://') || str_starts_with($linkedUserFoto, 'https://') || str_starts_with($linkedUserFoto, 'data:')) {
+                return $linkedUserFoto;
+            }
+            return asset('storage/' . ltrim($linkedUserFoto, '/'));
+        }
+
+        return null;
     }
 
     public function getNombreCompletoAttribute(): string

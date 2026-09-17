@@ -116,5 +116,10 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+
+        $this->call([
+            EmpleadoCorreosSeeder::class,
+            EmpleadoFotosSeeder::class,
+        ]);
     }
 }

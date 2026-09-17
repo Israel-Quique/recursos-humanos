@@ -242,7 +242,11 @@
               class="app-session-chip"
               x-data="{ copied: false, copyLink(url) { navigator.clipboard.writeText(url).then(() => { this.copied = true; setTimeout(() => this.copied = false, 1800); }); } }"
             >
-              <span class="app-session-icon"></span>
+              @if ($authUser?->foto_url)
+                <img src="{{ $authUser->foto_url }}" alt="{{ $authUser->name }}" class="h-6 w-6 rounded-full object-cover border border-slate-300 shrink-0">
+              @else
+                <span class="app-session-icon"></span>
+              @endif
               <div class="flex flex-col gap-3 md:flex-row md:items-center">
                 <span>Sesion activa: <strong>{{ $authUser?->name }} - [{{ \Illuminate\Support\Str::headline($activeRole) }}]</strong></span>
 

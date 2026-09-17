@@ -2087,11 +2087,11 @@ body{
 }
 
 .report-tab-button{
-  @apply relative flex shrink-0 items-center gap-2.5 rounded-[1.15rem] border border-transparent px-4 py-2.5 text-sm font-semibold text-slate-500 transition duration-200 hover:bg-slate-100 hover:text-slate-700;
+  @apply relative flex shrink-0 items-center gap-2.5 rounded-[1.15rem] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition duration-200 hover:border-slate-300 hover:bg-white hover:text-slate-900;
 }
 
 .report-tab-button-active{
-  @apply border-[#0f67c0]/20 bg-[#0f67c0] text-white shadow-[0_8px_20px_rgba(15,103,192,0.28)] hover:bg-[#0f67c0] hover:text-white;
+  @apply border-[#0f67c0] bg-[#0f67c0] text-white shadow-[0_8px_20px_rgba(15,103,192,0.35)] ring-2 ring-blue-400 hover:bg-[#0d58a4] hover:text-white;
 }
 
 .report-tab-icon{
@@ -2405,3 +2405,117 @@ body{
   color: #ffffff !important;
   box-shadow: 0 10px 24px rgba(126, 34, 206, 0.25) !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Personal & Accesos — Fotografías y Avatares                               */
+/* -------------------------------------------------------------------------- */
+.emp-photo-preview-box {
+  position: relative !important;
+  width: 80px !important;
+  height: 80px !important;
+  min-width: 80px !important;
+  min-height: 80px !important;
+  max-width: 80px !important;
+  max-height: 80px !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 2px solid #e2e8f0 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.emp-photo-img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  display: block !important;
+  border-radius: 0.9rem !important;
+}
+
+.emp-photo-detail-box {
+  position: relative !important;
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  border-radius: 1.1rem !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  flex-shrink: 0 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.emp-photo-detail-img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  display: block !important;
+}
+
+.emp-photo-table-thumb {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  max-width: 38px !important;
+  max-height: 38px !important;
+  border-radius: 0.85rem !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.user-photo-preview-box {
+  position: relative !important;
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
+  max-width: 64px !important;
+  max-height: 64px !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 2px solid #e2e8f0 !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06) !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.user-photo-img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  display: block !important;
+}
+

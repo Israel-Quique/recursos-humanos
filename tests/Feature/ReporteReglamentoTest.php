@@ -322,5 +322,142 @@ class ReporteReglamentoTest extends TestCase
             ->call('descargarPdfIndividualReglamento', $emp->id)
             ->assertFileDownloaded();
     }
+
+    public function test_descargas_pdf_separadas_por_numero_de_reglamento(): void
+    {
+        $user = User::query()->create([
+            'name' => 'Gestora RRHH',
+            'email' => 'gestora.reglamento@correos.gob.bo',
+            'password' => bcrypt('secret123'),
+        ]);
+        $this->actingAs($user);
+
+        // 1. Atrasos (Art. 45.I)
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'atrasos')
+            ->assertFileDownloaded('reporte-reglamento-atrasos-art45-todas-las-sucursales-2026-08.pdf');
+
+        // 2. Omisiones (Art. 45.III y Art. 48.IV)
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'omisiones')
+            ->assertFileDownloaded('reporte-reglamento-omisiones-art45-48-todas-las-sucursales-2026-08.pdf');
+
+        // 3. Faltas e Inasistencias (Art. 45.II y Art. 48)
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'faltas')
+            ->assertFileDownloaded('reporte-reglamento-faltas-art45-48-todas-las-sucursales-2026-08.pdf');
+
+        // 4. Zona de Peligro / Alertas Preventivas
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'alertas')
+            ->assertFileDownloaded('reporte-reglamento-zona-peligro-alertas-todas-las-sucursales-2026-08.pdf');
+
+        // 5. Reincidentes
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'reincidentes')
+            ->assertFileDownloaded('reporte-reglamento-reincidentes-todas-las-sucursales-2026-08.pdf');
+
+        // 6. Concurrencia (Art. 45 + 48)
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'concurrente')
+            ->assertFileDownloaded('reporte-reglamento-concurrencia-art45-48-todas-las-sucursales-2026-08.pdf');
+
+        // 7. Consolidado General
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->call('descargarPdfReglamentoCategoria', 'todos')
+            ->assertFileDownloaded('reporte-reglamento-sanciones-todas-las-sucursales-2026-08.pdf');
+    }
+
+    public function test_vista_muestra_pestana_faltas_y_botones_lado_a_lado(): void
+    {
+        $user = User::query()->create([
+            'name' => 'Gestora RRHH',
+            'email' => 'gestora.vista@correos.gob.bo',
+            'password' => bcrypt('secret123'),
+        ]);
+        $this->actingAs($user);
+
+        Livewire::test(ReportesPage::class)
+            ->set('referenceMonth', '2026-08')
+            ->assertStatus(200)
+            ->assertSee('Detalle Atrasos')
+            ->assertSee('Detalle Omisiones')
+            ->assertSee('Detalle Faltas')
+            ->assertSee('Zona de Peligro')
+            ->assertSee('Descargar PDF Atrasos (Art. 45.I)')
+            ->assertSee('Descargar PDF Omisiones (Art. 45/48)')
+            ->assertSee('Descargar PDF Faltas (Art. 45.II / 48)')
+            ->assertSee('Descargar PDF Zona de Peligro (Alertas)')
+            ->assertSee('3. Detalle de Faltas e Inasistencias (Art. 45.II y Art. 48.II/III)');
+    }
+
+    public function test_empleados_en_tolerancia_no_aparecen_en_detalle_atrasos_ni_reincidentes(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-20 12:00:00'));
+
+        // Empleado 1: Dentro de tolerancia (15 min atraso -> 0 días descuento)
+        $empTolerancia = Empleado::query()->create([
+            'nombre' => 'Juan',
+            'apellido' => 'En Tolerancia',
+            'codigo_biometrico' => 'JT-01',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-10',
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empTolerancia->id,
+            'fecha' => '2026-08-05',
+            'hora_entrada' => '08:50:00', // 15 min tras tolerancia (Dentro de los 30 min mensuales)
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        // Empleado 2: Supera tolerancia (45 min atraso -> 0.5 días descuento)
+        $empSancionado = Empleado::query()->create([
+            'nombre' => 'Mario',
+            'apellido' => 'Con Sancion',
+            'codigo_biometrico' => 'MS-02',
+            'area' => 'Ventanilla',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-10',
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empSancionado->id,
+            'fecha' => '2026-08-06',
+            'hora_entrada' => '09:20:00', // 45 min tras tolerancia (> 30 min)
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        $service = app(AnalisisReglamentoReporteService::class);
+        $reporte = $service->generarReporteReglamento(Carbon::parse('2026-08-01'));
+
+        $detalleAtrasos = collect($reporte['detalle_atrasos']);
+
+        // El empleado dentro de tolerancia NO debe aparecer en detalle_atrasos
+        $this->assertNull($detalleAtrasos->firstWhere('id', $empTolerancia->id), 'El empleado en tolerancia no debe figurar en detalle_atrasos');
+
+        // El empleado sancionado SÍ debe aparecer en detalle_atrasos
+        $itemSancionado = $detalleAtrasos->firstWhere('id', $empSancionado->id);
+        $this->assertNotNull($itemSancionado, 'El empleado sancionado debe figurar en detalle_atrasos');
+        $this->assertEquals(0.5, $itemSancionado['dias_descuento']);
+        $this->assertTrue($itemSancionado['es_sancionado']);
+    }
 }
+
 

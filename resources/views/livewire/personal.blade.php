@@ -1,4 +1,35 @@
 <div class="page-stack">
+  {{-- ALERTAS DE ESTADO Y ADVERTENCIA --}}
+  @if (session()->has('status'))
+    <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✓</span>
+        <span>{{ session('status') }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 hover:text-emerald-900 font-bold text-xs cursor-pointer">✕</button>
+    </div>
+  @endif
+
+  @if (session()->has('warning'))
+    <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 shadow-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">⚠️</span>
+        <span>{{ session('warning') }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="text-amber-700 hover:text-amber-900 font-bold text-xs cursor-pointer">✕</button>
+    </div>
+  @endif
+
+  @if (session()->has('error'))
+    <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 shadow-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✕</span>
+        <span>{{ session('error') }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 hover:text-rose-900 font-bold text-xs cursor-pointer">✕</button>
+    </div>
+  @endif
+
   @if ($showDeleteModal)
     <div class="app-modal-backdrop" wire:click="closeDeleteModal">
       <div class="app-modal-card" x-on:click.stop>
@@ -60,6 +91,40 @@
         </div>
 
         <form wire:submit="saveEmpleado" class="mt-8 grid gap-5 md:grid-cols-2">
+          {{-- FOTOGRAFÍA DEL PERSONAL --}}
+          <div class="md:col-span-2 flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div class="emp-photo-preview-box" style="width: 80px; height: 80px; min-width: 80px; min-height: 80px; max-width: 80px; max-height: 80px; border-radius: 1rem; overflow: hidden; position: relative; flex-shrink: 0;">
+              @if ($fotoNueva)
+                <img src="{{ $fotoNueva->temporaryUrl() }}" alt="Vista previa" width="80" height="80" style="width: 80px; height: 80px; min-width: 80px; max-width: 80px; min-height: 80px; max-height: 80px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="emp-photo-img border-2 border-indigo-500 shadow-md">
+              @else
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 0.9rem; color: #94a3b8;">
+                  <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 28px; height: 28px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span style="font-size: 9px; font-weight: 700; margin-top: 4px;">Sin foto</span>
+                </div>
+              @endif
+              <div wire:loading wire:target="fotoNueva" class="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center" style="position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center;">
+                <span class="text-xs text-indigo-600 font-bold animate-pulse">Cargando...</span>
+              </div>
+            </div>
+            <div class="flex-1 text-center sm:text-left">
+              <label class="block text-xs font-bold text-slate-700 mb-1">Fotografía del personal (Opcional)</label>
+              <p class="text-[11px] text-slate-500 mb-2">Formato JPG, PNG o WEBP (máx. 4MB). Visible en el portal de horas y credencial.</p>
+              <div class="flex items-center justify-center sm:justify-start gap-2">
+                <label for="create-foto-input" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer transition-colors shadow-2xs">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span>{{ $fotoNueva ? 'Cambiar foto' : 'Subir foto' }}</span>
+                </label>
+                <input type="file" id="create-foto-input" wire:model="fotoNueva" accept="image/jpeg,image/png,image/webp" class="hidden">
+                @if ($fotoNueva)
+                  <button type="button" wire:click="quitarFoto" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold cursor-pointer">
+                    ✕ Quitar
+                  </button>
+                @endif
+              </div>
+              @error('fotoNueva') <p class="form-error mt-1">{{ $message }}</p> @enderror
+            </div>
+          </div>
+
           <div>
             <label class="form-label">Nombre del personal</label>
             <input type="text" wire:model="nombre" class="form-input" placeholder="Ej. Maria">
@@ -103,6 +168,585 @@
     </div>
   @endif
 
+  {{-- MODAL DE COMUNICADOS INSTITUCIONALES Y VISTA PREVIA DE CORREOS --}}
+  @if ($showEmailModal)
+    @php
+      $destEjemplo = $emailEmpleadoEjemplo ?? (new \App\Models\Empleado([
+        'nombre' => 'María Elena',
+        'apellido' => 'Flores Quispe',
+        'area' => 'Operaciones y Logística',
+        'sucursal' => $emailSucursalSeleccionada ?: 'Sede Central - La Paz',
+        'codigo_biometrico' => '1045',
+        'email' => 'm.flores@correos.gob.bo',
+      ]));
+      $alcanceEtiqueta = $emailTipoDestinatario === 'sucursal' && filled($emailSucursalSeleccionada)
+        ? "Sucursal {$emailSucursalSeleccionada}"
+        : 'Institucional Masivo';
+      $logoUrl = file_exists(public_path('images/menu-logo.png'))
+        ? asset('images/menu-logo.png')
+        : (file_exists(public_path('images/correos-bolivia-brand.svg')) ? asset('images/correos-bolivia-brand.svg') : null);
+    @endphp
+
+    <div class="app-modal-backdrop" wire:click="closeEmailModal">
+      <div class="app-modal-card {{ $emailModalTab === 'preview' ? 'max-w-4xl' : 'max-w-3xl' }} transition-all" x-on:click.stop>
+        <button type="button" wire:click="closeEmailModal" class="app-modal-close app-modal-close-corner cursor-pointer" aria-label="Cerrar modal">✕</button>
+        
+        {{-- Cabecera con selector de Pestañas --}}
+        <div class="app-modal-head border-b border-slate-100 pb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full pr-8">
+            <div>
+              <p class="section-kicker">Comunicación Oficial de RRHH</p>
+              <h3 class="section-title app-modal-title flex items-center gap-2">
+                <span>Centro de Comunicados y Correos</span>
+              </h3>
+            </div>
+
+            {{-- Pestañas del Modal --}}
+            <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-bold">
+              <button
+                type="button"
+                wire:click="setEmailModalTab('redactar')"
+                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer {{ $emailModalTab === 'redactar' ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/80 font-black' : 'text-slate-600 hover:text-slate-900' }}"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                </svg>
+                <span>Redactar</span>
+              </button>
+              <button
+                type="button"
+                wire:click="setEmailModalTab('preview')"
+                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer {{ $emailModalTab === 'preview' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900' }}"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Vista previa del correo</span>
+                <span class="inline-block w-2 h-2 rounded-full {{ filled($emailAsunto) || filled($emailMensaje) ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300' }}"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {{-- ========================================================================= --}}
+        {{-- PESTAÑA 1: REDACCIÓN DE COMUNICADO --}}
+        {{-- ========================================================================= --}}
+        @if ($emailModalTab === 'redactar')
+          <div class="mt-5 space-y-4">
+            
+            {{-- Atajos de Plantillas Institucionales --}}
+            <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+              <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                  <span>Plantillas de formato rápido:</span>
+                </span>
+                <span class="text-[11px] text-slate-400">Haz clic para cargar un formato base oficial</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  wire:click="cargarPlantillaEjemplo('invitacion_sistema')"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50/80 px-2.5 py-1.5 text-xs font-bold text-teal-800 hover:border-teal-400 hover:bg-teal-100 transition cursor-pointer shadow-2xs"
+                  title="Cargar formato de invitación y recordatorio al sistema de autoconsulta"
+                >
+                  <svg class="h-3.5 w-3.5 text-teal-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>
+                  </svg>
+                  <span>Invitación al portal (Autoconsulta)</span>
+                </button>
+                <button
+                  type="button"
+                  wire:click="cargarPlantillaEjemplo('comunicado_general')"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 transition cursor-pointer shadow-2xs"
+                  title="Cargar formato de comunicado institucional"
+                >
+                  <svg class="h-3.5 w-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+                  </svg>
+                  <span>Comunicado general</span>
+                </button>
+                <button
+                  type="button"
+                  wire:click="cargarPlantillaEjemplo('horario_especial')"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 transition cursor-pointer shadow-2xs"
+                  title="Cargar formato de aviso de horario"
+                >
+                  <svg class="h-3.5 w-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>Aviso de horario</span>
+                </button>
+                <button
+                  type="button"
+                  wire:click="cargarPlantillaEjemplo('capacitacion')"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 transition cursor-pointer shadow-2xs"
+                  title="Cargar formato de convocatoria o capacitación"
+                >
+                  <svg class="h-3.5 w-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                  </svg>
+                  <span>Convocatoria / Capacitación</span>
+                </button>
+                <button
+                  type="button"
+                  wire:click="cargarPlantillaEjemplo('mantenimiento')"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 transition cursor-pointer shadow-2xs"
+                  title="Cargar formato de aviso de mantenimiento"
+                >
+                  <svg class="h-3.5 w-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                  </svg>
+                  <span>Mantenimiento biométrico</span>
+                </button>
+              </div>
+            </div>
+
+            {{-- Selector de Alcance --}}
+            <div>
+              <label class="form-label font-bold text-slate-800">Alcance de destinatarios</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5">
+                <label class="relative flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all {{ $emailTipoDestinatario === 'masivo' ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20 shadow-xs' : 'border-slate-200 hover:bg-slate-50' }}">
+                  <input type="radio" wire:model.live="emailTipoDestinatario" value="masivo" class="text-blue-600 focus:ring-blue-500">
+                  <div>
+                    <span class="block text-sm font-bold text-slate-900">🌐 Todo el personal (Masivo)</span>
+                    <span class="block text-xs text-slate-500">Toda la plantilla con correo registrado</span>
+                  </div>
+                </label>
+                <label class="relative flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all {{ $emailTipoDestinatario === 'sucursal' ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20 shadow-xs' : 'border-slate-200 hover:bg-slate-50' }}">
+                  <input type="radio" wire:model.live="emailTipoDestinatario" value="sucursal" class="text-blue-600 focus:ring-blue-500">
+                  <div>
+                    <span class="block text-sm font-bold text-slate-900">🏢 Por sucursal</span>
+                    <span class="block text-xs text-slate-500">Solo personal de una sucursal específica</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {{-- Selector de Sucursal si aplica --}}
+            @if ($emailTipoDestinatario === 'sucursal')
+              <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-3.5 space-y-2">
+                <label for="email-sucursal-select" class="form-label font-bold text-slate-800">Seleccionar sucursal de destino *</label>
+                <select id="email-sucursal-select" wire:model.live="emailSucursalSeleccionada" class="form-input bg-white">
+                  <option value="">-- Elige una sucursal --</option>
+                  @foreach ($sucursales as $sucursalOpt)
+                    <option value="{{ $sucursalOpt }}">{{ $sucursalOpt }}</option>
+                  @endforeach
+                </select>
+                @error('emailSucursalSeleccionada') <p class="form-error">{{ $message }}</p> @enderror
+              </div>
+            @endif
+
+            {{-- Checkbox de Solo Activos --}}
+            <div class="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer text-slate-700 font-medium">
+                <input type="checkbox" wire:model.live="emailSoloActivos" class="rounded text-blue-600 focus:ring-blue-500">
+                <span>Solo colaboradores activos en servicio (con marcaciones en los últimos 30 días)</span>
+              </label>
+            </div>
+
+            {{-- Resumen y previsualización de destinatarios --}}
+            <div class="rounded-xl border p-3.5 {{ $emailDestinatariosLista->count() > 0 ? 'border-blue-200 bg-blue-50/60 text-blue-950' : 'border-amber-200 bg-amber-50 text-amber-950' }}">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2 text-sm font-bold">
+                  <span>📬 Destinatarios disponibles:</span>
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-white border shadow-2xs {{ $emailDestinatariosLista->count() > 0 ? 'text-blue-700 border-blue-300' : 'text-amber-700 border-amber-300' }}">
+                    {{ $emailDestinatariosLista->count() }} colaboradores con correo
+                  </span>
+                </div>
+                @if($emailDestinatariosLista->count() > 0)
+                  <button type="button" wire:click="toggleEmailPreviewRecipients" class="text-xs font-bold text-blue-700 hover:underline cursor-pointer">
+                    {{ $showEmailPreviewRecipients ? 'Ocultar lista' : 'Ver lista (' . $emailDestinatariosLista->count() . ')' }}
+                  </button>
+                @endif
+              </div>
+
+              @if($emailSinCorreoConteo > 0)
+                <p class="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                  <span>ℹ️</span>
+                  <span>Hay <strong>{{ $emailSinCorreoConteo }}</strong> colaborador(es) en este alcance sin correo registrado (se omitirán automáticamente).</span>
+                </p>
+              @endif
+
+              @if($showEmailPreviewRecipients && $emailDestinatariosLista->count() > 0)
+                <div class="mt-3 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 text-xs divide-y divide-slate-100">
+                  @foreach($emailDestinatariosLista as $dest)
+                    <div class="py-1.5 flex items-center justify-between gap-2">
+                      <span class="font-medium text-slate-800">{{ $dest->nombre_completo }}</span>
+                      <span class="text-slate-400 font-mono text-[11px]">{{ $dest->email }}</span>
+                      <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">{{ $dest->sucursal }}</span>
+                    </div>
+                  @endforeach
+                </div>
+              @endif
+            </div>
+
+            {{-- Asunto --}}
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="email-asunto-input" class="form-label font-bold text-slate-800 !mb-0">Asunto del correo *</label>
+                <span class="text-[11px] text-slate-400 font-mono">{{ strlen($emailAsunto) }}/200</span>
+              </div>
+              <input
+                id="email-asunto-input"
+                type="text"
+                wire:model.live="emailAsunto"
+                maxlength="200"
+                class="form-input"
+                placeholder="Ej. Convocatoria a reunión institucional o Comunicado de RRHH"
+              >
+              @error('emailAsunto') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+
+            {{-- Mensaje --}}
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="email-mensaje-textarea" class="form-label font-bold text-slate-800 !mb-0">Cuerpo del comunicado institucional *</label>
+                <span class="text-[11px] text-slate-400 font-mono">{{ strlen($emailMensaje) }} caracteres</span>
+              </div>
+              <textarea
+                id="email-mensaje-textarea"
+                wire:model.live="emailMensaje"
+                rows="6"
+                class="form-input font-sans text-sm leading-relaxed"
+                placeholder="Escribe aquí el contenido del mensaje que se enviará al personal..."
+              ></textarea>
+              @error('emailMensaje') <p class="form-error">{{ $message }}</p> @enderror
+              <div class="flex items-center justify-between mt-1 text-[11px] text-slate-400">
+                <span>Los saltos de línea se preservarán automáticamente con el membrete institucional.</span>
+                <button
+                  type="button"
+                  wire:click="setEmailModalTab('preview')"
+                  class="font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>👁️ Ver cómo se verá este correo →</span>
+                </button>
+              </div>
+            </div>
+
+            {{-- Acciones del Modal en Redactar --}}
+            <div class="app-modal-actions mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                wire:click="setEmailModalTab('preview')"
+                class="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-800 hover:bg-blue-100 transition cursor-pointer"
+              >
+                <span>👁️ Vista previa del correo</span>
+              </button>
+
+              <div class="flex items-center gap-3">
+                <button type="button" wire:click="closeEmailModal" class="app-modal-secondary cursor-pointer">Cancelar</button>
+                <button
+                  type="button"
+                  wire:click="enviarCorreosPersonal"
+                  wire:loading.attr="disabled"
+                  wire:target="enviarCorreosPersonal"
+                  @disabled($emailDestinatariosLista->count() === 0)
+                  class="login-submit app-modal-submit inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <span wire:loading.remove wire:target="enviarCorreosPersonal">
+                    ✉️ Enviar a {{ $emailDestinatariosLista->count() }} destinatarios
+                  </span>
+                  <span wire:loading wire:target="enviarCorreosPersonal" class="inline-flex items-center gap-2">
+                    <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>Enviando correos...</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        @endif
+
+        {{-- ========================================================================= --}}
+        {{-- PESTAÑA 2: VISTA PREVIA Y FORMATO OFICIAL DEL CORREO --}}
+        {{-- ========================================================================= --}}
+        @if ($emailModalTab === 'preview')
+          <div class="mt-5 space-y-4">
+            
+            {{-- Barra de herramientas de la vista previa --}}
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-700">Simulación:</span>
+                
+                {{-- Toggle de Dispositivo (Desktop vs Mobile) --}}
+                <div class="inline-flex rounded-lg bg-white p-0.5 border border-slate-200 shadow-2xs text-xs">
+                  <button
+                    type="button"
+                    wire:click="setEmailPreviewDevice('desktop')"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md transition cursor-pointer {{ $emailPreviewDevice === 'desktop' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900' }}"
+                    title="Vista de escritorio (600px)"
+                  >
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
+                    </svg>
+                    <span>Escritorio</span>
+                  </button>
+                  <button
+                    type="button"
+                    wire:click="setEmailPreviewDevice('mobile')"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md transition cursor-pointer {{ $emailPreviewDevice === 'mobile' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900' }}"
+                    title="Vista móvil (360px)"
+                  >
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>
+                    </svg>
+                    <span>Móvil</span>
+                  </button>
+                </div>
+              </div>
+
+              {{-- Selector de Destinatario de Muestra si hay lista --}}
+              @if($emailDestinatariosLista->count() > 1)
+                <div class="flex items-center gap-2">
+                  <label for="preview-empleado-select" class="text-xs font-semibold text-slate-600">Ver como:</label>
+                  <select
+                    id="preview-empleado-select"
+                    wire:model.live="emailPreviewEmpleadoId"
+                    class="form-input text-xs py-1 px-2 h-8 bg-white max-w-[220px]"
+                  >
+                    @foreach($emailDestinatariosLista as $destOp)
+                      <option value="{{ $destOp->id }}">{{ $destOp->nombre_completo }} ({{ $destOp->sucursal }})</option>
+                    @endforeach
+                  </select>
+                </div>
+              @else
+                <span class="text-[11px] text-slate-500 font-medium">
+                  Destinatario de muestra: <strong>{{ $destEjemplo->nombre_completo }}</strong>
+                </span>
+              @endif
+            </div>
+
+            {{-- Mockup del Cliente de Correo Zimbra (Zimbra Collaboration Suite Window) --}}
+            <div class="rounded-2xl border border-slate-300 shadow-md overflow-hidden" style="background-color: #f8fafc;">
+              
+              {{-- Barra superior de Zimbra Web Client --}}
+              <div class="px-4 py-2.5 flex items-center justify-between text-xs" style="background-color: #1e3a8a; color: #ffffff;">
+                <div class="flex items-center gap-2.5">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full inline-block" style="background-color: #f7c931;"></span>
+                    <span class="font-black tracking-wide text-sm" style="color: #ffffff; letter-spacing: 0.05em;">zimbra</span>
+                  </div>
+                  <span class="text-xs font-medium hidden sm:inline" style="color: #bfdbfe;">&middot; Web Client | Correos de Bolivia</span>
+                </div>
+                <div class="flex items-center gap-2 font-mono text-[11px]" style="color: #bfdbfe;">
+                  <span class="hidden md:inline">{{ $destEjemplo->email ?: 'colaborador@correos.gob.bo' }}</span>
+                  <span class="px-2 py-0.5 rounded font-sans text-[10.5px] font-bold" style="background-color: rgba(255,255,255,0.15); color: #ffffff;">Bandeja de Entrada</span>
+                </div>
+              </div>
+
+              {{-- Pestañas de navegación corporativa Zimbra --}}
+              <div class="px-3 py-1.5 flex items-center gap-1.5 text-xs overflow-x-auto" style="background-color: #e2e8f0; border-bottom: 1px solid #cbd5e1;">
+                <span class="px-3 py-1 rounded shadow-2xs flex items-center gap-1.5" style="background-color: #ffffff; color: #0a3d7c; font-weight: bold; border: 1px solid #cbd5e1;">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                  </svg>
+                  <span>Correo</span>
+                </span>
+                <span class="px-3 py-1 rounded text-slate-600 transition cursor-default flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span>Contactos</span>
+                </span>
+                <span class="px-3 py-1 rounded text-slate-600 transition cursor-default flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span>Calendario</span>
+                </span>
+                <span class="px-3 py-1 rounded text-slate-600 transition cursor-default flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  <span>Tareas</span>
+                </span>
+                <span class="px-3 py-1 rounded text-slate-600 transition cursor-default flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span>Preferencias</span>
+                </span>
+              </div>
+
+              {{-- Cabecera del mensaje en Zimbra --}}
+              <div class="px-5 py-3 text-xs" style="background-color: #ffffff; border-bottom: 1px solid #e2e8f0;">
+                <div class="flex items-center justify-between pb-2" style="border-bottom: 1px solid #f1f5f9;">
+                  <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <svg class="h-4 w-4" style="color: #004ea2;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
+                    <span>Mensaje recibido en Zimbra</span>
+                  </span>
+                  <span class="text-[10.5px] text-slate-500 font-mono">{{ now()->translatedFormat('d \d\e M \d\e Y, H:i') }}</span>
+                </div>
+
+                <div class="mt-2.5 space-y-1.5 font-mono text-[11.5px]">
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400 w-16 font-sans">De:</span>
+                    <span class="font-bold font-sans" style="color: #0a3d7c;">Unidad de Recursos Humanos</span>
+                    <span class="text-slate-400">&lt;rrhh@correos.gob.bo&gt;</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400 w-16 font-sans">Para:</span>
+                    <span class="font-bold text-slate-800 font-sans">{{ $destEjemplo->nombre_completo }}</span>
+                    <span class="text-slate-400">&lt;{{ $destEjemplo->email ?: 'colaborador@correos.gob.bo' }}&gt;</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400 w-16 font-sans">Asunto:</span>
+                    <span class="font-bold text-slate-900 font-sans">
+                      {{ filled($emailAsunto) ? $emailAsunto : '(Sin asunto ingresado aún)' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {{-- Contenedor del Cuerpo de Correo renderizado con fondo gris contrastante --}}
+              <div class="p-4 sm:p-7 flex justify-center overflow-x-auto max-h-[540px] overflow-y-auto" style="background-color: #e2e8f0;">
+                
+                {{-- Tarjeta de Correo Oficial con ancho responsive simulado --}}
+                <div class="w-full transition-all duration-300 {{ $emailPreviewDevice === 'mobile' ? 'max-w-[360px]' : 'max-w-[580px]' }}" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-top: 5px solid #f7c931; border-radius: 14px; box-shadow: 0 10px 25px -5px rgba(10, 61, 124, 0.18); overflow: hidden; color: #1e293b;">
+                  
+                  {{-- 1. CABECERA AZUL INSTITUCIONAL CORREOS DE BOLIVIA --}}
+                  <div style="background-color: #0a3d7c; background: linear-gradient(135deg, #0a3d7c 0%, #004ea2 100%); color: #ffffff; padding: 26px 20px 22px 20px; text-align: center;">
+                    
+                    {{-- Logo o Membrete --}}
+                    <div style="margin-bottom: 14px; display: flex; justify-content: center;">
+                      @if ($logoUrl)
+                        <div style="background-color: #ffffff; padding: 6px 18px; border-radius: 8px; border-bottom: 3px solid #f7c931; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                          <img src="{{ $logoUrl }}" alt="Correos de Bolivia" style="height: 38px; width: auto; max-height: 38px; object-fit: contain; display: block;" />
+                        </div>
+                      @else
+                        <div style="background-color: #f7c931; color: #0a3d7c; padding: 6px 16px; border-radius: 8px; font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; display: inline-block;">
+                          Correos de Bolivia &middot; RRHH
+                        </div>
+                      @endif
+                    </div>
+
+                    {{-- Badge de Alcance Amarillo Institucional --}}
+                    <div style="display: inline-block; margin-bottom: 12px;">
+                      <span style="background-color: #f7c931; color: #0a3d7c; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 16px; border-radius: 20px; display: inline-block; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
+                        {{ $alcanceEtiqueta }}
+                      </span>
+                    </div>
+
+                    {{-- Asunto / Título en la cabecera --}}
+                    <h1 style="color: #ffffff; font-size: 19px; font-weight: bold; line-height: 1.35; margin: 0 0 6px 0;">
+                      {{ filled($emailAsunto) ? $emailAsunto : 'Título del comunicado institucional' }}
+                    </h1>
+                    <p style="color: #e0edff; font-size: 12px; margin: 0;">
+                      Unidad de Recursos Humanos &middot; Empresa Pública de Correos de Bolivia
+                    </p>
+                  </div>
+
+                  {{-- BANDA AMARILLA DECORATIVA --}}
+                  <div style="height: 4px; background-color: #f7c931; width: 100%;"></div>
+
+                  {{-- 2. CUERPO DEL CORREO --}}
+                  <div style="background-color: #ffffff; padding: 26px 24px;">
+                    
+                    {{-- Saludo al funcionario --}}
+                    <p style="font-size: 14.5px; color: #1e293b; line-height: 1.5; margin: 0 0 16px 0;">
+                      Estimado(a) <strong style="color: #0a3d7c;">{{ $destEjemplo->nombre_completo ?: 'Colaborador(a)' }}</strong>,
+                    </p>
+
+                    {{-- Ficha rápida del destinatario con acento azul y amarillo --}}
+                    <div style="background-color: #f0f7ff; border: 1px solid #bfdbfe; border-left: 4px solid #004ea2; border-radius: 8px; padding: 11px 15px; margin-bottom: 20px; font-size: 12px; color: #334155;">
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <div><strong style="color: #0a3d7c;">Sucursal:</strong> {{ $destEjemplo->sucursal ?: 'Sede Central' }}</div>
+                        <div style="color: #93c5fd;">&bull;</div>
+                        <div><strong style="color: #0a3d7c;">Área:</strong> {{ $destEjemplo->area ?: 'General' }}</div>
+                        @if($destEjemplo->codigo_biometrico)
+                          <div style="color: #93c5fd;">&bull;</div>
+                          <div><strong style="color: #0a3d7c;">Cód:</strong> {{ $destEjemplo->codigo_biometrico }}</div>
+                        @endif
+                      </div>
+                    </div>
+
+                    {{-- Contenido del mensaje redactado --}}
+                    <div style="font-size: 14px; color: #334155; line-height: 1.65; white-space: pre-line; border-left: 3px solid #004ea2; padding: 8px 14px; background-color: #f8fafc; border-radius: 0 8px 8px 0; margin-bottom: 22px;">
+                      @if(filled($emailMensaje))
+                        {!! preg_replace('/(https?:\/\/[^\s]+)/', '<a href="$1" target="_blank" style="color: #004ea2; font-weight: bold; text-decoration: underline; word-break: break-all;">$1</a>', nl2br(e($emailMensaje))) !!}
+                        @if(str_contains($emailMensaje, 'http://') || str_contains($emailMensaje, 'https://'))
+                          @php
+                            preg_match('/https?:\/\/[^\s]+/', $emailMensaje, $matchedUrls);
+                            $urlEnlace = $matchedUrls[0] ?? null;
+                          @endphp
+                          @if($urlEnlace)
+                            <div style="margin-top: 18px; margin-bottom: 6px; text-align: center;">
+                              <a href="{{ $urlEnlace }}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background-color: #0a3d7c; color: #ffffff; font-weight: bold; font-size: 13.5px; padding: 10px 22px; border-radius: 8px; text-decoration: none; border-bottom: 3px solid #f7c931; box-shadow: 0 4px 10px rgba(10,61,124,0.25);">
+                                <span>Ingresar al Portal de Autoconsulta &rarr;</span>
+                              </a>
+                            </div>
+                          @endif
+                        @endif
+                      @else
+                        <span style="color: #94a3b8; font-style: italic;">
+                          (Aquí se mostrará el cuerpo del mensaje que redactes. Puedes volver a la pestaña "✍️ Redactar" o hacer clic en una plantilla de formato rápido).
+                        </span>
+                      @endif
+                    </div>
+
+                    {{-- Separador institucional --}}
+                    <div style="border-top: 1px solid #e2e8f0; margin: 22px 0;"></div>
+
+                    {{-- Firma institucional --}}
+                    <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">
+                      <p style="color: #0a3d7c; font-weight: bold; font-size: 14px; margin: 0 0 3px 0;">Unidad de Recursos Humanos</p>
+                      <p style="color: #64748b; margin: 0; font-size: 12px;">Empresa Pública de Correos de Bolivia &middot; La Paz, Bolivia</p>
+                    </div>
+
+                  </div>
+
+                  {{-- 3. PIE DE PÁGINA OFICIAL ZIMBRA --}}
+                  <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px 20px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.45;">
+                    <p style="margin: 0 0 3px 0;">Este correo electrónico ha sido emitido oficialmente por el Sistema de Recursos Humanos para la plataforma institucional <strong>Zimbra</strong> de Correos de Bolivia.</p>
+                    <p style="margin: 0; font-family: monospace; font-size: 10px; color: #94a3b8;">Fecha de emisión: {{ now()->translatedFormat('d \d\e F \d\e Y - H:i') }}</p>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            {{-- Acciones del Modal en Vista Previa --}}
+            <div class="app-modal-actions mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                wire:click="setEmailModalTab('redactar')"
+                class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+              >
+                <span>← Volver a editar texto</span>
+              </button>
+
+              <div class="flex items-center gap-3">
+                <button type="button" wire:click="closeEmailModal" class="app-modal-secondary cursor-pointer">Cerrar</button>
+                <button
+                  type="button"
+                  wire:click="enviarCorreosPersonal"
+                  wire:loading.attr="disabled"
+                  wire:target="enviarCorreosPersonal"
+                  @disabled($emailDestinatariosLista->count() === 0)
+                  class="login-submit app-modal-submit inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <span wire:loading.remove wire:target="enviarCorreosPersonal">
+                    ✉️ Enviar a {{ $emailDestinatariosLista->count() }} destinatarios
+                  </span>
+                  <span wire:loading wire:target="enviarCorreosPersonal" class="inline-flex items-center gap-2">
+                    <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>Enviando correos...</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        @endif
+
+      </div>
+    </div>
+  @endif
+
   @if ($showEditModal)
     <div class="app-modal-backdrop" wire:click="closeEditModal">
       <div class="app-modal-card" x-on:click.stop>
@@ -116,6 +760,45 @@
         </div>
 
         <form wire:submit="updateEmpleado" class="mt-8 grid gap-5 md:grid-cols-2">
+          {{-- FOTOGRAFÍA DEL PERSONAL --}}
+          <div class="md:col-span-2 flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div class="emp-photo-preview-box" style="width: 80px; height: 80px; min-width: 80px; min-height: 80px; max-width: 80px; max-height: 80px; border-radius: 1rem; overflow: hidden; position: relative; flex-shrink: 0;">
+              @if ($fotoNueva)
+                <img src="{{ $fotoNueva->temporaryUrl() }}" alt="Nueva foto" width="80" height="80" style="width: 80px; height: 80px; min-width: 80px; max-width: 80px; min-height: 80px; max-height: 80px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="emp-photo-img border-2 border-indigo-500 shadow-md">
+              @elseif ($editFotoActual && !$eliminarFoto)
+                <img src="{{ $editFotoActual }}" alt="Foto actual" width="80" height="80" style="width: 80px; height: 80px; min-width: 80px; max-width: 80px; min-height: 80px; max-height: 80px; object-fit: cover; object-position: center top; display: block; border-radius: 0.9rem;" class="emp-photo-img border-2 border-slate-200 shadow-sm">
+              @else
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 0.9rem; color: #94a3b8;">
+                  <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width: 28px; height: 28px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span style="font-size: 9px; font-weight: 700; margin-top: 4px;">Sin foto</span>
+                </div>
+              @endif
+              <div wire:loading wire:target="fotoNueva" class="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center" style="position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center;">
+                <span class="text-xs text-indigo-600 font-bold animate-pulse">Cargando...</span>
+              </div>
+            </div>
+            <div class="flex-1 text-center sm:text-left">
+              <label class="block text-xs font-bold text-slate-700 mb-1">Fotografía del personal</label>
+              <p class="text-[11px] text-slate-500 mb-2">Formato JPG, PNG o WEBP (máx. 4MB). Visible en el portal de horas y credencial.</p>
+              <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <label for="edit-foto-input" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer transition-colors shadow-2xs">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span>{{ ($editFotoActual && !$eliminarFoto) || $fotoNueva ? 'Cambiar foto' : 'Subir foto' }}</span>
+                </label>
+                <input type="file" id="edit-foto-input" wire:model="fotoNueva" accept="image/jpeg,image/png,image/webp" class="hidden">
+                @if (($editFotoActual && !$eliminarFoto) || $fotoNueva)
+                  <button type="button" wire:click="quitarFoto" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold cursor-pointer">
+                    ✕ Quitar foto
+                  </button>
+                @endif
+                @if ($eliminarFoto)
+                  <span class="text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded-md border border-rose-200">Foto marcada para eliminar al guardar</span>
+                @endif
+              </div>
+              @error('fotoNueva') <p class="form-error mt-1">{{ $message }}</p> @enderror
+            </div>
+          </div>
+
           <div>
             <label class="form-label">Nombre del personal</label>
             <input type="text" wire:model="editNombre" class="form-input" placeholder="Ej. Maria">
@@ -165,10 +848,21 @@
       <div class="app-modal-card app-modal-card-detail" x-on:click.stop>
         <button type="button" wire:click="closeDetailModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
         <div class="app-modal-head">
-          <div>
-            <p class="section-kicker">Ficha del personal</p>
-            <h3 class="section-title app-modal-title">{{ $detailEmpleado['nombre_completo'] ?? 'Detalle del personal' }}</h3>
-            <p class="section-copy-sm">Resumen del perfil, horario regional asignado y detalle mensual de marcaciones.</p>
+          <div class="flex items-center gap-3">
+            @if(!empty($detailEmpleado['foto_url']))
+              <div class="emp-photo-detail-box" style="width: 56px; height: 56px; min-width: 56px; min-height: 56px; max-width: 56px; max-height: 56px; border-radius: 1.1rem; overflow: hidden; flex-shrink: 0; border: 1.5px solid #e2e8f0; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
+                <img src="{{ $detailEmpleado['foto_url'] }}" alt="{{ $detailEmpleado['nombre_completo'] ?? '' }}" width="56" height="56" style="width: 56px; height: 56px; min-width: 56px; max-width: 56px; min-height: 56px; max-height: 56px; object-fit: cover; object-position: center top; display: block;" class="emp-photo-detail-img">
+              </div>
+            @else
+              <div class="emp-photo-detail-box" style="width: 56px; height: 56px; min-width: 56px; min-height: 56px; max-width: 56px; max-height: 56px; border-radius: 1.1rem; background: #eef2ff; border: 1.5px solid #c7d2fe; color: #4338ca; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                {{ strtoupper(substr($detailEmpleado['nombre_completo'] ?? 'P', 0, 2)) }}
+              </div>
+            @endif
+            <div>
+              <p class="section-kicker">Ficha del personal</p>
+              <h3 class="section-title app-modal-title">{{ $detailEmpleado['nombre_completo'] ?? 'Detalle del personal' }}</h3>
+              <p class="section-copy-sm">Resumen del perfil, horario regional asignado y detalle mensual de marcaciones.</p>
+            </div>
           </div>
           <div class="flex flex-col gap-3 md:items-end">
             <div class="w-full min-w-[16rem] md:w-auto">
@@ -1318,7 +2012,113 @@
           <h3 class="section-title">Plantilla activa de RRHH</h3>
           <p class="section-copy-sm">Aquí solo se muestra el personal activo en servicio (con marcaciones en los últimos 30 días o personal especial). Si una persona supera 30 días de inactividad, se traslada a <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="text-[#0f67c0] font-bold underline">Personal Inactivo</a>.</p>
         </div>
-        <button type="button" wire:click="openCreateModal" class="section-action-button">Agregar personal</button>
+        <div class="flex items-center gap-2">
+          {{-- Estilos para botones compactos con texto expandible en hover --}}
+          <style>
+            .btn-action-expandable {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              height: 40px;
+              min-width: 40px;
+              padding: 0 11px;
+              border-radius: 12px;
+              color: #ffffff;
+              font-size: 12.5px;
+              font-weight: 700;
+              text-decoration: none;
+              cursor: pointer;
+              border: none;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              overflow: hidden;
+              white-space: nowrap;
+            }
+            .btn-action-expandable:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 6px 16px rgba(0,0,0,0.16);
+              padding: 0 16px;
+            }
+            .btn-action-expandable .btn-action-label {
+              max-width: 0;
+              opacity: 0;
+              overflow: hidden;
+              white-space: nowrap;
+              margin-left: 0;
+              transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-left 0.3s ease;
+              display: inline-block;
+              vertical-align: middle;
+            }
+            .btn-action-expandable:hover .btn-action-label {
+              max-width: 220px;
+              opacity: 1;
+              margin-left: 8px;
+            }
+            .btn-action-expandable svg {
+              flex-shrink: 0;
+              transition: transform 0.25s ease;
+            }
+            .btn-action-expandable:hover svg {
+              transform: scale(1.08);
+            }
+          </style>
+
+          {{-- Botón 1: Invitación al Sistema --}}
+          <button
+            type="button"
+            wire:click="openInvitacionModal"
+            class="btn-action-expandable"
+            style="background-color: #0f766e;"
+            onmouseover="this.style.backgroundColor='#0d9488'"
+            onmouseout="this.style.backgroundColor='#0f766e'"
+            title="Invitación al sistema"
+            aria-label="Invitación al sistema"
+          >
+            <svg class="h-4 w-4 shrink-0 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 2-7 20-4-9-9-4Z"/>
+              <path d="M22 2 11 13"/>
+            </svg>
+            <span class="btn-action-label">Invitación al sistema</span>
+          </button>
+
+          {{-- Botón 2: Comunicados y Correos --}}
+          <button
+            type="button"
+            wire:click="openEmailModal"
+            class="btn-action-expandable"
+            style="background-color: #1e40af;"
+            onmouseover="this.style.backgroundColor='#1d4ed8'"
+            onmouseout="this.style.backgroundColor='#1e40af'"
+            title="Comunicados y correos"
+            aria-label="Comunicados y correos"
+          >
+            <svg class="h-4 w-4 shrink-0 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="16" x="2" y="4" rx="2"/>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+            <span class="btn-action-label">Comunicados y correos</span>
+          </button>
+
+          {{-- Botón 3: Agregar personal --}}
+          <button
+            type="button"
+            wire:click="openCreateModal"
+            class="btn-action-expandable"
+            style="background-color: #0f67c0;"
+            onmouseover="this.style.backgroundColor='#0d58a4'"
+            onmouseout="this.style.backgroundColor='#0f67c0'"
+            title="Agregar personal"
+            aria-label="Agregar personal"
+          >
+            <svg class="h-4 w-4 shrink-0 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <line x1="19" x2="19" y1="8" y2="14"/>
+              <line x1="22" x2="16" y1="11" y2="11"/>
+            </svg>
+            <span class="btn-action-label">Agregar personal</span>
+          </button>
+        </div>
       </div>
 
       <div class="history-table-shell history-table-shell-personal">
@@ -1335,7 +2135,20 @@
             >
           </div>
           <div class="space-y-2">
-            <label for="personal-sucursal" class="form-label">Filtrar por sucursal</label>
+            <div class="flex items-center justify-between">
+              <label for="personal-sucursal" class="form-label">Filtrar por sucursal</label>
+              @if(filled($sucursalFiltro))
+                <button
+                  type="button"
+                  wire:click="openEmailModal('{{ $sucursalFiltro }}')"
+                  class="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1 cursor-pointer"
+                  title="Enviar correo solo a personal de {{ $sucursalFiltro }}"
+                >
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                  <span>Enviar correo a {{ $sucursalFiltro }}</span>
+                </button>
+              @endif
+            </div>
             <select id="personal-sucursal" wire:model.live="sucursalFiltro" class="form-input">
               <option value="">Todas las sucursales</option>
               @foreach ($sucursales as $sucursalOption)
@@ -1360,13 +2173,27 @@
             @forelse ($empleados as $empleado)
               <tr>
                 <td>
-                  <div class="font-bold text-slate-900">{{ $empleado->nombre_completo }}</div>
-                  @if($empleado->email)
-                    <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title="Correo institucional">
-                      <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                      <span>{{ $empleado->email }}</span>
+                  <div class="flex items-center gap-3">
+                    @php
+                      $empInitials = strtoupper(substr($empleado->nombre, 0, 1) . substr($empleado->apellido ?: $empleado->nombre, 0, 1));
+                    @endphp
+                    @if($empleado->foto_url)
+                      <img src="{{ $empleado->foto_url }}" alt="{{ $empleado->nombre_completo }}" width="38" height="38" style="width: 38px; height: 38px; min-width: 38px; max-width: 38px; min-height: 38px; max-height: 38px; border-radius: 0.85rem; object-fit: cover; object-position: center top; display: block; flex-shrink: 0;" class="emp-photo-table-thumb">
+                    @else
+                      <div class="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 0.85rem;">
+                        {{ $empInitials }}
+                      </div>
+                    @endif
+                    <div class="min-w-0">
+                      <div class="font-bold text-slate-900 truncate">{{ $empleado->nombre_completo }}</div>
+                      @if($empleado->email)
+                        <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5 truncate" title="Correo institucional">
+                          <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                          <span>{{ $empleado->email }}</span>
+                        </div>
+                      @endif
                     </div>
-                  @endif
+                  </div>
                 </td>
                 <td>{{ $empleado->sucursal }}</td>
                 <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>
@@ -1504,13 +2331,27 @@
             @forelse ($empleados as $empleado)
               <tr>
                 <td>
-                  <div class="font-bold text-slate-900">{{ $empleado->nombre_completo }}</div>
-                  @if($empleado->email)
-                    <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title="Correo institucional">
-                      <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                      <span>{{ $empleado->email }}</span>
+                  <div class="flex items-center gap-3">
+                    @php
+                      $empInitials = strtoupper(substr($empleado->nombre, 0, 1) . substr($empleado->apellido ?: $empleado->nombre, 0, 1));
+                    @endphp
+                    @if($empleado->foto_url)
+                      <img src="{{ $empleado->foto_url }}" alt="{{ $empleado->nombre_completo }}" width="38" height="38" style="width: 38px; height: 38px; min-width: 38px; max-width: 38px; min-height: 38px; max-height: 38px; border-radius: 0.85rem; object-fit: cover; object-position: center top; display: block; flex-shrink: 0; filter: grayscale(100%); opacity: 0.8;" class="emp-photo-table-thumb">
+                    @else
+                      <div class="h-10 w-10 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center shrink-0" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; border-radius: 0.85rem;">
+                        {{ $empInitials }}
+                      </div>
+                    @endif
+                    <div class="min-w-0">
+                      <div class="font-bold text-slate-900 truncate">{{ $empleado->nombre_completo }}</div>
+                      @if($empleado->email)
+                        <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5 truncate" title="Correo institucional">
+                          <svg class="h-3 w-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                          <span>{{ $empleado->email }}</span>
+                        </div>
+                      @endif
                     </div>
-                  @endif
+                  </div>
                 </td>
                 <td>{{ $empleado->sucursal }}</td>
                 <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>

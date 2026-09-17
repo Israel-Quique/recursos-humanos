@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Mail\ComunicadoPersonalMailable;
 use App\Models\Empleado;
 use App\Models\RegistroAsistencia;
 use App\Services\AuditoriaService;
@@ -12,10 +13,14 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -25,6 +30,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PersonalPage extends Component
 {
+    use WithFileUploads;
     use WithPagination;
 
     #[Url(as: 'vista')]
@@ -118,6 +124,12 @@ class PersonalPage extends Component
     public string $editFechaNacimiento = '';
     public string $editFechaContratacion = '';
     public string $editFechaDespido = '';
+
+    // Gestión de Fotos
+    public $fotoNueva = null;
+    public ?string $editFotoActual = null;
+    public bool $eliminarFoto = false;
+
     public string $detailReferenceMonth = '';
     public string $pdfReferenceMonth = '';
     public string $detailMarkingFilter = 'todas';
@@ -126,6 +138,18 @@ class PersonalPage extends Component
     public ?int $pdfEmpleadoId = null;
     public array $pdfMonthOptions = [];
     public array $pdfEmpleado = [];
+
+    // Opciones para envío de correos (masivo y por sucursal)
+    public bool $showEmailModal = false;
+    public string $emailModalTab = 'redactar'; // 'redactar', 'preview'
+    public string $emailPreviewDevice = 'desktop'; // 'desktop', 'mobile'
+    public ?int $emailPreviewEmpleadoId = null;
+    public string $emailTipoDestinatario = 'masivo'; // 'masivo', 'sucursal'
+    public string $emailSucursalSeleccionada = '';
+    public bool $emailSoloActivos = true;
+    public string $emailAsunto = '';
+    public string $emailMensaje = '';
+    public bool $showEmailPreviewRecipients = false;
 
     public function mount(): void
     {
@@ -167,6 +191,7 @@ class PersonalPage extends Component
     public function closeCreateModal(): void
     {
         $this->showCreateModal = false;
+        $this->fotoNueva = null;
         $this->resetValidation();
     }
 
@@ -180,12 +205,15 @@ class PersonalPage extends Component
             'area' => ['nullable', 'string', 'max:120'],
             'sucursal' => ['required', 'string', 'max:120'],
             'fechaNacimiento' => ['nullable', 'date'],
+            'fotoNueva' => ['nullable', 'image', 'max:4096'],
         ], [
             'nombre.required' => 'Ingresa el nombre del personal.',
             'apellido.required' => 'Ingresa el apellido del personal.',
             'sucursal.required' => 'Ingresa la sucursal.',
             'email.email' => 'Ingresa un correo electronico valido.',
             'email.unique' => 'Ese correo ya esta asignado a otro personal.',
+            'fotoNueva.image' => 'El archivo seleccionado debe ser una imagen válida (JPG, PNG, WEBP).',
+            'fotoNueva.max' => 'La fotografía no debe superar los 4 MB.',
         ]);
 
         $horarioRegional = $this->programacionLaboral()->obtenerHorarioRegional($data['sucursal']);
@@ -205,6 +233,14 @@ class PersonalPage extends Component
             'created_by' => auth()->id(),
         ]);
 
+        if ($this->fotoNueva) {
+            $ext = $this->fotoNueva->getClientOriginalExtension() ?: 'jpg';
+            $safeCodigo = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$empleado->codigo_biometrico ?: (string)$empleado->id);
+            $nombreArchivo = 'emp_' . $empleado->id . '_' . $safeCodigo . '_' . time() . '.' . $ext;
+            $ruta = $this->fotoNueva->storeAs('fotos/empleados', $nombreArchivo, 'public');
+            $empleado->update(['foto' => $ruta]);
+        }
+
         app(AuditoriaService::class)->registrar(
             'Personal',
             'crear',
@@ -214,11 +250,263 @@ class PersonalPage extends Component
             $this->snapshotEmpleado($empleado)
         );
 
-        $this->reset(['nombre', 'apellido', 'codigoBiometrico', 'email', 'area', 'sucursal', 'fechaNacimiento', 'fechaDespido']);
+        $this->reset(['nombre', 'apellido', 'codigoBiometrico', 'email', 'area', 'sucursal', 'fechaNacimiento', 'fechaDespido', 'fotoNueva']);
         $this->resetPage();
         $this->showCreateModal = false;
 
         session()->flash('status', 'Personal registrado correctamente.');
+    }
+
+    public function openEmailModal(?string $sucursal = null): void
+    {
+        $this->resetValidation();
+        $this->emailModalTab = 'redactar';
+        $this->emailPreviewDevice = 'desktop';
+        $this->emailPreviewEmpleadoId = null;
+        $this->emailSoloActivos = true;
+        $this->emailAsunto = '';
+        $this->emailMensaje = '';
+        $this->showEmailPreviewRecipients = false;
+
+        $sucursalDestino = $sucursal ?: $this->sucursalFiltro;
+        if (filled($sucursalDestino)) {
+            $this->emailTipoDestinatario = 'sucursal';
+            $this->emailSucursalSeleccionada = $sucursalDestino;
+        } else {
+            $this->emailTipoDestinatario = 'masivo';
+            $this->emailSucursalSeleccionada = '';
+        }
+
+        $this->showEmailModal = true;
+    }
+
+    public function closeEmailModal(): void
+    {
+        $this->showEmailModal = false;
+        $this->emailModalTab = 'redactar';
+        $this->resetValidation();
+    }
+
+    public function setEmailModalTab(string $tab): void
+    {
+        if (in_array($tab, ['redactar', 'preview'], true)) {
+            $this->emailModalTab = $tab;
+        }
+    }
+
+    public function setEmailPreviewDevice(string $device): void
+    {
+        if (in_array($device, ['desktop', 'mobile'], true)) {
+            $this->emailPreviewDevice = $device;
+        }
+    }
+
+    public function openInvitacionModal(?string $sucursal = null): void
+    {
+        $this->resetValidation();
+        $this->emailModalTab = 'preview';
+        $this->emailPreviewDevice = 'desktop';
+        $this->emailPreviewEmpleadoId = null;
+        $this->emailSoloActivos = true;
+
+        $sucursalDestino = $sucursal ?: $this->sucursalFiltro;
+        if (filled($sucursalDestino)) {
+            $this->emailTipoDestinatario = 'sucursal';
+            $this->emailSucursalSeleccionada = $sucursalDestino;
+        } else {
+            $this->emailTipoDestinatario = 'masivo';
+            $this->emailSucursalSeleccionada = '';
+        }
+
+        $this->cargarPlantillaEjemplo('invitacion_sistema');
+        $this->showEmailPreviewRecipients = false;
+        $this->showEmailModal = true;
+    }
+
+    public function cargarPlantillaEjemplo(string $tipo): void
+    {
+        switch ($tipo) {
+            case 'invitacion_sistema':
+                $this->emailAsunto = 'Invitación Oficial: Consulta de Asistencias, Atrasos y Faltas - Correos de Bolivia';
+                $this->emailMensaje = "Estimado(a) funcionario(a),\n\nLa Unidad de Recursos Humanos tiene el agrado de invitarle a utilizar la plataforma oficial de Autoconsulta de Asistencia del Personal de la Empresa Pública de Correos de Bolivia.\n\nEsta herramienta le permitirá:\n✅ Conocer y familiarizarse con su registro biométrico diario.\n✅ Llevar un control transparente de sus horarios de ingreso y salida.\n✅ Monitorear en tiempo real sus minutos de retraso acumulados, omisiones y faltas.\n✅ Verificar su saldo disponible de tolerancia mensual y estado ante el Reglamento Interno.\n\nPara ingresar a la plataforma, solo necesita ingresar su número de Carnet de Identidad o su Código Biométrico en el siguiente enlace:\n\nhttp://172.65.10.55:8129/consulta-carnet\n\nLe recomendamos guardar este enlace en sus marcadores o favoritos para un acceso rápido y periódico.\n\nAgradecemos su compromiso con la puntualidad y la transparencia institucional.";
+                break;
+
+            case 'comunicado_general':
+                $this->emailAsunto = 'Comunicado Oficial: Actualización de Políticas y Registro de Asistencia';
+                $this->emailMensaje = "Estimados(as) funcionarios(as),\n\nPor medio de la presente, la Unidad de Recursos Humanos informa que a partir de la fecha se encuentra habilitada la plataforma de consulta de marcaciones y asistencias del personal.\n\nSe recuerda a todo el equipo:\n1. Registrar puntualmente sus horarios de ingreso y salida en los lectores biométricos asignados.\n2. Toda omisión o retraso debe ser justificado oportunamente ante su jefatura de área y remitido a RRHH.\n3. El saldo mensual de tolerancia se encuentra disponible para su consulta en el sistema.\n\nAgradecemos su compromiso continuo con la Empresa Pública de Correos de Bolivia.";
+                break;
+
+            case 'horario_especial':
+                $this->emailAsunto = 'Aviso Importante: Modificación Temporal de Horario Institucional';
+                $this->emailMensaje = "Estimado personal,\n\nSe pone en conocimiento de todo el equipo de trabajo que con motivo de actividades institucionales programadas, se aplicará un horario excepcional de atención.\n\nDetalles de la jornada:\n• Horario de atención: 08:30 a 16:30 (Jornada continua).\n• El registro biométrico de ingreso y salida mantiene su obligatoriedad.\n• Para consultas específicas, contactar a la Unidad de Recursos Humanos.\n\nAgradecemos tomar las previsiones correspondientes.";
+                break;
+
+            case 'capacitacion':
+                $this->emailAsunto = 'Convocatoria: Jornada de Inducción y Capacitación Laboral';
+                $this->emailMensaje = "Estimados(as) colegas,\n\nLa Unidad de Recursos Humanos tiene el agrado de convocarlos a la sesión de capacitación sobre el Reglamento Interno de Personal y los nuevos servicios digitales de consulta de asistencia.\n\nTemas principales:\n• Derechos, deberes y régimen de tolerancias y sanciones.\n• Uso y descarga de boletas individuales de asistencia.\n• Ronda abierta de preguntas y aclaraciones.\n\nEsperamos contar con su puntual participación.";
+                break;
+
+            case 'mantenimiento':
+                $this->emailAsunto = 'Comunicado Técnico: Mantenimiento Preventivo de Marcadores Biométricos';
+                $this->emailMensaje = "Estimados(as) colaboradores(as),\n\nInformamos que durante este fin de semana se llevarán a cabo labores técnicas de mantenimiento y sincronización en los relojes biométricos de marcación.\n\nConsideraciones:\n• Los registros se consolidarán de manera automática una vez concluido el servicio.\n• En caso de observar alguna novedad en sus marcaciones, favor reportarlo a RRHH.\n\nAgradecemos su colaboración y comprensión.";
+                break;
+        }
+
+        $this->resetValidation();
+    }
+
+    public function obtenerEmpleadoEjemploPreview(): Empleado
+    {
+        if ($this->emailPreviewEmpleadoId) {
+            $emp = Empleado::query()->find($this->emailPreviewEmpleadoId);
+            if ($emp) {
+                return $emp;
+            }
+        }
+
+        $destinatarios = $this->obtenerDestinatariosEmail();
+        if ($destinatarios->isNotEmpty()) {
+            return $destinatarios->first();
+        }
+
+        // Si no hay empleados con correo en el alcance, retornar un empleado de muestra completo
+        $sucursalEjemplo = filled($this->emailSucursalSeleccionada)
+            ? $this->emailSucursalSeleccionada
+            : 'Sede Central - La Paz';
+
+        $empleadoMock = new Empleado([
+            'nombre' => 'María Elena',
+            'apellido' => 'Flores Quispe',
+            'area' => 'Operaciones y Logística',
+            'sucursal' => $sucursalEjemplo,
+            'codigo_biometrico' => '1045',
+            'email' => 'm.flores@correos.gob.bo',
+        ]);
+        $empleadoMock->id = 0;
+
+        return $empleadoMock;
+    }
+
+    public function toggleEmailPreviewRecipients(): void
+    {
+        $this->showEmailPreviewRecipients = ! $this->showEmailPreviewRecipients;
+    }
+
+    public function obtenerDestinatariosEmail(): \Illuminate\Support\Collection
+    {
+        $query = Empleado::query();
+
+        if ($this->emailSoloActivos) {
+            $query->activosLaboralmente();
+        }
+
+        if ($this->emailTipoDestinatario === 'sucursal' && filled($this->emailSucursalSeleccionada)) {
+            SucursalNormalizer::applyFilter($query, 'sucursal', $this->emailSucursalSeleccionada);
+        }
+
+        return $query
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->get();
+    }
+
+    public function contarDestinatariosSinEmail(): int
+    {
+        $query = Empleado::query();
+
+        if ($this->emailSoloActivos) {
+            $query->activosLaboralmente();
+        }
+
+        if ($this->emailTipoDestinatario === 'sucursal' && filled($this->emailSucursalSeleccionada)) {
+            SucursalNormalizer::applyFilter($query, 'sucursal', $this->emailSucursalSeleccionada);
+        }
+
+        return $query
+            ->where(function ($q) {
+                $q->whereNull('email')->orWhere('email', '');
+            })
+            ->count();
+    }
+
+    public function enviarCorreosPersonal(): void
+    {
+        $rules = [
+            'emailAsunto' => ['required', 'string', 'min:3', 'max:200'],
+            'emailMensaje' => ['required', 'string', 'min:5', 'max:10000'],
+        ];
+
+        $messages = [
+            'emailAsunto.required' => 'Ingresa el asunto del correo.',
+            'emailAsunto.min' => 'El asunto debe tener al menos 3 caracteres.',
+            'emailMensaje.required' => 'Ingresa el mensaje o comunicado institucional.',
+            'emailMensaje.min' => 'El mensaje debe tener al menos 5 caracteres.',
+        ];
+
+        if ($this->emailTipoDestinatario === 'sucursal') {
+            $rules['emailSucursalSeleccionada'] = ['required', 'string', 'max:120'];
+            $messages['emailSucursalSeleccionada.required'] = 'Selecciona la sucursal de destino.';
+        }
+
+        $this->validate($rules, $messages);
+
+        $destinatarios = $this->obtenerDestinatariosEmail();
+
+        if ($destinatarios->isEmpty()) {
+            session()->flash('warning', 'No se encontraron destinatarios con correo electrónico para el alcance seleccionado.');
+            return;
+        }
+
+        @set_time_limit(180);
+        $enviados = 0;
+        $fallidos = 0;
+        $alcanceLabel = $this->emailTipoDestinatario === 'sucursal'
+            ? "Sucursal {$this->emailSucursalSeleccionada}"
+            : 'Institucional Masivo';
+
+        foreach ($destinatarios as $empleado) {
+            try {
+                Mail::to($empleado->email)->send(
+                    new ComunicadoPersonalMailable(
+                        empleado: $empleado,
+                        asunto: $this->emailAsunto,
+                        mensaje: $this->emailMensaje,
+                        alcanceLabel: $alcanceLabel
+                    )
+                );
+                $enviados++;
+            } catch (\Throwable $e) {
+                $fallidos++;
+                Log::warning("Error al enviar correo institucional a {$empleado->email}: " . $e->getMessage());
+            }
+        }
+
+        app(AuditoriaService::class)->registrar(
+            'Personal',
+            'comunicado_email',
+            "Envío de correos ({$this->emailTipoDestinatario}) a {$enviados} empleados. Asunto: {$this->emailAsunto}",
+            null,
+            null,
+            [
+                'tipo' => $this->emailTipoDestinatario,
+                'sucursal' => $this->emailTipoDestinatario === 'sucursal' ? $this->emailSucursalSeleccionada : null,
+                'solo_activos' => $this->emailSoloActivos,
+                'total_enviados' => $enviados,
+                'total_fallidos' => $fallidos,
+                'asunto' => $this->emailAsunto,
+            ]
+        );
+
+        $this->showEmailModal = false;
+        $this->reset(['emailAsunto', 'emailMensaje', 'showEmailPreviewRecipients']);
+
+        if ($fallidos === 0) {
+            session()->flash('status', "¡Correos enviados exitosamente! Se entregaron {$enviados} correos electrónicos ({$alcanceLabel}).");
+        } else {
+            session()->flash('warning', "Se enviaron {$enviados} correos con éxito, pero {$fallidos} tuvieron error al enviarse. Revisa la bitácora.");
+        }
     }
 
     public function openEditModal(int $empleadoId): void
@@ -233,6 +521,9 @@ class PersonalPage extends Component
         $this->editArea = $empleado->area;
         $this->editSucursal = $empleado->sucursal;
         $this->editFechaNacimiento = $empleado->fecha_nacimiento?->toDateString() ?? '';
+        $this->editFotoActual = $empleado->foto_url;
+        $this->fotoNueva = null;
+        $this->eliminarFoto = false;
         $this->showEditModal = true;
     }
 
@@ -240,8 +531,18 @@ class PersonalPage extends Component
     {
         $this->showEditModal = false;
         $this->editingEmpleadoId = null;
+        $this->fotoNueva = null;
+        $this->editFotoActual = null;
+        $this->eliminarFoto = false;
         $this->resetValidation();
         $this->reset(['editNombre', 'editApellido', 'editCodigoBiometrico', 'editEmail', 'editArea', 'editSucursal', 'editFechaNacimiento']);
+    }
+
+    public function quitarFoto(): void
+    {
+        $this->fotoNueva = null;
+        $this->editFotoActual = null;
+        $this->eliminarFoto = true;
     }
 
     public function openDetailModal(int $empleadoId): void
@@ -385,22 +686,42 @@ class PersonalPage extends Component
             'editArea' => ['nullable', 'string', 'max:120'],
             'editSucursal' => ['required', 'string', 'max:120'],
             'editFechaNacimiento' => ['nullable', 'date'],
+            'fotoNueva' => ['nullable', 'image', 'max:4096'],
         ], [
             'editNombre.required' => 'Ingresa el nombre del personal.',
             'editApellido.required' => 'Ingresa el apellido del personal.',
             'editSucursal.required' => 'Ingresa la sucursal.',
             'editEmail.email' => 'Ingresa un correo electronico valido.',
             'editEmail.unique' => 'Ese correo ya esta asignado a otro personal.',
+            'fotoNueva.image' => 'El archivo seleccionado debe ser una imagen válida (JPG, PNG, WEBP).',
+            'fotoNueva.max' => 'La fotografía no debe superar los 4 MB.',
         ]);
 
         $empleado = Empleado::query()->findOrFail($this->editingEmpleadoId);
         $antes = $this->snapshotEmpleado($empleado);
+
+        $fotoRuta = $empleado->foto;
+        if ($this->eliminarFoto) {
+            if ($empleado->foto && Storage::disk('public')->exists($empleado->foto)) {
+                Storage::disk('public')->delete($empleado->foto);
+            }
+            $fotoRuta = null;
+        } elseif ($this->fotoNueva) {
+            if ($empleado->foto && Storage::disk('public')->exists($empleado->foto)) {
+                Storage::disk('public')->delete($empleado->foto);
+            }
+            $ext = $this->fotoNueva->getClientOriginalExtension() ?: 'jpg';
+            $safeCodigo = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$empleado->codigo_biometrico ?: (string)$empleado->id);
+            $nombreArchivo = 'emp_' . $empleado->id . '_' . $safeCodigo . '_' . time() . '.' . $ext;
+            $fotoRuta = $this->fotoNueva->storeAs('fotos/empleados', $nombreArchivo, 'public');
+        }
 
         $empleado->update([
             'nombre' => $this->editNombre,
             'apellido' => $this->editApellido,
             'codigo_biometrico' => $this->editCodigoBiometrico ?: null,
             'email' => filled($this->editEmail) ? strtolower(trim($this->editEmail)) : null,
+            'foto' => $fotoRuta,
             'area' => trim($this->editArea),
             'sucursal' => $this->editSucursal,
             'fecha_nacimiento' => $this->editFechaNacimiento ?: null,
@@ -419,6 +740,9 @@ class PersonalPage extends Component
 
         $this->showEditModal = false;
         $this->editingEmpleadoId = null;
+        $this->fotoNueva = null;
+        $this->editFotoActual = null;
+        $this->eliminarFoto = false;
         $this->resetValidation();
         $this->resetPage();
 
@@ -1825,33 +2149,24 @@ class PersonalPage extends Component
             ->orderBy('sucursal')
             ->pluck('sucursal'));
 
-        $empleadosResumen = (clone $empleadosBaseQuery)
-            ->orderByDesc('created_at')
-            ->get();
+        if ($this->vista === 'inactivos') {
+            $empleadosBaseQuery->inactivosLaboralmente();
+        } else {
+            $empleadosBaseQuery->activosLaboralmente();
+        }
 
-        $empleadosResumen->each(function (Empleado $empleado) {
-            $empleado->estado_laboral = $empleado->estadoLaboral(now());
-            $empleado->ultima_marcacion_label = $empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones';
+        $empleados = $empleadosBaseQuery
+            ->orderByDesc('created_at')
+            ->paginate(10);
+
+        $empleados->getCollection()->transform(function (Empleado $empleado) {
+            $empleado->estado_laboral = $this->vista === 'inactivos' ? 'Inactivo' : 'Activo';
+            $maxFecha = $empleado->asistencias_max_fecha;
+            $empleado->ultima_marcacion_label = $maxFecha ? Carbon::parse($maxFecha)->format('d/m/Y') : 'Sin marcaciones';
+            return $empleado;
         });
 
-        $empleadosFiltrados = $empleadosResumen
-            ->filter(fn (Empleado $empleado) => $this->employeeMatchesVista($empleado))
-            ->when($this->vista === 'control' && filled($this->toleranciaFiltro), function ($items) {
-                return $items->filter(function (Empleado $empleado) {
-                    $estadoTolerancia = $empleado->resumen_asistencia['estado_retraso'] ?? 'Dentro de tolerancia';
-
-                    return match ($this->toleranciaFiltro) {
-                        'dentro' => $estadoTolerancia === 'Dentro de tolerancia',
-                        'excedido' => $estadoTolerancia === 'Excedido',
-                        default => true,
-                    };
-                });
-            })
-            ->when($this->vista === 'control', fn ($items) => $items->sortByDesc(fn (Empleado $empleado) => $empleado->resumen_asistencia['retraso_mes'] ?? 0))
-            ->values();
-
         $totalMinutosMes = 0;
-        $empleados = $this->paginarColeccion($empleadosFiltrados, 10);
         $totalHorasMes = '0h 0m';
 
         // Lógica de registros de marcaciones:
@@ -1989,6 +2304,9 @@ class PersonalPage extends Component
             'totalInactivosSistema' => Empleado::query()->inactivosLaboralmente()->count(),
             'totalPadronSistema' => Empleado::query()->count(),
             'totalMarcacionesHoySistema' => RegistroAsistencia::query()->whereDate('fecha', now()->toDateString())->whereNotNull('empleado_id')->distinct('empleado_id')->count('empleado_id'),
+            'emailDestinatariosLista' => $this->showEmailModal ? $this->obtenerDestinatariosEmail() : collect([]),
+            'emailSinCorreoConteo' => $this->showEmailModal ? $this->contarDestinatariosSinEmail() : 0,
+            'emailEmpleadoEjemplo' => $this->showEmailModal ? $this->obtenerEmpleadoEjemploPreview() : null,
         ])->layout('layouts.app', ['title' => $this->pageTitle()]);
     }
 
@@ -2221,6 +2539,7 @@ class PersonalPage extends Component
             'nombre_completo' => $empleado->nombre_completo,
             'codigo_biometrico' => $empleado->codigo_biometrico ?: 'Sin asignar',
             'email' => $empleado->email ?: 'Sin correo asignado',
+            'foto_url' => $empleado->foto_url,
             'estado_laboral' => $empleado->estado_laboral ?? $empleado->estadoLaboral(now()),
             'ultima_marcacion' => $empleado->ultima_marcacion_label ?? ($empleado->ultimaMarcacion()?->format('d/m/Y') ?? 'Sin marcaciones'),
             'area' => $empleado->area ?: 'Sin area',

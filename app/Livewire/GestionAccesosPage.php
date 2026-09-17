@@ -7,11 +7,15 @@ use App\Models\User;
 use App\Services\AuditoriaService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
 
 class GestionAccesosPage extends Component
 {
+    use WithFileUploads;
+
     private const ALLOWED_ROLES = ['administrador', 'gestor'];
 
     public string $search = '';
@@ -38,6 +42,11 @@ class GestionAccesosPage extends Component
     public string $editPassword_confirmation = '';
     public string $editRole = 'gestor';
     public ?int $editEmpleadoId = null;
+
+    // Foto de perfil de usuario
+    public $userFotoNueva = null;
+    public ?string $editUserFotoActual = null;
+    public bool $eliminarUserFoto = false;
 
     // Bajas (Eliminar)
     public bool $showDeleteModal = false;
@@ -98,6 +107,7 @@ class GestionAccesosPage extends Component
     public function closeCreateModal(): void
     {
         $this->showCreateModal = false;
+        $this->userFotoNueva = null;
         $this->resetValidation();
     }
 
@@ -124,6 +134,13 @@ class GestionAccesosPage extends Component
             'empleado_id' => ! empty($data['newEmpleadoId']) ? (int) $data['newEmpleadoId'] : null,
         ]);
 
+        if ($this->userFotoNueva) {
+            $ext = $this->userFotoNueva->getClientOriginalExtension() ?: 'jpg';
+            $nombreArchivo = 'user_' . $user->id . '_' . time() . '.' . $ext;
+            $user->foto = $this->userFotoNueva->storeAs('fotos/usuarios', $nombreArchivo, 'public');
+            $user->save();
+        }
+
         $user->syncRoles([$data['newUserRole']]);
 
         app(AuditoriaService::class)->registrar(
@@ -137,7 +154,7 @@ class GestionAccesosPage extends Component
 
         $this->selectedUserId = $user->id;
         $this->selectedRole = $data['newUserRole'];
-        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId']);
+        $this->reset(['name', 'email', 'password', 'password_confirmation', 'newEmpleadoId', 'userFotoNueva']);
         $this->newUserRole = 'gestor';
         $this->resetValidation();
         $this->showCreateModal = false;
@@ -157,15 +174,28 @@ class GestionAccesosPage extends Component
         $this->editPassword_confirmation = '';
         $this->editRole = $this->normalizeRole($user->getRoleNames()->first());
         $this->editEmpleadoId = $user->empleado_id;
+        $this->editUserFotoActual = $user->foto_url;
+        $this->userFotoNueva = null;
+        $this->eliminarUserFoto = false;
         $this->showEditModal = true;
     }
 
     public function closeEditModal(): void
     {
         $this->showEditModal = false;
+        $this->userFotoNueva = null;
+        $this->editUserFotoActual = null;
+        $this->eliminarUserFoto = false;
         $this->resetValidation();
         $this->reset(['editingUserId', 'editName', 'editEmail', 'editPassword', 'editPassword_confirmation', 'editEmpleadoId']);
         $this->editRole = 'gestor';
+    }
+
+    public function quitarUserFoto(): void
+    {
+        $this->userFotoNueva = null;
+        $this->editUserFotoActual = null;
+        $this->eliminarUserFoto = true;
     }
 
     public function updateUser(): void
@@ -204,6 +234,20 @@ class GestionAccesosPage extends Component
             $user->password = Hash::make($data['editPassword']);
         }
 
+        if ($this->eliminarUserFoto) {
+            if ($user->foto && Storage::disk('public')->exists($user->foto)) {
+                Storage::disk('public')->delete($user->foto);
+            }
+            $user->foto = null;
+        } elseif ($this->userFotoNueva) {
+            if ($user->foto && Storage::disk('public')->exists($user->foto)) {
+                Storage::disk('public')->delete($user->foto);
+            }
+            $ext = $this->userFotoNueva->getClientOriginalExtension() ?: 'jpg';
+            $nombreArchivo = 'user_' . $user->id . '_' . time() . '.' . $ext;
+            $user->foto = $this->userFotoNueva->storeAs('fotos/usuarios', $nombreArchivo, 'public');
+        }
+
         $user->save();
         $user->syncRoles([$data['editRole']]);
 
@@ -218,6 +262,9 @@ class GestionAccesosPage extends Component
 
         $this->selectedUserId = $user->id;
         $this->selectedRole = $data['editRole'];
+        $this->userFotoNueva = null;
+        $this->editUserFotoActual = null;
+        $this->eliminarUserFoto = false;
         $this->closeEditModal();
 
         session()->flash('status', 'Datos del usuario modificados correctamente.');

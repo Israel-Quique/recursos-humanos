@@ -380,11 +380,11 @@ class PerfilHorasPage extends Component
         if ($this->filterState === 'retrasos') {
             $allRows = $allRows->filter(fn ($r) => ($r['retraso_minutos'] ?? 0) > 0 || ($r['es_retraso'] ?? false) || str_contains(strtolower($r['estado'] ?? ''), 'tarde') || str_contains(strtolower($r['estado'] ?? ''), 'retraso'));
         } elseif ($this->filterState === 'omisiones') {
-            $allRows = $allRows->filter(fn ($r) => ($r['es_omision'] ?? false) || ($r['row_tone'] ?? '') === 'warning' || str_contains(strtolower($r['estado'] ?? ''), 'incompleto') || str_contains(strtolower($r['estado'] ?? ''), 'omision') || $r['entrada'] === '--:--' || $r['salida'] === '--:--');
+            $allRows = $allRows->filter(fn ($r) => ($r['es_omision'] ?? false) && ! ($r['es_falta'] ?? false));
         } elseif ($this->filterState === 'faltas') {
-            $allRows = $allRows->filter(fn ($r) => ($r['es_falta'] ?? false) || ($r['row_tone'] ?? '') === 'danger' || str_contains(strtolower($r['estado'] ?? ''), 'falta'));
+            $allRows = $allRows->filter(fn ($r) => ($r['es_falta'] ?? false) && ! ($r['es_omision'] ?? false));
         } elseif ($this->filterState === 'puntuales') {
-            $allRows = $allRows->filter(fn ($r) => ($r['row_tone'] ?? '') === 'default' && ($r['retraso_minutos'] ?? 0) === 0 && $r['entrada'] !== '--:--' && $r['salida'] !== '--:--');
+            $allRows = $allRows->filter(fn ($r) => ($r['row_tone'] ?? '') === 'default' && ($r['retraso_minutos'] ?? 0) === 0 && $r['entrada'] !== '--:--' && $r['salida'] !== '--:--' && ! ($r['es_falta'] ?? false) && ! ($r['es_omision'] ?? false));
         }
 
         // Filter by search query

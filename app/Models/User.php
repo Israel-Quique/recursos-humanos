@@ -17,6 +17,7 @@ class User extends Authenticatable
         'email',
         'password',
         'empleado_id',
+        'foto',
     ];
 
     protected $hidden = [
@@ -37,5 +38,22 @@ class User extends Authenticatable
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
+    }
+
+    public function getFotoUrlAttribute(): ?string
+    {
+        if (! empty($this->foto)) {
+            if (str_starts_with($this->foto, 'http://') || str_starts_with($this->foto, 'https://') || str_starts_with($this->foto, 'data:')) {
+                return $this->foto;
+            }
+            return asset('storage/' . ltrim($this->foto, '/'));
+        }
+
+        // Si no tiene foto propia pero está vinculado a un empleado con foto
+        if ($this->empleado && ! empty($this->empleado->foto)) {
+            return $this->empleado->foto_url;
+        }
+
+        return null;
     }
 }

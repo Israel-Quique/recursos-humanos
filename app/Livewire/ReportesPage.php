@@ -130,7 +130,7 @@ class ReportesPage extends Component
         }, $fileName);
     }
 
-    public function descargarPdfReporteReglamento()
+    public function descargarPdfReglamentoCategoria(string $categoria = 'todos')
     {
         $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
         $monthLabel = ucfirst($referenceMonth->locale('es')->translatedFormat('F Y'));
@@ -141,13 +141,29 @@ class ReportesPage extends Component
             'monthLabel' => $monthLabel,
             'branchLabel' => $branchLabel,
             'reporte' => $reporteReglamento,
+            'categoria' => $categoria,
         ])->setPaper('a4');
 
-        $fileName = 'reporte-reglamento-sanciones-'.Str::slug($branchLabel).'-'.$referenceMonth->format('Y-m').'.pdf';
+        $categoriaPrefix = match ($categoria) {
+            'atrasos' => 'reporte-reglamento-atrasos-art45-',
+            'omisiones' => 'reporte-reglamento-omisiones-art45-48-',
+            'faltas' => 'reporte-reglamento-faltas-art45-48-',
+            'alertas' => 'reporte-reglamento-zona-peligro-alertas-',
+            'reincidentes' => 'reporte-reglamento-reincidentes-',
+            'concurrente' => 'reporte-reglamento-concurrencia-art45-48-',
+            default => 'reporte-reglamento-sanciones-',
+        };
+
+        $fileName = $categoriaPrefix . Str::slug($branchLabel) . '-' . $referenceMonth->format('Y-m') . '.pdf';
 
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();
         }, $fileName);
+    }
+
+    public function descargarPdfReporteReglamento()
+    {
+        return $this->descargarPdfReglamentoCategoria('todos');
     }
 
     public function obtenerReporteReglamento(?array $preloadedBase = null): array

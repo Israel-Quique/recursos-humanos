@@ -152,4 +152,42 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
             ->assertDontSee('descuento de sueldo')
             ->assertDontSee('-0.5 día');
     }
+
+    public function test_perfil_horas_filtra_omisiones_y_faltas_por_separado(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-14 18:00:00'));
+
+        $empleado = $this->crearEmpleado('10909669');
+
+        // Día 10: Omisión (Entrada sin salida)
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-08-10',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => null,
+            'estado_marcacion' => 'Entrada',
+        ]);
+
+        // Día 11: Falta (Día laborable sin ninguna marcación) - no creamos registro
+
+        $test = Livewire::test(PerfilHorasPage::class, [
+            'empleado' => $empleado,
+            'referenceMonth' => '2026-08',
+        ]);
+
+        // Al filtrar por omisiones: debe mostrar el día 10 (omisión) y NO el día 11 (falta)
+        $test->call('setFilterState', 'omisiones')
+            ->assertSet('filterState', 'omisiones')
+            ->assertSee('10/08/2026')
+            ->assertSee('Omisión (Falta salida)')
+            ->assertDontSee('Falta (Inasistencia)');
+
+        // Al filtrar por faltas: debe mostrar el día 11 (falta) y NO el día 10 (omisión)
+        $test->call('setFilterState', 'faltas')
+            ->assertSet('filterState', 'faltas')
+            ->assertSee('11/08/2026')
+            ->assertSee('Falta (Inasistencia)')
+            ->assertDontSee('Omisión (Falta salida)');
+    }
 }
+
