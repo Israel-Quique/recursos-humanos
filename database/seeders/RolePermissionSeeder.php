@@ -40,6 +40,12 @@ class RolePermissionSeeder extends Seeder
             'gestionar personal',
         ]);
 
+        // Asegurar que usuarios con rol gestor no tengan permisos directos administrativos
+        $gestorUsers = User::query()->role('gestor')->get();
+        foreach ($gestorUsers as $user) {
+            $user->revokePermissionTo(['gestionar accesos', 'ver auditoria']);
+        }
+
         $legacyRoleMap = [
             'admin' => 'administrador',
             'usuario' => 'gestor',
@@ -56,5 +62,7 @@ class RolePermissionSeeder extends Seeder
                 $user->syncRoles([$newRole]);
             }
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

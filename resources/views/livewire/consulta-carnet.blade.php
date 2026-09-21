@@ -605,6 +605,43 @@
           Consulta tu asistencia, seguimiento de horas acumuladas, normativa interna y generación de boletas oficiales de permiso desde una sola plataforma.
         </p>
 
+        {{-- VIDEO INSTRUCTIVO DE ASISTENCIA --}}
+        <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-900 shadow-xl ring-1 ring-black/5 text-left">
+          <div class="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/70">
+            <div class="flex items-center gap-2">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white shadow-xs">
+                <svg class="h-2.5 w-2.5 translate-x-[0.5px]" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </span>
+              <span class="text-xs font-bold text-slate-100 tracking-tight">Video Tutorial de Asistencia</span>
+            </div>
+            <span class="text-[10px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Instructivo</span>
+          </div>
+          <div style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #000;">
+            <iframe
+              src="https://www.youtube.com/embed/Yu2ZivIeQ1c?rel=0"
+              title="TUTORIAL RRHH - Video Tutorial de Asistencia"
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="px-3.5 py-1.5 bg-slate-950 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="text-slate-400 text-[11px]">Guía paso a paso</span>
+            <a
+              href="https://youtu.be/Yu2ZivIeQ1c"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-1 transition"
+            >
+              <span>Ver en YouTube</span>
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </div>
+        </div>
+
         <ul class="login-feature-list">
           <li class="login-feature-item">
             <span class="login-feature-icon">

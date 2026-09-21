@@ -203,6 +203,12 @@
           </svg>
           <span>Imprimir</span>
         </button>
+        <a wire:navigate href="{{ route('planilla-refrigerio', ['branch' => $selectedBranch]) }}" class="report-hero-pdf-btn !bg-emerald-50 !text-emerald-800 !border-emerald-300 hover:!bg-emerald-100 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Planilla de Refrigerio</span>
+        </a>
         <button type="button" wire:click="descargarPdfReporte" class="report-hero-pdf-btn">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 16V4"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>

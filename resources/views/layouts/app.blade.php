@@ -21,6 +21,7 @@
         'horarios' => 'SCHEDULE',
         'fechas-especiales' => 'SPECIAL DAYS',
         'incidencias' => 'INCIDENTS',
+        'planilla-refrigerio' => 'REFRIGERIO',
         'reglamento-sanciones' => 'SANCTIONS',
         'accesos' => 'ACCESS',
         'auditoria' => 'AUDIT',
@@ -109,8 +110,8 @@
                   @endcan
                 </div>
               </div>
-              <div x-data="{ open: {{ (request()->routeIs('incidencias') || (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control', 'sucursales'], true))) ? 'true' : 'false' }} }">
-                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('incidencias') || (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control', 'sucursales'], true))) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
+              <div x-data="{ open: {{ (request()->routeIs('incidencias') || request()->routeIs('planilla-refrigerio') || (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control', 'sucursales'], true))) ? 'true' : 'false' }} }">
+                <button type="button" x-on:click="open = ! open" class="app-sidebar-link w-full text-left {{ (request()->routeIs('incidencias') || request()->routeIs('planilla-refrigerio') || (request()->routeIs('personal') && in_array($personalVista, ['marcaciones', 'control', 'sucursales'], true))) ? 'app-sidebar-link-active' : '' }}" x-bind:aria-expanded="open.toString()">
                   <span class="app-sidebar-link-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
@@ -126,6 +127,7 @@
                   <a wire:navigate href="{{ route('personal', ['vista' => 'control']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'control' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Marcaciones por sucursales</a>
                   <a wire:navigate href="{{ route('personal', ['vista' => 'sucursales']) }}" class="app-sidebar-sublink {{ request()->routeIs('personal') && $personalVista === 'sucursales' ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Registro mensual de sucursales</a>
                   <a wire:navigate href="{{ route('incidencias') }}" class="app-sidebar-sublink {{ request()->routeIs('incidencias') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Incidencias y permisos</a>
+                  <a wire:navigate href="{{ route('planilla-refrigerio') }}" class="app-sidebar-sublink {{ request()->routeIs('planilla-refrigerio') ? 'app-sidebar-sublink-active' : '' }}"><span class="app-sidebar-subdot"></span>Planilla refrigerio / comida</a>
                 </div>
               </div>
             @endcan

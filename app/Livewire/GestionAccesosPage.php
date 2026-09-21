@@ -113,6 +113,8 @@ class GestionAccesosPage extends Component
 
     public function createUser(): void
     {
+        abort_unless(auth()->user()?->can('gestionar accesos'), 403);
+
         $data = $this->validate($this->createRules(), $this->validationMessages());
 
         $normalizedEmail = $this->normalizeCorreosEmail($data['email']);
@@ -142,6 +144,9 @@ class GestionAccesosPage extends Component
         }
 
         $user->syncRoles([$data['newUserRole']]);
+        if ($data['newUserRole'] === 'gestor') {
+            $user->syncPermissions([]);
+        }
 
         app(AuditoriaService::class)->registrar(
             'Accesos',
@@ -200,6 +205,8 @@ class GestionAccesosPage extends Component
 
     public function updateUser(): void
     {
+        abort_unless(auth()->user()?->can('gestionar accesos'), 403);
+
         $data = $this->validate($this->editRules(), $this->validationMessages());
 
         $user = User::query()->findOrFail($data['editingUserId']);
@@ -250,6 +257,9 @@ class GestionAccesosPage extends Component
 
         $user->save();
         $user->syncRoles([$data['editRole']]);
+        if ($data['editRole'] === 'gestor') {
+            $user->syncPermissions([]);
+        }
 
         app(AuditoriaService::class)->registrar(
             'Accesos',
@@ -307,6 +317,8 @@ class GestionAccesosPage extends Component
 
     public function deleteUser(): void
     {
+        abort_unless(auth()->user()?->can('gestionar accesos'), 403);
+
         if (! $this->pendingDeleteUserId) {
             return;
         }

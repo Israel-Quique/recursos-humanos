@@ -51,6 +51,8 @@ class AuditoriaPage extends Component
 
     public function deshacerAccion(int $auditoriaId): void
     {
+        abort_unless(auth()->user()?->can('ver auditoria'), 403);
+
         $auditoria = Auditoria::query()->findOrFail($auditoriaId);
 
         if (! $this->canUndo($auditoria)) {
@@ -92,6 +94,8 @@ class AuditoriaPage extends Component
 
     public function rehacerAccion(int $auditoriaId): void
     {
+        abort_unless(auth()->user()?->can('ver auditoria'), 403);
+
         $auditoria = Auditoria::query()->findOrFail($auditoriaId);
 
         if (! $this->canRedo($auditoria)) {

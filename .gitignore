@@ -48,3 +48,8 @@ FOTOS PARA CREDENCIALES/
 
 # Symlink de storage público generado
 /public/storage
+
+# Videos locales pesados
+*.mp4
+/VIDEO_ASISTENCIA.mp4
+
