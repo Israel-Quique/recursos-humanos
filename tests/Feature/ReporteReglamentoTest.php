@@ -458,6 +458,53 @@ class ReporteReglamentoTest extends TestCase
         $this->assertEquals(0.5, $itemSancionado['dias_descuento']);
         $this->assertTrue($itemSancionado['es_sancionado']);
     }
+
+    public function test_omision_de_entrada_no_se_computa_como_atraso_ni_figura_en_detalle_atrasos(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-20 12:00:00'));
+
+        $emp = Empleado::query()->create([
+            'nombre' => 'Roberto',
+            'apellido' => 'Gomez',
+            'codigo_biometrico' => 'RG-99',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2025-01-10',
+        ]);
+
+        // Simula la situación del servidor: el funcionario solo marcó al retirarse (17:05:00).
+        // En la BD el primer marcaje queda en hora_entrada y hora_salida queda null.
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $emp->id,
+            'fecha' => '2026-08-05',
+            'hora_entrada' => '17:05:00',
+            'hora_salida' => null,
+            'estado_marcacion' => 'Entrada',
+            'evento_biometrico' => 'Verificado',
+        ]);
+
+        $service = app(AnalisisReglamentoReporteService::class);
+        $reporte = $service->generarReporteReglamento(Carbon::parse('2026-08-01'));
+
+        // 1. Debe figurar en detalle_omisiones porque olvidó marcar entrada
+        $detalleOmisiones = collect($reporte['detalle_omisiones']);
+        $omisionEmp = $detalleOmisiones->firstWhere('id', $emp->id);
+        $this->assertNotNull($omisionEmp, 'El empleado debe figurar en detalle_omisiones');
+        $this->assertEquals(1, $omisionEmp['total_omisiones']);
+
+        // 2. NO debe figurar en detalle_atrasos (no debe tener 515 min de retraso)
+        $detalleAtrasos = collect($reporte['detalle_atrasos']);
+        $atrasoEmp = $detalleAtrasos->firstWhere('id', $emp->id);
+        $this->assertNull($atrasoEmp, 'El empleado con omisión de entrada NO debe figurar en detalle_atrasos con cientos de minutos de retraso');
+
+        // 3. La evaluación individual tampoco debe acumularle retraso por ese día
+        $eval = $service->evaluarEmpleadoIndividual($emp->id, Carbon::parse('2026-08-01'));
+        $this->assertEquals(0, $eval['minutos_atraso'], 'Los minutos de atraso deben ser 0, no 515');
+        $this->assertEquals(0, $eval['dias_sancion_atraso'], 'No debe tener sanción económica de atraso');
+    }
 }
+
 
 

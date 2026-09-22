@@ -1026,8 +1026,9 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $delay = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
             if ($delay <= 0) {
@@ -1042,7 +1043,7 @@ class AnalisisAsistenciaService
                 'codigo' => $empleado->codigo_biometrico ?? '',
                 'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
                 'entrada_programada' => $horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--',
-                'entrada_real' => ($entradaReal = $this->normalizarMarcacionAsistencia($registro)['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
+                'entrada_real' => ($entradaReal = $marcacion['entrada']) ? substr($entradaReal, 0, 5) : '--:--',
                 'retraso' => $this->formatearMinutosEtiqueta($delay),
                 'minutos_retraso' => $delay,
                 'estado' => 'Atraso (' . $delay . ' min)',
@@ -1670,8 +1671,9 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $delay = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
 
@@ -2042,8 +2044,9 @@ class AnalisisAsistenciaService
         foreach ($registros as $registro) {
             $empleado = $registro->empleado;
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
+            $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $minutosRetraso = $this->calcularMinutosRetraso(
-                $registro->hora_entrada,
+                $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
 
@@ -2360,7 +2363,7 @@ class AnalisisAsistenciaService
         }
     }
 
-    private function normalizarMarcacionAsistencia(RegistroAsistencia $registro): array
+    public function normalizarMarcacionAsistencia(RegistroAsistencia $registro): array
     {
         $entrada = $this->normalizarHoraSimple($registro->hora_entrada);
         $salida = $this->normalizarHoraSimple($registro->hora_salida);

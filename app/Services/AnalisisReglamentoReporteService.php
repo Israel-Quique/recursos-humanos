@@ -40,7 +40,7 @@ class AnalisisReglamentoReporteService
             ->whereDate('fecha', '>=', $yearStart)
             ->whereDate('fecha', '<', $start)
             ->whereNotNull('hora_entrada')
-            ->get(['empleado_id', 'fecha', 'hora_entrada'])
+            ->get(['empleado_id', 'fecha', 'hora_entrada', 'hora_salida', 'estado_marcacion', 'evento_biometrico'])
             ->groupBy('empleado_id');
 
         $reporteBase = $preloadedBase ?? $this->analisisAsistencia->reporteMensualNoMarcadosYAtrasos($referenceMonth, $branch);
@@ -834,7 +834,7 @@ class AnalisisReglamentoReporteService
             ->whereDate('fecha', '>=', $startDate)
             ->whereDate('fecha', '<', $endDate)
             ->whereNotNull('hora_entrada')
-            ->get(['fecha', 'hora_entrada']);
+            ->get(['fecha', 'hora_entrada', 'hora_salida', 'estado_marcacion', 'evento_biometrico']);
 
         if (!$registros || $registros->isEmpty()) {
             return self::$reincidenciaCache[$cacheKey] = 0;
@@ -860,7 +860,9 @@ class AnalisisReglamentoReporteService
                     continue;
                 }
 
-                $delay = $this->analisisAsistencia->calcularMinutosRetraso($reg->hora_entrada, $horaProg);
+                $reg->setRelation('empleado', $empleado);
+                $marcacion = $this->analisisAsistencia->normalizarMarcacionAsistencia($reg);
+                $delay = $this->analisisAsistencia->calcularMinutosRetraso($marcacion['entrada'], $horaProg);
                 $minutosMes += $delay;
             }
 
@@ -889,7 +891,7 @@ class AnalisisReglamentoReporteService
             ->whereDate('fecha', '>=', $startDate)
             ->whereDate('fecha', '<', $endDate)
             ->whereNotNull('hora_entrada')
-            ->get(['fecha', 'hora_entrada']);
+            ->get(['fecha', 'hora_entrada', 'hora_salida', 'estado_marcacion', 'evento_biometrico']);
 
         if (!$registros || $registros->isEmpty()) {
             return [];
@@ -920,7 +922,9 @@ class AnalisisReglamentoReporteService
                     continue;
                 }
 
-                $delay = $this->analisisAsistencia->calcularMinutosRetraso($reg->hora_entrada, $horaProg);
+                $reg->setRelation('empleado', $empleado);
+                $marcacion = $this->analisisAsistencia->normalizarMarcacionAsistencia($reg);
+                $delay = $this->analisisAsistencia->calcularMinutosRetraso($marcacion['entrada'], $horaProg);
                 $minutosMes += $delay;
             }
 

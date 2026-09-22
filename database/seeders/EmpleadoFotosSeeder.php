@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Empleado;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -44,7 +45,7 @@ class EmpleadoFotosSeeder extends Seeder
             File::makeDirectory($targetDir, 0755, true);
         }
 
-        $guardarComoBase64EnBd = (bool) env('SEED_FOTOS_AS_BASE64', false);
+        $guardarComoBase64EnBd = (bool) env('SEED_FOTOS_AS_BASE64', true);
 
         $vinculados = 0;
         $noEncontrados = 0;
@@ -86,8 +87,8 @@ class EmpleadoFotosSeeder extends Seeder
                 continue;
             }
 
-            // Restaurar archivo físico a partir de base64 si no existe o si se solicita
-            if (! empty($base64Data)) {
+            // Restaurar archivo físico a partir de base64 si no se guarda en BD
+            if (! $guardarComoBase64EnBd && ! empty($base64Data)) {
                 $targetFilePath = $targetDir . DIRECTORY_SEPARATOR . $filename;
                 $binaryContent = base64_decode($base64Data);
                 if ($binaryContent !== false) {
@@ -95,7 +96,7 @@ class EmpleadoFotosSeeder extends Seeder
                 }
             }
 
-            // Asignar en BD: ruta relativa estándar o data-uri en base64
+            // Asignar en BD: data-uri en base64 (por defecto) o ruta relativa
             if ($guardarComoBase64EnBd && ! empty($dataUri)) {
                 $empleado->foto = $dataUri;
             } else {
@@ -103,6 +104,18 @@ class EmpleadoFotosSeeder extends Seeder
             }
 
             $empleado->save();
+
+            // Si tiene usuario vinculado, asignar la misma foto
+            $linkedUser = User::query()->where('empleado_id', $empleado->id)->first();
+            if ($linkedUser) {
+                if ($guardarComoBase64EnBd && ! empty($dataUri)) {
+                    $linkedUser->foto = $dataUri;
+                } elseif (empty($linkedUser->foto)) {
+                    $linkedUser->foto = $relativePath;
+                }
+                $linkedUser->save();
+            }
+
             $vinculados++;
         }
 
