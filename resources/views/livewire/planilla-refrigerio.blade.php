@@ -1,5 +1,86 @@
 <div class="page-stack">
 
+  <style>
+    /* Estilos explícitos de alta visibilidad para celdas de asistencia */
+    .celda-cuadrito {
+      padding: 0 !important;
+      text-align: center !important;
+      position: relative !important;
+      height: 34px !important;
+      min-width: 36px !important;
+      max-width: 40px !important;
+      transition: all 0.15s ease-in-out !important;
+    }
+    .celda-cuadrito-p {
+      background-color: #f8fafc !important;
+      border-right: 1px solid #cbd5e1 !important;
+      border-bottom: 1px solid #cbd5e1 !important;
+    }
+    .celda-cuadrito-p:hover {
+      background-color: #dcfce7 !important;
+    }
+    .celda-cuadrito-f {
+      background-color: #fee2e2 !important;
+      border: 2px solid #ef4444 !important;
+      box-shadow: inset 0 0 0 1px #dc2626 !important;
+    }
+    .celda-cuadrito-f:hover {
+      background-color: #fecdd3 !important;
+    }
+    .celda-cuadrito-o {
+      background-color: #fef3c7 !important;
+      border: 2px solid #f59e0b !important;
+      box-shadow: inset 0 0 0 1px #d97706 !important;
+    }
+    .celda-cuadrito-o:hover {
+      background-color: #fde68a !important;
+    }
+    .celda-cuadrito-bm {
+      background-color: #dbeafe !important;
+      border: 2px solid #3b82f6 !important;
+      box-shadow: inset 0 0 0 1px #2563eb !important;
+    }
+    .celda-cuadrito-bm:hover {
+      background-color: #bfdbfe !important;
+    }
+    .celda-cuadrito-cv {
+      background-color: #ede9fe !important;
+      border: 2px solid #8b5cf6 !important;
+      box-shadow: inset 0 0 0 1px #7c3aed !important;
+    }
+    .celda-cuadrito-cv:hover {
+      background-color: #ddd6fe !important;
+    }
+
+    .select-cuadrito {
+      width: 100% !important;
+      height: 34px !important;
+      line-height: 34px !important;
+      text-align: center !important;
+      text-align-last: center !important;
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      border: none !important;
+      outline: none !important;
+      background-color: transparent !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      box-shadow: none !important;
+    }
+    .select-cuadrito option {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      font-weight: 700 !important;
+      font-size: 13px !important;
+      text-align: center !important;
+      padding: 4px 8px !important;
+    }
+  </style>
+
   {{-- ============================================================ --}}
   {{-- MODAL: DESGLOSE DE FECHAS E INCIDENCIAS                      --}}
   {{-- ============================================================ --}}
@@ -341,133 +422,236 @@
   </div>
 
   {{-- ============================================================ --}}
-  {{-- VISTA 1: TABLA CONSOLIDADA INTERACTIVA                       --}}
+  {{-- VISTA 1: MATRIZ DE CONTROL DE ASISTENCIA DEL PERSONAL        --}}
+  {{-- (IDÉNTICA A LA IMAGEN DE REFERENCIA)                         --}}
   {{-- ============================================================ --}}
   @if($vistaFormato === 'consolidado')
-    <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table class="w-full text-left text-xs border-collapse">
-        <thead class="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
-          <tr>
-            <th class="py-3.5 px-3 text-center w-12">N°</th>
-            <th class="py-3.5 px-3 text-center w-20">Código</th>
-            <th class="py-3.5 px-4 min-w-[180px]">Funcionario</th>
-            <th class="py-3.5 px-3 w-28">Sucursal</th>
-            <th class="py-3.5 px-2 text-center w-24 bg-rose-950/60 text-rose-200 border-l border-white/10" title="Días de falta injustificada">
-              Faltas<br><span class="text-[9px] font-normal opacity-80">(Días)</span>
-            </th>
-            <th class="py-3.5 px-2 text-center w-24 bg-amber-950/60 text-amber-200 border-l border-white/10" title="Días con omisión de marcación">
-              Omisiones<br><span class="text-[9px] font-normal opacity-80">(Días)</span>
-            </th>
-            <th class="py-3.5 px-2 text-center w-24 bg-blue-950/60 text-blue-200 border-l border-white/10" title="Días con baja médica autorizada">
-              Bajas Médicas<br><span class="text-[9px] font-normal opacity-80">(Días)</span>
-            </th>
-            <th class="py-3.5 px-2 text-center w-24 bg-purple-950/60 text-purple-200 border-l border-white/10" title="Días en comisión de viaje laboral">
-              Comisión Viaje<br><span class="text-[9px] font-normal opacity-80">(Días)</span>
-            </th>
-            <th class="py-3.5 px-3 text-center w-28 bg-amber-500/20 text-amber-300 font-black border-l border-white/20">
-              Total Días<br><span class="text-[9px] font-normal opacity-80">Sumatoria</span>
-            </th>
-            <th class="py-3.5 px-3 text-right w-32 bg-red-600/30 text-red-200 font-black border-l border-white/20">
-              Total a No Pagar<br><span class="text-[9px] font-normal opacity-80">(Bs. {{ number_format((float) ($tarifaDiaria ?: 0), 2) }}/día)</span>
-            </th>
-            <th class="py-3.5 px-3 text-center w-20">Detalle</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100 text-slate-800">
-          @forelse($filteredItems as $idx => $item)
-            @php
-              $origIdx = array_search($item['empleado_id'], array_column($items, 'empleado_id'));
-              if ($origIdx === false) { $origIdx = $idx; }
-              $hasDescuento = ($item['total_dias'] ?? 0) > 0;
-            @endphp
-            <tr class="hover:bg-slate-50/80 transition {{ $hasDescuento ? 'bg-rose-50/20' : '' }}">
-              <td class="py-3 px-3 text-center text-slate-400 font-mono">{{ $idx + 1 }}</td>
-              <td class="py-3 px-3 text-center font-mono font-bold text-slate-600">{{ $item['codigo'] }}</td>
-              <td class="py-3 px-4">
-                <p class="font-bold text-slate-900 text-sm">{{ $item['nombre'] }}</p>
-                <p class="text-[11px] text-slate-500">{{ $item['cargo'] }} · {{ $item['area'] }}</p>
-              </td>
-              <td class="py-3 px-3 font-semibold text-slate-700">{{ $item['sucursal'] }}</td>
+    <div class="rounded-2xl border border-slate-300 bg-white shadow-sm overflow-hidden mb-6">
+      {{-- Cabecera azul principal según la imagen --}}
+      <div class="bg-[#0f4c81] text-white px-5 py-3 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+        <h2 class="text-base sm:text-lg font-black tracking-wider uppercase flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <span>CONTROL DE ASISTENCIA DEL PERSONAL</span>
+        </h2>
+        <div class="inline-flex items-center gap-2 rounded-md border border-white/25 bg-white/15 px-3 py-1 text-xs font-bold tracking-wide text-white backdrop-blur-xs">
+          <span class="text-sky-200 font-semibold">Mes:</span>
+          <span>{{ $periodoLabel }}</span>
+        </div>
+      </div>
 
-              {{-- Input Editable Faltas --}}
-              <td class="py-2 px-2 text-center border-l border-slate-100 bg-rose-50/30">
-                <input type="number" min="0" max="31"
-                  value="{{ $item['faltas'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'faltas', $event.target.value)"
-                  class="w-16 rounded-md border border-rose-200 bg-white px-2 py-1 text-center font-bold text-rose-900 shadow-2xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 focus:outline-none">
-              </td>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse border-slate-300">
+          <thead>
+            <tr class="bg-[#e2e8f0] text-slate-800 text-[11px] font-bold border-b border-slate-300">
+              <th class="py-2.5 px-2 text-center w-10 border-r border-slate-300">N°</th>
+              <th class="py-2.5 px-3 text-left min-w-[200px] border-r border-slate-300">Nombre y Apellido</th>
 
-              {{-- Input Editable Omisiones --}}
-              <td class="py-2 px-2 text-center border-l border-slate-100 bg-amber-50/30">
-                <input type="number" min="0" max="31"
-                  value="{{ $item['omisiones'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'omisiones', $event.target.value)"
-                  class="w-16 rounded-md border border-amber-200 bg-white px-2 py-1 text-center font-bold text-amber-900 shadow-2xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none">
-              </td>
+              {{-- Columnas de días hábiles (Lunes a Viernes, quita sábados y domingos) --}}
+              @foreach($diasMes as $dia)
+                <th class="py-2 px-1 text-center w-9 min-w-[34px] max-w-[38px] border-r border-slate-300 bg-[#e0f2fe]/70 select-none" title="{{ $dia['fecha_corta'] }}">
+                  <div class="flex flex-col items-center justify-end h-16 pb-1">
+                    <span class="text-[9px] font-mono font-semibold text-slate-600 -rotate-90 whitespace-nowrap mb-2 origin-center tracking-tight">{{ $dia['dia'] }}/{{ substr($dia['fecha_corta'], 3, 2) }}</span>
+                    <span class="text-[10.5px] font-extrabold text-slate-800 mt-auto">{{ $dia['dia_nombre'] }}</span>
+                  </div>
+                </th>
+              @endforeach
 
-              {{-- Input Editable Bajas Médicas --}}
-              <td class="py-2 px-2 text-center border-l border-slate-100 bg-blue-50/30">
-                <input type="number" min="0" max="31"
-                  value="{{ $item['bajas_medicas'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'bajas_medicas', $event.target.value)"
-                  class="w-16 rounded-md border border-blue-200 bg-white px-2 py-1 text-center font-bold text-blue-900 shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none">
-              </td>
-
-              {{-- Input Editable Comisiones de Viaje --}}
-              <td class="py-2 px-2 text-center border-l border-slate-100 bg-purple-50/30">
-                <input type="number" min="0" max="31"
-                  value="{{ $item['comisiones_viaje'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'comisiones_viaje', $event.target.value)"
-                  class="w-16 rounded-md border border-purple-200 bg-white px-2 py-1 text-center font-bold text-purple-900 shadow-2xs focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none">
-              </td>
-
-              {{-- Sumatoria de Días --}}
-              <td class="py-3 px-3 text-center font-extrabold text-sm border-l border-slate-100 {{ $hasDescuento ? 'text-amber-800 bg-amber-50/60 font-black' : 'text-slate-400' }}">
-                {{ $item['total_dias'] ?? 0 }} d
-              </td>
-
-              {{-- Cuánto No se Debe Pagar (Bs.) --}}
-              <td class="py-3 px-3 text-right font-mono font-black text-sm border-l border-slate-100 {{ $hasDescuento ? 'text-rose-700 bg-rose-50/60' : 'text-slate-400' }}">
-                Bs. {{ number_format($item['total_monto'] ?? 0, 2) }}
-              </td>
-
-              {{-- Botón Detalle Fechas --}}
-              <td class="py-3 px-3 text-center">
-                <button type="button" wire:click="abrirDetalleFechas({{ $origIdx }})"
-                  class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
-                  title="Ver detalle de fechas y motivos">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              </td>
+              {{-- Columnas de días de descuento y montos a la derecha --}}
+              <th class="py-2.5 px-2 text-center w-20 min-w-[75px] border-r border-slate-300 bg-amber-100/90 text-amber-950 font-black" title="Total de días a descontar">
+                Días Desc.<br><span class="text-[8.5px] font-bold text-amber-800">(Total)</span>
+              </th>
+              <th class="py-2.5 px-2.5 text-right w-24 min-w-[95px] border-r border-slate-300 bg-rose-100/90 text-rose-950 font-black" title="Monto a no pagar">
+                A No Pagar<br><span class="text-[8px] font-bold text-rose-800">(Bs. {{ number_format((float) ($tarifaDiaria ?: 0), 2) }}/d)</span>
+              </th>
+              <th class="py-2.5 px-1.5 text-center w-10 min-w-[40px] text-slate-700 font-bold" title="Detalle de incidencias">
+                Info
+              </th>
             </tr>
-          @empty
+          </thead>
+          <tbody class="divide-y divide-slate-200 text-slate-800">
+            @forelse($filteredItems as $idx => $item)
+              @php
+                $origIdx = array_search($item['empleado_id'], array_column($items, 'empleado_id'));
+                if ($origIdx === false) { $origIdx = $idx; }
+                $hasDescuento = ($item['total_dias'] ?? 0) > 0;
+                $diasItem = $item['dias'] ?? [];
+              @endphp
+              <tr class="hover:bg-sky-50/30 transition {{ $hasDescuento ? 'bg-amber-50/15' : '' }}">
+                <td class="py-2 px-2 text-center text-slate-500 font-mono text-xs border-r border-slate-200">{{ $idx + 1 }}</td>
+                <td class="py-2 px-3 border-r border-slate-200 whitespace-nowrap">
+                  <div>
+                    <span class="font-bold text-slate-900 text-xs">{{ $item['nombre'] }}</span>
+                    <span class="text-[10px] text-slate-400 font-mono ml-1">({{ $item['codigo'] }})</span>
+                  </div>
+                </td>
+
+                {{-- Celdas interactivas por cada día hábil con colores que resaltan --}}
+                @foreach($diasMes as $dia)
+                  @php
+                    $st = strtolower($diasItem[$dia['fecha']] ?? 'p');
+                    $infoColor = match($st) {
+                      'f' => [
+                        'class' => 'celda-cuadrito celda-cuadrito-f',
+                        'td_style' => 'background-color: #fee2e2 !important; border: 2px solid #ef4444 !important;',
+                        'sel_style' => 'background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: 900 !important;',
+                        'title' => 'Falta (F)',
+                      ],
+                      'o' => [
+                        'class' => 'celda-cuadrito celda-cuadrito-o',
+                        'td_style' => 'background-color: #fef3c7 !important; border: 2px solid #f59e0b !important;',
+                        'sel_style' => 'background-color: #fef3c7 !important; color: #b45309 !important; font-weight: 900 !important;',
+                        'title' => 'Omisión (O)',
+                      ],
+                      'bm' => [
+                        'class' => 'celda-cuadrito celda-cuadrito-bm',
+                        'td_style' => 'background-color: #dbeafe !important; border: 2px solid #3b82f6 !important;',
+                        'sel_style' => 'background-color: #dbeafe !important; color: #1d4ed8 !important; font-weight: 900 !important;',
+                        'title' => 'Baja Médica (Bm)',
+                      ],
+                      'cv' => [
+                        'class' => 'celda-cuadrito celda-cuadrito-cv',
+                        'td_style' => 'background-color: #ede9fe !important; border: 2px solid #8b5cf6 !important;',
+                        'sel_style' => 'background-color: #ede9fe !important; color: #6d28d9 !important; font-weight: 900 !important;',
+                        'title' => 'Comisión de Viaje (Cv)',
+                      ],
+                      default => [
+                        'class' => 'celda-cuadrito celda-cuadrito-p',
+                        'td_style' => 'background-color: #f8fafc !important; border-right: 1px solid #cbd5e1 !important; border-bottom: 1px solid #cbd5e1 !important;',
+                        'sel_style' => 'background-color: transparent !important; color: #15803d !important; font-weight: 700 !important;',
+                        'title' => 'Presente (P)',
+                      ],
+                    };
+                  @endphp
+                  <td class="{{ $infoColor['class'] }}"
+                      style="{{ $infoColor['td_style'] }}"
+                      title="{{ $dia['dia_nombre'] }} {{ $dia['fecha_corta'] }}: {{ $infoColor['title'] }} - Click para cambiar estado">
+                    <select
+                      wire:change="actualizarEstadoDia({{ $origIdx }}, '{{ $dia['fecha'] }}', $event.target.value)"
+                      class="select-cuadrito"
+                      style="{{ $infoColor['sel_style'] }}"
+                      aria-label="Estado día {{ $dia['dia'] }}">
+                      <option value="p" {{ $st === 'p' ? 'selected' : '' }}>P</option>
+                      <option value="f" {{ $st === 'f' ? 'selected' : '' }}>F</option>
+                      <option value="o" {{ $st === 'o' ? 'selected' : '' }}>O</option>
+                      <option value="bm" {{ $st === 'bm' ? 'selected' : '' }}>Bm</option>
+                      <option value="cv" {{ $st === 'cv' ? 'selected' : '' }}>Cv</option>
+                    </select>
+                  </td>
+                @endforeach
+
+                {{-- Columna Total Días Descuento --}}
+                <td class="py-2 px-2 text-center border-r border-b border-slate-300 {{ $hasDescuento ? 'bg-amber-50/80 font-black' : 'text-slate-400' }}">
+                  @if($hasDescuento)
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-black bg-amber-200/90 text-amber-950 border border-amber-400 shadow-2xs">
+                      {{ $item['total_dias'] }} d
+                    </span>
+                  @else
+                    <span class="text-slate-400 font-semibold text-xs">0</span>
+                  @endif
+                </td>
+
+                {{-- Columna Monto A No Pagar (Bs.) --}}
+                <td class="py-2 px-2.5 text-right font-mono text-xs border-r border-b border-slate-300 {{ $hasDescuento ? 'bg-rose-50/80 font-black text-rose-800' : 'text-slate-400' }}">
+                  Bs. {{ number_format($item['total_monto'], 2) }}
+                </td>
+
+                {{-- Botón Info / Detalle de Fechas --}}
+                <td class="py-2 px-1 text-center border-b border-slate-300">
+                  <button type="button" wire:click="abrirDetalleFechas({{ $origIdx }})"
+                    class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-sky-700 hover:bg-sky-50 hover:border-sky-300 transition"
+                    title="Ver detalle de incidencias de {{ $item['nombre'] }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="{{ count($diasMes) + 5 }}" class="py-12 text-center text-slate-400">
+                  No se encontraron funcionarios para los filtros seleccionados.
+                </td>
+              </tr>
+            @endforelse
+          </tbody>
+          <tfoot class="bg-slate-100 text-slate-900 font-extrabold text-xs border-t-2 border-slate-300">
             <tr>
-              <td colspan="11" class="py-12 text-center text-slate-400">
-                No se encontraron funcionarios para los filtros seleccionados.
+              <td colspan="{{ count($diasMes) + 2 }}" class="py-3 px-4 text-right uppercase tracking-wider text-slate-700 font-bold">
+                Totales Generales:
               </td>
+              <td class="py-3 px-2 text-center text-amber-950 border-l border-slate-300 bg-amber-100/90 text-xs font-black">
+                {{ $metricas['gran_total_dias'] }} días
+              </td>
+              <td class="py-3 px-2.5 text-right text-rose-950 border-l border-slate-300 bg-rose-100/90 font-mono text-xs font-black">
+                Bs. {{ number_format($metricas['gran_total_monto'], 2) }}
+              </td>
+              <td class="border-l border-slate-300 bg-slate-100"></td>
             </tr>
-          @endforelse
-        </tbody>
-        <tfoot class="bg-slate-100 text-slate-900 font-extrabold text-xs border-t-2 border-slate-300">
-          <tr>
-            <td colspan="4" class="py-3.5 px-4 text-right uppercase tracking-wider">Totales Generales:</td>
-            <td class="py-3.5 px-2 text-center text-rose-800 border-l border-slate-200">{{ $metricas['total_faltas'] }}</td>
-            <td class="py-3.5 px-2 text-center text-amber-800 border-l border-slate-200">{{ $metricas['total_omisiones'] }}</td>
-            <td class="py-3.5 px-2 text-center text-blue-800 border-l border-slate-200">{{ $metricas['total_bajas_medicas'] }}</td>
-            <td class="py-3.5 px-2 text-center text-purple-800 border-l border-slate-200">{{ $metricas['total_comisiones_viaje'] }}</td>
-            <td class="py-3.5 px-3 text-center text-amber-900 border-l border-slate-300 bg-amber-100/70 text-sm font-black">
-              {{ $metricas['gran_total_dias'] }} días
-            </td>
-            <td class="py-3.5 px-3 text-right text-rose-900 border-l border-slate-300 bg-rose-100/80 font-mono text-base font-black">
-              Bs. {{ number_format($metricas['gran_total_monto'], 2) }}
-            </td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+          </tfoot>
+        </table>
+      </div>
+
+      {{-- SECCIÓN SIMBOLOGÍA (según imagen de referencia) --}}
+      <div class="border-t-2 border-slate-300">
+        <div class="bg-[#0f4c81] text-white px-5 py-2.5 font-black text-xs uppercase tracking-wider flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>SIMBOLOGÍA</span>
+        </div>
+        <div class="p-4 bg-slate-50 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          {{-- P: Presente --}}
+          <div class="rounded-xl border border-emerald-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-[#dcfce7] text-[#15803d] font-black text-sm flex items-center justify-center border border-emerald-300 shadow-xs">P</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Presente</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">El colaborador realizó su jornada laboral.</p>
+          </div>
+
+          {{-- F: Falta --}}
+          <div class="rounded-xl border border-rose-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-[#fee2e2] text-[#b91c1c] font-black text-sm flex items-center justify-center border border-rose-300 shadow-xs">F</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Falta</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">No asistió a su jornada.</p>
+          </div>
+
+          {{-- O: Omisión --}}
+          <div class="rounded-xl border border-amber-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-[#fef3c7] text-[#b45309] font-black text-sm flex items-center justify-center border border-amber-300 shadow-xs">O</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Omisión</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">No registró entrada o salida.</p>
+          </div>
+
+          {{-- Bm: Baja médica --}}
+          <div class="rounded-xl border border-sky-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-[#dbeafe] text-[#1d4ed8] font-black text-xs flex items-center justify-center border border-sky-300 shadow-xs">Bm</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Baja médica</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">Incapacidad médica o reposo.</p>
+          </div>
+
+          {{-- Cv: Comisión de viaje --}}
+          <div class="rounded-xl border border-purple-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-[#ede9fe] text-[#6d28d9] font-black text-xs flex items-center justify-center border border-purple-300 shadow-xs">Cv</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Comisión viaje</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">En comisión de trabajo o viaje laboral.</p>
+          </div>
+        </div>
+        <div class="px-5 py-2 bg-slate-100 border-t border-slate-200 text-[11px] text-slate-500 italic">
+          Nota: La presente planilla es el control de asistencia para el cálculo y descuento de refrigerio / comida del personal institucional.
+        </div>
+      </div>
     </div>
   @endif
 
@@ -497,7 +681,6 @@
             <h3 class="mt-2 text-sm font-extrabold leading-tight {{ $hasDescuento ? 'text-white' : 'text-slate-900' }}">
               {{ $item['nombre'] }}
             </h3>
-            <p class="text-[11px] opacity-80 truncate">{{ $item['cargo'] }}</p>
           </div>
 
           {{-- Filas de Conceptos Verticales --}}

@@ -60,6 +60,11 @@ class Empleado extends Model
         return $this->hasMany(RegistroAsistencia::class, 'empleado_id');
     }
 
+    public function permisos(): HasMany
+    {
+        return $this->hasMany(PermisoLaboral::class, 'empleado_id');
+    }
+
     public function getFotoUrlAttribute(): ?string
     {
         if (! empty($this->foto)) {

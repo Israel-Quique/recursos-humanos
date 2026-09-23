@@ -128,6 +128,70 @@ class PlanillaRefrigerioTest extends TestCase
 
         // Cuánto no se debe pagar: 8 días * Bs. 20 = Bs. 160.00
         $this->assertEquals(160.00, $itemEmp['total_monto'], 'Total a no pagar debe ser Bs. 160');
+
+        // Validar que se excluyen sábados y domingos
+        $this->assertNotEmpty($resultado['dias_mes']);
+        foreach ($resultado['dias_mes'] as $dm) {
+            $this->assertNotContains($dm['dia_nombre'], ['Sáb', 'Dom'], 'No debe contener sábados ni domingos');
+        }
+
+        // Validar códigos en la matriz
+        $this->assertEquals('f', $itemEmp['dias']['2026-09-02'] ?? '');
+        $this->assertEquals('o', $itemEmp['dias']['2026-09-03'] ?? '');
+        $this->assertEquals('o', $itemEmp['dias']['2026-09-04'] ?? '');
+        $this->assertEquals('bm', $itemEmp['dias']['2026-09-08'] ?? '');
+        $this->assertEquals('bm', $itemEmp['dias']['2026-09-09'] ?? '');
+        $this->assertEquals('cv', $itemEmp['dias']['2026-09-15'] ?? '');
+        $this->assertEquals('cv', $itemEmp['dias']['2026-09-16'] ?? '');
+        $this->assertEquals('cv', $itemEmp['dias']['2026-09-17'] ?? '');
+    }
+
+    public function test_livewire_actualizar_estado_dia_recalcula_y_guarda(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-20 12:00:00'));
+
+        $user = User::query()->create([
+            'name' => 'Test User Matrix',
+            'email' => 'matrix@correos.bo',
+            'password' => bcrypt('password'),
+        ]);
+        $user->givePermissionTo('gestionar personal');
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Mamani',
+            'codigo_biometrico' => '4004',
+            'sucursal' => 'La Paz',
+            'area' => 'Operaciones',
+            'cargo' => 'Auxiliar',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-09-01',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(PlanillaRefrigerioPage::class)
+            ->assertSee('CONTROL DE ASISTENCIA DEL PERSONAL')
+            ->assertSee('SIMBOLOGÍA')
+            ->assertSee('Carlos Mamani')
+            ->call('actualizarEstadoDia', 0, '2026-09-01', 'f')
+            ->call('actualizarEstadoDia', 0, '2026-09-02', 'o')
+            ->call('actualizarEstadoDia', 0, '2026-09-03', 'bm')
+            ->call('actualizarEstadoDia', 0, '2026-09-04', 'cv')
+            ->call('guardarPlanilla');
+
+        $saved = PlanillaRefrigerio::query()
+            ->where('periodo', '2026-09')
+            ->first();
+
+        $this->assertNotNull($saved);
+        $savedEmp = collect($saved->datos['items'])->firstWhere('empleado_id', $empleado->id);
+        $this->assertEquals(4, $savedEmp['total_dias']);
+        $this->assertEquals(80.00, $savedEmp['total_monto']);
+        $this->assertEquals('f', $savedEmp['dias']['2026-09-01']);
+        $this->assertEquals('o', $savedEmp['dias']['2026-09-02']);
+        $this->assertEquals('bm', $savedEmp['dias']['2026-09-03']);
+        $this->assertEquals('cv', $savedEmp['dias']['2026-09-04']);
     }
 
     public function test_livewire_permite_editar_dias_y_guarda_planilla(): void
@@ -241,5 +305,53 @@ class PlanillaRefrigerioTest extends TestCase
             ->test(PlanillaRefrigerioPage::class)
             ->call('descargarPdf')
             ->assertFileDownloaded();
+    }
+
+    public function test_render_no_contiene_p_p_y_muestra_solo_siglas_limpias(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-20 12:00:00'));
+
+        $user = User::query()->create([
+            'name' => 'Compact Tester',
+            'email' => 'compact@correos.bo',
+            'password' => bcrypt('password'),
+        ]);
+        $user->givePermissionTo('gestionar personal');
+
+        Empleado::query()->create([
+            'nombre' => 'Luis',
+            'apellido' => 'Apaza',
+            'codigo_biometrico' => '5005',
+            'sucursal' => 'La Paz',
+            'area' => 'Operaciones',
+            'cargo' => 'Auxiliar',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-09-01',
+        ]);
+
+        $test = Livewire::actingAs($user)->test(PlanillaRefrigerioPage::class);
+
+        // No debe tener "P - Presente" ni el truncamiento "P-P"
+        $test->assertDontSee('P - Presente');
+        $test->assertDontSee('F - Falta');
+        $test->assertDontSee('O - Omisión');
+        $test->assertDontSee('Bm - Baja médica');
+        $test->assertDontSee('Cv - Comisión de viaje');
+
+        // Debe ver las opciones compactas
+        $test->assertSee('<option value="p"', false);
+        $test->assertSee('>P</option>', false);
+        $test->assertSee('>F</option>', false);
+        $test->assertSee('>O</option>', false);
+        $test->assertSee('>Bm</option>', false);
+        $test->assertSee('>Cv</option>', false);
+
+        // No debe mostrar el apartado lateral de resumen de faltas, omisiones, bajas y comisiones en la tabla
+        $test->assertDontSee('F<br><span class="text-[8.5px]', false);
+        $test->assertDontSee('O<br><span class="text-[8.5px]', false);
+        $test->assertDontSee('Bm<br><span class="text-[8.5px]', false);
+        $test->assertDontSee('Cv<br><span class="text-[8.5px]', false);
+        $test->assertDontSee('Total días descuento sumados');
     }
 }

@@ -19,6 +19,7 @@ class PlanillaRefrigerioPage extends Component
     public string $search = '';
     public string $vistaFormato = 'consolidado'; // 'consolidado' | 'vertical'
     public array $items = [];
+    public array $diasMes = [];
     public bool $isDirty = false;
     public ?string $ultimaGuardada = null;
 
@@ -78,14 +79,32 @@ class PlanillaRefrigerioPage extends Component
      */
     public function cargarPlanilla(): void
     {
+        try {
+            $ref = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+        } catch (\Throwable) {
+            $ref = now()->startOfMonth();
+        }
+
+        $service = app(PlanillaRefrigerioService::class);
+        $this->diasMes = $service->obtenerDiasHabilesMes($ref);
+
         $registro = PlanillaRefrigerio::query()
             ->where('periodo', $this->referenceMonth)
             ->where('sucursal', $this->selectedBranch ?: null)
             ->first();
 
         if ($registro && !empty($registro->datos['items'] ?? [])) {
+            $itemsLoaded = $registro->datos['items'];
+            $primerItem = $itemsLoaded[0] ?? [];
+
+            // Si la planilla guardada no tiene matriz de días o está vacía, calcular fresco
+            if (empty($primerItem['dias'] ?? [])) {
+                $this->jalarDatos(false);
+                return;
+            }
+
             $this->tarifaDiaria = (float) $registro->tarifa_diaria;
-            $this->items = $registro->datos['items'];
+            $this->items = $itemsLoaded;
             $this->ultimaGuardada = $registro->updated_at?->format('d/m/Y H:i');
             $this->isDirty = false;
             return;
@@ -109,6 +128,7 @@ class PlanillaRefrigerioPage extends Component
         $resultado = $service->calcularPlanilla($ref, $this->selectedBranch, $this->tarifaDiaria);
 
         $this->items = $resultado['items'];
+        $this->diasMes = $resultado['dias_mes'] ?? $service->obtenerDiasHabilesMes($ref);
         $this->tarifaDiaria = (float) $resultado['tarifa_diaria'];
         $this->isDirty = true;
 
@@ -118,7 +138,96 @@ class PlanillaRefrigerioPage extends Component
     }
 
     /**
-     * Actualiza el valor de un día (Faltas, Omisiones, Bajas, Comisiones) en vivo.
+     * Alterna en ciclo el estado de un día: P -> F -> O -> Bm -> Cv -> P
+     */
+    public function alternarEstadoDia(int $index, string $fecha): void
+    {
+        if (!isset($this->items[$index])) {
+            return;
+        }
+
+        $actual = strtolower($this->items[$index]['dias'][$fecha] ?? 'p');
+        $siguiente = match ($actual) {
+            'p' => 'f',
+            'f' => 'o',
+            'o' => 'bm',
+            'bm' => 'cv',
+            'cv' => 'p',
+            default => 'p',
+        };
+
+        $this->actualizarEstadoDia($index, $fecha, $siguiente);
+    }
+
+    /**
+     * Actualiza el estado de un día específico (p, f, o, bm, cv) y recalcula totales en vivo.
+     */
+    public function actualizarEstadoDia(int $index, string $fecha, string $nuevoEstado): void
+    {
+        if (!isset($this->items[$index])) {
+            return;
+        }
+
+        $nuevoEstado = strtolower(trim($nuevoEstado));
+        if (!in_array($nuevoEstado, ['p', 'f', 'o', 'bm', 'cv'], true)) {
+            $nuevoEstado = 'p';
+        }
+
+        $this->items[$index]['dias'][$fecha] = $nuevoEstado;
+
+        // Recalcular conteos y desgloses
+        $faltas = 0;
+        $omisiones = 0;
+        $bajas = 0;
+        $comisiones = 0;
+
+        $fechasFaltas = [];
+        $fechasOmisiones = [];
+        $fechasBajas = [];
+        $fechasComisiones = [];
+
+        foreach ($this->items[$index]['dias'] as $fKey => $st) {
+            $st = strtolower($st);
+            try {
+                $fFormatted = Carbon::parse($fKey)->format('d/m/Y');
+            } catch (\Throwable) {
+                $fFormatted = $fKey;
+            }
+
+            if ($st === 'f') {
+                $faltas++;
+                $fechasFaltas[] = ['fecha' => $fFormatted, 'detalle' => 'Inasistencia injustificada'];
+            } elseif ($st === 'o') {
+                $omisiones++;
+                $fechasOmisiones[] = ['fecha' => $fFormatted, 'detalle' => 'Omisión de marcado'];
+            } elseif ($st === 'bm') {
+                $bajas++;
+                $fechasBajas[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Baja médica autorizada'];
+            } elseif ($st === 'cv') {
+                $comisiones++;
+                $fechasComisiones[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
+            }
+        }
+
+        $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
+        $totalDias = $faltas + $omisiones + $bajas + $comisiones;
+
+        $this->items[$index]['faltas'] = $faltas;
+        $this->items[$index]['omisiones'] = $omisiones;
+        $this->items[$index]['bajas_medicas'] = $bajas;
+        $this->items[$index]['comisiones_viaje'] = $comisiones;
+        $this->items[$index]['total_dias'] = $totalDias;
+        $this->items[$index]['total_monto'] = round($totalDias * $tarifa, 2);
+        $this->items[$index]['fechas_faltas'] = $fechasFaltas;
+        $this->items[$index]['fechas_omisiones'] = $fechasOmisiones;
+        $this->items[$index]['fechas_bajas'] = $fechasBajas;
+        $this->items[$index]['fechas_comisiones'] = $fechasComisiones;
+
+        $this->isDirty = true;
+    }
+
+    /**
+     * Actualiza el valor acumulado de un día (Faltas, Omisiones, Bajas, Comisiones) directamente.
      */
     public function actualizarDia(int $index, string $campo, $valor): void
     {
@@ -160,6 +269,7 @@ class PlanillaRefrigerioPage extends Component
     {
         $datos = [
             'items' => $this->items,
+            'dias_mes' => $this->diasMes,
             'metricas' => $this->calcularMetricas(),
         ];
 
@@ -193,6 +303,7 @@ class PlanillaRefrigerioPage extends Component
             'periodo_label' => ucfirst(Carbon::createFromFormat('Y-m', $this->referenceMonth)->locale('es')->translatedFormat('F Y')),
             'sucursal' => $this->selectedBranch ?: 'Todas las sucursales',
             'tarifa_diaria' => $tarifa,
+            'dias_mes' => $this->diasMes,
             'items' => $this->items,
         ];
 
@@ -219,6 +330,7 @@ class PlanillaRefrigerioPage extends Component
 
         $pdf = Pdf::loadView('pdf.planilla-refrigerio', [
             'items' => $this->items,
+            'diasMes' => $this->diasMes,
             'periodoLabel' => $periodoLabel,
             'sucursalLabel' => $sucursalLabel,
             'tarifaDiaria' => $tarifa,
@@ -296,6 +408,7 @@ class PlanillaRefrigerioPage extends Component
         return view('livewire.planilla-refrigerio', [
             'branches' => $branches,
             'filteredItems' => $filteredItems,
+            'diasMes' => $this->diasMes,
             'metricas' => $metricas,
             'periodoLabel' => $periodoLabel,
         ])->layout('layouts.app', ['title' => 'Planilla de Descuento de Refrigerio / Comida']);

@@ -1001,7 +1001,7 @@ class AnalisisAsistenciaService
         $diasSinMarcar = collect($this->detalleFaltasEnRango($monthStart, $monthEnd, $branch))
             ->map(fn(array $falta) => [
                 'empleado_id' => (int) ($falta['empleado_id'] ?? 0),
-                'fecha' => str((string) ($falta['detalle'] ?? ''))->before(' -')->toString() ?: 'Sin fecha',
+                'fecha' => $falta['fecha'] ?? (str((string) ($falta['detalle'] ?? ''))->before(' -')->toString() ?: 'Sin fecha'),
                 'nombre' => $falta['nombre'] ?? 'Sin personal',
                 'codigo' => $falta['codigo'] ?? '',
                 'sucursal' => $falta['sucursal'] ?? 'Sin sucursal',
@@ -1972,6 +1972,10 @@ class AnalisisAsistenciaService
                 }
 
                 $details[] = [
+                    'empleado_id' => (int) $empleado->id,
+                    'codigo' => (string) ($empleado->codigo_biometrico ?: $empleado->id),
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'fecha' => $current->format('d/m/Y'),
                     'nombre' => $empleado->nombre_completo,
                     'detalle' => $current->format('d/m/Y') . ' - ' . $empleado->sucursal . ' - ausencia injustificada',
                 ];
