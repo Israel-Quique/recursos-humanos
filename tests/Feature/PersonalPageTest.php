@@ -540,6 +540,221 @@ class PersonalPageTest extends TestCase
         });
     }
 
+    public function test_personal_page_permite_dar_de_baja_desde_modal_editar(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Gonzalo',
+            'apellido' => 'Vargas',
+            'codigo_biometrico' => 'GV-555',
+            'email' => 'gonzalo.vargas@correos.gob.bo',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'fecha_despido' => null,
+            'created_by' => $user->id,
+        ]);
+
+        $this->assertSame('Activo', $empleado->estadoLaboral());
+
+        // Abrir modal de edición y dar de baja indicando fecha
+        $fechaCese = '2026-09-15';
+        Livewire::test('personal-page')
+            ->call('openEditModal', $empleado->id)
+            ->assertSet('editEstadoLaboral', 'activo')
+            ->set('editEstadoLaboral', 'inactivo')
+            ->set('editFechaDespido', $fechaCese)
+            ->call('updateEmpleado')
+            ->assertHasNoErrors()
+            ->assertSet('showEditModal', false);
+
+        $empleado->refresh();
+        $this->assertSame($fechaCese, $empleado->fecha_despido?->toDateString());
+        $this->assertSame('Inactivo', $empleado->estadoLaboral());
+
+        // Verificar registro de auditoría
+        $this->assertDatabaseHas('auditorias', [
+            'modulo' => 'Personal',
+            'accion' => 'editar',
+            'auditable_id' => $empleado->id,
+        ]);
+    }
+
+    public function test_personal_page_permite_reactivar_desde_modal_editar(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Silvia',
+            'apellido' => 'Morales',
+            'codigo_biometrico' => 'SM-777',
+            'email' => 'silvia.morales@correos.gob.bo',
+            'area' => 'Atención al Cliente',
+            'sucursal' => 'Cochabamba',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'fecha_despido' => '2026-08-31',
+            'created_by' => $user->id,
+        ]);
+
+        $this->assertSame('Inactivo', $empleado->estadoLaboral());
+
+        // Reactivar desde modal de edición
+        Livewire::test('personal-page')
+            ->call('openEditModal', $empleado->id)
+            ->assertSet('editEstadoLaboral', 'inactivo')
+            ->assertSet('editFechaDespido', '2026-08-31')
+            ->set('editEstadoLaboral', 'activo')
+            ->call('updateEmpleado')
+            ->assertHasNoErrors();
+
+        $empleado->refresh();
+        $this->assertNull($empleado->fecha_despido);
+        $this->assertSame('Activo', $empleado->estadoLaboral());
+    }
+
+    public function test_personal_page_modal_baja_permite_dar_de_baja_con_fecha_personalizada(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Javier',
+            'apellido' => 'Rios',
+            'codigo_biometrico' => 'JR-333',
+            'email' => 'javier.rios@correos.gob.bo',
+            'area' => 'Sistemas',
+            'sucursal' => 'Santa Cruz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'fecha_despido' => null,
+            'created_by' => $user->id,
+        ]);
+
+        // Abrir modal dedicado de baja
+        $fechaCese = '2026-09-10';
+        Livewire::test('personal-page')
+            ->call('openBajaModal', $empleado->id)
+            ->assertSet('showBajaModal', true)
+            ->assertSet('bajaEmpleadoId', $empleado->id)
+            ->set('bajaEstado', 'inactivo')
+            ->set('bajaFecha', $fechaCese)
+            ->set('bajaMotivo', 'Renuncia voluntaria presentada el 10/09')
+            ->call('guardarBaja')
+            ->assertHasNoErrors()
+            ->assertSet('showBajaModal', false);
+
+        $empleado->refresh();
+        $this->assertSame($fechaCese, $empleado->fecha_despido?->toDateString());
+        $this->assertSame('Inactivo', $empleado->estadoLaboral());
+
+        $this->assertDatabaseHas('auditorias', [
+            'modulo' => 'Personal',
+            'accion' => 'baja',
+            'auditable_id' => $empleado->id,
+        ]);
+    }
+
+    public function test_personal_page_modal_baja_permite_modificar_fecha_de_baja_y_reactivar(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Paola',
+            'apellido' => 'Flores',
+            'codigo_biometrico' => 'PF-888',
+            'email' => 'paola.flores@correos.gob.bo',
+            'area' => 'Contabilidad',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'fecha_despido' => '2026-08-01',
+            'created_by' => $user->id,
+        ]);
+
+        // 1. Modificar fecha de baja
+        Livewire::test('personal-page')
+            ->call('openBajaModal', $empleado->id)
+            ->assertSet('bajaEstado', 'inactivo')
+            ->assertSet('bajaFecha', '2026-08-01')
+            ->set('bajaFecha', '2026-08-15')
+            ->call('guardarBaja')
+            ->assertHasNoErrors();
+
+        $empleado->refresh();
+        $this->assertSame('2026-08-15', $empleado->fecha_despido?->toDateString());
+
+        // 2. Reactivar colaborador desde modal de baja
+        Livewire::test('personal-page')
+            ->call('openBajaModal', $empleado->id)
+            ->set('bajaEstado', 'activo')
+            ->call('guardarBaja')
+            ->assertHasNoErrors();
+
+        $empleado->refresh();
+        $this->assertNull($empleado->fecha_despido);
+        $this->assertSame('Activo', $empleado->estadoLaboral());
+
+        $this->assertDatabaseHas('auditorias', [
+            'modulo' => 'Personal',
+            'accion' => 'reactivar',
+            'auditable_id' => $empleado->id,
+        ]);
+    }
+
+    public function test_empleado_dado_de_baja_se_traslada_a_vista_inactivos_inmediatamente(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+        $this->actingAs($user);
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Roberto',
+            'apellido' => 'Castillo',
+            'codigo_biometrico' => 'RC-991',
+            'email' => 'roberto.castillo@correos.gob.bo',
+            'area' => 'Mensajería',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'fecha_despido' => null,
+            'created_by' => $user->id,
+        ]);
+
+        // Inicialmente aparece en vista=personal
+        Livewire::test('personal-page')
+            ->set('vista', 'personal')
+            ->assertSee('Roberto Castillo')
+            ->assertSee('RC-991');
+
+        // Dar de baja con fecha de hoy
+        Livewire::test('personal-page')
+            ->call('openBajaModal', $empleado->id)
+            ->set('bajaEstado', 'inactivo')
+            ->set('bajaFecha', now()->toDateString())
+            ->call('guardarBaja');
+
+        // Ya no debe figurar en vista=personal
+        Livewire::test('personal-page')
+            ->set('vista', 'personal')
+            ->assertDontSee('Roberto Castillo');
+
+        // Debe figurar en vista=inactivos inmediatamente
+        Livewire::test('personal-page')
+            ->set('vista', 'inactivos')
+            ->assertSee('Roberto Castillo')
+            ->assertSee('RC-991');
+    }
+
     private function crearUsuarioConPermisoPersonal(): User
     {
         $permission = Permission::findOrCreate('gestionar personal', 'web');

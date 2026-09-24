@@ -124,6 +124,15 @@ class PersonalPage extends Component
     public string $editFechaNacimiento = '';
     public string $editFechaContratacion = '';
     public string $editFechaDespido = '';
+    public string $editEstadoLaboral = 'activo';
+
+    // Gestión dedicada de Baja y Estado Laboral (Modal / Pop-up)
+    public bool $showBajaModal = false;
+    public ?int $bajaEmpleadoId = null;
+    public ?array $bajaEmpleado = null;
+    public string $bajaEstado = 'inactivo'; // 'activo', 'inactivo'
+    public string $bajaFecha = '';
+    public string $bajaMotivo = '';
 
     // Gestión de Fotos
     public $fotoNueva = null;
@@ -521,10 +530,23 @@ class PersonalPage extends Component
         $this->editArea = $empleado->area;
         $this->editSucursal = $empleado->sucursal;
         $this->editFechaNacimiento = $empleado->fecha_nacimiento?->toDateString() ?? '';
+        $this->editFechaContratacion = $empleado->fecha_contratacion?->toDateString() ?? '';
+        $this->editFechaDespido = $empleado->fecha_despido?->toDateString() ?? '';
+        $this->editEstadoLaboral = $empleado->fecha_despido !== null ? 'inactivo' : ($empleado->estado_laboral === 'Inactivo' ? 'inactivo' : 'activo');
+        if ($this->editEstadoLaboral === 'inactivo' && blank($this->editFechaDespido)) {
+            $this->editFechaDespido = now()->toDateString();
+        }
         $this->editFotoActual = $empleado->foto_url;
         $this->fotoNueva = null;
         $this->eliminarFoto = false;
         $this->showEditModal = true;
+    }
+
+    public function updatedEditEstadoLaboral(string $value): void
+    {
+        if ($value === 'inactivo' && blank($this->editFechaDespido)) {
+            $this->editFechaDespido = now()->toDateString();
+        }
     }
 
     public function closeEditModal(): void
@@ -535,7 +557,120 @@ class PersonalPage extends Component
         $this->editFotoActual = null;
         $this->eliminarFoto = false;
         $this->resetValidation();
-        $this->reset(['editNombre', 'editApellido', 'editCodigoBiometrico', 'editEmail', 'editArea', 'editSucursal', 'editFechaNacimiento']);
+        $this->reset(['editNombre', 'editApellido', 'editCodigoBiometrico', 'editEmail', 'editArea', 'editSucursal', 'editFechaNacimiento', 'editFechaContratacion', 'editFechaDespido', 'editEstadoLaboral']);
+    }
+
+    public function openBajaModal(int $empleadoId): void
+    {
+        $empleado = Empleado::query()->findOrFail($empleadoId);
+
+        $this->bajaEmpleadoId = $empleado->id;
+        $this->bajaEmpleado = [
+            'id' => $empleado->id,
+            'nombre_completo' => $empleado->nombre_completo,
+            'nombre' => $empleado->nombre,
+            'apellido' => $empleado->apellido,
+            'sucursal' => $empleado->sucursal,
+            'area' => $empleado->area,
+            'codigo_biometrico' => $empleado->codigo_biometrico,
+            'foto_url' => $empleado->foto_url,
+            'estado_laboral' => $empleado->estado_laboral ?? $empleado->estadoLaboral(now()),
+            'fecha_despido' => $empleado->fecha_despido?->toDateString(),
+            'fecha_despido_formateada' => $empleado->fecha_despido?->format('d/m/Y'),
+        ];
+
+        if ($empleado->fecha_despido !== null) {
+            $this->bajaEstado = 'inactivo';
+            $this->bajaFecha = $empleado->fecha_despido->toDateString();
+        } elseif (($empleado->estado_laboral ?? $empleado->estadoLaboral(now())) === 'Inactivo') {
+            $this->bajaEstado = 'inactivo';
+            $this->bajaFecha = now()->toDateString();
+        } else {
+            $this->bajaEstado = 'inactivo';
+            $this->bajaFecha = now()->toDateString();
+        }
+
+        $this->bajaMotivo = '';
+        $this->resetValidation();
+        $this->showBajaModal = true;
+    }
+
+    public function closeBajaModal(): void
+    {
+        $this->showBajaModal = false;
+        $this->bajaEmpleadoId = null;
+        $this->bajaEmpleado = null;
+        $this->bajaFecha = '';
+        $this->bajaMotivo = '';
+        $this->resetValidation();
+    }
+
+    public function updatedBajaEstado(string $value): void
+    {
+        if ($value === 'inactivo' && blank($this->bajaFecha)) {
+            $this->bajaFecha = now()->toDateString();
+        }
+    }
+
+    public function guardarBaja(): void
+    {
+        if (!$this->bajaEmpleadoId) {
+            return;
+        }
+
+        $this->validate([
+            'bajaEstado' => ['required', 'in:activo,inactivo'],
+            'bajaFecha' => ['nullable', 'date', 'required_if:bajaEstado,inactivo'],
+            'bajaMotivo' => ['nullable', 'string', 'max:500'],
+        ], [
+            'bajaFecha.required_if' => 'Ingresa la fecha desde la cual no está trabajando.',
+            'bajaFecha.date' => 'Ingresa una fecha de baja válida.',
+        ]);
+
+        $empleado = Empleado::query()->findOrFail($this->bajaEmpleadoId);
+        $antes = $this->snapshotEmpleado($empleado);
+
+        if ($this->bajaEstado === 'inactivo') {
+            $fechaBaja = $this->bajaFecha ?: now()->toDateString();
+            $empleado->update([
+                'fecha_despido' => $fechaBaja,
+            ]);
+
+            $motivoTexto = filled($this->bajaMotivo) ? " Motivo: {$this->bajaMotivo}." : '';
+            $detalleAuditoria = "Se registró la baja del personal a partir del {$fechaBaja}.{$motivoTexto}";
+
+            app(AuditoriaService::class)->registrar(
+                'Personal',
+                'baja',
+                $detalleAuditoria,
+                $empleado->fresh(),
+                $antes,
+                $this->snapshotEmpleado($empleado->fresh())
+            );
+
+            $fechaFormateada = Carbon::parse($fechaBaja)->format('d/m/Y');
+            session()->flash('status', "Baja registrada para {$empleado->nombre_completo} desde el {$fechaFormateada}.");
+        } else {
+            $empleado->update([
+                'fecha_despido' => null,
+            ]);
+
+            $detalleAuditoria = 'Se reactivó al colaborador (reincorporación a servicio activo).';
+
+            app(AuditoriaService::class)->registrar(
+                'Personal',
+                'reactivar',
+                $detalleAuditoria,
+                $empleado->fresh(),
+                $antes,
+                $this->snapshotEmpleado($empleado->fresh())
+            );
+
+            session()->flash('status', "Personal {$empleado->nombre_completo} reactivado exitosamente.");
+        }
+
+        $this->closeBajaModal();
+        $this->resetPage();
     }
 
     public function quitarFoto(): void
@@ -686,6 +821,8 @@ class PersonalPage extends Component
             'editArea' => ['nullable', 'string', 'max:120'],
             'editSucursal' => ['required', 'string', 'max:120'],
             'editFechaNacimiento' => ['nullable', 'date'],
+            'editEstadoLaboral' => ['nullable', 'in:activo,inactivo'],
+            'editFechaDespido' => ['nullable', 'date', 'required_if:editEstadoLaboral,inactivo'],
             'fotoNueva' => ['nullable', 'image', 'max:4096'],
         ], [
             'editNombre.required' => 'Ingresa el nombre del personal.',
@@ -693,6 +830,8 @@ class PersonalPage extends Component
             'editSucursal.required' => 'Ingresa la sucursal.',
             'editEmail.email' => 'Ingresa un correo electronico valido.',
             'editEmail.unique' => 'Ese correo ya esta asignado a otro personal.',
+            'editFechaDespido.required_if' => 'Ingresa la fecha desde la cual no está trabajando.',
+            'editFechaDespido.date' => 'Ingresa una fecha de baja válida.',
             'fotoNueva.image' => 'El archivo seleccionado debe ser una imagen válida (JPG, PNG, WEBP).',
             'fotoNueva.max' => 'La fotografía no debe superar los 4 MB.',
         ]);
@@ -716,6 +855,10 @@ class PersonalPage extends Component
             $fotoRuta = $this->fotoNueva->storeAs('fotos/empleados', $nombreArchivo, 'public');
         }
 
+        $fechaDespidoFinal = ($this->editEstadoLaboral === 'inactivo')
+            ? ($this->editFechaDespido ?: now()->toDateString())
+            : null;
+
         $empleado->update([
             'nombre' => $this->editNombre,
             'apellido' => $this->editApellido,
@@ -725,14 +868,19 @@ class PersonalPage extends Component
             'area' => trim($this->editArea),
             'sucursal' => $this->editSucursal,
             'fecha_nacimiento' => $this->editFechaNacimiento ?: null,
+            'fecha_despido' => $fechaDespidoFinal,
             'created_by' => $empleado->created_by,
             'deleted_by' => $empleado->deleted_by,
         ]);
 
+        $estadoCambioTexto = $this->editEstadoLaboral === 'inactivo'
+            ? " (Dado de baja desde: {$fechaDespidoFinal})"
+            : ($antes['fecha_despido'] !== null ? " (Reactivado a servicio activo)" : '');
+
         app(AuditoriaService::class)->registrar(
             'Personal',
             'editar',
-            'Se actualizaron los datos de un integrante del personal.',
+            'Se actualizaron los datos de un integrante del personal' . $estadoCambioTexto . '.',
             $empleado->fresh(),
             $antes,
             $this->snapshotEmpleado($empleado->fresh())
@@ -1744,6 +1892,25 @@ class PersonalPage extends Component
 
             $codigoBio = $empleado?->codigo_biometrico ?: (string) ($empleado?->id ?? '');
 
+            // Determinar Falta
+            $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+            $faltaTexto = $esFalta ? 'FALTA' : '--';
+
+            // Determinar Omisión (si no es falta completa)
+            if ($esFalta) {
+                $omision = '--';
+                $tipoOmision = 'ninguna';
+            } elseif ($tieneEntrada && ! $tieneSalida) {
+                $omision = ($registro->fecha?->isToday()) ? 'En jornada' : 'Sin salida';
+                $tipoOmision = 'sin_salida';
+            } elseif (! $tieneEntrada && $tieneSalida) {
+                $omision = 'Sin entrada';
+                $tipoOmision = 'sin_entrada';
+            } else {
+                $omision = '--';
+                $tipoOmision = 'ninguna';
+            }
+
             if ($tieneEntrada && $tieneSalida) {
                 if ($minutosRetraso > 0) {
                     $estado = "Retraso (+{$minutosRetraso} min)";
@@ -1764,17 +1931,19 @@ class PersonalPage extends Component
                 $estado = 'Falta marcar entrada';
                 $tipoEstado = 'incompleto';
             } else {
-                $estado = 'Sin marcación';
+                $estado = 'Falta (sin marcación)';
                 $tipoEstado = 'sin_marcacion';
             }
 
             $horarioProgLabel = substr((string) $horaEntradaProg, 0, 5) . ' - ' . substr((string) $horaSalidaProg, 0, 5);
+            $sucursalNombre = $empleado?->sucursal ? SucursalNormalizer::canonicalLabel($empleado->sucursal) : 'Sin Sucursal Asignada';
 
             return (object) [
                 'id' => $registro->id,
                 'empleado' => $empleado,
                 'empleado_id' => $empleado?->id,
                 'codigo' => $codigoBio,
+                'sucursal' => $sucursalNombre,
                 'fecha' => $registro->fecha,
                 'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
                 'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
@@ -1784,6 +1953,10 @@ class PersonalPage extends Component
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
                 'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--',
+                'omision' => $omision,
+                'tipo_omision' => $tipoOmision,
+                'es_falta' => $esFalta,
+                'falta' => $faltaTexto,
                 'estado_marcacion' => $estado,
                 'tipo_estado' => $tipoEstado,
                 'observacion' => $registro->observacion,
@@ -1797,6 +1970,10 @@ class PersonalPage extends Component
             $rows = $rows->filter(fn ($r) => $r->tipo_estado === 'retraso' || $r->minutos_retraso > 0)->values();
         } elseif ($this->appliedSucursalesEstadoFiltro === 'incompleto') {
             $rows = $rows->filter(fn ($r) => in_array($r->tipo_estado, ['incompleto', 'en_curso', 'sin_marcacion'], true))->values();
+        } elseif ($this->appliedSucursalesEstadoFiltro === 'omision') {
+            $rows = $rows->filter(fn ($r) => $r->tipo_omision !== 'ninguna')->values();
+        } elseif ($this->appliedSucursalesEstadoFiltro === 'falta') {
+            $rows = $rows->filter(fn ($r) => $r->es_falta)->values();
         }
 
         // Ordenamiento
@@ -1814,6 +1991,8 @@ class PersonalPage extends Component
         $totalRetrasos = $rows->filter(fn ($r) => $r->tipo_estado === 'retraso' || $r->minutos_retraso > 0)->count();
         $totalMinutosRetraso = (int) $rows->sum(fn ($r) => $r->minutos_retraso);
         $totalIncompletas = $rows->filter(fn ($r) => in_array($r->tipo_estado, ['incompleto', 'sin_marcacion'], true))->count();
+        $totalOmisiones = $rows->filter(fn ($r) => $r->tipo_omision !== 'ninguna')->count();
+        $totalFaltas = $rows->filter(fn ($r) => $r->es_falta)->count();
         $totalEmpleadosUnicos = $rows->pluck('empleado_id')->filter()->unique()->count();
 
         $stats = [
@@ -1823,6 +2002,8 @@ class PersonalPage extends Component
             'total_retrasos' => $totalRetrasos,
             'total_minutos_retraso' => $totalMinutosRetraso,
             'total_incompletas' => $totalIncompletas,
+            'total_omisiones' => $totalOmisiones,
+            'total_faltas' => $totalFaltas,
             'total_empleados_unicos' => $totalEmpleadosUnicos,
         ];
 
@@ -1848,13 +2029,18 @@ class PersonalPage extends Component
         $stats = $data['stats'];
         $rows = $data['allRows'];
 
+        $gruposPorSucursal = $rows->groupBy(function ($r) {
+            return $r->sucursal ?: 'Sin Sucursal Asignada';
+        })->sortKeys();
+
         $pdf = Pdf::loadView('pdf.marcaciones-sucursales', [
             'periodoLabel' => $periodoLabel,
             'sucursalLabel' => $sucursalLabel,
             'stats' => $stats,
             'registros' => $rows,
+            'gruposPorSucursal' => $gruposPorSucursal,
             'filtroEstado' => $this->appliedSucursalesEstadoFiltro,
-        ])->setPaper('letter', 'landscape');
+        ])->setPaper('letter', 'portrait');
 
         $slugSucursal = Str::slug($sucursalLabel);
         $fileName = "Marcaciones_Sucursal_{$slugSucursal}_" . now()->format('Ymd_His') . '.pdf';
@@ -1878,11 +2064,11 @@ class PersonalPage extends Component
 
         // Título
         $sheet->setCellValue("A{$currentRow}", 'EMPRESA DE CORREOS DE BOLIVIA - REPORTE DE MARCACIONES POR SUCURSAL');
-        $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12)->getColor()->setRGB('0F172A');
         $currentRow++;
 
         // Metadata
-        $sheet->setCellValue("A{$currentRow}", "Sucursal: {$sucursalLabel} | Período: {$periodoLabel} | Emisión: " . now()->format('d/m/Y H:i'));
+        $sheet->setCellValue("A{$currentRow}", "Regional/Sucursal: {$sucursalLabel} | Período: {$periodoLabel} | Emisión: " . now()->format('d/m/Y H:i'));
         $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9.5)->getColor()->setRGB('475569');
         $currentRow++;
 
@@ -1891,61 +2077,106 @@ class PersonalPage extends Component
             "A{$currentRow}",
             "Total Marcaciones: " . ($stats['total_marcaciones'] ?? 0) .
             " | Puntuales: " . ($stats['total_puntuales'] ?? 0) . " ({$stats['pct_puntual']}%)" .
-            " | Con Retraso: " . ($stats['total_retrasos'] ?? 0) . " ({$stats['total_minutos_retraso']} min)" .
-            " | Incompletas: " . ($stats['total_incompletas'] ?? 0) .
-            " | Personal Único: " . ($stats['total_empleados_unicos'] ?? 0)
+            " | Con Retraso: " . ($stats['total_retrasos'] ?? 0) . " ({$stats['total_minutos_retraso']} min acum.)" .
+            " | Omisiones: " . ($stats['total_omisiones'] ?? 0) .
+            " | Faltas: " . ($stats['total_faltas'] ?? 0) .
+            " | Personal Registrado: " . ($stats['total_empleados_unicos'] ?? 0)
         );
         $sheet->getStyle("A{$currentRow}")->getFont()->setSize(9)->getColor()->setRGB('334155');
         $currentRow += 2;
 
-        $headerRow = $currentRow;
-        $headers = ['Fecha', 'Día', 'Personal', 'Código', 'Cargo / Área', 'Sucursal', 'Horario Prog.', 'Hora Entrada', 'Hora Salida', 'Horas Trab.', 'Minutos Retraso', 'Estado'];
-        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+        $gruposPorSucursal = $rows->groupBy(function ($r) {
+            return $r->sucursal ?: 'Sin Sucursal Asignada';
+        })->sortKeys();
 
-        foreach ($headers as $idx => $headerText) {
-            $colLetter = $cols[$idx];
-            $sheet->setCellValue("{$colLetter}{$headerRow}", $headerText);
-        }
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $headers = ['Fecha', 'Personal', 'Hora Entrada', 'Hora Salida', 'Horas Trab.', 'Retraso / Tardanza', 'Omisiones', 'Faltas'];
 
-        $lastCol = end($cols);
-        $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
-        $sheet->getStyle($headerRange)->getFont()->setBold(true)->setSize(9.5);
-        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('0F172A');
-        $sheet->getStyle($headerRange)->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("C{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+        foreach ($gruposPorSucursal as $nombreSucursal => $registrosSucursal) {
+            $horarios = $registrosSucursal->pluck('horario_programado')->filter()->unique()->values();
+            $horarioLabel = $horarios->isNotEmpty() ? $horarios->implode(', ') : '08:30 - 16:30';
+            $totalEnSucursal = count($registrosSucursal);
 
-        $currentRow++;
+            // Banner agrupador de Sucursal y Horario Programado
+            $sheet->mergeCells("A{$currentRow}:H{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", "SUCURSAL: " . strtoupper($nombreSucursal) . "   |   HORARIO PROGRAMADO: {$horarioLabel}   |   TOTAL: {$totalEnSucursal} REGISTROS");
+            $sheet->getStyle("A{$currentRow}:H{$currentRow}")->getFont()->setBold(true)->setSize(10)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle("A{$currentRow}:H{$currentRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('0F172A');
+            $sheet->getStyle("A{$currentRow}:H{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER)->setIndent(1);
+            $sheet->getRowDimension($currentRow)->setRowHeight(24);
+            $currentRow++;
 
-        foreach ($rows as $row) {
-            $c = 0;
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->fecha_formateada);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", ucfirst($row->dia ?? ''));
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->nombre_completo ?? 'N/D');
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->codigo);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->area ?? '');
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->empleado?->sucursal ?? '');
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->horario_programado);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_entrada);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->hora_salida);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->horas_trabajadas);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->minutos_retraso);
-            $sheet->setCellValue("{$cols[$c++]}{$currentRow}", $row->estado_marcacion);
+            // Fila de encabezados de columnas
+            $headerRow = $currentRow;
+            foreach ($headers as $idx => $headerText) {
+                $colLetter = $cols[$idx];
+                $sheet->setCellValue("{$colLetter}{$headerRow}", $headerText);
+            }
+            $sheet->getStyle("A{$headerRow}:H{$headerRow}")->getFont()->setBold(true)->setSize(9)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle("A{$headerRow}:H{$headerRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1E293B');
+            $sheet->getStyle("A{$headerRow}:H{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("B{$headerRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setIndent(1);
+            $sheet->getRowDimension($headerRow)->setRowHeight(20);
+            $currentRow++;
 
-            $sheet->getStyle("A{$currentRow}:B{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("C{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-            $sheet->getStyle("D{$currentRow}:L{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $dataStartRow = $currentRow;
 
+            foreach ($registrosSucursal as $row) {
+                $personalTexto = ($row->empleado?->nombre_completo ?? 'N/D') . "\nCód: " . $row->codigo;
+
+                $sheet->setCellValue("A{$currentRow}", $row->fecha_formateada);
+                $sheet->setCellValue("B{$currentRow}", $personalTexto);
+                $sheet->setCellValue("C{$currentRow}", $row->hora_entrada);
+                $sheet->setCellValue("D{$currentRow}", $row->hora_salida);
+                $sheet->setCellValue("E{$currentRow}", $row->horas_trabajadas);
+                $sheet->setCellValue("F{$currentRow}", $row->retraso_formateado);
+                $sheet->setCellValue("G{$currentRow}", $row->omision);
+                $sheet->setCellValue("H{$currentRow}", $row->falta);
+
+                // Alineaciones y formato
+                $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle("B{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true)->setIndent(1);
+                $sheet->getStyle("C{$currentRow}:H{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+
+                // Resaltado de Falta (Notorio)
+                if ($row->es_falta) {
+                    $sheet->getStyle("H{$currentRow}")->getFont()->setBold(true)->getColor()->setRGB('991B1B');
+                    $sheet->getStyle("H{$currentRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEE2E2');
+                }
+
+                // Resaltado de Omisión
+                if ($row->tipo_omision !== 'ninguna') {
+                    $sheet->getStyle("G{$currentRow}")->getFont()->setBold(true)->getColor()->setRGB('92400E');
+                    $sheet->getStyle("G{$currentRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF3C7');
+                }
+
+                // Resaltado de Retraso
+                if ($row->minutos_retraso > 0) {
+                    $sheet->getStyle("F{$currentRow}")->getFont()->setBold(true)->getColor()->setRGB('DC2626');
+                } elseif ($row->hora_entrada !== '--:--') {
+                    $sheet->getStyle("F{$currentRow}")->getFont()->getColor()->setRGB('166534');
+                }
+
+                $sheet->getRowDimension($currentRow)->setRowHeight(26);
+                $currentRow++;
+            }
+
+            $dataEndRow = max($dataStartRow, $currentRow - 1);
+            $sheet->getStyle("A{$headerRow}:H{$dataEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
+
+            // Fila de separación entre sucursales
             $currentRow++;
         }
 
-        $dataEndRow = max($headerRow, $currentRow - 1);
-        $tableRange = "A{$headerRow}:{$lastCol}{$dataEndRow}";
-        $sheet->getStyle($tableRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
-
-        foreach ($cols as $colLetter) {
-            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
-        }
+        // Anchos de columna optimizados
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(34);
+        $sheet->getColumnDimension('C')->setWidth(14);
+        $sheet->getColumnDimension('D')->setWidth(14);
+        $sheet->getColumnDimension('E')->setWidth(14);
+        $sheet->getColumnDimension('F')->setWidth(18);
+        $sheet->getColumnDimension('G')->setWidth(16);
+        $sheet->getColumnDimension('H')->setWidth(14);
 
         $slugSucursal = Str::slug($sucursalLabel);
         $fileName = "Marcaciones_Sucursal_{$slugSucursal}_" . now()->format('Ymd_His') . '.xlsx';

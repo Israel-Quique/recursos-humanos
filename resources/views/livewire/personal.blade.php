@@ -834,9 +834,221 @@
             <input type="date" wire:model="editFechaNacimiento" class="form-input">
             @error('editFechaNacimiento') <p class="form-error">{{ $message }}</p> @enderror
           </div>
+
+          {{-- CONDICIÓN Y ESTADO LABORAL (BAJA / ACTIVO) --}}
+          <div class="md:col-span-2 p-4 rounded-2xl border transition-all duration-200 {{ $editEstadoLaboral === 'inactivo' ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50 border-slate-200' }}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Condición y Estado Laboral
+                </label>
+                <p class="text-[11px] text-slate-500">
+                  Define si el colaborador está activo en funciones o dado de baja (inactivo).
+                </p>
+              </div>
+              <div>
+                @if($editEstadoLaboral === 'inactivo')
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    Dado de baja (Inactivo)
+                  </span>
+                @else
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Activo en servicio
+                  </span>
+                @endif
+              </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3 mb-2">
+              <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition {{ $editEstadoLaboral === 'activo' ? 'bg-white border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 border-slate-200 hover:bg-white' }}">
+                <input type="radio" wire:model.live="editEstadoLaboral" value="activo" class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                <div class="text-xs">
+                  <span class="font-bold text-slate-800 block">Personal Activo</span>
+                  <span class="text-slate-500 text-[11px]">En funciones y sujeto a reportes</span>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition {{ $editEstadoLaboral === 'inactivo' ? 'bg-white border-amber-500 shadow-sm ring-1 ring-amber-500/20' : 'bg-white/70 border-slate-200 hover:bg-white' }}">
+                <input type="radio" wire:model.live="editEstadoLaboral" value="inactivo" class="text-amber-600 focus:ring-amber-500 h-4 w-4">
+                <div class="text-xs">
+                  <span class="font-bold text-slate-800 block">Dar de baja / Poner Inactivo</span>
+                  <span class="text-slate-500 text-[11px]">Cese de funciones o retiro</span>
+                </div>
+              </label>
+            </div>
+
+            @if($editEstadoLaboral === 'inactivo')
+              <div class="mt-3 pt-3 border-t border-amber-200/80">
+                <label for="edit-fecha-despido" class="block text-xs font-bold text-amber-950 mb-1">
+                  Fecha desde la cual no está trabajando (Fecha de baja) <span class="text-rose-500">*</span>
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input
+                    id="edit-fecha-despido"
+                    type="date"
+                    wire:model="editFechaDespido"
+                    class="form-input !border-amber-300 focus:!border-amber-500 focus:!ring-amber-200 flex-1"
+                  >
+                  <button
+                    type="button"
+                    wire:click="$set('editFechaDespido', '{{ now()->toDateString() }}')"
+                    class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 transition shrink-0"
+                    title="Establecer fecha de hoy"
+                  >
+                    Hoy
+                  </button>
+                </div>
+                <p class="text-[11px] text-amber-800 mt-1.5 flex items-start gap-1">
+                  <svg class="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span>A partir de esta fecha, el funcionario dejará de figurar en la plantilla activa y se omitirá de los reportes de asistencia para no generar faltas ni inconsistencias.</span>
+                </p>
+                @error('editFechaDespido') <p class="form-error mt-1">{{ $message }}</p> @enderror
+              </div>
+            @endif
+          </div>
+
           <div class="md:col-span-2 app-modal-actions">
             <button type="button" wire:click="closeEditModal" class="app-modal-secondary">Cancelar</button>
             <button type="submit" class="login-submit app-modal-submit">Guardar cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  @endif
+
+  @if ($showBajaModal && $bajaEmpleado)
+    <div class="app-modal-backdrop" wire:click="closeBajaModal">
+      <div class="app-modal-card" style="max-width: 560px;" x-on:click.stop>
+        <div class="app-modal-head">
+          <div>
+            <p class="section-kicker">Gestión de personal</p>
+            <h3 class="section-title app-modal-title">Estado laboral y registro de baja</h3>
+            <p class="section-copy-sm">Modifica la condición del funcionario y la fecha desde la cual no está trabajando.</p>
+          </div>
+          <button type="button" wire:click="closeBajaModal" class="app-modal-close" aria-label="Cerrar modal">✕</button>
+        </div>
+
+        {{-- RESUMEN DEL COLABORADOR --}}
+        <div class="mt-4 flex items-center gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+          @if(!empty($bajaEmpleado['foto_url']))
+            <img src="{{ $bajaEmpleado['foto_url'] }}" alt="{{ $bajaEmpleado['nombre_completo'] }}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0.9rem; object-fit: cover; object-position: center top;" class="border border-slate-200 shadow-2xs">
+          @else
+            <div class="h-12 w-12 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0">
+              {{ strtoupper(substr($bajaEmpleado['nombre'], 0, 1) . substr($bajaEmpleado['apellido'] ?: $bajaEmpleado['nombre'], 0, 1)) }}
+            </div>
+          @endif
+          <div class="min-w-0 flex-1">
+            <h4 class="text-sm font-bold text-slate-900 truncate">{{ $bajaEmpleado['nombre_completo'] }}</h4>
+            <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 flex-wrap">
+              <span>Sucursal: <strong class="text-slate-700">{{ $bajaEmpleado['sucursal'] }}</strong></span>
+              <span>•</span>
+              <span>Biométrico: <strong class="text-slate-700 font-mono">{{ $bajaEmpleado['codigo_biometrico'] ?: 'Sin asignar' }}</strong></span>
+            </div>
+            @if(!empty($bajaEmpleado['fecha_despido']))
+              <div class="text-[11px] text-amber-700 font-semibold mt-1">
+                Baja registrada: {{ $bajaEmpleado['fecha_despido_formateada'] }}
+              </div>
+            @endif
+          </div>
+          <div>
+            <span class="status-badge {{ $bajaEmpleado['estado_laboral'] === 'Activo' ? 'status-available' : 'status-warning' }}">
+              {{ $bajaEmpleado['estado_laboral'] }}
+            </span>
+          </div>
+        </div>
+
+        <form wire:submit="guardarBaja" class="mt-5 space-y-4">
+          {{-- SELECCIÓN DE CONDICIÓN --}}
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Selecciona la condición:</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition {{ $bajaEstado === 'activo' ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 font-bold ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' }}">
+                <input type="radio" wire:model.live="bajaEstado" value="activo" class="text-emerald-600 focus:ring-emerald-500">
+                <div class="text-xs">
+                  <span>Personal Activo</span>
+                  <p class="text-[10px] text-slate-500 font-normal">Reactivar o mantener en funciones</p>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition {{ $bajaEstado === 'inactivo' ? 'bg-amber-50/80 border-amber-500 text-amber-950 font-bold ring-2 ring-amber-500/20' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' }}">
+                <input type="radio" wire:model.live="bajaEstado" value="inactivo" class="text-amber-600 focus:ring-amber-500">
+                <div class="text-xs">
+                  <span>Dar de Baja</span>
+                  <p class="text-[10px] text-slate-500 font-normal">Poner inactivo / Cese laboral</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          @if($bajaEstado === 'inactivo')
+            <div class="p-4 rounded-xl bg-amber-50/80 border border-amber-200/90 space-y-3">
+              <div>
+                <label for="baja-fecha" class="block text-xs font-bold text-amber-950 mb-1">
+                  Fecha desde la cual no está trabajando (Fecha de baja) <span class="text-rose-500">*</span>
+                </label>
+                <div class="flex gap-2">
+                  <input
+                    id="baja-fecha"
+                    type="date"
+                    wire:model="bajaFecha"
+                    class="form-input !border-amber-300 focus:!border-amber-500 focus:!ring-amber-200 flex-1"
+                  >
+                  <button
+                    type="button"
+                    wire:click="$set('bajaFecha', '{{ now()->toDateString() }}')"
+                    class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 transition shrink-0"
+                    title="Establecer fecha de hoy"
+                  >
+                    Hoy
+                  </button>
+                </div>
+                @error('bajaFecha') <p class="form-error mt-1">{{ $message }}</p> @enderror
+              </div>
+
+              <div>
+                <label for="baja-motivo" class="block text-xs font-bold text-amber-950 mb-1">
+                  Motivo u observación <span class="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  id="baja-motivo"
+                  type="text"
+                  wire:model="bajaMotivo"
+                  class="form-input !border-amber-300 focus:!border-amber-500 focus:!ring-amber-200 text-xs"
+                  placeholder="Ej: Renuncia voluntaria, fin de contrato, traslado..."
+                >
+                @error('bajaMotivo') <p class="form-error mt-1">{{ $message }}</p> @enderror
+              </div>
+
+              <div class="text-[11.5px] text-amber-800 leading-relaxed bg-white/70 p-2.5 rounded-lg border border-amber-200/60 flex items-start gap-2">
+                <svg class="h-4 w-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>
+                  <strong>Efecto en los reportes:</strong> El colaborador dejará de considerarse activo a partir de la fecha seleccionada. Los reportes mensuales y diarios no lo contarán como ausente ni le computarán inasistencias desde ese día.
+                </span>
+              </div>
+            </div>
+          @else
+            <div class="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
+              <svg class="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span>
+                <strong>Reactivar personal:</strong> Al guardar, se eliminará la fecha de baja y el colaborador volverá a figurar en la plantilla activa y en los reportes normales de asistencia.
+              </span>
+            </div>
+          @endif
+
+          <div class="app-modal-actions pt-2">
+            <button type="button" wire:click="closeBajaModal" class="app-modal-secondary">Cancelar</button>
+            <button
+              type="submit"
+              class="login-submit app-modal-submit {{ $bajaEstado === 'inactivo' ? '!bg-rose-600 hover:!bg-rose-700' : '!bg-emerald-600 hover:!bg-emerald-700' }}"
+            >
+              @if($bajaEstado === 'inactivo')
+                Confirmar baja del personal
+              @else
+                Reactivar personal
+              @endif
+            </button>
           </div>
         </form>
       </div>
@@ -2010,7 +2222,7 @@
             </span>
           </div>
           <h3 class="section-title">Plantilla activa de RRHH</h3>
-          <p class="section-copy-sm">Aquí solo se muestra el personal activo en servicio (con marcaciones en los últimos 30 días o personal especial). Si una persona supera 30 días de inactividad, se traslada a <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="text-[#0f67c0] font-bold underline">Personal Inactivo</a>.</p>
+          <p class="section-copy-sm">Aquí se muestra el personal activo en servicio. Puedes dar de baja a un colaborador directamente o modificar su fecha de cese laboral para que no figure en los reportes a partir de dicha fecha, o consultar <a wire:navigate href="{{ route('personal', ['vista' => 'inactivos']) }}" class="text-[#0f67c0] font-bold underline">Personal Inactivo</a>.</p>
         </div>
         <div class="flex items-center gap-2">
           {{-- Estilos para botones compactos con texto expandible en hover --}}
@@ -2201,22 +2413,38 @@
                   <span class="status-badge {{ $empleado->estado_laboral === 'Activo' ? 'status-available' : 'status-warning' }}">
                     {{ $empleado->estado_laboral }}
                   </span>
+                  @if($empleado->fecha_despido && $empleado->fecha_despido->isFuture())
+                    <span class="text-[10.5px] text-amber-700 block mt-0.5 font-semibold">Baja prog.: {{ $empleado->fecha_despido->format('d/m/Y') }}</span>
+                  @endif
                 </td>
                 <td>{{ $empleado->ultima_marcacion_label ?? 'Sin marcaciones' }}</td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group">
+                  <div class="table-actions-group flex items-center gap-1.5">
                     <button
                       type="button"
                       wire:click="openEditModal({{ $empleado->id }})"
-                      class="table-action-button"
+                      class="table-action-button !px-2.5 !py-2 rounded-xl hover:border-indigo-400 hover:text-indigo-600 transition"
                       aria-label="Editar personal"
-                      title="Editar"
+                      title="Editar datos del personal"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/>
                       </svg>
-                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      wire:click="openBajaModal({{ $empleado->id }})"
+                      class="table-action-button table-action-button-danger !px-2.5 !py-2 rounded-xl transition"
+                      aria-label="Dar de baja al colaborador"
+                      title="Dar de baja / Poner inactivo"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="17" y1="11" x2="23" y2="11"/>
+                      </svg>
                     </button>
                   </div>
                 </td>
@@ -2287,8 +2515,8 @@
               sin marcaciones recientes (&gt;30 días)
             </span>
           </div>
-          <h3 class="section-title">Colaboradores sin marcaciones en los últimos 30 días</h3>
-          <p class="section-copy-sm">Personal histórico o en baja que no registra asistencia en los últimos 30 días. Puedes consultar su historial previo o reactivarlos con una nueva marcación.</p>
+          <h3 class="section-title">Colaboradores en condición de inactivos o baja</h3>
+          <p class="section-copy-sm">Personal dado de baja o que no registra asistencia en los últimos 30 días. Puedes consultar su historial previo, modificar su fecha de baja o reactivarlos directamente con el botón de Estado.</p>
         </div>
       </div>
 
@@ -2357,22 +2585,38 @@
                 <td>{{ $empleado->codigo_biometrico ?: 'Sin asignar' }}</td>
                 <td>
                   <span class="status-badge status-warning">{{ $empleado->estado_laboral }}</span>
+                  @if($empleado->fecha_despido)
+                    <span class="text-[11px] text-amber-800 font-semibold block mt-0.5">Baja: {{ $empleado->fecha_despido->format('d/m/Y') }}</span>
+                  @endif
                 </td>
                 <td>{{ $empleado->ultima_marcacion_label ?? 'Sin marcaciones' }}</td>
                 <td class="table-actions-cell">
-                  <div class="table-actions-group">
+                  <div class="table-actions-group flex items-center gap-1.5">
                     <button
                       type="button"
                       wire:click="openEditModal({{ $empleado->id }})"
-                      class="table-action-button"
+                      class="table-action-button !px-2.5 !py-2 rounded-xl hover:border-indigo-400 hover:text-indigo-600 transition"
                       aria-label="Editar personal inactivo"
-                      title="Editar"
+                      title="Editar datos del personal"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/>
                       </svg>
-                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      wire:click="openBajaModal({{ $empleado->id }})"
+                      class="table-action-button table-action-button-warning !px-2.5 !py-2 rounded-xl transition"
+                      aria-label="Modificar fecha de baja o reactivar"
+                      title="Modificar fecha de baja o reactivar"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="table-action-icon text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <polyline points="16 11 18 13 22 9"/>
+                      </svg>
                     </button>
                   </div>
                 </td>
@@ -3864,14 +4108,54 @@
         </div>
 
         <div class="flex items-center gap-2.5 self-stretch sm:self-auto justify-end">
-          <button type="button" wire:click="descargarExcelSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs">
-            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <span>Exportar Excel</span>
+          <button type="button" wire:click="descargarExcelSucursales" wire:loading.attr="disabled" wire:target="descargarExcelSucursales, descargarPdfSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-60 disabled:cursor-wait">
+            <svg wire:loading.remove wire:target="descargarExcelSucursales" class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <svg wire:loading wire:target="descargarExcelSucursales" class="w-4 h-4 text-emerald-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span wire:loading.remove wire:target="descargarExcelSucursales">Exportar Excel</span>
+            <span wire:loading wire:target="descargarExcelSucursales">Generando Excel...</span>
           </button>
-          <button type="button" wire:click="descargarPdfSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs">
-            <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6M9 17h6"/></svg>
-            <span>Exportar PDF</span>
+          <button type="button" wire:click="descargarPdfSucursales" wire:loading.attr="disabled" wire:target="descargarExcelSucursales, descargarPdfSucursales" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-60 disabled:cursor-wait">
+            <svg wire:loading.remove wire:target="descargarPdfSucursales" class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6M9 17h6"/></svg>
+            <svg wire:loading wire:target="descargarPdfSucursales" class="w-4 h-4 text-rose-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span wire:loading.remove wire:target="descargarPdfSucursales">Exportar PDF</span>
+            <span wire:loading wire:target="descargarPdfSucursales">Generando PDF...</span>
           </button>
+        </div>
+      </div>
+
+      {{-- Modal / Overlay de Carga con Barra Animada durante la Descarga --}}
+      <div wire:loading.flex wire:target="descargarExcelSucursales, descargarPdfSucursales" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-4">
+        <div class="relative flex w-full max-w-md flex-col items-center gap-5 overflow-hidden rounded-3xl border border-white/40 bg-white/95 px-8 py-8 text-center text-slate-800 shadow-2xl">
+          <div class="absolute inset-0 bg-radial from-blue-500/10 via-transparent to-amber-500/10 pointer-events-none"></div>
+
+          {{-- Spinner y halo --}}
+          <div class="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-tr from-slate-900 via-slate-800 to-blue-900 text-white shadow-xl shadow-slate-900/20">
+            <svg class="h-9 w-9 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <div class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </div>
+          </div>
+
+          {{-- Textos informativos --}}
+          <div class="relative z-10 space-y-1.5">
+            <span class="text-[10.5px] font-extrabold uppercase tracking-widest text-[#0f67c0]">PROCESANDO REPORTE OFICIAL</span>
+            <h4 class="text-lg font-bold text-slate-900">Generando documento descargable</h4>
+            <p class="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+              Agrupando datos por sucursal, calculando tolerancias, omisiones y faltas para el período consultado...
+            </p>
+          </div>
+
+          {{-- Barra de carga animada --}}
+          <div class="relative z-10 w-full overflow-hidden rounded-full bg-slate-200/80 p-0.5 border border-slate-300/60 shadow-inner">
+            <div class="h-2.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 animate-[loading-slide_1.5s_ease-in-out_infinite]" style="width: 55%;"></div>
+          </div>
+
+          <p class="relative z-10 text-[11px] font-medium text-slate-400">
+            La descarga comenzará automáticamente en unos segundos.
+          </p>
         </div>
       </div>
 
@@ -3956,6 +4240,8 @@
                   <option value="puntual">Solo puntuales</option>
                   <option value="retraso">Con retraso</option>
                   <option value="incompleto">Incompletas / Sin salida</option>
+                  <option value="omision">Con omisiones (sin entrada/salida)</option>
+                  <option value="falta">Solo faltas</option>
                 </select>
               </div>
 
@@ -4012,17 +4298,17 @@
                 <th class="py-3.5 px-4">Fecha y Día</th>
                 <th class="py-3.5 px-4">Personal / Funcionario</th>
                 <th class="py-3.5 px-4">Sucursal</th>
-                <th class="py-3.5 px-4 text-center">Horario Programado</th>
                 <th class="py-3.5 px-4 text-center">Hora Entrada</th>
                 <th class="py-3.5 px-4 text-center">Hora Salida</th>
                 <th class="py-3.5 px-4 text-center">Horas Trabajadas</th>
                 <th class="py-3.5 px-4 text-center">Tardanza / Retraso</th>
-                <th class="py-3.5 px-4 text-center">Estado de Asistencia</th>
+                <th class="py-3.5 px-4 text-center">Omisiones</th>
+                <th class="py-3.5 px-4 text-center">Faltas</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               @forelse ($sucursalesRegistros as $row)
-                <tr class="hover:bg-blue-50/30 transition-colors">
+                <tr class="hover:bg-blue-50/30 transition-colors {{ $row->es_falta ? 'bg-rose-50/20' : '' }}">
                   {{-- Fecha --}}
                   <td class="py-3 px-4 whitespace-nowrap">
                     <div class="font-bold text-slate-900">{{ $row->fecha_formateada }}</div>
@@ -4034,15 +4320,10 @@
                     <div class="font-bold text-slate-900 text-[12.5px] leading-tight">
                       {{ $row->empleado?->nombre_completo ?? 'Sin asignar' }}
                     </div>
-                    <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                    <div class="mt-1 flex items-center gap-1.5 text-[11px]">
                       <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono font-bold">
-                        ID: {{ $row->codigo }}
+                        Cód. {{ $row->codigo }}
                       </span>
-                      @if ($row->empleado?->area)
-                        <span class="text-slate-500 font-medium truncate max-w-[180px]">
-                          {{ $row->empleado->area }}
-                        </span>
-                      @endif
                     </div>
                   </td>
 
@@ -4051,14 +4332,6 @@
                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 border border-slate-200/80 px-2.5 py-1 text-[11px] font-bold text-slate-700">
                       <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                       {{ $row->empleado?->sucursal ?? 'N/D' }}
-                    </span>
-                  </td>
-
-                  {{-- Horario Programado --}}
-                  <td class="py-3 px-4 text-center whitespace-nowrap">
-                    <span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                      <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
-                      {{ $row->horario_programado }}
                     </span>
                   </td>
 
@@ -4112,32 +4385,32 @@
                     @endif
                   </td>
 
-                  {{-- Estado --}}
+                  {{-- Omisiones --}}
                   <td class="py-3 px-4 text-center whitespace-nowrap">
-                    @if ($row->tipo_estado === 'puntual')
-                      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-800">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        {{ $row->estado_marcacion }}
-                      </span>
-                    @elseif ($row->tipo_estado === 'retraso')
-                      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-300 px-3 py-0.5 text-[11px] font-bold text-amber-800">
+                    @if ($row->tipo_omision === 'sin_salida')
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
                         <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        {{ $row->estado_marcacion }}
+                        Sin salida
                       </span>
-                    @elseif ($row->tipo_estado === 'en_curso')
-                      <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-0.5 text-[11px] font-medium text-blue-700">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                        {{ $row->estado_marcacion }}
-                      </span>
-                    @elseif ($row->tipo_estado === 'incompleto')
-                      <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-3 py-0.5 text-[11px] font-bold text-rose-700">
-                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                        {{ $row->estado_marcacion }}
+                    @elseif ($row->tipo_omision === 'sin_entrada')
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Sin entrada
                       </span>
                     @else
-                      <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 border border-slate-200 px-3 py-0.5 text-[11px] font-medium text-slate-600">
-                        {{ $row->estado_marcacion }}
+                      <span class="text-slate-400 font-mono">—</span>
+                    @endif
+                  </td>
+
+                  {{-- Faltas --}}
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    @if ($row->es_falta)
+                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 px-3 py-0.5 text-[11px] font-extrabold text-rose-800 shadow-2xs">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                        FALTA
                       </span>
+                    @else
+                      <span class="text-slate-400 font-mono">—</span>
                     @endif
                   </td>
                 </tr>
