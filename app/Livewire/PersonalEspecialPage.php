@@ -16,18 +16,23 @@ class PersonalEspecialPage extends Component
 {
     use WithPagination;
 
-    // Pestaña activa: 'marcaciones' o 'personal'
-    public string $tab = 'marcaciones';
+    // Pestaña activa: 'personal' (directorio y estado) o 'marcaciones' (detalle del mes)
+    public string $tab = 'personal';
 
-    // Filtros
+    // Filtros globales (enfoque mensual, sin días fragmentados)
     public string $search = '';
     public string $sucursalFiltro = '';
-    public string $tipoRangoFiltro = 'dia'; // 'dia' o 'rango'
+    public string $mesFiltroGlobal = ''; // 'Y-m'
+    public string $tipoRangoFiltro = 'mes'; // 'mes', 'dia', 'rango' (retrocompatibilidad)
     public string $fechaDiaFiltro = '';
     public string $fechaInicioFiltro = '';
     public string $fechaFinFiltro = '';
 
-    // Modal Registro Marcación Especial (Crear/Editar)
+    // Modal Resumen de Cambios / Modificaciones Realizadas
+    public bool $showResumenCambiosModal = false;
+    public ?int $resumenEmpleadoId = null;
+
+    // Modal Registro Marcación Especial (Crear/Editar individual)
     public bool $showRegistroModal = false;
     public ?int $editingRegistroId = null;
     public ?int $empleadoId = null;
@@ -41,7 +46,21 @@ class PersonalEspecialPage extends Component
     public ?int $pendingDeleteRegistroId = null;
     public string $pendingDeleteRegistroLabel = '';
 
-    // Modal Crear Nuevo Personal Especial
+    // Modal Nuevo Enfoque: Marcación Entrada y Salida Especial (Mensual)
+    public bool $showModalEspecial = false;
+    public string $modalSearch = '';
+    public ?int $selectedEmpleadoId = null;
+    public string $mesSeleccionado = ''; // 'Y-m'
+    public array $diasMes = [];
+    public string $observacionGeneralMes = 'Autorizado por RRHH - Personal Especial';
+
+    protected array $rules = [
+        'diasMes.*.hora_entrada' => 'nullable',
+        'diasMes.*.hora_salida' => 'nullable',
+        'diasMes.*.observacion' => 'nullable',
+    ];
+
+    // Modales de compatibilidad backend
     public bool $showCreateEmpleadoModal = false;
     public string $nuevoNombre = '';
     public string $nuevoApellido = '';
@@ -51,7 +70,6 @@ class PersonalEspecialPage extends Component
     public string $nuevaHoraEntrada = '';
     public string $nuevaHoraSalida = '';
 
-    // Modal Vincular Personal Existente
     public bool $showVincularModal = false;
     public ?int $vincularEmpleadoId = null;
 
@@ -60,10 +78,29 @@ class PersonalEspecialPage extends Component
         abort_unless(auth()->user()?->can('gestionar personal'), 403);
 
         $now = now();
+        $this->mesFiltroGlobal = $now->format('Y-m');
         $this->fechaDiaFiltro = $now->toDateString();
-        $this->fechaInicioFiltro = $now->copy()->startOfWeek()->toDateString();
+        $this->fechaInicioFiltro = $now->copy()->startOfMonth()->toDateString();
         $this->fechaFinFiltro = $now->toDateString();
         $this->fecha = $now->toDateString();
+        $this->mesSeleccionado = $now->format('Y-m');
+    }
+
+    public function openResumenCambiosModal(?int $empleadoId = null): void
+    {
+        $this->resumenEmpleadoId = $empleadoId;
+        $this->showResumenCambiosModal = true;
+    }
+
+    public function closeResumenCambiosModal(): void
+    {
+        $this->showResumenCambiosModal = false;
+        $this->resumenEmpleadoId = null;
+    }
+
+    public function updatingMesFiltroGlobal(): void
+    {
+        $this->resetPage();
     }
 
     public function setTab(string $tab): void
@@ -448,6 +485,375 @@ class PersonalEspecialPage extends Component
     }
 
     // ─────────────────────────────────────────────────────────────
+    // GESTIÓN MENSUAL DE ENTRADAS Y SALIDAS ESPECIALES (NUEVO ENFOQUE)
+    // ─────────────────────────────────────────────────────────────
+
+    public function openModalEspecial(?int $empleadoId = null): void
+    {
+        $this->resetValidation();
+        $this->showModalEspecial = true;
+        $this->modalSearch = '';
+        $this->observacionGeneralMes = 'Autorizado por RRHH - Personal Especial';
+        if (blank($this->mesSeleccionado)) {
+            $this->mesSeleccionado = now()->format('Y-m');
+        }
+
+        if ($empleadoId) {
+            $this->selectEmpleado($empleadoId);
+        } elseif ($this->selectedEmpleadoId) {
+            $this->cargarMarcacionesMes();
+        } else {
+            $this->diasMes = [];
+        }
+    }
+
+    public function closeModalEspecial(): void
+    {
+        $this->showModalEspecial = false;
+        // No reseteamos selectedEmpleadoId para mantener la selección al reabrir
+    }
+
+    public function selectEmpleado(int $empleadoId): void
+    {
+        $this->selectedEmpleadoId = $empleadoId;
+        $this->modalSearch = '';
+        $this->cargarMarcacionesMes();
+    }
+
+    public function deseleccionarEmpleado(): void
+    {
+        $this->selectedEmpleadoId = null;
+        $this->diasMes = [];
+        $this->modalSearch = '';
+    }
+
+    public function cambiarMes(string $mes): void
+    {
+        $this->mesSeleccionado = $mes;
+        $this->cargarMarcacionesMes();
+    }
+
+    public function irMesAnterior(): void
+    {
+        $carbon = Carbon::parse($this->mesSeleccionado . '-01')->subMonth();
+        $this->mesSeleccionado = $carbon->format('Y-m');
+        $this->cargarMarcacionesMes();
+    }
+
+    public function irMesSiguiente(): void
+    {
+        $carbon = Carbon::parse($this->mesSeleccionado . '-01')->addMonth();
+        $this->mesSeleccionado = $carbon->format('Y-m');
+        $this->cargarMarcacionesMes();
+    }
+
+    public function irMesActual(): void
+    {
+        $this->mesSeleccionado = now()->format('Y-m');
+        $this->cargarMarcacionesMes();
+    }
+
+    public function cargarMarcacionesMes(): void
+    {
+        if (! $this->selectedEmpleadoId) {
+            $this->diasMes = [];
+            return;
+        }
+
+        $empleado = Empleado::query()->find($this->selectedEmpleadoId);
+        if (! $empleado) {
+            $this->diasMes = [];
+            return;
+        }
+
+        $startOfMonth = Carbon::parse($this->mesSeleccionado . '-01')->startOfMonth();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth();
+        $daysInMonth = $endOfMonth->day;
+
+        $registrosExistentes = RegistroAsistencia::query()
+            ->where('empleado_id', $empleado->id)
+            ->whereBetween('fecha', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->get()
+            ->keyBy(fn ($r) => $r->fecha?->toDateString());
+
+        $horaEntradaHabitual = $empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '08:30';
+        $horaSalidaHabitual = $empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '17:30';
+
+        $dias = [];
+        for ($dia = 1; $dia <= $daysInMonth; $dia++) {
+            $currentDate = $startOfMonth->copy()->day($dia);
+
+            // Quitar sábados y domingos: el enfoque es estrictamente días laborales
+            if ($currentDate->isWeekend()) {
+                continue;
+            }
+
+            $dateString = $currentDate->toDateString();
+            $registro = $registrosExistentes->get($dateString);
+
+            $entradaExistente = $registro?->hora_entrada ? substr($registro->hora_entrada, 0, 5) : '';
+            $salidaExistente = $registro?->hora_salida ? substr($registro->hora_salida, 0, 5) : '';
+
+            $dias[$dateString] = [
+                'fecha' => $dateString,
+                'dia_numero' => $dia,
+                'dia_nombre' => ucfirst($currentDate->locale('es')->isoFormat('dddd')),
+                'dia_corto' => ucfirst($currentDate->locale('es')->isoFormat('ddd')),
+                'es_fin_de_semana' => false,
+                'es_hoy' => $currentDate->isToday(),
+                'tiene_registro' => $registro !== null,
+                'registro_id' => $registro?->id,
+                'hora_entrada_original' => $entradaExistente,
+                'hora_salida_original' => $salidaExistente,
+                'hora_entrada' => $entradaExistente,
+                'hora_salida' => $salidaExistente,
+                'es_especial' => $registro?->tipo_verificacion === 'Especial',
+                'estado_marcacion' => $registro?->estado_marcacion ?? 'Sin marcación',
+                'observacion' => $registro?->observacion ?? '',
+                'hora_entrada_habitual' => $horaEntradaHabitual,
+                'hora_salida_habitual' => $horaSalidaHabitual,
+            ];
+        }
+
+        $this->diasMes = $dias;
+    }
+
+    public function aplicarHorarioHabitualDia(string $fecha): void
+    {
+        if (! isset($this->diasMes[$fecha])) {
+            return;
+        }
+
+        $habitualEntrada = $this->diasMes[$fecha]['hora_entrada_habitual'] ?? '08:30';
+        $habitualSalida = $this->diasMes[$fecha]['hora_salida_habitual'] ?? '17:30';
+
+        // Si ya tenía entrada y le faltaba salida, solo rellenar salida
+        if (filled($this->diasMes[$fecha]['hora_entrada']) && blank($this->diasMes[$fecha]['hora_salida'])) {
+            $this->diasMes[$fecha]['hora_salida'] = $habitualSalida;
+        } else {
+            $this->diasMes[$fecha]['hora_entrada'] = $habitualEntrada;
+            $this->diasMes[$fecha]['hora_salida'] = $habitualSalida;
+        }
+    }
+
+    public function aplicarSalidaHabitualPendientes(): void
+    {
+        $actualizados = 0;
+        foreach ($this->diasMes as $fecha => $dia) {
+            $tieneEntrada = filled($dia['hora_entrada']);
+            $faltaSalida = blank($dia['hora_salida']);
+
+            if ($tieneEntrada && $faltaSalida) {
+                $this->diasMes[$fecha]['hora_salida'] = $dia['hora_salida_habitual'] ?? '17:30';
+                $actualizados++;
+            }
+        }
+
+        if ($actualizados > 0) {
+            session()->flash('modal_status', "Se autocompletó la salida habitual en {$actualizados} días pendientes. Haz clic en 'Guardar todo el mes' para confirmar.");
+        } else {
+            session()->flash('modal_warning', 'No se encontraron días con entrada registrada y salida pendiente.');
+        }
+    }
+
+    public function aplicarHorarioLaborablesMes(): void
+    {
+        $actualizados = 0;
+        foreach ($this->diasMes as $fecha => $dia) {
+            if (! $dia['es_fin_de_semana']) {
+                if (blank($dia['hora_entrada'])) {
+                    $this->diasMes[$fecha]['hora_entrada'] = $dia['hora_entrada_habitual'] ?? '08:30';
+                }
+                if (blank($dia['hora_salida'])) {
+                    $this->diasMes[$fecha]['hora_salida'] = $dia['hora_salida_habitual'] ?? '17:30';
+                }
+                $actualizados++;
+            }
+        }
+
+        if ($actualizados > 0) {
+            session()->flash('modal_status', "Se asignó horario habitual a {$actualizados} días laborables del mes. Haz clic en 'Guardar todo el mes' para confirmar.");
+        }
+    }
+
+    private function guardarMarcacionInterna(string $fecha, array $diaData, Empleado $empleado): bool
+    {
+        $horaEntrada = trim((string) ($diaData['hora_entrada'] ?? ''));
+        $horaSalida = trim((string) ($diaData['hora_salida'] ?? ''));
+        $observacion = trim((string) ($diaData['observacion'] ?? ''));
+
+        // Si ambos están vacíos, no hay nada que guardar
+        if ($horaEntrada === '' && $horaSalida === '') {
+            return false;
+        }
+
+        // Si el empleado aún no es especial, activarlo
+        if (! $empleado->es_especial) {
+            $empleado->update(['es_especial' => true]);
+        }
+
+        // Buscar si ya existe registro en la base de datos
+        $registroExistente = RegistroAsistencia::query()
+            ->where('empleado_id', $empleado->id)
+            ->whereDate('fecha', $fecha)
+            ->first();
+
+        // Normalizar entrada
+        $formattedEntrada = null;
+        if ($horaEntrada !== '') {
+            $formattedEntrada = strlen($horaEntrada) === 5 ? $horaEntrada . ':00' : $horaEntrada;
+        } elseif ($registroExistente?->hora_entrada) {
+            $formattedEntrada = $registroExistente->hora_entrada;
+        }
+
+        // Normalizar salida
+        $formattedSalida = null;
+        if ($horaSalida !== '') {
+            $formattedSalida = strlen($horaSalida) === 5 ? $horaSalida . ':00' : $horaSalida;
+        } elseif ($registroExistente?->hora_salida) {
+            $formattedSalida = $registroExistente->hora_salida;
+        }
+
+        $estadoMarcacion = ($formattedEntrada && $formattedSalida)
+            ? 'Marcacion completa'
+            : ($formattedEntrada ? 'Solo entrada' : 'Solo salida');
+
+        $obsFinal = $observacion ?: ($this->observacionGeneralMes ?: 'Marcación manual autorizada RRHH - Personal Especial');
+
+        if ($registroExistente) {
+            $antes = $this->snapshotRegistro($registroExistente);
+
+            $registroExistente->update([
+                'hora_entrada' => $formattedEntrada,
+                'hora_salida' => $formattedSalida,
+                'tipo_verificacion' => 'Especial',
+                'estado_marcacion' => $estadoMarcacion,
+                'evento_biometrico' => 'Ingreso y salida especial RRHH',
+                'observacion' => $obsFinal,
+                'updated_by' => auth()->id(),
+            ]);
+
+            app(AuditoriaService::class)->registrar(
+                'Personal Especial',
+                'actualizar_marcacion_manual',
+                "Marcación manual especial actualizada para {$empleado->nombre_completo} el {$fecha}.",
+                $registroExistente,
+                $antes,
+                $this->snapshotRegistro($registroExistente)
+            );
+        } else {
+            $nuevo = RegistroAsistencia::query()->create([
+                'empleado_id' => $empleado->id,
+                'fecha' => $fecha,
+                'hora_entrada' => $formattedEntrada,
+                'hora_salida' => $formattedSalida,
+                'tipo_verificacion' => 'Especial',
+                'estado_marcacion' => $estadoMarcacion,
+                'evento_biometrico' => 'Ingreso y salida especial RRHH',
+                'observacion' => $obsFinal,
+                'created_by' => auth()->id(),
+            ]);
+
+            app(AuditoriaService::class)->registrar(
+                'Personal Especial',
+                'crear_marcacion_manual',
+                "Marcación manual especial registrada para {$empleado->nombre_completo} el {$fecha}.",
+                $nuevo,
+                null,
+                $this->snapshotRegistro($nuevo)
+            );
+        }
+
+        return true;
+    }
+
+    public function guardarMarcacionDia(string $fecha): void
+    {
+        if (! $this->selectedEmpleadoId || ! isset($this->diasMes[$fecha])) {
+            return;
+        }
+
+        $empleado = Empleado::query()->findOrFail($this->selectedEmpleadoId);
+        $diaData = $this->diasMes[$fecha];
+
+        $guardado = $this->guardarMarcacionInterna($fecha, $diaData, $empleado);
+
+        if ($guardado) {
+            $this->cargarMarcacionesMes();
+            session()->flash('modal_status', "✓ Marcación guardada correctamente para el día {$fecha}.");
+            session()->flash('status', "✓ Marcación guardada para {$empleado->nombre_completo} ({$fecha}).");
+        } else {
+            $this->addError("diasMes.{$fecha}.hora_salida", 'Ingresa al menos la hora de entrada o salida.');
+        }
+    }
+
+    public function guardarTodoElMes(): void
+    {
+        if (! $this->selectedEmpleadoId) {
+            return;
+        }
+
+        $empleado = Empleado::query()->findOrFail($this->selectedEmpleadoId);
+        $copiaDias = $this->diasMes;
+        $guardados = 0;
+
+        foreach ($copiaDias as $fecha => $dia) {
+            $horaEntrada = trim((string) ($dia['hora_entrada'] ?? ''));
+            $horaSalida = trim((string) ($dia['hora_salida'] ?? ''));
+            $origEntrada = trim((string) ($dia['hora_entrada_original'] ?? ''));
+            $origSalida = trim((string) ($dia['hora_salida_original'] ?? ''));
+
+            $hayCambio = ($horaEntrada !== $origEntrada) || ($horaSalida !== $origSalida);
+            $tieneAlgunaHora = ($horaEntrada !== '' || $horaSalida !== '');
+
+            if ($hayCambio && $tieneAlgunaHora) {
+                if ($this->guardarMarcacionInterna($fecha, $dia, $empleado)) {
+                    $guardados++;
+                }
+            }
+        }
+
+        // Se recarga UNA SOLA VEZ al final del proceso completo
+        $this->cargarMarcacionesMes();
+
+        if ($guardados > 0) {
+            session()->flash('modal_status', "✓ Se guardaron {$guardados} marcaciones del mes exitosamente para {$empleado->nombre_completo}.");
+            session()->flash('status', "✓ Se guardaron {$guardados} marcaciones especiales para {$empleado->nombre_completo}.");
+        } else {
+            session()->flash('modal_warning', 'No se detectaron cambios pendientes o datos para guardar en el mes.');
+        }
+    }
+
+    public function limpiarMarcacionDia(string $fecha): void
+    {
+        if (! $this->selectedEmpleadoId) {
+            return;
+        }
+
+        $registro = RegistroAsistencia::query()
+            ->where('empleado_id', $this->selectedEmpleadoId)
+            ->whereDate('fecha', $fecha)
+            ->first();
+
+        if ($registro) {
+            $antes = $this->snapshotRegistro($registro);
+            $registro->delete();
+
+            app(AuditoriaService::class)->registrar(
+                'Personal Especial',
+                'eliminar_marcacion_manual',
+                "Se eliminó marcación especial del día {$fecha}.",
+                $registro,
+                $antes,
+                ['eliminado' => true]
+            );
+
+            $this->cargarMarcacionesMes();
+            session()->flash('modal_status', "Marcación del día {$fecha} eliminada.");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // AUXILIARES
     // ─────────────────────────────────────────────────────────────
 
@@ -497,28 +903,41 @@ class PersonalEspecialPage extends Component
 
     public function render()
     {
-        // Rango de fechas activo: 'dia' o 'rango'
+        $mesActivo = filled($this->mesFiltroGlobal) ? $this->mesFiltroGlobal : now()->format('Y-m');
+        $startMes = Carbon::parse($mesActivo . '-01')->startOfMonth()->toDateString();
+        $endMes = Carbon::parse($mesActivo . '-01')->endOfMonth()->toDateString();
+
+        // Rango de fechas activo: por defecto el mes activo completo
         if ($this->tipoRangoFiltro === 'dia') {
             $startDate = filled($this->fechaDiaFiltro) ? $this->fechaDiaFiltro : now()->toDateString();
             $endDate = $startDate;
-        } else {
+        } elseif ($this->tipoRangoFiltro === 'rango') {
             $startDate = filled($this->fechaInicioFiltro) ? $this->fechaInicioFiltro : now()->copy()->startOfWeek()->toDateString();
             $endDate = filled($this->fechaFinFiltro) ? $this->fechaFinFiltro : now()->toDateString();
             if ($startDate > $endDate) {
                 [$startDate, $endDate] = [$endDate, $startDate];
             }
+        } else {
+            // 'mes' (enfoque global mensual)
+            $startDate = $startMes;
+            $endDate = $endMes;
         }
+
+        $searchOperator = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
         // Candidatos sin régimen especial encontrados en el buscador para vincular directamente
         $candidatosVincular = collect();
         if (filled($this->search) && strlen(trim($this->search)) >= 2) {
-            $term = '%' . trim($this->search) . '%';
+            $termClean = trim($this->search);
+            $term = '%' . $termClean . '%';
+            $termLower = '%' . mb_strtolower($termClean) . '%';
             $candidatosVincular = Empleado::query()
                 ->where('es_especial', false)
-                ->where(function ($q) use ($term) {
-                    $q->where('nombre', 'like', $term)
-                        ->orWhere('apellido', 'like', $term)
-                        ->orWhere('codigo_biometrico', 'like', $term);
+                ->where(function ($q) use ($term, $termLower, $searchOperator) {
+                    $q->where('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhere('codigo_biometrico', $searchOperator, $term)
+                        ->orWhereRaw("LOWER(COALESCE(nombre, '') || ' ' || COALESCE(apellido, '')) LIKE ?", [$termLower]);
                 })
                 ->take(5)
                 ->get();
@@ -544,11 +963,23 @@ class PersonalEspecialPage extends Component
             ->take(50)
             ->get();
 
-        // Métricas
+        // Métricas Globales del Mes
         $totalEspeciales = Empleado::query()->where('es_especial', true)->count();
         $registrosMesCount = RegistroAsistencia::query()
-            ->whereHas('empleado', fn($q) => $q->where('es_especial', true))
-            ->whereBetween('fecha', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->where(function ($q) {
+                $q->where('tipo_verificacion', 'Especial')
+                    ->orWhereHas('empleado', fn($eq) => $eq->where('es_especial', true));
+            })
+            ->whereBetween('fecha', [$startMes, $endMes])
+            ->count();
+        $salidasPendientesMesCount = RegistroAsistencia::query()
+            ->where(function ($q) {
+                $q->where('tipo_verificacion', 'Especial')
+                    ->orWhereHas('empleado', fn($eq) => $eq->where('es_especial', true));
+            })
+            ->whereBetween('fecha', [$startMes, $endMes])
+            ->whereNotNull('hora_entrada')
+            ->whereNull('hora_salida')
             ->count();
         $registrosHoyCount = RegistroAsistencia::query()
             ->whereHas('empleado', fn($q) => $q->where('es_especial', true))
@@ -557,7 +988,7 @@ class PersonalEspecialPage extends Component
 
         // Query principal de Registros de Marcaciones Especiales
         $registrosQuery = RegistroAsistencia::query()
-            ->with(['empleado', 'creador'])
+            ->with(['empleado', 'creador', 'actualizadoPor'])
             ->where(function ($q) {
                 $q->where('tipo_verificacion', 'Especial')
                     ->orWhereHas('empleado', fn($eq) => $eq->where('es_especial', true));
@@ -566,13 +997,16 @@ class PersonalEspecialPage extends Component
             ->when(filled($this->sucursalFiltro), function ($q) {
                 $q->whereHas('empleado', fn($eq) => SucursalNormalizer::applyFilter($eq, 'sucursal', $this->sucursalFiltro));
             })
-            ->when(filled($this->search), function ($q) {
-                $term = '%' . trim($this->search) . '%';
-                $q->whereHas('empleado', function ($eq) use ($term) {
-                    $eq->where('nombre', 'like', $term)
-                        ->orWhere('apellido', 'like', $term)
-                        ->orWhere('codigo_biometrico', 'like', $term)
-                        ->orWhere('area', 'like', $term);
+            ->when(filled($this->search), function ($q) use ($searchOperator) {
+                $termClean = trim($this->search);
+                $term = '%' . $termClean . '%';
+                $termLower = '%' . mb_strtolower($termClean) . '%';
+                $q->whereHas('empleado', function ($eq) use ($term, $termLower, $searchOperator) {
+                    $eq->where('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhere('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('area', $searchOperator, $term)
+                        ->orWhereRaw("LOWER(COALESCE(nombre, '') || ' ' || COALESCE(apellido, '')) LIKE ?", [$termLower]);
                 });
             })
             ->orderByDesc('fecha')
@@ -584,22 +1018,111 @@ class PersonalEspecialPage extends Component
         $personalQuery = Empleado::query()
             ->where('es_especial', true)
             ->when(filled($this->sucursalFiltro), fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $this->sucursalFiltro))
-            ->when(filled($this->search), function ($q) {
-                $term = '%' . trim($this->search) . '%';
-                $q->where(function ($inner) use ($term) {
-                    $inner->where('nombre', 'like', $term)
-                        ->orWhere('apellido', 'like', $term)
-                        ->orWhere('codigo_biometrico', 'like', $term)
-                        ->orWhere('area', 'like', $term);
+            ->when(filled($this->search), function ($q) use ($searchOperator) {
+                $termClean = trim($this->search);
+                $term = '%' . $termClean . '%';
+                $termLower = '%' . mb_strtolower($termClean) . '%';
+                $q->where(function ($inner) use ($term, $termLower, $searchOperator) {
+                    $inner->where('nombre', $searchOperator, $term)
+                        ->orWhere('apellido', $searchOperator, $term)
+                        ->orWhere('codigo_biometrico', $searchOperator, $term)
+                        ->orWhere('area', $searchOperator, $term)
+                        ->orWhereRaw("LOWER(COALESCE(nombre, '') || ' ' || COALESCE(apellido, '')) LIKE ?", [$termLower]);
                 });
             })
-            ->withCount(['asistencias' => function ($q) use ($startDate, $endDate) {
-                $q->whereBetween('fecha', [$startDate, $endDate]);
-            }])
+            ->withCount([
+                'asistencias' => function ($q) use ($startMes, $endMes) {
+                    $q->whereBetween('fecha', [$startMes, $endMes]);
+                },
+                'asistencias as completas_mes_count' => function ($q) use ($startMes, $endMes) {
+                    $q->whereBetween('fecha', [$startMes, $endMes])
+                        ->whereNotNull('hora_entrada')
+                        ->whereNotNull('hora_salida');
+                },
+                'asistencias as pendientes_salida_mes_count' => function ($q) use ($startMes, $endMes) {
+                    $q->whereBetween('fecha', [$startMes, $endMes])
+                        ->whereNotNull('hora_entrada')
+                        ->whereNull('hora_salida');
+                },
+            ])
             ->orderBy('nombre')
             ->orderBy('apellido');
 
         $personalPaginado = $personalQuery->paginate(15, ['*'], 'personalPage');
+
+        // Candidatos buscados en el modal de entrada/salida especial (Búsqueda inteligente insensible a mayúsculas)
+        $candidatosModal = collect();
+        if ($this->showModalEspecial) {
+            $modalSearchClean = trim($this->modalSearch);
+            if (filled($modalSearchClean)) {
+                $term = '%' . $modalSearchClean . '%';
+                $termLower = '%' . mb_strtolower($modalSearchClean) . '%';
+                $words = preg_split('/\s+/', mb_strtolower($modalSearchClean), -1, PREG_SPLIT_NO_EMPTY);
+
+                $candidatosModal = Empleado::query()
+                    ->where(function ($q) use ($term, $termLower, $searchOperator, $words) {
+                        $q->where('nombre', $searchOperator, $term)
+                            ->orWhere('apellido', $searchOperator, $term)
+                            ->orWhere('codigo_biometrico', $searchOperator, $term)
+                            ->orWhereRaw("LOWER(COALESCE(nombre, '') || ' ' || COALESCE(apellido, '')) LIKE ?", [$termLower])
+                            ->orWhereRaw("LOWER(COALESCE(apellido, '') || ' ' || COALESCE(nombre, '')) LIKE ?", [$termLower])
+                            ->orWhereRaw("LOWER(COALESCE(codigo_biometrico, '')) LIKE ?", [$termLower]);
+
+                        if (count($words) > 1) {
+                            $q->orWhere(function ($sub) use ($words, $searchOperator) {
+                                foreach ($words as $w) {
+                                    $wt = '%' . $w . '%';
+                                    $sub->where(function ($wQuery) use ($wt, $w, $searchOperator) {
+                                        $wQuery->where('nombre', $searchOperator, $wt)
+                                            ->orWhere('apellido', $searchOperator, $wt)
+                                            ->orWhere('codigo_biometrico', $searchOperator, $wt)
+                                            ->orWhereRaw("LOWER(COALESCE(nombre, '') || ' ' || COALESCE(apellido, '')) LIKE ?", ['%' . $w . '%']);
+                                    });
+                                }
+                            });
+                        }
+                    })
+                    ->orderBy('nombre')
+                    ->take(15)
+                    ->get();
+            } else {
+                // Sugerencias inmediatas de personal especial activo si no ha escrito nada
+                $candidatosModal = Empleado::query()
+                    ->where('es_especial', true)
+                    ->orderBy('nombre')
+                    ->take(8)
+                    ->get();
+            }
+        }
+
+        $selectedEmpleado = $this->selectedEmpleadoId ? Empleado::query()->find($this->selectedEmpleadoId) : null;
+
+        $statsMesEmpleado = [
+            'totalDias' => count($this->diasMes),
+            'completas' => count(array_filter($this->diasMes, fn ($d) => filled($d['hora_entrada']) && filled($d['hora_salida']))),
+            'soloEntrada' => count(array_filter($this->diasMes, fn ($d) => filled($d['hora_entrada']) && blank($d['hora_salida']))),
+            'soloSalida' => count(array_filter($this->diasMes, fn ($d) => blank($d['hora_entrada']) && filled($d['hora_salida']))),
+            'sinRegistro' => count(array_filter($this->diasMes, fn ($d) => blank($d['hora_entrada']) && blank($d['hora_salida']))),
+        ];
+
+        // Resumen de Cambios para el modal de auditoría/modificaciones
+        $resumenCambios = collect();
+        $empleadoResumen = null;
+        if ($this->showResumenCambiosModal) {
+            if ($this->resumenEmpleadoId) {
+                $empleadoResumen = Empleado::find($this->resumenEmpleadoId);
+            }
+            $resumenCambios = RegistroAsistencia::query()
+                ->with(['empleado', 'creador', 'actualizadoPor'])
+                ->where(function ($q) {
+                    $q->where('tipo_verificacion', 'Especial')
+                        ->orWhereHas('empleado', fn($eq) => $eq->where('es_especial', true));
+                })
+                ->when($this->resumenEmpleadoId, fn($q) => $q->where('empleado_id', $this->resumenEmpleadoId))
+                ->orderByDesc('updated_at')
+                ->take(50)
+                ->get();
+        }
 
         return view('livewire.personal-especial', [
             'registros' => $registrosPaginados,
@@ -607,10 +1130,17 @@ class PersonalEspecialPage extends Component
             'empleadosEspecialesList' => $empleadosEspecialesList,
             'empleadosParaVincular' => $empleadosParaVincular,
             'candidatosVincular' => $candidatosVincular,
+            'candidatosModal' => $candidatosModal,
+            'selectedEmpleado' => $selectedEmpleado,
+            'statsMesEmpleado' => $statsMesEmpleado,
+            'resumenCambios' => $resumenCambios,
+            'empleadoResumen' => $empleadoResumen,
             'sucursales' => $sucursales,
             'totalEspeciales' => $totalEspeciales,
             'registrosMesCount' => $registrosMesCount,
+            'salidasPendientesMesCount' => $salidasPendientesMesCount,
             'registrosHoyCount' => $registrosHoyCount,
+            'mesActivo' => $mesActivo,
             'startDate' => $startDate,
             'endDate' => $endDate,
         ])->layout('layouts.app', ['title' => 'Personal Especial']);

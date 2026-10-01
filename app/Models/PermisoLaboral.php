@@ -14,6 +14,7 @@ class PermisoLaboral extends Model
     protected $fillable = [
         'empleado_id',
         'tipo',
+        'tipo_permiso_clave',
         'alcance',
         'estado',
         'fecha_inicio',

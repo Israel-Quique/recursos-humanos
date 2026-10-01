@@ -384,9 +384,9 @@ class BoletaConComprobanteTest extends TestCase
             ->assertDontSee('Mis Solicitudes de Boleta Recientes')
             ->assertDontSee('Falta firma de jefatura inmediata');
 
-        // En perfil de horas tampoco deben exponerse públicamente las boletas
+        // En perfil de horas tampoco se expone el apartado de boletas registradas
         Livewire::test(\App\Livewire\PerfilHorasPage::class, ['empleado' => $empleado])
-            ->assertDontSee('Mis Boletas y Permisos Recientes')
+            ->assertDontSee('Mis Boletas y Permisos Registrados')
             ->assertDontSee('Falta firma de jefatura inmediata');
     }
 

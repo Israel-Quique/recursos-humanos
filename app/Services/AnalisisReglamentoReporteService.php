@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Empleado;
+use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
 use App\Models\ReglaSancion;
 use App\Support\SucursalNormalizer;
@@ -840,6 +841,14 @@ class AnalisisReglamentoReporteService
             return self::$reincidenciaCache[$cacheKey] = 0;
         }
 
+        $permisosAprobados = PermisoLaboral::query()
+            ->where('empleado_id', $empleado->id)
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<', $endDate)
+            ->whereDate('fecha_fin', '>=', $startDate)
+            ->get();
+
         $mesesConRegistros = $registros->groupBy(fn($r) => (int) $r->fecha?->format('m'));
 
         $conteo = 0;
@@ -852,6 +861,13 @@ class AnalisisReglamentoReporteService
             foreach ($items as $reg) {
                 $horario = $this->programacionLaboral->resolverHorario($empleado, $reg->fecha);
                 if (!$horario['laborable']) {
+                    continue;
+                }
+
+                $tienePermiso = $permisosAprobados->contains(function (PermisoLaboral $p) use ($reg) {
+                    return $reg->fecha && $reg->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                });
+                if ($tienePermiso) {
                     continue;
                 }
 
@@ -904,6 +920,14 @@ class AnalisisReglamentoReporteService
             9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
         ];
 
+        $permisosAprobados = PermisoLaboral::query()
+            ->where('empleado_id', $empleado->id)
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<', $endDate)
+            ->whereDate('fecha_fin', '>=', $startDate)
+            ->get();
+
         $mesesExcedidos = [];
         foreach ($mesesConRegistros as $m => $items) {
             if ($m >= $mesExcluir) {
@@ -914,6 +938,13 @@ class AnalisisReglamentoReporteService
             foreach ($items as $reg) {
                 $horario = $this->programacionLaboral->resolverHorario($empleado, $reg->fecha);
                 if (!$horario['laborable']) {
+                    continue;
+                }
+
+                $tienePermiso = $permisosAprobados->contains(function (PermisoLaboral $p) use ($reg) {
+                    return $reg->fecha && $reg->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                });
+                if ($tienePermiso) {
                     continue;
                 }
 

@@ -339,13 +339,11 @@ class PlanillaRefrigerioTest extends TestCase
         $test->assertDontSee('Bm - Baja médica');
         $test->assertDontSee('Cv - Comisión de viaje');
 
-        // Debe ver las opciones compactas
-        $test->assertSee('<option value="p"', false);
-        $test->assertSee('>P</option>', false);
+        // Debe ver las opciones compactas base del biométrico
+        $test->assertSee('<option value="a"', false);
+        $test->assertSee('>A</option>', false);
         $test->assertSee('>F</option>', false);
         $test->assertSee('>O</option>', false);
-        $test->assertSee('>Bm</option>', false);
-        $test->assertSee('>Cv</option>', false);
 
         // No debe mostrar el apartado lateral de resumen de faltas, omisiones, bajas y comisiones en la tabla
         $test->assertDontSee('F<br><span class="text-[8.5px]', false);
@@ -353,5 +351,104 @@ class PlanillaRefrigerioTest extends TestCase
         $test->assertDontSee('Bm<br><span class="text-[8.5px]', false);
         $test->assertDontSee('Cv<br><span class="text-[8.5px]', false);
         $test->assertDontSee('Total días descuento sumados');
+    }
+
+    public function test_pdf_se_genera_con_formato_toner_alto_contraste(): void
+    {
+        $diasMes = [
+            ['fecha' => '2026-09-01', 'dia' => '01', 'dia_nombre' => 'Mar', 'fecha_corta' => '01/09/2026'],
+            ['fecha' => '2026-09-02', 'dia' => '02', 'dia_nombre' => 'Mié', 'fecha_corta' => '02/09/2026'],
+            ['fecha' => '2026-09-03', 'dia' => '03', 'dia_nombre' => 'Jue', 'fecha_corta' => '03/09/2026'],
+            ['fecha' => '2026-09-04', 'dia' => '04', 'dia_nombre' => 'Vie', 'fecha_corta' => '04/09/2026'],
+            ['fecha' => '2026-09-07', 'dia' => '07', 'dia_nombre' => 'Lun', 'fecha_corta' => '07/09/2026'],
+            ['fecha' => '2026-09-08', 'dia' => '08', 'dia_nombre' => 'Mar', 'fecha_corta' => '08/09/2026'],
+        ];
+
+        $items = [
+            [
+                'nombre' => 'Empleado Prueba Toner',
+                'codigo' => '9999',
+                'dias' => [
+                    '2026-09-01' => 'p',
+                    '2026-09-02' => 'f',
+                    '2026-09-03' => 'o',
+                    '2026-09-04' => 'a',
+                    '2026-09-07' => 'bm',
+                    '2026-09-08' => 'cv',
+                ],
+                'total_dias' => 4,
+                'total_monto' => 80.00,
+            ],
+        ];
+
+        $html = view('pdf.planilla-refrigerio', [
+            'items' => $items,
+            'diasMes' => $diasMes,
+            'periodoLabel' => 'Septiembre 2026',
+            'sucursalLabel' => 'La Paz',
+            'tarifaDiaria' => 20.00,
+            'metricas' => [
+                'gran_total_dias' => 4,
+                'gran_total_monto' => 80.00,
+            ],
+            'emision' => '28/09/2026 14:00',
+        ])->render();
+
+        $this->assertStringContainsString('cell-p', $html);
+        $this->assertStringContainsString('cell-f', $html);
+        $this->assertStringContainsString('cell-o', $html);
+        $this->assertStringContainsString('cell-a', $html);
+        $this->assertStringContainsString('cell-bm', $html);
+        $this->assertStringContainsString('cell-cv', $html);
+        $this->assertStringContainsString('Atraso', $html);
+        $this->assertStringContainsString('ALTO CONTRASTE', $html);
+    }
+
+    public function test_incidencias_dinamicas_se_integran_con_planilla_refrigerio(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-20 12:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'María',
+            'apellido' => 'Quispe',
+            'codigo_biometrico' => '5005',
+            'sucursal' => 'La Paz',
+            'area' => 'Finanzas',
+            'cargo' => 'Contador',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-09-01',
+        ]);
+
+        // Crear permiso con clave dinámica tipo_permiso_clave = 'bm'
+        $permiso = PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'permiso',
+            'tipo_permiso_clave' => 'bm',
+            'alcance' => 'dias',
+            'estado' => 'aprobado',
+            'fecha_inicio' => '2026-09-02',
+            'fecha_fin' => '2026-09-02',
+            'motivo' => 'Baja Médica certificada CNS',
+        ]);
+
+        $service = app(PlanillaRefrigerioService::class);
+        $resultado = $service->calcularPlanilla(Carbon::parse('2026-09-01'), null, 25.00);
+
+        $itemEmp = collect($resultado['items'])->firstWhere('empleado_id', $empleado->id);
+        $this->assertNotNull($itemEmp);
+        $this->assertEquals('bm', $itemEmp['dias']['2026-09-02'] ?? '');
+        $this->assertEquals(1, $itemEmp['bajas_medicas']);
+        $this->assertEquals(1, $itemEmp['total_dias']);
+        $this->assertEquals(25.00, $itemEmp['total_monto']);
+
+        // Si se elimina el permiso (centralización de datos), ya no aparece descuento
+        $permiso->delete();
+
+        $resultadoSinPermiso = $service->calcularPlanilla(Carbon::parse('2026-09-01'), null, 25.00);
+        $itemEmpSin = collect($resultadoSinPermiso['items'])->firstWhere('empleado_id', $empleado->id);
+        $this->assertEquals('a', $itemEmpSin['dias']['2026-09-02'] ?? '');
+        $this->assertEquals(0, $itemEmpSin['total_dias']);
+        $this->assertEquals(0.00, $itemEmpSin['total_monto']);
     }
 }

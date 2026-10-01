@@ -3,6 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\PlanillaRefrigerio;
+use App\Models\RegistroAsistencia;
+use App\Models\TipoPermiso;
 use App\Services\AnalisisAsistenciaService;
 use App\Services\PlanillaRefrigerioService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -22,6 +24,8 @@ class PlanillaRefrigerioPage extends Component
     public array $diasMes = [];
     public bool $isDirty = false;
     public ?string $ultimaGuardada = null;
+    /** Indica si la planilla cargada es más antigua que los últimos datos biométricos */
+    public bool $datosDesactualizados = false;
 
     // Modal de detalle de incidencias y fechas
     public bool $showDetailModal = false;
@@ -76,9 +80,13 @@ class PlanillaRefrigerioPage extends Component
 
     /**
      * Carga la planilla: si existe guardada en BD se usa esa, sino se calcula fresca.
+     * Si llegaron registros biométricos más recientes que la planilla guardada,
+     * recalcula automáticamente para reflejar las faltas y omisiones actualizadas.
      */
     public function cargarPlanilla(): void
     {
+        $this->datosDesactualizados = false;
+
         try {
             $ref = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
         } catch (\Throwable) {
@@ -103,9 +111,31 @@ class PlanillaRefrigerioPage extends Component
                 return;
             }
 
+            // Verificar si han llegado registros biométricos más nuevos que la planilla guardada.
+            // Si es así, recalcular automáticamente para reflejar las faltas actualizadas.
+            $guardadoEn = $registro->updated_at;
+            if ($guardadoEn) {
+                try {
+                    $start = $ref->copy()->startOfMonth();
+                    $end   = $ref->copy()->endOfMonth();
+
+                    $ultimoBiometrico = RegistroAsistencia::whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+                        ->where('created_at', '>', $guardadoEn)
+                        ->exists();
+
+                    if ($ultimoBiometrico) {
+                        // Hay datos biométricos más recientes que la planilla guardada → recalcular
+                        $this->jalarDatos(false);
+                        return;
+                    }
+                } catch (\Throwable) {
+                    // Si falla la consulta, usar datos guardados igual
+                }
+            }
+
             $this->tarifaDiaria = (float) $registro->tarifa_diaria;
             $this->items = $itemsLoaded;
-            $this->ultimaGuardada = $registro->updated_at?->format('d/m/Y H:i');
+            $this->ultimaGuardada = $guardadoEn?->format('d/m/Y H:i');
             $this->isDirty = false;
             return;
         }
@@ -138,7 +168,8 @@ class PlanillaRefrigerioPage extends Component
     }
 
     /**
-     * Alterna en ciclo el estado de un día: P -> F -> O -> Bm -> Cv -> P
+     * Alterna en ciclo el estado de un día:
+     * (blanco) → A → F → O → (tipos dinámicos desde Incidencias) → (blanco)
      */
     public function alternarEstadoDia(int $index, string $fecha): void
     {
@@ -146,21 +177,34 @@ class PlanillaRefrigerioPage extends Component
             return;
         }
 
-        $actual = strtolower($this->items[$index]['dias'][$fecha] ?? 'p');
-        $siguiente = match ($actual) {
-            'p' => 'f',
-            'f' => 'o',
-            'o' => 'bm',
-            'bm' => 'cv',
-            'cv' => 'p',
-            default => 'p',
-        };
+        $tiposEstados = $this->obtenerTiposEstados();
+        $claves = array_keys($tiposEstados); // ['a', 'f', 'o', ...dinamicos]
+
+        $actual = strtolower($this->items[$index]['dias'][$fecha] ?? '');
+
+        if ($actual === '' || $actual === 'p') {
+            // Desde celda en blanco: ir a 'a'
+            $siguiente = 'a';
+        } else {
+            $posActual = array_search($actual, $claves);
+            if ($posActual === false) {
+                $siguiente = 'a';
+            } elseif ($posActual >= count($claves) - 1) {
+                // Al final del ciclo: volver a blanco
+                $siguiente = '';
+            } else {
+                $siguiente = $claves[$posActual + 1];
+            }
+        }
 
         $this->actualizarEstadoDia($index, $fecha, $siguiente);
     }
 
     /**
-     * Actualiza el estado de un día específico (p, f, o, bm, cv) y recalcula totales en vivo.
+     * Actualiza el estado de un día específico y recalcula totales en vivo.
+     * '' = sin dato biométrico (no penaliza)
+     * 'a' = asistencia (no penaliza)
+     * 'f'/'o'/permisos = se penaliza como 1 día no pagado.
      */
     public function actualizarEstadoDia(int $index, string $fecha, string $nuevoEstado): void
     {
@@ -168,9 +212,13 @@ class PlanillaRefrigerioPage extends Component
             return;
         }
 
+        $tiposValidos = array_keys($this->obtenerTiposEstados());
         $nuevoEstado = strtolower(trim($nuevoEstado));
-        if (!in_array($nuevoEstado, ['p', 'f', 'o', 'bm', 'cv'], true)) {
-            $nuevoEstado = 'p';
+        // Permitir '' (blanco) como estado válido
+        if ($nuevoEstado !== '' && !in_array($nuevoEstado, $tiposValidos, true) && !in_array($nuevoEstado, ['bm', 'cv'], true)) {
+            if (!preg_match('/^[a-z0-9_]{1,15}$/', $nuevoEstado)) {
+                $nuevoEstado = '';
+            }
         }
 
         $this->items[$index]['dias'][$fecha] = $nuevoEstado;
@@ -178,11 +226,13 @@ class PlanillaRefrigerioPage extends Component
         // Recalcular conteos y desgloses
         $faltas = 0;
         $omisiones = 0;
+        $permisos = 0;
         $bajas = 0;
         $comisiones = 0;
 
         $fechasFaltas = [];
         $fechasOmisiones = [];
+        $fechasPermisos = [];
         $fechasBajas = [];
         $fechasComisiones = [];
 
@@ -200,26 +250,38 @@ class PlanillaRefrigerioPage extends Component
             } elseif ($st === 'o') {
                 $omisiones++;
                 $fechasOmisiones[] = ['fecha' => $fFormatted, 'detalle' => 'Omisión de marcado'];
-            } elseif ($st === 'bm') {
-                $bajas++;
-                $fechasBajas[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Baja médica autorizada'];
-            } elseif ($st === 'cv') {
-                $comisiones++;
-                $fechasComisiones[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
+            } elseif ($st !== 'a' && $st !== '' && $st !== 'p') {
+                // Cualquier permiso/incidencia desde Incidencias y Permisos
+                $permisos++;
+                $label = match($st) {
+                    'bm' => 'Baja médica autorizada',
+                    'cv' => 'Comisión de viaje laboral',
+                    default => 'Permiso: ' . strtoupper($st),
+                };
+                $fechasPermisos[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => $label, 'tipo' => $st];
+                if ($st === 'bm') {
+                    $bajas++;
+                    $fechasBajas[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Baja médica autorizada'];
+                } elseif ($st === 'cv') {
+                    $comisiones++;
+                    $fechasComisiones[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
+                }
             }
         }
 
         $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
-        $totalDias = $faltas + $omisiones + $bajas + $comisiones;
+        $totalDias = $faltas + $omisiones + $permisos;
 
         $this->items[$index]['faltas'] = $faltas;
         $this->items[$index]['omisiones'] = $omisiones;
+        $this->items[$index]['permisos'] = $permisos;
         $this->items[$index]['bajas_medicas'] = $bajas;
         $this->items[$index]['comisiones_viaje'] = $comisiones;
         $this->items[$index]['total_dias'] = $totalDias;
         $this->items[$index]['total_monto'] = round($totalDias * $tarifa, 2);
         $this->items[$index]['fechas_faltas'] = $fechasFaltas;
         $this->items[$index]['fechas_omisiones'] = $fechasOmisiones;
+        $this->items[$index]['fechas_permisos'] = $fechasPermisos;
         $this->items[$index]['fechas_bajas'] = $fechasBajas;
         $this->items[$index]['fechas_comisiones'] = $fechasComisiones;
 
@@ -227,7 +289,7 @@ class PlanillaRefrigerioPage extends Component
     }
 
     /**
-     * Actualiza el valor acumulado de un día (Faltas, Omisiones, Bajas, Comisiones) directamente.
+     * Actualiza el valor acumulado de un día (Faltas, Omisiones, Permisos) directamente.
      */
     public function actualizarDia(int $index, string $campo, $valor): void
     {
@@ -241,10 +303,24 @@ class PlanillaRefrigerioPage extends Component
         // Recalcular total días
         $faltas = (int) ($this->items[$index]['faltas'] ?? 0);
         $omisiones = (int) ($this->items[$index]['omisiones'] ?? 0);
-        $bajas = (int) ($this->items[$index]['bajas_medicas'] ?? 0);
-        $comisiones = (int) ($this->items[$index]['comisiones_viaje'] ?? 0);
+        $permisos = isset($this->items[$index]['permisos'])
+            ? (int) $this->items[$index]['permisos']
+            : ((int) ($this->items[$index]['bajas_medicas'] ?? 0) + (int) ($this->items[$index]['comisiones_viaje'] ?? 0));
 
-        $totalDias = $faltas + $omisiones + $bajas + $comisiones;
+        if ($campo === 'permisos') {
+            $this->items[$index]['permisos'] = $val;
+            $permisos = $val;
+        } elseif ($campo === 'bajas_medicas') {
+            $this->items[$index]['bajas_medicas'] = $val;
+            $permisos = $val + (int) ($this->items[$index]['comisiones_viaje'] ?? 0);
+            $this->items[$index]['permisos'] = $permisos;
+        } elseif ($campo === 'comisiones_viaje') {
+            $this->items[$index]['comisiones_viaje'] = $val;
+            $permisos = (int) ($this->items[$index]['bajas_medicas'] ?? 0) + $val;
+            $this->items[$index]['permisos'] = $permisos;
+        }
+
+        $totalDias = $faltas + $omisiones + $permisos;
         $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
         $this->items[$index]['total_dias'] = $totalDias;
         $this->items[$index]['total_monto'] = round($totalDias * $tarifa, 2);
@@ -378,6 +454,7 @@ class PlanillaRefrigerioPage extends Component
             'personal_con_descuento' => $itemsCol->filter(fn($i) => ($i['total_dias'] ?? 0) > 0)->count(),
             'total_faltas' => (int) $itemsCol->sum('faltas'),
             'total_omisiones' => (int) $itemsCol->sum('omisiones'),
+            'total_permisos' => (int) $itemsCol->sum(fn($i) => ($i['permisos'] ?? (($i['bajas_medicas'] ?? 0) + ($i['comisiones_viaje'] ?? 0)))),
             'total_bajas_medicas' => (int) $itemsCol->sum('bajas_medicas'),
             'total_comisiones_viaje' => (int) $itemsCol->sum('comisiones_viaje'),
             'gran_total_dias' => $totalDias,
@@ -385,10 +462,40 @@ class PlanillaRefrigerioPage extends Component
         ];
     }
 
+    /**
+     * Devuelve el mapa clave=>label de todos los estados válidos,
+     * incluyendo los tipos de permisos dinámicos registrados en el sistema.
+     */
+    public function obtenerTiposEstados(): array
+    {
+        // Únicamente los 3 estados base provenientes del biométrico diario
+        $base = [
+            'a'  => 'Asistencia',
+            'f'  => 'Falta',
+            'o'  => 'Omisión',
+        ];
+
+        // Todos los demás estados provienen de Incidencias y Permisos (TipoPermiso)
+        try {
+            $dinamicos = TipoPermiso::obtenerTodos();
+            foreach ($dinamicos as $clave => $nombre) {
+                // Solo agregar si la clave no colisiona con las del biométrico
+                if (!isset($base[$clave])) {
+                    $base[$clave] = $nombre;
+                }
+            }
+        } catch (\Throwable) {
+            // En caso de fallo de BD, usar solo los base
+        }
+
+        return $base;
+    }
+
     public function render()
     {
         $analysis = app(AnalisisAsistenciaService::class);
         $branches = $analysis->sucursalesParaReportes();
+        $tiposEstados = $this->obtenerTiposEstados();
 
         // Filtrado por búsqueda de personal
         $filteredItems = $this->items;
@@ -406,11 +513,12 @@ class PlanillaRefrigerioPage extends Component
         $periodoLabel = ucfirst(Carbon::createFromFormat('Y-m', $this->referenceMonth)->locale('es')->translatedFormat('F Y'));
 
         return view('livewire.planilla-refrigerio', [
-            'branches' => $branches,
+            'branches'      => $branches,
             'filteredItems' => $filteredItems,
-            'diasMes' => $this->diasMes,
-            'metricas' => $metricas,
-            'periodoLabel' => $periodoLabel,
+            'diasMes'       => $this->diasMes,
+            'metricas'      => $metricas,
+            'periodoLabel'  => $periodoLabel,
+            'tiposEstados'  => $tiposEstados,
         ])->layout('layouts.app', ['title' => 'Planilla de Descuento de Refrigerio / Comida']);
     }
 }

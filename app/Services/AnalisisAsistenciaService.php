@@ -340,7 +340,7 @@ class AnalisisAsistenciaService
 
         // Omisiones de marcación (olvido de entrada o salida)
         $omisiones = $registrosDia
-            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro) && ! $permissionIds->contains($registro->empleado_id))
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $horaSalidaReal = $this->horaSalidaReal($registro);
@@ -370,9 +370,10 @@ class AnalisisAsistenciaService
             })->values();
 
         // Mapear todas las marcaciones con info completa
-        $marcaciones = $registrosDia->map(function (RegistroAsistencia $registro) use ($dayEvents) {
+        $marcaciones = $registrosDia->map(function (RegistroAsistencia $registro) use ($dayEvents, $permissionIds) {
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $event = $dayEvents->firstWhere('empleado_id', $registro->empleado_id);
+            $tienePermiso = $permissionIds->contains($registro->empleado_id);
 
             $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
             $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
@@ -390,6 +391,10 @@ class AnalisisAsistenciaService
                 $tipoEstado = 'sin_marcacion';
             }
 
+            if ($tienePermiso) {
+                $estado = 'Permiso Justificado';
+            }
+
             $codigoBiometrico = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
 
             return [
@@ -403,10 +408,10 @@ class AnalisisAsistenciaService
                 'estado' => $estado,
                 'tipo_estado' => $tipoEstado,
                 'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
-                'minutos_retraso' => $event['minutes_late'] ?? 0,
-                'es_tardanza' => ($event['minutes_late'] ?? 0) > 0,
-                'tone' => $event['tone'] ?? null,
-                'detalle_retraso' => $event['detail'] ?? null,
+                'minutos_retraso' => $tienePermiso ? 0 : ($event['minutes_late'] ?? 0),
+                'es_tardanza' => $tienePermiso ? false : (($event['minutes_late'] ?? 0) > 0),
+                'tone' => $tienePermiso ? null : ($event['tone'] ?? null),
+                'detalle_retraso' => $tienePermiso ? 'Permiso/Boleta aprobada' : ($event['detail'] ?? null),
             ];
         });
 
@@ -670,6 +675,13 @@ class AnalisisAsistenciaService
             ],
             'olvidos' => $attendance
                 ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+                ->filter(function (RegistroAsistencia $registro) use ($permissions) {
+                    return ! $permissions->where('tipo', '!=', 'falta')->contains(function (PermisoLaboral $p) use ($registro) {
+                        return $p->empleado_id == $registro->empleado_id
+                            && $registro->fecha
+                            && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                    });
+                })
                 ->map(function (RegistroAsistencia $registro) {
                     $marcacion = $this->normalizarMarcacionAsistencia($registro);
 
@@ -702,6 +714,13 @@ class AnalisisAsistenciaService
                 return $this->programacionLaboral->resolverHorario($registro->empleado, $registro->fecha)['laborable'];
             });
 
+        $permisosAprobadosMes = PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<=', $monthEnd)
+            ->whereDate('fecha_fin', '>=', $monthStart)
+            ->get();
+
         $workedMinutes = 0;
         $lateMinutes = 0;
         $lateDays = 0;
@@ -711,10 +730,21 @@ class AnalisisAsistenciaService
             $empleado = $registro->empleado;
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
             $workedMinutes += $this->calcularMinutosTrabajados($registro->hora_entrada, $registro->hora_salida);
-            $delay = $this->calcularMinutosRetraso(
-                $this->normalizarMarcacionAsistencia($registro)['entrada'],
-                $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
-            );
+
+            $tienePermisoAprobado = $permisosAprobadosMes->contains(function (PermisoLaboral $p) use ($registro) {
+                return $p->empleado_id == $registro->empleado_id
+                    && $registro->fecha
+                    && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+            });
+
+            $delay = 0;
+            if (!$tienePermisoAprobado) {
+                $delay = $this->calcularMinutosRetraso(
+                    $this->normalizarMarcacionAsistencia($registro)['entrada'],
+                    $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
+                );
+            }
+
             $lateMinutes += $delay;
             if ($delay > 0) {
                 $lateDays++;
@@ -771,6 +801,14 @@ class AnalisisAsistenciaService
             ->orderBy('fecha')
             ->get();
 
+        $permissions = PermisoLaboral::query()
+            ->where('empleado_id', $employeeId)
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $end->toDateString())
+            ->whereDate('fecha_fin', '>=', $start->toDateString())
+            ->get();
+        $permisosValidos = $permissions->where('tipo', '!=', 'falta');
+
         $lateRows = [];
         $forgotRows = [];
         $asistenciasRows = [];
@@ -784,6 +822,10 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $tienePermisoAprobado = $permisosValidos->contains(function (PermisoLaboral $p) use ($registro) {
+                return $registro->fecha && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+            });
+
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $soloEntrada = $marcacion['solo_entrada'];
             $horaSalidaReal = $marcacion['salida'];
@@ -791,6 +833,10 @@ class AnalisisAsistenciaService
                 $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
+
+            if ($tienePermisoAprobado) {
+                $delay = 0; // Atraso justificado y perdonado
+            }
 
             $tieneMarcacion = filled($marcacion['entrada']) || filled($horaSalidaReal) || filled($registro->hora_entrada) || filled($registro->hora_salida);
             if ($tieneMarcacion) {
@@ -802,9 +848,9 @@ class AnalisisAsistenciaService
                     'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
-                    'retraso' => $this->formatearMinutosEtiqueta($delay),
+                    'retraso' => $tienePermisoAprobado ? '0 min (Justificado)' : $this->formatearMinutosEtiqueta($delay),
                     'retraso_minutos' => $delay,
-                    'estado' => $delay > 0 ? 'Con atraso' : 'Puntual',
+                    'estado' => $tienePermisoAprobado ? 'Permiso Aprobado' : ($delay > 0 ? 'Con atraso' : 'Puntual'),
                 ];
             }
 
@@ -823,7 +869,9 @@ class AnalisisAsistenciaService
             $tieneEntrada = filled($marcacion['entrada']);
             $tieneSalida = filled($horaSalidaReal);
 
-            if ($tieneEntrada && !$tieneSalida) {
+            if ($tienePermisoAprobado) {
+                // Omisión justificada con boleta aprobada
+            } elseif ($tieneEntrada && !$tieneSalida) {
                 if (!$this->salidaSiguePendienteDentroDeJornada($registro, $empleado)) {
                     $forgotRows[] = [
                         'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
@@ -844,12 +892,28 @@ class AnalisisAsistenciaService
             }
         }
 
-        $permissions = PermisoLaboral::query()
-            ->where('empleado_id', $employeeId)
-            ->where('estado', 'aprobado')
-            ->whereDate('fecha_inicio', '<=', $end->toDateString())
-            ->whereDate('fecha_fin', '>=', $start->toDateString())
-            ->get();
+        foreach ($permisosValidos as $permiso) {
+            if (!$permiso->fecha_inicio || !$permiso->fecha_fin) {
+                continue;
+            }
+            $cursor = $permiso->fecha_inicio->copy()->startOfDay();
+            $permisoEnd = $permiso->fecha_fin->copy()->startOfDay()->min($end);
+            while ($cursor->lte($permisoEnd)) {
+                $fechaStr = $cursor->toDateString();
+                if (!isset($diasAsistidosSet[$fechaStr]) && $cursor->gte($start)) {
+                    $diasAsistidosSet[$fechaStr] = true;
+                    $asistenciasRows[] = [
+                        'fecha' => $cursor->format('d/m/Y'),
+                        'entrada' => $permiso->hora_inicio ? substr($permiso->hora_inicio, 0, 5) : '--:--',
+                        'salida' => $permiso->hora_fin ? substr($permiso->hora_fin, 0, 5) : '--:--',
+                        'retraso' => '0 min',
+                        'retraso_minutos' => 0,
+                        'estado' => 'Permiso Aprobado (' . ($permiso->tipo_label ?: 'Justificado') . ')',
+                    ];
+                }
+                $cursor->addDay();
+            }
+        }
 
         $faltas = [
             ...$permissions->where('tipo', 'falta')->map(fn(PermisoLaboral $permiso) => [
@@ -975,8 +1039,23 @@ class AnalisisAsistenciaService
             ->get()
             ->filter(fn(RegistroAsistencia $registro) => $registro->empleado);
 
+        $permisosAprobadosMes = PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<=', $monthEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $monthStart->toDateString())
+            ->get();
+
         $forgotMarks = $attendance
             ->filter(fn(RegistroAsistencia $registro) => $this->debeContarComoOlvidoMarcacion($registro))
+            ->filter(function (RegistroAsistencia $registro) use ($permisosAprobadosMes) {
+                // Si el empleado tiene permiso o boleta aprobada en esta fecha, la omisión está justificada
+                return ! $permisosAprobadosMes->contains(function (PermisoLaboral $p) use ($registro) {
+                    return $p->empleado_id == $registro->empleado_id
+                        && $registro->fecha
+                        && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                });
+            })
             ->map(function (RegistroAsistencia $registro) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $horaSalidaReal = $this->horaSalidaReal($registro);
@@ -1023,6 +1102,17 @@ class AnalisisAsistenciaService
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
 
             if (!$horario['laborable']) {
+                continue;
+            }
+
+            // Si el empleado tiene permiso o boleta aprobada en esta fecha, el atraso está perdonado / justificado
+            $tienePermisoAprobado = $permisosAprobadosMes->contains(function (PermisoLaboral $p) use ($registro) {
+                return $p->empleado_id == $registro->empleado_id
+                    && $registro->fecha
+                    && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+            });
+
+            if ($tienePermisoAprobado) {
                 continue;
             }
 
@@ -1286,6 +1376,43 @@ class AnalisisAsistenciaService
             ->whereDate('fecha_fin', '>=', $start->toDateString())
             ->get();
 
+        $pendingIncidents = PermisoLaboral::query()
+            ->where('empleado_id', $employeeId)
+            ->where('estado', 'pendiente')
+            ->whereDate('fecha_inicio', '<=', $effectiveEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $start->toDateString())
+            ->get();
+
+        $permissionDays = [];
+        foreach ($incidents as $incident) {
+            if (!$incident->fecha_inicio || !$incident->fecha_fin) {
+                continue;
+            }
+
+            $cursor = $incident->fecha_inicio->copy()->startOfDay();
+            $incidentEnd = $incident->fecha_fin->copy()->startOfDay();
+
+            while ($cursor->lte($incidentEnd)) {
+                $permissionDays[$cursor->toDateString()][] = $incident;
+                $cursor->addDay();
+            }
+        }
+
+        $pendingDays = [];
+        foreach ($pendingIncidents as $incident) {
+            if (!$incident->fecha_inicio || !$incident->fecha_fin) {
+                continue;
+            }
+
+            $cursor = $incident->fecha_inicio->copy()->startOfDay();
+            $incidentEnd = $incident->fecha_fin->copy()->startOfDay();
+
+            while ($cursor->lte($incidentEnd)) {
+                $pendingDays[$cursor->toDateString()][] = $incident;
+                $cursor->addDay();
+            }
+        }
+
         $workedMinutes = 0;
         $lateMinutes = 0;
         $lateDays = 0;
@@ -1306,6 +1433,13 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $dateKey = $registro->fecha?->toDateString();
+            $dayApprovedPermisos = collect($permissionDays[$dateKey] ?? []);
+            $permisoAprobado = $dayApprovedPermisos->first(fn(PermisoLaboral $p) => $p->tipo !== 'falta');
+
+            $dayPendingPermisos = collect($pendingDays[$dateKey] ?? []);
+            $permisoPendiente = $dayPendingPermisos->first();
+
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $soloEntrada = $marcacion['solo_entrada'];
             $horaSalidaReal = $marcacion['salida'];
@@ -1314,11 +1448,6 @@ class AnalisisAsistenciaService
                 $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
-            $workedMinutes += $worked;
-            $lateMinutes += $delay;
-            if ($delay > 0) {
-                $lateDays++;
-            }
 
             $tieneEntrada = filled($marcacion['entrada']) && $marcacion['entrada'] !== '--:--';
             $tieneSalida = filled($horaSalidaReal) && $horaSalidaReal !== '--:--';
@@ -1327,6 +1456,35 @@ class AnalisisAsistenciaService
             $esFalta = ! $tieneEntrada && ! $tieneSalida;
             $esOmision = ! $salidaPendienteHoy && (($tieneEntrada && ! $tieneSalida) || (! $tieneEntrada && $tieneSalida));
             $esRetraso = $delay > 0;
+
+            $retrasoJustificado = false;
+            $retrasoOriginal = 0;
+            $omisionJustificada = false;
+
+            if ($permisoAprobado) {
+                // 1. Si tenía retraso, queda justificado y perdonado por la boleta aprobada
+                if ($delay > 0) {
+                    $retrasoOriginal = $delay;
+                    $delay = 0;
+                    $retrasoJustificado = true;
+                    $esRetraso = false;
+                }
+                // 2. Si tenía omisión, queda justificada
+                if ($esOmision) {
+                    $omisionJustificada = true;
+                    $esOmision = false;
+                }
+                // 3. Si era falta, queda justificada
+                if ($esFalta) {
+                    $esFalta = false;
+                }
+            }
+
+            $workedMinutes += $worked;
+            $lateMinutes += $delay;
+            if ($delay > 0) {
+                $lateDays++;
+            }
 
             $dateCarbon = $registro->fecha ? $registro->fecha->copy() : null;
             $diaSemana = $dateCarbon ? ucfirst($dateCarbon->locale('es')->shortDayName) : '';
@@ -1340,9 +1498,18 @@ class AnalisisAsistenciaService
             } elseif ($esOmision) {
                 $rowTone = 'warning';
                 $estadoCalculado = ! $tieneEntrada ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)';
+            } elseif ($retrasoJustificado) {
+                $rowTone = 'ok';
+                $estadoCalculado = 'Atraso Justificado (' . ($permisoAprobado->tipo_label ?: 'Boleta Aprobada') . ')';
+            } elseif ($omisionJustificada) {
+                $rowTone = 'ok';
+                $estadoCalculado = 'Omisión Justificada (' . ($permisoAprobado->tipo_label ?: 'Boleta Aprobada') . ')';
             } elseif ($esRetraso) {
                 $rowTone = 'late';
                 $estadoCalculado = $this->resolverEstadoRegistroPersonalizado($registro, false, $horaSalidaReal, $delay);
+            } elseif ($permisoAprobado) {
+                $rowTone = 'default';
+                $estadoCalculado = 'Puntual (' . $permisoAprobado->tipo_label . ' aprobado)';
             } else {
                 $rowTone = 'default';
                 $estadoCalculado = $this->resolverEstadoRegistroPersonalizado($registro, false, $horaSalidaReal, $delay);
@@ -1357,31 +1524,21 @@ class AnalisisAsistenciaService
                 'horario_programado' => ($horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--')
                     . ' - ' . ($horario['hora_salida'] ? substr($horario['hora_salida'], 0, 5) : '--:--'),
                 'horas' => $this->formatearMinutos($worked),
-                'retraso' => $this->formatearMinutosEtiqueta($delay),
+                'retraso' => $retrasoJustificado ? '0 min (Justificado)' : $this->formatearMinutosEtiqueta($delay),
                 'retraso_minutos' => $delay,
+                'retraso_justificado' => $retrasoJustificado,
+                'retraso_original' => $retrasoOriginal,
+                'omision_justificada' => $omisionJustificada,
                 'estado' => $estadoCalculado,
-                'estado_biometrico' => $this->resolverEstadoMarcacionVisible($registro, $marcacion),
-                'evento_biometrico' => $registro->evento_biometrico ?: 'Sin evento',
+                'estado_biometrico' => $permisoAprobado ? 'Boleta Aprobada Oficial' : $this->resolverEstadoMarcacionVisible($registro, $marcacion),
+                'evento_biometrico' => $permisoAprobado ? ($permisoAprobado->motivo ?: 'Permiso Justificado') : ($registro->evento_biometrico ?: 'Sin evento'),
                 'row_tone' => $rowTone,
                 'es_retraso' => $esRetraso,
                 'es_omision' => $esOmision,
                 'es_falta' => $esFalta,
+                'permiso_aprobado' => $permisoAprobado,
+                'permiso_pendiente' => $permisoPendiente,
             ];
-        }
-
-        $permissionDays = [];
-        foreach ($incidents as $incident) {
-            if (!$incident->fecha_inicio || !$incident->fecha_fin) {
-                continue;
-            }
-
-            $cursor = $incident->fecha_inicio->copy()->startOfDay();
-            $incidentEnd = $incident->fecha_fin->copy()->startOfDay();
-
-            while ($cursor->lte($incidentEnd)) {
-                $permissionDays[$cursor->toDateString()][] = $incident;
-                $cursor->addDay();
-            }
         }
 
         $cursor = $start->copy()->startOfDay();
@@ -1397,14 +1554,42 @@ class AnalisisAsistenciaService
             $dayIncidents = collect($permissionDays[$dateKey] ?? []);
             $hasJustifiedPermission = $dayIncidents->contains(fn(PermisoLaboral $incident) => $incident->tipo !== 'falta');
             $hasFaltaPermission = $dayIncidents->contains(fn(PermisoLaboral $incident) => $incident->tipo === 'falta');
-
-            if ($hasJustifiedPermission) {
-                $cursor->addDay();
-                continue;
-            }
+            $dayPending = collect($pendingDays[$dateKey] ?? [])->first();
 
             $dateCarbon = Carbon::parse($dateKey);
             $diaSemana = ucfirst($dateCarbon->locale('es')->shortDayName);
+
+            if ($hasJustifiedPermission) {
+                $permisoAprobado = $dayIncidents->first(fn(PermisoLaboral $incident) => $incident->tipo !== 'falta');
+                $rows[] = [
+                    'raw_date' => $dateKey,
+                    'fecha' => $cursor->format('d/m/Y'),
+                    'dia_semana' => $diaSemana,
+                    'entrada' => $permisoAprobado->hora_inicio ? substr($permisoAprobado->hora_inicio, 0, 5) : '--:--',
+                    'salida' => $permisoAprobado->hora_fin ? substr($permisoAprobado->hora_fin, 0, 5) : '--:--',
+                    'horario_programado' => ($empleado->hora_entrada_programada ? substr($empleado->hora_entrada_programada, 0, 5) : '--:--')
+                        . ' - ' . ($empleado->hora_salida_programada ? substr($empleado->hora_salida_programada, 0, 5) : '--:--'),
+                    'horas' => $permisoAprobado->alcance === 'horas' && $permisoAprobado->minutos_contabilizados > 0
+                        ? $this->formatearMinutos((int) $permisoAprobado->minutos_contabilizados)
+                        : 'Jornada justificada',
+                    'retraso' => '0 min',
+                    'retraso_minutos' => 0,
+                    'retraso_justificado' => false,
+                    'retraso_original' => 0,
+                    'omision_justificada' => false,
+                    'estado' => 'Permiso Aprobado (' . ($permisoAprobado->tipo_label ?: 'Justificado') . ')',
+                    'estado_biometrico' => 'Permiso con boleta oficial',
+                    'evento_biometrico' => $permisoAprobado->motivo ?: 'Licencia autorizada',
+                    'row_tone' => 'default',
+                    'es_retraso' => false,
+                    'es_omision' => false,
+                    'es_falta' => false,
+                    'permiso_aprobado' => $permisoAprobado,
+                    'permiso_pendiente' => null,
+                ];
+                $cursor->addDay();
+                continue;
+            }
 
             $rows[] = [
                 'raw_date' => $dateKey,
@@ -1417,13 +1602,18 @@ class AnalisisAsistenciaService
                 'horas' => '00:00',
                 'retraso' => '0 min',
                 'retraso_minutos' => 0,
-                'estado' => $hasFaltaPermission ? 'Permiso (Falta)' : 'Falta (Inasistencia)',
+                'retraso_justificado' => false,
+                'retraso_original' => 0,
+                'omision_justificada' => false,
+                'estado' => $hasFaltaPermission ? 'Permiso (Falta)' : ($dayPending ? 'Falta (Boleta pendiente)' : 'Falta (Inasistencia)'),
                 'estado_biometrico' => 'Sin marcacion',
-                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : 'Inasistencia injustificada',
+                'evento_biometrico' => $hasFaltaPermission ? 'Ausencia registrada' : ($dayPending ? 'Boleta en revisión' : 'Inasistencia injustificada'),
                 'row_tone' => 'danger',
                 'es_retraso' => false,
                 'es_omision' => false,
                 'es_falta' => true,
+                'permiso_aprobado' => null,
+                'permiso_pendiente' => $dayPending,
             ];
 
             $cursor->addDay();
@@ -1661,6 +1851,13 @@ class AnalisisAsistenciaService
             ->get()
             ->filter(fn(RegistroAsistencia $r) => $r->empleado);
 
+        $permisosAprobados = PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<=', $end->toDateString())
+            ->whereDate('fecha_fin', '>=', $start->toDateString())
+            ->get();
+
         $perEmployee = [];
 
         foreach ($attendance as $registro) {
@@ -1671,11 +1868,21 @@ class AnalisisAsistenciaService
                 continue;
             }
 
+            $tienePermisoAprobado = $permisosAprobados->contains(function (PermisoLaboral $p) use ($registro) {
+                return $p->empleado_id == $registro->empleado_id
+                    && $registro->fecha
+                    && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+            });
+
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $delay = $this->calcularMinutosRetraso(
                 $marcacion['entrada'],
                 $horario['hora_entrada_tolerancia'] ?? $horario['hora_entrada']
             );
+
+            if ($tienePermisoAprobado) {
+                $delay = 0;
+            }
 
             $id = $empleado->id;
             if (!isset($perEmployee[$id])) {
@@ -2042,12 +2249,31 @@ class AnalisisAsistenciaService
                 return $this->programacionLaboral->resolverHorario($registro->empleado, $registro->fecha)['laborable'];
             });
 
+        $permisosAprobados = PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->where('tipo', '!=', 'falta')
+            ->whereDate('fecha_inicio', '<=', $monthEnd)
+            ->whereDate('fecha_fin', '>=', $monthStart)
+            ->get();
+
         $eventos = [];
         $retrasoAcumuladoPorEmpleado = [];
 
         foreach ($registros as $registro) {
             $empleado = $registro->empleado;
             $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
+
+            // Si el empleado tiene permiso aprobado en esta fecha, el atraso está perdonado / justificado
+            $tienePermiso = $permisosAprobados->contains(function (PermisoLaboral $p) use ($registro) {
+                return $p->empleado_id == $registro->empleado_id
+                    && $registro->fecha
+                    && $registro->fecha->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+            });
+
+            if ($tienePermiso) {
+                continue;
+            }
+
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $minutosRetraso = $this->calcularMinutosRetraso(
                 $marcacion['entrada'],

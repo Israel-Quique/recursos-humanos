@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
+use App\Models\TipoPermiso;
 use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -84,10 +85,14 @@ class PlanillaRefrigerioService
         $permisosEmpIds = $permisosAprobadosColeccion->pluck('empleado_id')->unique()->all();
         $permisosAprobados = $permisosAprobadosColeccion->groupBy('empleado_id');
 
-        // 2. Obtener empleados activos o con actividad comprobada en el mes
+        // 2. Obtener empleados activos en el mes.
+        // Se usa activosLaboralmente($start) en vez de ($end) para que la ventana de
+        // 30 días de inactividad cuente desde el INICIO del mes, no desde el fin.
+        // Ejemplo: para octubre ($start=01/10), el umbral es 01/09, por lo que los
+        // datos biométricos de septiembre sí califican al empleado como activo.
         $empleados = Empleado::query()
             ->where(function ($q) use ($start, $end, $permisosEmpIds) {
-                $q->activosLaboralmente($end)
+                $q->activosLaboralmente($start)
                   ->orWhereHas('asistencias', fn($sub) => $sub->whereBetween('fecha', [$start->toDateString(), $end->toDateString()]))
                   ->when(!empty($permisosEmpIds), fn($sub) => $sub->orWhereIn('id', $permisosEmpIds));
             })
@@ -99,6 +104,7 @@ class PlanillaRefrigerioService
             ->orderBy('apellido')
             ->orderBy('nombre')
             ->get();
+
 
         // 3. Asistencias de los empleados en el mes
         $asistenciasQuery = RegistroAsistencia::query()
@@ -132,6 +138,7 @@ class PlanillaRefrigerioService
         $items = [];
         $totalFaltas = 0;
         $totalOmisiones = 0;
+        $totalPermisos = 0;
         $totalBajas = 0;
         $totalComisiones = 0;
         $granTotalDias = 0;
@@ -151,7 +158,47 @@ class PlanillaRefrigerioService
                     continue;
                 }
 
+                // ── FUENTE PRINCIPAL: clave estructurada guardada en BD ──────────────
+                // Cuando el permiso viene de Incidencias y tiene tipo_permiso_clave
+                // (campo agregado en la migración 2026_09_30_*), lo usamos directamente.
+                // Mapeo especial para claves que tienen abreviatura diferente a su clave DB:
+                $claveDirecta = $permiso->tipo_permiso_clave;
+
+                // Normalizar claves especiales que en la planilla se muestran como Bm / Cv
+                if ($claveDirecta === 'consulta_medica' || $claveDirecta === 'salud') {
+                    $claveDirecta = 'bm';
+                } elseif ($claveDirecta === 'comision_laboral') {
+                    $claveDirecta = 'cv';
+                }
+
+                if (filled($claveDirecta)) {
+                    // Tenemos la clave directa de Incidencias → asignar y continuar
+                    $pInicio = $permiso->fecha_inicio ? $permiso->fecha_inicio->copy()->max($start) : $start->copy();
+                    $pFin    = $permiso->fecha_fin    ? $permiso->fecha_fin->copy()->min($end)       : $pInicio->copy();
+                    $pCursor = $pInicio->copy();
+                    while ($pCursor->lte($pFin)) {
+                        if (!$pCursor->isWeekend()) {
+                            $permisosPorFecha[$pCursor->format('Y-m-d')] = $claveDirecta;
+                        }
+                        $pCursor->addDay();
+                    }
+                    continue;
+                }
+
+                // ── FALLBACK para registros anteriores sin tipo_permiso_clave ─────────
+                // Solo se ejecuta si el permiso fue creado antes de la migración y
+                // todavía no tiene la clave estructurada.
                 $motivoTexto = mb_strtolower(trim(($permiso->tipo ?? '') . ' ' . ($permiso->motivo ?? '')));
+
+                // Cargar tipos dinámicos una sola vez por request
+                static $tiposPermisosMap = null;
+                if ($tiposPermisosMap === null) {
+                    try {
+                        $tiposPermisosMap = TipoPermiso::obtenerTodos();
+                    } catch (\Throwable) {
+                        $tiposPermisosMap = [];
+                    }
+                }
 
                 $esBajaMedica = $permiso->tipo === 'medico'
                     || str_contains($motivoTexto, 'medic')
@@ -170,9 +217,19 @@ class PlanillaRefrigerioService
                     || str_contains($motivoTexto, 'viatic')
                     || str_contains($motivoTexto, 'viátic');
 
-                $pInicio = $permiso->fecha_inicio ? $permiso->fecha_inicio->copy()->max($start) : $start->copy();
-                $pFin = $permiso->fecha_fin ? $permiso->fecha_fin->copy()->min($end) : $pInicio->copy();
+                // Detectar si coincide con algún tipo dinámico registrado
+                $clavePermisoDinamico = null;
+                foreach ($tiposPermisosMap as $clave => $nombre) {
+                    $nombreLow = mb_strtolower($nombre);
+                    if (!in_array($clave, ['salud', 'consulta_medica', 'comision_laboral'], true)
+                        && str_contains($motivoTexto, $nombreLow)) {
+                        $clavePermisoDinamico = $clave;
+                        break;
+                    }
+                }
 
+                $pInicio = $permiso->fecha_inicio ? $permiso->fecha_inicio->copy()->max($start) : $start->copy();
+                $pFin    = $permiso->fecha_fin    ? $permiso->fecha_fin->copy()->min($end)       : $pInicio->copy();
                 $pCursor = $pInicio->copy();
                 while ($pCursor->lte($pFin)) {
                     if (!$pCursor->isWeekend()) {
@@ -183,6 +240,12 @@ class PlanillaRefrigerioService
                             $permisosPorFecha[$fKey] = 'cv';
                         } elseif ($permiso->tipo === 'falta' || str_contains($motivoTexto, 'falta')) {
                             $permisosPorFecha[$fKey] = 'f';
+                        } elseif ($clavePermisoDinamico) {
+                            $permisosPorFecha[$fKey] = $clavePermisoDinamico;
+                        } else {
+                            $tipoKey = $permiso->tipo ?? 'permiso';
+                            $clavePerm = strtolower(substr(preg_replace('/[^a-z]/', '', $tipoKey), 0, 2)) ?: 'px';
+                            $permisosPorFecha[$fKey] = $clavePerm;
                         }
                     }
                     $pCursor->addDay();
@@ -193,6 +256,7 @@ class PlanillaRefrigerioService
             $diasEmp = [];
             $fechasFaltas = [];
             $fechasOmisiones = [];
+            $fechasPermisos = [];
             $fechasBajas = [];
             $fechasComisiones = [];
 
@@ -208,8 +272,8 @@ class PlanillaRefrigerioService
                 $asist = $asistencias->get($key)?->first();
 
                 if ($esNoLaborable) {
-                    // Feriado o asueto: jornada normal, no se penaliza
-                    $estado = 'p';
+                    // Feriado o asueto: jornada normal, no se penaliza → 'a'
+                    $estado = 'a';
                 } elseif (isset($permisosPorFecha[$fIso])) {
                     $estado = $permisosPorFecha[$fIso];
                 } elseif ($asist) {
@@ -222,47 +286,60 @@ class PlanillaRefrigerioService
                         $esOmision = false;
                     }
 
-                    $estado = $esOmision ? 'o' : 'p';
+                    $estado = $esOmision ? 'o' : 'a';
                 } elseif (isset($fechasActivasSucursal[$fIso])) {
-                    // Hubo biométrico en SU sucursal pero el funcionario no marcó
+                    // Hubo actividad biométrica en SU sucursal pero el funcionario no marcó
                     $contratado = $empleado->fecha_contratacion === null || $empleado->fecha_contratacion->toDateString() <= $fIso;
                     $noDespedido = $empleado->fecha_despido === null || $empleado->fecha_despido->toDateString() > $fIso;
 
                     if ($contratado && $noDespedido) {
                         $estado = 'f'; // Falta injustificada
                     } else {
-                        $estado = 'p';
+                        $estado = 'a';
                     }
                 } else {
-                    // Día sin registros biométricos en su sucursal (futuro, o sucursal no cargada)
-                    $estado = 'p';
+                    // Sin datos biométricos para este día/sucursal → celda en blanco
+                    // No se asume asistencia ni falta: el biométrico aún no ha reportado.
+                    $estado = '';
                 }
 
                 $diasEmp[$fIso] = $estado;
 
-                // Desgloses por tipo
+                // Desgloses por tipo - '' (sin dato) y 'a' no se penalizan
                 if ($estado === 'f') {
                     $fechasFaltas[] = ['fecha' => $fCorta, 'detalle' => 'Inasistencia injustificada'];
                 } elseif ($estado === 'o') {
                     $fechasOmisiones[] = ['fecha' => $fCorta, 'detalle' => 'Omisión de marcado'];
-                } elseif ($estado === 'bm') {
-                    $fechasBajas[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => 'Baja médica autorizada'];
-                } elseif ($estado === 'cv') {
-                    $fechasComisiones[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
+                } elseif ($estado !== 'a' && $estado !== '' && $estado !== 'p') {
+                    // Todos los permisos e incidencias jalados desde Incidencias y Permisos
+                    $labelPermiso = match($estado) {
+                        'bm' => 'Baja médica autorizada',
+                        'cv' => 'Comisión de viaje laboral',
+                        default => ($tiposPermisosMap[$estado] ?? ('Permiso ' . strtoupper($estado))),
+                    };
+                    $fechasPermisos[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => $labelPermiso, 'tipo' => $estado];
+
+                    if ($estado === 'bm') {
+                        $fechasBajas[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => 'Baja médica autorizada'];
+                    } elseif ($estado === 'cv') {
+                        $fechasComisiones[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
+                    }
                 }
             }
 
             // Conteos de días
             $faltasCount = count($fechasFaltas);
             $omisionesCount = count($fechasOmisiones);
+            $permisosCount = count($fechasPermisos);
             $bajasCount = count($fechasBajas);
             $comisionesCount = count($fechasComisiones);
 
-            $totalDiasEmp = $faltasCount + $omisionesCount + $bajasCount + $comisionesCount;
+            $totalDiasEmp = $faltasCount + $omisionesCount + $permisosCount;
             $totalMontoEmp = round($totalDiasEmp * $tarifaDiaria, 2);
 
             $totalFaltas += $faltasCount;
             $totalOmisiones += $omisionesCount;
+            $totalPermisos += $permisosCount;
             $totalBajas += $bajasCount;
             $totalComisiones += $comisionesCount;
             $granTotalDias += $totalDiasEmp;
@@ -280,6 +357,7 @@ class PlanillaRefrigerioService
                 // Días individuales acumulados
                 'faltas' => $faltasCount,
                 'omisiones' => $omisionesCount,
+                'permisos' => $permisosCount,
                 'bajas_medicas' => $bajasCount,
                 'comisiones_viaje' => $comisionesCount,
                 // Totales
@@ -290,6 +368,7 @@ class PlanillaRefrigerioService
                 // Desgloses de fechas para consulta
                 'fechas_faltas' => $fechasFaltas,
                 'fechas_omisiones' => $fechasOmisiones,
+                'fechas_permisos' => $fechasPermisos,
                 'fechas_bajas' => $fechasBajas,
                 'fechas_comisiones' => $fechasComisiones,
             ];
@@ -307,6 +386,7 @@ class PlanillaRefrigerioService
                 'personal_con_descuento' => collect($items)->filter(fn($i) => ($i['total_dias'] ?? 0) > 0)->count(),
                 'total_faltas' => $totalFaltas,
                 'total_omisiones' => $totalOmisiones,
+                'total_permisos' => $totalPermisos,
                 'total_bajas_medicas' => $totalBajas,
                 'total_comisiones_viaje' => $totalComisiones,
                 'gran_total_dias' => $granTotalDias,

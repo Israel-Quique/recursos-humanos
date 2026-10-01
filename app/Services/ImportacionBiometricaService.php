@@ -291,6 +291,13 @@ class ImportacionBiometricaService
                 ->whereDate('fecha', $fechaOperativa->toDateString())
                 ->first();
 
+            // Si el empleado tiene régimen especial o la marcación fue registrada/editada como Especial,
+            // no se actualizan sus datos desde el biométrico para preservar las asignaciones de RRHH.
+            if ($registro && ($empleado->es_especial || $registro->tipo_verificacion === 'Especial')) {
+                $marcasOmitidas += $grupo->count();
+                continue;
+            }
+
             if (! $registro) {
                 $registro = new RegistroAsistencia([
                     'empleado_id' => $empleado->id,
@@ -879,6 +886,10 @@ class ImportacionBiometricaService
 
     private function actualizarEmpleadoDesdeMarca(Empleado $empleado, array $mark): Empleado
     {
+        if ($empleado->es_especial) {
+            return $empleado;
+        }
+
         $fila = $mark['datos_originales'] ?? [];
         $payload = [];
         $codigo = trim((string) ($mark['codigo'] ?? ''));

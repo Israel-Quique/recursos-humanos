@@ -120,6 +120,7 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
 
     public function test_perfil_horas_alerta_cuando_empleado_supera_tolerancia(): void
     {
+        $this->travelTo(Carbon::parse('2026-08-14 18:00:00'));
         $empleado = $this->crearEmpleado('10909669');
         $ahora = now();
 

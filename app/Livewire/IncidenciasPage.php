@@ -6,6 +6,7 @@ use App\Mail\BoletaEstadoMailable;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
+use App\Models\TipoPermiso;
 use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -72,8 +73,15 @@ class IncidenciasPage extends Component
     public ?string $confirmandoDetalle = null;
     public string $motivoRechazo = '';
 
-    // Carga opcional de comprobante desde panel RRHH
+    // Carga de comprobante / foto (Crear y Editar)
     public $comprobante = null;
+    public $editComprobante = null;
+
+    // Modal para administrar tipos de permisos
+    public bool $showGestionTiposModal = false;
+    public string $nuevoTipoNombre = '';
+    public ?int $editandoTipoId = null;
+    public string $editandoTipoNombre = '';
 
     public function mount(): void
     {
@@ -143,6 +151,7 @@ class IncidenciasPage extends Component
     public function closeCreateModal(): void
     {
         $this->showCreateModal = false;
+        $this->comprobante = null;
         $this->resetValidation();
     }
 
@@ -160,8 +169,12 @@ class IncidenciasPage extends Component
         $this->editHoraInicio = $incidencia->hora_inicio ? substr($incidencia->hora_inicio, 0, 5) : '';
         $this->editHoraFin = $incidencia->hora_fin ? substr($incidencia->hora_fin, 0, 5) : '';
         $this->editMotivo = $incidencia->motivo ?? '';
-        $this->editTipoPermiso = $this->resolverTipoPermisoDesdeMotivo($this->editMotivo);
+        // Priorizar la clave estructurada guardada en BD; fallback a inferencia por motivo para registros antiguos
+        $this->editTipoPermiso = filled($incidencia->tipo_permiso_clave)
+            ? $incidencia->tipo_permiso_clave
+            : $this->resolverTipoPermisoDesdeMotivo($this->editMotivo);
         $this->editMotivoRechazo = $incidencia->motivo_rechazo ?? '';
+        $this->editComprobante = null;
         $this->showEditModal = true;
         $this->resetValidation();
         $this->sincronizarReglaTipo($this->editTipo, true);
@@ -174,6 +187,7 @@ class IncidenciasPage extends Component
         $this->editingIncidenciaId = null;
         $this->editEmpleadoSearch = '';
         $this->editMotivoRechazo = '';
+        $this->editComprobante = null;
         $this->resetValidation();
     }
 
@@ -195,6 +209,97 @@ class IncidenciasPage extends Component
         $this->pendingDeleteIncidenciaLabel = '';
     }
 
+    // --- MÉTODOS DE GESTIÓN DE TIPOS DE PERMISOS ---
+    public function openGestionTiposModal(): void
+    {
+        $this->showGestionTiposModal = true;
+        $this->nuevoTipoNombre = '';
+        $this->editandoTipoId = null;
+        $this->editandoTipoNombre = '';
+        $this->resetValidation(['nuevoTipoNombre', 'editandoTipoNombre']);
+    }
+
+    public function closeGestionTiposModal(): void
+    {
+        $this->showGestionTiposModal = false;
+        $this->nuevoTipoNombre = '';
+        $this->editandoTipoId = null;
+        $this->editandoTipoNombre = '';
+        $this->resetValidation(['nuevoTipoNombre', 'editandoTipoNombre']);
+    }
+
+    public function crearTipoPermiso(): void
+    {
+        $this->validate([
+            'nuevoTipoNombre' => ['required', 'string', 'min:3', 'max:100'],
+        ], [
+            'nuevoTipoNombre.required' => 'Ingresa el nombre del tipo de permiso.',
+            'nuevoTipoNombre.min' => 'El nombre del tipo de permiso debe tener al menos 3 caracteres.',
+            'nuevoTipoNombre.max' => 'El nombre no puede exceder 100 caracteres.',
+        ]);
+
+        $nombre = trim($this->nuevoTipoNombre);
+        $clave = TipoPermiso::generarClave($nombre);
+
+        TipoPermiso::query()->create([
+            'clave' => $clave,
+            'nombre' => $nombre,
+            'activo' => true,
+        ]);
+
+        $this->nuevoTipoNombre = '';
+        session()->flash('tipo_status', 'Nuevo tipo de permiso registrado correctamente.');
+    }
+
+    public function iniciarEditarTipoPermiso(int $id): void
+    {
+        $tipo = TipoPermiso::query()->findOrFail($id);
+        $this->editandoTipoId = $tipo->id;
+        $this->editandoTipoNombre = $tipo->nombre;
+    }
+
+    public function cancelarEditarTipoPermiso(): void
+    {
+        $this->editandoTipoId = null;
+        $this->editandoTipoNombre = '';
+    }
+
+    public function guardarEdicionTipoPermiso(): void
+    {
+        if (! $this->editandoTipoId) {
+            return;
+        }
+
+        $this->validate([
+            'editandoTipoNombre' => ['required', 'string', 'min:3', 'max:100'],
+        ], [
+            'editandoTipoNombre.required' => 'El nombre del tipo de permiso es requerido.',
+            'editandoTipoNombre.min' => 'El nombre debe tener al menos 3 caracteres.',
+        ]);
+
+        $tipo = TipoPermiso::query()->findOrFail($this->editandoTipoId);
+        $tipo->update([
+            'nombre' => trim($this->editandoTipoNombre),
+        ]);
+
+        $this->editandoTipoId = null;
+        $this->editandoTipoNombre = '';
+        session()->flash('tipo_status', 'Tipo de permiso actualizado correctamente.');
+    }
+
+    public function eliminarTipoPermiso(int $id): void
+    {
+        $tipo = TipoPermiso::query()->findOrFail($id);
+        $tipo->delete();
+
+        if ($this->editandoTipoId === $id) {
+            $this->editandoTipoId = null;
+            $this->editandoTipoNombre = '';
+        }
+
+        session()->flash('tipo_status', 'Tipo de permiso eliminado correctamente.');
+    }
+
     public function saveIncidencia(): void
     {
         $data = $this->validate($this->rules(), $this->messages());
@@ -212,6 +317,7 @@ class IncidenciasPage extends Component
         $incidencia = PermisoLaboral::query()->create([
             'empleado_id' => $empleado->id,
             'tipo' => $data['tipo'],
+            'tipo_permiso_clave' => ($data['tipo'] === 'permiso' && filled($this->tipoPermiso)) ? $this->tipoPermiso : null,
             'alcance' => $data['alcance'],
             'estado' => $data['estado'],
             'fecha_inicio' => $data['fechaInicio'],
@@ -223,10 +329,14 @@ class IncidenciasPage extends Component
             'created_by' => auth()->id(),
         ]);
 
+        if ($this->comprobante) {
+            $this->guardarComprobanteAdjunto($this->comprobante, $incidencia->id);
+        }
+
         app(AuditoriaService::class)->registrar(
             'Incidencias',
             'crear',
-            'Se registro una nueva incidencia laboral.',
+            'Se registro una nueva incidencia laboral con respaldos/comprobante.',
             $incidencia,
             null,
             $this->snapshotIncidencia($incidencia->fresh('empleado'))
@@ -257,6 +367,7 @@ class IncidenciasPage extends Component
         $incidencia->update([
             'empleado_id' => $empleado->id,
             'tipo' => $data['editTipo'],
+            'tipo_permiso_clave' => ($data['editTipo'] === 'permiso' && filled($this->editTipoPermiso)) ? $this->editTipoPermiso : null,
             'alcance' => $data['editAlcance'],
             'estado' => $data['editEstado'],
             'fecha_inicio' => $data['editFechaInicio'],
@@ -267,6 +378,10 @@ class IncidenciasPage extends Component
             'motivo' => $data['editMotivo'] ?: null,
             'motivo_rechazo' => $data['editEstado'] === 'rechazado' ? (trim($this->editMotivoRechazo) ?: null) : null,
         ]);
+
+        if ($this->editComprobante) {
+            $this->guardarComprobanteAdjunto($this->editComprobante, $incidencia->id);
+        }
 
         app(AuditoriaService::class)->registrar(
             'Incidencias',
@@ -282,9 +397,42 @@ class IncidenciasPage extends Component
         session()->flash('status', 'Incidencia actualizada correctamente.');
     }
 
+    private function guardarComprobanteAdjunto($archivoUpload, int $permisoLaboralId): ?PermisoComprobante
+    {
+        if (! $archivoUpload) {
+            return null;
+        }
+
+        $extension = strtolower($archivoUpload->getClientOriginalExtension() ?: 'jpg');
+        $nombreOriginal = $archivoUpload->getClientOriginalName() ?: ('comprobante_' . $permisoLaboralId . '.' . $extension);
+
+        $rutaArchivo = $archivoUpload->storeAs(
+            'comprobantes',
+            'comprobante_' . $permisoLaboralId . '_' . time() . '_' . Str::random(5) . '.' . $extension,
+            'public'
+        );
+
+        $mimeType = $archivoUpload->getMimeType() ?: 'image/' . $extension;
+        $tamanoBytes = $archivoUpload->getSize();
+        $realPath = $archivoUpload->getRealPath();
+        $contenidoBinario = ($realPath && file_exists($realPath)) ? file_get_contents($realPath) : null;
+        $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
+
+        return PermisoComprobante::query()->create([
+            'permiso_laboral_id' => $permisoLaboralId,
+            'ruta_archivo' => $rutaArchivo,
+            'archivo_binario' => null,
+            'archivo_base64' => $contenidoBase64,
+            'nombre_original' => $nombreOriginal,
+            'mime_type' => $mimeType,
+            'tamano_bytes' => $tamanoBytes,
+            'created_by' => auth()->id(),
+        ]);
+    }
+
     public function deleteIncidencia(): void
     {
-        if (!$this->pendingDeleteIncidenciaId) {
+        if (! $this->pendingDeleteIncidenciaId) {
             return;
         }
 
@@ -417,11 +565,12 @@ class IncidenciasPage extends Component
             $this->snapshotIncidencia($incidencia)
         );
 
-        // Envío de correo electrónico de notificación al funcionario
+        // Envío de correo electrónico de notificación al funcionario (Desactivado a solicitud)
+        $envioCorreoHabilitado = false; // Cambiar a true cuando se requiera reactivar el envío automático
         $empleado = $incidencia->empleado;
         $correoEnviado = false;
 
-        if ($empleado && filled($empleado->email)) {
+        if ($envioCorreoHabilitado && $empleado && filled($empleado->email)) {
             try {
                 Mail::to($empleado->email)->send(
                     new BoletaEstadoMailable($incidencia, $nuevoEstado, $motivoRechazo)
@@ -435,7 +584,7 @@ class IncidenciasPage extends Component
         $msg = 'Solicitud de ' . ($empleado?->nombre_completo ?? 'personal') . ' marcada como ' . strtoupper($nuevoEstado) . ' exitosamente.';
         if ($correoEnviado) {
             $msg .= " Se envió notificación por correo a: {$empleado->email}.";
-        } elseif ($empleado && blank($empleado->email)) {
+        } elseif ($envioCorreoHabilitado && $empleado && blank($empleado->email)) {
             $msg .= " (El funcionario no tiene correo registrado, por lo que no se envió correo).";
         }
 
@@ -540,6 +689,8 @@ class IncidenciasPage extends Component
         $empleadosFormulario = $this->filtrarEmpleadosFormulario($empleados, $this->empleadoSearch, $this->empleadoId);
         $empleadosEdicion = $this->filtrarEmpleadosFormulario($empleados, $this->editEmpleadoSearch, $this->editEmpleadoId);
 
+        $tiposPermisosModel = TipoPermiso::query()->orderBy('nombre')->get();
+
         return view('livewire.incidencias', [
             'incidencias' => $incidencias,
             'empleados' => $empleados,
@@ -549,6 +700,7 @@ class IncidenciasPage extends Component
             'alcances' => $this->alcancesDisponibles(),
             'alcancesCumpleanos' => $this->alcancesCumpleanosDisponibles(),
             'tiposPermiso' => $this->tiposPermisoDisponibles(),
+            'tiposPermisosModel' => $tiposPermisosModel,
         ])->layout('layouts.app', ['title' => 'Incidencias laborales']);
     }
 
@@ -564,6 +716,8 @@ class IncidenciasPage extends Component
             'horaInicio' => ['nullable', 'date_format:H:i'],
             'horaFin' => ['nullable', 'date_format:H:i'],
             'motivo' => ['nullable', 'string', 'max:500'],
+            'tipoPermiso' => ['nullable', 'string'],
+            'comprobante' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ];
     }
 
@@ -580,21 +734,31 @@ class IncidenciasPage extends Component
             'editHoraInicio' => ['nullable', 'date_format:H:i'],
             'editHoraFin' => ['nullable', 'date_format:H:i'],
             'editMotivo' => ['nullable', 'string', 'max:500'],
+            'editTipoPermiso' => ['nullable', 'string'],
             'editMotivoRechazo' => ['nullable', 'string', 'max:500'],
+            'editComprobante' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ];
     }
 
     private function messages(): array
     {
         return [
-            'empleadoId.required' => 'Selecciona el personal.',
-            'editEmpleadoId.required' => 'Selecciona el personal.',
+            'empleadoId.required' => 'Debes seleccionar el personal de la lista.',
+            'editEmpleadoId.required' => 'Debes seleccionar el personal de la lista.',
+            'fechaInicio.required' => 'La fecha de inicio es requerida.',
+            'fechaFin.required' => 'La fecha final es requerida.',
             'fechaFin.after_or_equal' => 'La fecha final no puede ser menor a la inicial.',
             'editFechaFin.after_or_equal' => 'La fecha final no puede ser menor a la inicial.',
-            'horaInicio.date_format' => 'La hora inicial debe tener formato HH:MM.',
-            'horaFin.date_format' => 'La hora final debe tener formato HH:MM.',
-            'editHoraInicio.date_format' => 'La hora inicial debe tener formato HH:MM.',
-            'editHoraFin.date_format' => 'La hora final debe tener formato HH:MM.',
+            'horaInicio.date_format' => 'La hora inicial debe tener formato HH:MM (ej. 08:30).',
+            'horaFin.date_format' => 'La hora final debe tener formato HH:MM (ej. 12:30).',
+            'editHoraInicio.date_format' => 'La hora inicial debe tener formato HH:MM (ej. 08:30).',
+            'editHoraFin.date_format' => 'La hora final debe tener formato HH:MM (ej. 12:30).',
+            'comprobante.file' => 'El archivo seleccionado no es válido.',
+            'comprobante.mimes' => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un documento PDF.',
+            'comprobante.max' => 'El archivo no debe superar los 5MB.',
+            'editComprobante.file' => 'El archivo seleccionado no es válido.',
+            'editComprobante.mimes' => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un documento PDF.',
+            'editComprobante.max' => 'El archivo no debe superar los 5MB.',
         ];
     }
 
@@ -603,7 +767,7 @@ class IncidenciasPage extends Component
         return [
             'permiso' => 'Permiso',
             'incidencia' => 'Incidencia',
-            'cumpleanos' => 'Cumpleanos',
+            'cumpleanos' => 'Cumpleaños',
             'falta' => 'Falta',
         ];
     }
@@ -626,14 +790,7 @@ class IncidenciasPage extends Component
 
     private function tiposPermisoDisponibles(): array
     {
-        return [
-            'salud' => 'Permiso por salud',
-            'consulta_medica' => 'Consulta medica',
-            'tramite_personal' => 'Tramite personal',
-            'comision_laboral' => 'Comision laboral',
-            'estudio' => 'Permiso por estudio',
-            'asunto_familiar' => 'Asunto familiar',
-        ];
+        return TipoPermiso::obtenerTodos();
     }
 
     private function sincronizarReglaTipo(string $tipo, bool $editing): void
@@ -779,7 +936,7 @@ class IncidenciasPage extends Component
             $field = $this->showEditModal ? 'editHoraFin' : 'horaFin';
 
             throw ValidationException::withMessages([
-                $field => 'Define un bloque horario valido para esta incidencia.',
+                $field => 'Define un bloque horario válido (la hora de retorno debe ser posterior a la salida).',
             ]);
         }
 
@@ -809,6 +966,7 @@ class IncidenciasPage extends Component
         $this->horaFin = '';
         $this->motivo = '';
         $this->tipoPermiso = '';
+        $this->comprobante = null;
     }
 
     private function snapshotIncidencia(PermisoLaboral $incidencia): array

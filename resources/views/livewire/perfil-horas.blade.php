@@ -1165,7 +1165,6 @@
               <th class="center">Horas</th>
               <th class="center th-delay">⏱ RETRASO</th>
               <th class="center th-estado">ESTADO</th>
-              <th>Biométrico</th>
               <th class="center" style="width: 140px;">Acción Boleta</th>
             </tr>
           </thead>
@@ -1226,7 +1225,9 @@
 
                 {{-- Retraso --}}
                 <td class="td-delay">
-                  @if($retMin > 0)
+                  @if(!empty($row['retraso_justificado']))
+                    <span class="ph-delay-chip ph-delay-chip-zero" style="background:#ecfdf5;color:#059669;border-color:#a7f3d0;" title="Atraso de {{ $row['retraso_original'] }} min justificado y perdonado por boleta oficial">0 min (Justificado)</span>
+                  @elseif($retMin > 0)
                     <span class="ph-delay-chip ph-delay-chip-val">{{ $row['retraso'] }}</span>
                   @else
                     <span class="ph-delay-chip ph-delay-chip-zero">0 min</span>
@@ -1235,7 +1236,9 @@
 
                 {{-- Estado --}}
                 <td class="td-estado">
-                  @if($tone === 'danger')
+                  @if(!empty($row['permiso_aprobado']))
+                    <span class="ph-estado ph-estado-ok" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">✓ {{ $row['estado'] }}</span>
+                  @elseif($tone === 'danger')
                     <span class="ph-estado ph-estado-absent">✕ {{ $row['estado'] }}</span>
                   @elseif($tone === 'warning')
                     <span class="ph-estado ph-estado-miss">⚠ {{ $row['estado'] }}</span>
@@ -1246,15 +1249,20 @@
                   @endif
                 </td>
 
-                {{-- Biométrico --}}
-                <td>
-                  <div style="font-size:.77rem;font-weight:600;color:#334155;">{{ $row['estado_biometrico'] }}</div>
-                  <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">{{ $row['evento_biometrico'] }}</div>
-                </td>
+
 
                 {{-- Acción Boleta / Justificación --}}
                 <td class="center" style="vertical-align:middle;padding:.5rem .75rem;">
-                  @if($esOmision || $filterState === 'omisiones')
+                  @if(!empty($row['permiso_aprobado']))
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta aprobada por RRHH: {{ $row['permiso_aprobado']->motivo ?? 'Permiso autorizado' }}">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>Boleta Aprobada</span>
+                    </span>
+                  @elseif(!empty($row['permiso_pendiente']))
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta en revisión por RRHH: {{ $row['permiso_pendiente']->motivo ?? 'Pendiente' }}">
+                      <span>⏳ Boleta Pendiente</span>
+                    </span>
+                  @elseif($esOmision || $filterState === 'omisiones')
                     <button
                       type="button"
                       wire:click="abrirBoletaParaOmision('{{ $row['fecha'] }}', '{{ $row['entrada'] }}', '{{ $row['salida'] }}', '{{ $row['horario_programado'] ?? '' }}')"
@@ -1263,6 +1271,25 @@
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                       <span>Justificar Omisión</span>
+                    </button>
+                  @elseif($esRetraso)
+                    @php
+                      // Extraer la hora de inicio del horario programado (ej: "08:30-16:30" -> "08:30")
+                      $horaProgramadaInicio = '08:30';
+                      $hp = $row['horario_programado'] ?? '';
+                      if ($hp && str_contains($hp, '-')) {
+                        $hpPartes = explode('-', $hp);
+                        $horaProgramadaInicio = trim($hpPartes[0]);
+                      }
+                    @endphp
+                    <button
+                      type="button"
+                      wire:click="abrirBoletaParaRetraso('{{ $row['fecha'] }}', '{{ $row['entrada'] }}', '{{ $horaProgramadaInicio }}', '{{ $row['horario_programado'] ?? '' }}')"
+                      style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:linear-gradient(to right, #d97706, #f59e0b);color:#fff;font-size:.72rem;font-weight:800;border:none;box-shadow:0 2px 4px rgba(217,119,6,0.25);cursor:pointer;"
+                      title="Generar boleta de justificación para este atraso (precarga hora de entrada y horario)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                      <span>Justificar Atraso</span>
                     </button>
                   @else
                     <button
@@ -1278,7 +1305,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="9" style="text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.82rem;">
+                <td colspan="8" style="text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.82rem;">
                   No hay registros que coincidan con los filtros seleccionados.
                 </td>
               </tr>
@@ -1298,13 +1325,14 @@
               </td>
               <td class="td-estado">—</td>
               <td>—</td>
-              <td>—</td>
             </tr>
           </tfoot>
           @endif
         </table>
       </div>
     </div>
+
+
 
   </div>{{-- .ph-wrapper --}}
 
@@ -1474,68 +1502,139 @@
                 <p style="font-size:.7rem;color:#64748b;margin:.2rem 0 0 0;font-weight:600;">Elige si solicitas permiso por horas o por día(s) completo(s).</p>
               </div>
 
-              {{-- SELECTOR DE MODALIDAD --}}
-              <div style="display:inline-flex;padding:3px;background:#e2e8f0;border-radius:.65rem;border:1px solid #cbd5e1;">
-                <button
-                  type="button"
-                  wire:click="$set('boletaModalidad', 'horas')"
-                  style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'horas' && !$this->esRangoDias ? 'background:#fff;color:#1e60c6;box-shadow:0 1px 2px rgba(0,0,0,0.05);' : 'background:transparent;color:#475569;' }}"
-                >
-                  ⏰ Por Horas (Mismo día)
-                </button>
-                <button
-                  type="button"
-                  wire:click="$set('boletaModalidad', 'dias')"
-                  style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'dias' || $this->esRangoDias ? 'background:#1e60c6;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.1);' : 'background:transparent;color:#475569;' }}"
-                >
-                  📅 Por Días (1 o más días)
-                </button>
-              </div>
-            </div>
-
-            <div class="ph-grid-fechas" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
-              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
-                <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Desde</span>
-                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
-                <input type="date" wire:model.live="boletaDesdeFecha" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
-                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
-                @if ($this->esRangoDias || $boletaModalidad === 'dias')
-                  <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
-                    🔒 Jornada completa
-                  </div>
-                @else
-                  <input type="time" wire:model.live="boletaDesdeHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
-                @endif
-              </div>
-
-              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
-                <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hasta</span>
-                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
-                <input type="date" wire:model.live="boletaHastaFecha" min="{{ $boletaDesdeFecha }}" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
-                <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
-                @if ($this->esRangoDias || $boletaModalidad === 'dias')
-                  <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
-                    🔒 No requerida
-                  </div>
-                @else
-                  <input type="time" wire:model.live="boletaHastaHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
-                @endif
-              </div>
-
-              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;display:flex;flex-direction:column;justify-content:space-between;">
-                <div>
-                  <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">
-                    Tiempo Solicitado <span style="font-size:.65rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
-                  </span>
-                  <input type="text" wire:model="boletaTiempoSolicitado" readonly style="width:100%;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;padding:.35rem .5rem;font-size:.8rem;font-weight:800;color:#4338ca;cursor:not-allowed;">
+              {{-- SELECTOR DE MODALIDAD: solo visible en boleta genérica --}}
+              @if (in_array($boletaTipoIncidencia, ['omision', 'retraso']))
+                {{-- En omisión/retraso siempre es 1 día, no mostramos el selector --}}
+                <div style="display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .85rem;border-radius:.65rem;background:#eff6ff;border:1px solid #bfdbfe;font-size:.72rem;font-weight:800;color:#1e60c6;">
+                  @if ($boletaTipoIncidencia === 'omision')
+                    📝 Boleta de Omisión · 1 día (horas editables)
+                  @else
+                    ⏰ Boleta de Atraso · 1 día (horas editables)
+                  @endif
                 </div>
-                @if ($this->esRangoDias || $boletaModalidad === 'dias')
-                  <p style="font-size:.68rem;color:#4338ca;margin:.4rem 0 0 0;font-weight:700;">Permiso por día(s) completo(s) sin horas.</p>
-                @else
+              @else
+                <div style="display:inline-flex;padding:3px;background:#e2e8f0;border-radius:.65rem;border:1px solid #cbd5e1;">
+                  <button
+                    type="button"
+                    wire:click="$set('boletaModalidad', 'horas')"
+                    style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'horas' && !$this->esRangoDias ? 'background:#fff;color:#1e60c6;box-shadow:0 1px 2px rgba(0,0,0,0.05);' : 'background:transparent;color:#475569;' }}"
+                  >
+                    ⏰ Por Horas (Mismo día)
+                  </button>
+                  <button
+                    type="button"
+                    wire:click="$set('boletaModalidad', 'dias')"
+                    style="padding:.3rem .75rem;border-radius:.5rem;font-size:.72rem;font-weight:800;border:none;cursor:pointer;{{ $boletaModalidad === 'dias' || $this->esRangoDias ? 'background:#1e60c6;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.1);' : 'background:transparent;color:#475569;' }}"
+                  >
+                    📅 Por Días (1 o más días)
+                  </button>
+                </div>
+              @endif
+            </div>
+
+            {{-- CAMPOS: cuando es omision o retraso → solo 1 fecha + horas editables --}}
+            @if (in_array($boletaTipoIncidencia, ['omision', 'retraso']))
+              <div class="ph-grid-fechas" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
+
+                {{-- Solo la fecha del día del evento (no editamos la segunda fecha) --}}
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                  <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Fecha del día</span>
+                  <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
+                  <input type="date" wire:model.live="boletaDesdeFecha" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                </div>
+
+                {{-- Hora Desde (editable) --}}
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                  @if ($boletaTipoIncidencia === 'retraso')
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hora del horario</span>
+                    <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora programada de entrada</label>
+                  @else
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Desde</span>
+                    <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora de inicio</label>
+                  @endif
+                  <input type="time" wire:model.live="boletaDesdeHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+                </div>
+
+                {{-- Hora Hasta (editable) --}}
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                  @if ($boletaTipoIncidencia === 'retraso')
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hora real de entrada</span>
+                    <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora marcada en biométrico</label>
+                  @else
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hasta</span>
+                    <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora de fin</label>
+                  @endif
+                  <input type="time" wire:model.live="boletaHastaHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+                </div>
+
+                {{-- Tiempo calculado --}}
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div>
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">
+                      Tiempo Solicitado <span style="font-size:.65rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+                    </span>
+                    <input type="text" wire:model="boletaTiempoSolicitado" readonly style="width:100%;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;padding:.35rem .5rem;font-size:.8rem;font-weight:800;color:#4338ca;cursor:not-allowed;">
+                  </div>
                   <p style="font-size:.68rem;color:#94a3b8;margin:.4rem 0 0 0;">Se calcula automáticamente con el horario ingresado.</p>
+                </div>
+
+              </div>
+
+              {{-- Nota informativa sobre el tipo de incidencia --}}
+              <div style="background:{{ $boletaTipoIncidencia === 'retraso' ? '#fffbeb' : '#eff6ff' }};border:1px solid {{ $boletaTipoIncidencia === 'retraso' ? '#fde68a' : '#bfdbfe' }};border-radius:.6rem;padding:.6rem .85rem;font-size:.72rem;font-weight:700;color:{{ $boletaTipoIncidencia === 'retraso' ? '#92400e' : '#1e40af' }};display:flex;align-items:center;gap:.5rem;">
+                @if ($boletaTipoIncidencia === 'retraso')
+                  ⏰ <span>La <strong>hora del horario</strong> es la entrada programada; la <strong>hora real de entrada</strong> es la marcada en el biométrico. Ambas son editables si necesitas corregirlas.</span>
+                @else
+                  📝 <span>Solo se requiere el día. Las <strong>horas son editables</strong> si necesitas ajustarlas para la boleta de omisión.</span>
                 @endif
               </div>
-            </div>
+
+            @else
+              {{-- VISTA NORMAL: dos fechas + horas (o días completos) --}}
+              <div class="ph-grid-fechas" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.85rem;">
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                  <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Desde</span>
+                  <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
+                  <input type="date" wire:model.live="boletaDesdeFecha" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                  <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
+                  @if ($this->esRangoDias || $boletaModalidad === 'dias')
+                    <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
+                      🔒 Jornada completa
+                    </div>
+                  @else
+                    <input type="time" wire:model.live="boletaDesdeHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+                  @endif
+                </div>
+
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;">
+                  <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">Hasta</span>
+                  <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Fecha</label>
+                  <input type="date" wire:model.live="boletaHastaFecha" min="{{ $boletaDesdeFecha }}" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                  <label style="font-size:.68rem;color:#94a3b8;font-weight:700;">Hora</label>
+                  @if ($this->esRangoDias || $boletaModalidad === 'dias')
+                    <div style="border-radius:.5rem;border:1px solid #e2e8f0;background:#f1f5f9;padding:.35rem .5rem;font-size:.75rem;font-weight:700;color:#94a3b8;">
+                      🔒 No requerida
+                    </div>
+                  @else
+                    <input type="time" wire:model.live="boletaHastaHora" style="width:100%;border-radius:.5rem;border:1px solid #cbd5e1;padding:.35rem .5rem;font-size:.8rem;font-weight:700;color:#1e293b;">
+                  @endif
+                </div>
+
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:.75rem;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div>
+                    <span style="display:block;font-size:.7rem;font-weight:900;text-transform:uppercase;color:#64748b;margin-bottom:.5rem;">
+                      Tiempo Solicitado <span style="font-size:.65rem;color:#94a3b8;font-weight:600;">🔒 (No editable)</span>
+                    </span>
+                    <input type="text" wire:model="boletaTiempoSolicitado" readonly style="width:100%;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;padding:.35rem .5rem;font-size:.8rem;font-weight:800;color:#4338ca;cursor:not-allowed;">
+                  </div>
+                  @if ($this->esRangoDias || $boletaModalidad === 'dias')
+                    <p style="font-size:.68rem;color:#4338ca;margin:.4rem 0 0 0;font-weight:700;">Permiso por día(s) completo(s) sin horas.</p>
+                  @else
+                    <p style="font-size:.68rem;color:#94a3b8;margin:.4rem 0 0 0;">Se calcula automáticamente con el horario ingresado.</p>
+                  @endif
+                </div>
+              </div>
+            @endif
           </div>
 
           {{-- CIUDAD (SUCURSAL READONLY) Y FECHA EMISIÓN READONLY --}}
@@ -1854,6 +1953,8 @@
       </div>
     </div>
   @endif
+
+
 
 </div>{{-- .ph-root --}}
 </div>

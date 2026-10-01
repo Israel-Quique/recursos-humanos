@@ -42,6 +42,7 @@ class PerfilHorasPage extends Component
     public string $boletaEmail = '';
     public string $boletaMotivo = '';
     public string $boletaTipo = 'particular'; // 'comision', 'particular', 'medico', 'omision', 'retraso'
+    public string $boletaTipoIncidencia = ''; // '' | 'omision' | 'retraso'  — controla la UI del modal
     public string $boletaModalidad = 'horas'; // 'horas' o 'dias'
     public string $boletaDesdeFecha = '';
     public string $boletaDesdeHora = '08:30';
@@ -311,16 +312,50 @@ class PerfilHorasPage extends Component
         }
     }
 
+    public bool $showComprobanteModal = false;
+    public ?string $modalComprobanteUrl = null;
+    public ?string $modalComprobanteTitulo = null;
+    public ?string $modalComprobanteDetalle = null;
+
     public function getSolicitudesRecientesProperty()
     {
         return PermisoLaboral::query()
             ->with(['comprobantePrincipal'])
             ->where('empleado_id', $this->empleado->id)
             ->latest('id')
-            ->take(8)
+            ->take(15)
             ->get();
     }
     public $comprobante = null;
+
+    public function verComprobante(int $incidenciaId): void
+    {
+        $incidencia = PermisoLaboral::query()
+            ->with(['empleado', 'comprobantePrincipal'])
+            ->findOrFail($incidenciaId);
+
+        $comprobante = $incidencia->comprobantePrincipal;
+        if (! $comprobante) {
+            $this->modalComprobanteUrl = null;
+            $this->modalComprobanteTitulo = 'Detalle de Solicitud';
+            $this->modalComprobanteDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ' · ' . ($incidencia->motivo ?: 'Sin motivo redactado');
+            $this->showComprobanteModal = true;
+            return;
+        }
+
+        $this->modalComprobanteUrl = $comprobante->url;
+        $this->modalComprobanteTitulo = 'Comprobante de Justificación';
+        $this->modalComprobanteDetalle = ($incidencia->tipo_label) . ' · ' . ($incidencia->fecha_inicio?->format('d/m/Y') ?? '') . ' · ' . ($incidencia->motivo ?: 'Sin motivo');
+        $this->showComprobanteModal = true;
+    }
+
+    public function cerrarComprobanteModal(): void
+    {
+        $this->showComprobanteModal = false;
+        $this->modalComprobanteUrl = null;
+        $this->modalComprobanteTitulo = null;
+        $this->modalComprobanteDetalle = null;
+    }
 
     public function mount(Empleado $empleado): void
     {
@@ -420,6 +455,7 @@ class PerfilHorasPage extends Component
             'filteredRetrasoMinutos' => $filteredRetrasoMinutos,
             'filteredOmisionesCount' => $filteredOmisionesCount,
             'filteredFaltasCount' => $filteredFaltasCount,
+            'solicitudesRecientes' => $this->solicitudesRecientes,
         ])->layout('layouts.guest', ['title' => 'Perfil de horas - ' . $this->empleado->nombre_completo]);
     }
 
@@ -476,6 +512,8 @@ class PerfilHorasPage extends Component
         $this->boletaMotivo = $motivo ?: '';
         $this->boletaTipo = $tipo ?: 'particular';
         $this->boletaFechaTexto = $hoy->locale('es')->translatedFormat('d \de F \de Y');
+        // Reset tipo incidencia para boleta genérica
+        $this->boletaTipoIncidencia = '';
 
         $this->recalcularTiempoSolicitado();
         $this->comprobante = null;
@@ -504,6 +542,30 @@ class PerfilHorasPage extends Component
         }
 
         $this->abrirBoletaModal($fecha, $horaInicio, $horaFin, $motivo, 'particular');
+        $this->boletaTipoIncidencia = 'omision'; // Forzar UI de un solo día
+    }
+
+    /**
+     * Abre el modal pre-cargado para justificar un atraso.
+     * Setea la hora de entrada real del sistema como hora de inicio
+     * y la hora del atraso (hora programada de entrada) como referencia.
+     */
+    public function abrirBoletaParaRetraso(string $fecha, string $horaEntrada, string $horaProgramada, ?string $horarioProgramado = null): void
+    {
+        // horaEntrada = hora real de marcación (con atraso)
+        // horaProgramada = hora de inicio del horario (referencia del atraso)
+        $horaInicio = $horaProgramada !== '--:--' && filled($horaProgramada) ? $horaProgramada : '08:30';
+        $horaFin    = $horaEntrada   !== '--:--' && filled($horaEntrada)    ? $horaEntrada   : '08:30';
+
+        // Si vienen en formato HH:MM aseguramos que tengan el formato correcto
+        $horaInicio = substr($horaInicio, 0, 5);
+        $horaFin    = substr($horaFin, 0, 5);
+
+        $motivo = 'JUSTIFICACIÓN DE ATRASO - Entrada registrada: ' . $horaFin
+                . ' (Horario programado: ' . $horaInicio . ')';
+
+        $this->abrirBoletaModal($fecha, $horaInicio, $horaFin, $motivo, 'particular');
+        $this->boletaTipoIncidencia = 'retraso'; // Forzar UI de un solo día
     }
 
     public function cerrarBoletaModal(): void
@@ -555,6 +617,13 @@ class PerfilHorasPage extends Component
 
     public function updatedBoletaDesdeFecha(): void
     {
+        // Si es boleta de omisión o atraso, la fecha final SIEMPRE es el mismo día
+        if (in_array($this->boletaTipoIncidencia, ['omision', 'retraso'])) {
+            $this->boletaHastaFecha = $this->boletaDesdeFecha;
+            $this->recalcularTiempoSolicitado();
+            return;
+        }
+
         try {
             $desde = $this->parsearFechaCarbon($this->boletaDesdeFecha)->startOfDay();
             $hasta = $this->parsearFechaCarbon($this->boletaHastaFecha)->startOfDay();

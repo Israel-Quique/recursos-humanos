@@ -11,12 +11,12 @@
       max-width: 40px !important;
       transition: all 0.15s ease-in-out !important;
     }
-    .celda-cuadrito-p {
+    .celda-cuadrito-a {
       background-color: #f8fafc !important;
       border-right: 1px solid #cbd5e1 !important;
       border-bottom: 1px solid #cbd5e1 !important;
     }
-    .celda-cuadrito-p:hover {
+    .celda-cuadrito-a:hover {
       background-color: #dcfce7 !important;
     }
     .celda-cuadrito-f {
@@ -99,31 +99,27 @@
         </div>
 
         {{-- Resumen de días --}}
-        <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-center">
-            <span class="text-xs font-semibold text-rose-700 uppercase">Faltas</span>
+            <span class="text-xs font-semibold text-rose-700 uppercase">Faltas (Biométrico)</span>
             <p class="mt-1 text-xl font-extrabold text-rose-800">{{ $selectedDetail['faltas'] ?? 0 }}</p>
           </div>
           <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-center">
-            <span class="text-xs font-semibold text-amber-700 uppercase">Omisiones</span>
+            <span class="text-xs font-semibold text-amber-700 uppercase">Omisiones (Biométrico)</span>
             <p class="mt-1 text-xl font-extrabold text-amber-800">{{ $selectedDetail['omisiones'] ?? 0 }}</p>
           </div>
-          <div class="rounded-xl border border-blue-200 bg-blue-50/60 p-3 text-center">
-            <span class="text-xs font-semibold text-blue-700 uppercase">Bajas Médicas</span>
-            <p class="mt-1 text-xl font-extrabold text-blue-800">{{ $selectedDetail['bajas_medicas'] ?? 0 }}</p>
-          </div>
-          <div class="rounded-xl border border-purple-200 bg-purple-50/60 p-3 text-center">
-            <span class="text-xs font-semibold text-purple-700 uppercase">Comisión Viaje</span>
-            <p class="mt-1 text-xl font-extrabold text-purple-800">{{ $selectedDetail['comisiones_viaje'] ?? 0 }}</p>
+          <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center">
+            <span class="text-xs font-semibold text-indigo-700 uppercase">Incidencias y Permisos</span>
+            <p class="mt-1 text-xl font-extrabold text-indigo-800">{{ $selectedDetail['permisos'] ?? (($selectedDetail['bajas_medicas'] ?? 0) + ($selectedDetail['comisiones_viaje'] ?? 0)) }}</p>
           </div>
         </div>
 
         <div class="mt-6 space-y-4 max-h-[400px] overflow-y-auto pr-1">
-          {{-- Faltas --}}
+          {{-- Faltas (Biométrico) --}}
           @if(!empty($selectedDetail['fechas_faltas']))
             <div class="rounded-xl border border-rose-200 bg-white p-4">
               <h4 class="text-sm font-bold text-rose-800 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-rose-600"></span> Faltas injustificadas registradas ({{ count($selectedDetail['fechas_faltas']) }})
+                <span class="h-2 w-2 rounded-full bg-rose-600"></span> Faltas injustificadas del biométrico ({{ count($selectedDetail['fechas_faltas']) }})
               </h4>
               <ul class="mt-2 space-y-1 text-xs text-slate-600">
                 @foreach($selectedDetail['fechas_faltas'] as $f)
@@ -136,11 +132,11 @@
             </div>
           @endif
 
-          {{-- Omisiones --}}
+          {{-- Omisiones (Biométrico) --}}
           @if(!empty($selectedDetail['fechas_omisiones']))
             <div class="rounded-xl border border-amber-200 bg-white p-4">
               <h4 class="text-sm font-bold text-amber-800 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-amber-600"></span> Omisiones de marcado ({{ count($selectedDetail['fechas_omisiones']) }})
+                <span class="h-2 w-2 rounded-full bg-amber-600"></span> Omisiones de marcado del biométrico ({{ count($selectedDetail['fechas_omisiones']) }})
               </h4>
               <ul class="mt-2 space-y-1 text-xs text-slate-600">
                 @foreach($selectedDetail['fechas_omisiones'] as $o)
@@ -153,47 +149,32 @@
             </div>
           @endif
 
-          {{-- Bajas Médicas --}}
-          @if(!empty($selectedDetail['fechas_bajas']))
-            <div class="rounded-xl border border-blue-200 bg-white p-4">
-              <h4 class="text-sm font-bold text-blue-800 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-blue-600"></span> Bajas médicas autorizadas ({{ count($selectedDetail['fechas_bajas']) }})
+          {{-- Incidencias y Permisos (Jalados desde Incidencias y Permisos) --}}
+          @php
+            $todosPermisos = !empty($selectedDetail['fechas_permisos']) 
+              ? $selectedDetail['fechas_permisos'] 
+              : array_merge($selectedDetail['fechas_bajas'] ?? [], $selectedDetail['fechas_comisiones'] ?? []);
+          @endphp
+          @if(!empty($todosPermisos))
+            <div class="rounded-xl border border-indigo-200 bg-white p-4">
+              <h4 class="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-indigo-600"></span> Incidencias y Permisos autorizados ({{ count($todosPermisos) }})
               </h4>
               <ul class="mt-2 space-y-1.5 text-xs text-slate-600">
-                @foreach($selectedDetail['fechas_bajas'] as $b)
-                  <li class="bg-blue-50/50 p-2.5 rounded-md">
-                    <div class="flex justify-between font-semibold text-blue-900">
-                      <span>{{ $b['fecha'] }}</span>
-                      <span class="rounded bg-blue-200 px-1.5 py-0.5 text-[10px] text-blue-900">{{ $b['dias'] }} día(s)</span>
+                @foreach($todosPermisos as $p)
+                  <li class="bg-indigo-50/50 p-2.5 rounded-md">
+                    <div class="flex justify-between font-semibold text-indigo-900">
+                      <span>{{ $p['fecha'] }}</span>
+                      <span class="rounded bg-indigo-200 px-1.5 py-0.5 text-[10px] text-indigo-900">{{ $p['dias'] ?? 1 }} día(s)</span>
                     </div>
-                    <p class="mt-1 text-slate-500">{{ $b['motivo'] }}</p>
+                    <p class="mt-1 text-slate-600">{{ $p['motivo'] }}</p>
                   </li>
                 @endforeach
               </ul>
             </div>
           @endif
 
-          {{-- Comisiones de Viaje --}}
-          @if(!empty($selectedDetail['fechas_comisiones']))
-            <div class="rounded-xl border border-purple-200 bg-white p-4">
-              <h4 class="text-sm font-bold text-purple-800 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-purple-600"></span> Comisiones de viaje autorizadas ({{ count($selectedDetail['fechas_comisiones']) }})
-              </h4>
-              <ul class="mt-2 space-y-1.5 text-xs text-slate-600">
-                @foreach($selectedDetail['fechas_comisiones'] as $c)
-                  <li class="bg-purple-50/50 p-2.5 rounded-md">
-                    <div class="flex justify-between font-semibold text-purple-900">
-                      <span>{{ $c['fecha'] }}</span>
-                      <span class="rounded bg-purple-200 px-1.5 py-0.5 text-[10px] text-purple-900">{{ $c['dias'] }} día(s)</span>
-                    </div>
-                    <p class="mt-1 text-slate-500">{{ $c['motivo'] }}</p>
-                  </li>
-                @endforeach
-              </ul>
-            </div>
-          @endif
-
-          @if(empty($selectedDetail['fechas_faltas']) && empty($selectedDetail['fechas_omisiones']) && empty($selectedDetail['fechas_bajas']) && empty($selectedDetail['fechas_comisiones']))
+          @if(empty($selectedDetail['fechas_faltas']) && empty($selectedDetail['fechas_omisiones']) && empty($todosPermisos))
             <div class="text-center py-8 text-slate-400">
               <p>Este funcionario no tiene registros automáticos en el período.</p>
               <p class="text-xs mt-1">Los días pueden haber sido ingresados o ajustados de forma manual.</p>
@@ -330,7 +311,7 @@
   {{-- ============================================================ --}}
   {{-- TARJETAS DE MÉTRICAS EJECUTIVAS                              --}}
   {{-- ============================================================ --}}
-  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal Activo</p>
       <div class="mt-2 flex items-baseline justify-between">
@@ -339,35 +320,30 @@
       </div>
     </div>
 
+    {{-- 1 del biométrico: Faltas --}}
     <div class="rounded-2xl border border-rose-200 bg-rose-50/40 p-4 shadow-sm">
-      <p class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Faltas</p>
+      <p class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Faltas (Biométrico)</p>
       <div class="mt-2 flex items-baseline justify-between">
         <p class="text-2xl font-extrabold text-rose-900">{{ $metricas['total_faltas'] }}</p>
         <span class="text-xs font-medium text-rose-600">días</span>
       </div>
     </div>
 
+    {{-- 2 del biométrico: Omisiones --}}
     <div class="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm">
-      <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Omisiones</p>
+      <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Omisiones (Biométrico)</p>
       <div class="mt-2 flex items-baseline justify-between">
         <p class="text-2xl font-extrabold text-amber-900">{{ $metricas['total_omisiones'] }}</p>
         <span class="text-xs font-medium text-amber-600">días</span>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 shadow-sm">
-      <p class="text-[11px] font-bold uppercase tracking-wider text-blue-700">Bajas Médicas</p>
+    {{-- Jalados desde Incidencias y Permisos --}}
+    <div class="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 shadow-sm">
+      <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Incidencias y Permisos</p>
       <div class="mt-2 flex items-baseline justify-between">
-        <p class="text-2xl font-extrabold text-blue-900">{{ $metricas['total_bajas_medicas'] }}</p>
-        <span class="text-xs font-medium text-blue-600">días</span>
-      </div>
-    </div>
-
-    <div class="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 shadow-sm">
-      <p class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Comisión Viaje</p>
-      <div class="mt-2 flex items-baseline justify-between">
-        <p class="text-2xl font-extrabold text-purple-900">{{ $metricas['total_comisiones_viaje'] }}</p>
-        <span class="text-xs font-medium text-purple-600">días</span>
+        <p class="text-2xl font-extrabold text-indigo-900">{{ $metricas['total_permisos'] ?? (($metricas['total_bajas_medicas'] ?? 0) + ($metricas['total_comisiones_viaje'] ?? 0)) }}</p>
+        <span class="text-xs font-medium text-indigo-600">días</span>
       </div>
     </div>
 
@@ -452,7 +428,7 @@
               @foreach($diasMes as $dia)
                 <th class="py-2 px-1 text-center w-9 min-w-[34px] max-w-[38px] border-r border-slate-300 bg-[#e0f2fe]/70 select-none" title="{{ $dia['fecha_corta'] }}">
                   <div class="flex flex-col items-center justify-end h-16 pb-1">
-                    <span class="text-[9px] font-mono font-semibold text-slate-600 -rotate-90 whitespace-nowrap mb-2 origin-center tracking-tight">{{ $dia['dia'] }}/{{ substr($dia['fecha_corta'], 3, 2) }}</span>
+                    <span class="text-[9px] font-mono font-semibold text-slate-600 -rotate-90 whitespace-nowrap mb-2 origin-center tracking-tight">{{ $dia['dia'] }}</span>
                     <span class="text-[10.5px] font-extrabold text-slate-800 mt-auto">{{ $dia['dia_nombre'] }}</span>
                   </div>
                 </th>
@@ -490,53 +466,58 @@
                 {{-- Celdas interactivas por cada día hábil con colores que resaltan --}}
                 @foreach($diasMes as $dia)
                   @php
-                    $st = strtolower($diasItem[$dia['fecha']] ?? 'p');
-                    $infoColor = match($st) {
-                      'f' => [
-                        'class' => 'celda-cuadrito celda-cuadrito-f',
-                        'td_style' => 'background-color: #fee2e2 !important; border: 2px solid #ef4444 !important;',
-                        'sel_style' => 'background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: 900 !important;',
-                        'title' => 'Falta (F)',
-                      ],
-                      'o' => [
-                        'class' => 'celda-cuadrito celda-cuadrito-o',
-                        'td_style' => 'background-color: #fef3c7 !important; border: 2px solid #f59e0b !important;',
-                        'sel_style' => 'background-color: #fef3c7 !important; color: #b45309 !important; font-weight: 900 !important;',
-                        'title' => 'Omisión (O)',
-                      ],
-                      'bm' => [
-                        'class' => 'celda-cuadrito celda-cuadrito-bm',
-                        'td_style' => 'background-color: #dbeafe !important; border: 2px solid #3b82f6 !important;',
-                        'sel_style' => 'background-color: #dbeafe !important; color: #1d4ed8 !important; font-weight: 900 !important;',
-                        'title' => 'Baja Médica (Bm)',
-                      ],
-                      'cv' => [
-                        'class' => 'celda-cuadrito celda-cuadrito-cv',
-                        'td_style' => 'background-color: #ede9fe !important; border: 2px solid #8b5cf6 !important;',
-                        'sel_style' => 'background-color: #ede9fe !important; color: #6d28d9 !important; font-weight: 900 !important;',
-                        'title' => 'Comisión de Viaje (Cv)',
-                      ],
-                      default => [
-                        'class' => 'celda-cuadrito celda-cuadrito-p',
-                        'td_style' => 'background-color: #f8fafc !important; border-right: 1px solid #cbd5e1 !important; border-bottom: 1px solid #cbd5e1 !important;',
-                        'sel_style' => 'background-color: transparent !important; color: #15803d !important; font-weight: 700 !important;',
-                        'title' => 'Presente (P)',
-                      ],
-                    };
+                    $st = strtolower($diasItem[$dia['fecha']] ?? '');
+                    // Colores predefinidos para estados conocidos
+                    $colorMap = [
+                      ''   => ['class'=>'celda-cuadrito celda-cuadrito-blank', 'td'=>'background-color:#f1f5f9!important;border-right:1px solid #e2e8f0!important;border-bottom:1px solid #e2e8f0!important;opacity:0.7;', 'sel'=>'background-color:transparent!important;color:#94a3b8!important;font-weight:400!important;'],
+                      'f'  => ['class'=>'celda-cuadrito celda-cuadrito-f',  'td'=>'background-color:#fee2e2!important;border:2px solid #ef4444!important;',  'sel'=>'background-color:#fee2e2!important;color:#b91c1c!important;font-weight:900!important;'],
+                      'o'  => ['class'=>'celda-cuadrito celda-cuadrito-o',  'td'=>'background-color:#fef3c7!important;border:2px solid #f59e0b!important;',  'sel'=>'background-color:#fef3c7!important;color:#b45309!important;font-weight:900!important;'],
+                      'bm' => ['class'=>'celda-cuadrito celda-cuadrito-bm', 'td'=>'background-color:#dbeafe!important;border:2px solid #3b82f6!important;',  'sel'=>'background-color:#dbeafe!important;color:#1d4ed8!important;font-weight:900!important;'],
+                      'cv' => ['class'=>'celda-cuadrito celda-cuadrito-cv', 'td'=>'background-color:#ede9fe!important;border:2px solid #8b5cf6!important;',  'sel'=>'background-color:#ede9fe!important;color:#6d28d9!important;font-weight:900!important;'],
+                    ];
+                    // Colores para tipos dinámicos de permisos
+                    $dynamicColors = ['e8d5f5','ffd6e0','d5f5e8','f5f0d5','d5e8f5','f5d5e8','e8f5d5','f5d5d5'];
+                    $colIdx2 = 0;
+                    foreach(($tiposEstados ?? []) as $tKey => $tLabel) {
+                      if(!isset($colorMap[$tKey]) && $tKey !== 'a') {
+                        $colorMap[$tKey] = [
+                          'class'=>'celda-cuadrito celda-cuadrito-o',
+                          'td'=>'background-color:#'.$dynamicColors[$colIdx2 % count($dynamicColors)].'!important;border:2px solid #94a3b8!important;',
+                          'sel'=>'background-color:#'.$dynamicColors[$colIdx2 % count($dynamicColors)].'!important;color:#334155!important;font-weight:900!important;',
+                        ];
+                        $colIdx2++;
+                      }
+                    }
+                    $infoColor = $colorMap[$st] ?? [
+                      'class'=>'celda-cuadrito celda-cuadrito-a',
+                      'td'=>'background-color:#f8fafc!important;border-right:1px solid #cbd5e1!important;border-bottom:1px solid #cbd5e1!important;',
+                      'sel'=>'background-color:transparent!important;color:#15803d!important;font-weight:700!important;',
+                    ];
+                    $titleLabel = $st === '' ? 'Sin dato biométrico' : (($tiposEstados[$st] ?? 'Asistencia') . ' (' . strtoupper($st) . ')');
                   @endphp
                   <td class="{{ $infoColor['class'] }}"
-                      style="{{ $infoColor['td_style'] }}"
-                      title="{{ $dia['dia_nombre'] }} {{ $dia['fecha_corta'] }}: {{ $infoColor['title'] }} - Click para cambiar estado">
+                      style="{{ $infoColor['td'] }}"
+                      title="{{ $dia['dia_nombre'] }} {{ $dia['fecha_corta'] }}: {{ $titleLabel }} - Click para cambiar estado">
                     <select
                       wire:change="actualizarEstadoDia({{ $origIdx }}, '{{ $dia['fecha'] }}', $event.target.value)"
                       class="select-cuadrito"
-                      style="{{ $infoColor['sel_style'] }}"
+                      style="{{ $infoColor['sel'] }}"
                       aria-label="Estado día {{ $dia['dia'] }}">
-                      <option value="p" {{ $st === 'p' ? 'selected' : '' }}>P</option>
-                      <option value="f" {{ $st === 'f' ? 'selected' : '' }}>F</option>
-                      <option value="o" {{ $st === 'o' ? 'selected' : '' }}>O</option>
-                      <option value="bm" {{ $st === 'bm' ? 'selected' : '' }}>Bm</option>
-                      <option value="cv" {{ $st === 'cv' ? 'selected' : '' }}>Cv</option>
+                      {{-- Opción en blanco: sin dato biométrico --}}
+                      <option value="" {{ $st === '' ? 'selected' : '' }}></option>
+                      @foreach(($tiposEstados ?? ['a'=>'Asistencia','f'=>'Falta','o'=>'Omisión']) as $optVal => $optLabel)
+                        @php
+                          $optSigla = match(true) {
+                            $optVal === 'a' => 'A',
+                            $optVal === 'f' => 'F',
+                            $optVal === 'o' => 'O',
+                            $optVal === 'bm' || str_contains($optVal, 'baja') => 'Bm',
+                            $optVal === 'cv' || str_contains($optVal, 'comision') => 'Cv',
+                            default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $optVal), 0, 2) ?: substr($optLabel, 0, 2)),
+                          };
+                        @endphp
+                        <option value="{{ $optVal }}" {{ $st === $optVal ? 'selected' : '' }}>{{ $optSigla }}</option>
+                      @endforeach
                     </select>
                   </td>
                 @endforeach
@@ -602,17 +583,17 @@
           </svg>
           <span>SIMBOLOGÍA</span>
         </div>
-        <div class="p-4 bg-slate-50 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          {{-- P: Presente --}}
+        <div class="p-4 bg-slate-50 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {{-- A: Asistencia (Biométrico) --}}
           <div class="rounded-xl border border-emerald-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
             <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-8 h-8 rounded-lg bg-[#dcfce7] text-[#15803d] font-black text-sm flex items-center justify-center border border-emerald-300 shadow-xs">P</span>
-              <span class="font-extrabold text-slate-900 text-xs uppercase">Presente</span>
+              <span class="w-8 h-8 rounded-lg bg-[#dcfce7] text-[#15803d] font-black text-sm flex items-center justify-center border border-emerald-300 shadow-xs">A</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Asistencia</span>
             </div>
             <p class="text-[11px] text-slate-600 leading-snug">El colaborador realizó su jornada laboral.</p>
           </div>
 
-          {{-- F: Falta --}}
+          {{-- F: Falta (Biométrico) --}}
           <div class="rounded-xl border border-rose-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
             <div class="flex items-center gap-2 mb-1.5">
               <span class="w-8 h-8 rounded-lg bg-[#fee2e2] text-[#b91c1c] font-black text-sm flex items-center justify-center border border-rose-300 shadow-xs">F</span>
@@ -621,7 +602,7 @@
             <p class="text-[11px] text-slate-600 leading-snug">No asistió a su jornada.</p>
           </div>
 
-          {{-- O: Omisión --}}
+          {{-- O: Omisión (Biométrico) --}}
           <div class="rounded-xl border border-amber-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
             <div class="flex items-center gap-2 mb-1.5">
               <span class="w-8 h-8 rounded-lg bg-[#fef3c7] text-[#b45309] font-black text-sm flex items-center justify-center border border-amber-300 shadow-xs">O</span>
@@ -630,26 +611,33 @@
             <p class="text-[11px] text-slate-600 leading-snug">No registró entrada o salida.</p>
           </div>
 
-          {{-- Bm: Baja médica --}}
-          <div class="rounded-xl border border-sky-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-8 h-8 rounded-lg bg-[#dbeafe] text-[#1d4ed8] font-black text-xs flex items-center justify-center border border-sky-300 shadow-xs">Bm</span>
-              <span class="font-extrabold text-slate-900 text-xs uppercase">Baja médica</span>
-            </div>
-            <p class="text-[11px] text-slate-600 leading-snug">Incapacidad médica o reposo.</p>
-          </div>
-
-          {{-- Cv: Comisión de viaje --}}
-          <div class="rounded-xl border border-purple-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-8 h-8 rounded-lg bg-[#ede9fe] text-[#6d28d9] font-black text-xs flex items-center justify-center border border-purple-300 shadow-xs">Cv</span>
-              <span class="font-extrabold text-slate-900 text-xs uppercase">Comisión viaje</span>
-            </div>
-            <p class="text-[11px] text-slate-600 leading-snug">En comisión de trabajo o viaje laboral.</p>
-          </div>
+          {{-- Tipos dinámicos de permisos (Jalados desde Incidencias y Permisos) --}}
+          @foreach(($tiposEstados ?? []) as $tKey => $tLabel)
+            @if(!in_array($tKey, ['a','f','o']))
+              @php
+                $siglaLabel = match(true) {
+                  $tKey === 'bm' || str_contains($tKey, 'baja') || str_contains(mb_strtolower($tLabel), 'baja') => 'Bm',
+                  $tKey === 'cv' || str_contains($tKey, 'comision') || str_contains(mb_strtolower($tLabel), 'comision') || str_contains(mb_strtolower($tLabel), 'comisión') => 'Cv',
+                  default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $tKey), 0, 2) ?: substr($tLabel, 0, 2)),
+                };
+                $cardBadge = match($siglaLabel) {
+                  'Bm' => ['bg' => 'bg-[#dbeafe]', 'txt' => 'text-[#1d4ed8]', 'border' => 'border-sky-300', 'card' => 'border-sky-200'],
+                  'Cv' => ['bg' => 'bg-[#ede9fe]', 'txt' => 'text-[#6d28d9]', 'border' => 'border-purple-300', 'card' => 'border-purple-200'],
+                  default => ['bg' => 'bg-slate-100', 'txt' => 'text-slate-800', 'border' => 'border-slate-300', 'card' => 'border-slate-200'],
+                };
+              @endphp
+              <div class="rounded-xl border {{ $cardBadge['card'] }} bg-white p-3 shadow-2xs flex flex-col justify-between">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-8 h-8 rounded-lg {{ $cardBadge['bg'] }} {{ $cardBadge['txt'] }} font-black text-xs flex items-center justify-center border {{ $cardBadge['border'] }} shadow-xs">{{ $siglaLabel }}</span>
+                  <span class="font-extrabold text-slate-900 text-xs uppercase">{{ $tLabel }}</span>
+                </div>
+                <p class="text-[11px] text-slate-600 leading-snug">Permiso: {{ $tLabel }}. = 1 día no pagado.</p>
+              </div>
+            @endif
+          @endforeach
         </div>
         <div class="px-5 py-2 bg-slate-100 border-t border-slate-200 text-[11px] text-slate-500 italic">
-          Nota: La presente planilla es el control de asistencia para el cálculo y descuento de refrigerio / comida del personal institucional.
+          Nota: Todo estado distinto de <strong>A (Asistencia)</strong> cuenta como <strong>1 día no pagado</strong>. Los tipos de permisos se sincronizan automáticamente con el módulo de Incidencias.
         </div>
       </div>
     </div>
@@ -715,32 +703,17 @@
               </div>
             </div>
 
-            {{-- Baja médica --}}
-            <div class="flex items-center justify-between rounded-xl bg-blue-50/60 p-2 border border-blue-100">
+            {{-- Incidencias y Permisos (Jalados desde Incidencias y Permisos) --}}
+            <div class="flex items-center justify-between rounded-xl bg-indigo-50/60 p-2 border border-indigo-100">
               <div class="flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-                <span class="font-bold text-blue-900">Baja médica</span>
+                <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+                <span class="font-bold text-indigo-900">Incidencias y Permisos</span>
               </div>
               <div class="flex items-center gap-1.5">
                 <input type="number" min="0" max="31"
-                  value="{{ $item['bajas_medicas'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'bajas_medicas', $event.target.value)"
-                  class="w-14 rounded-md border border-blue-200 bg-white px-1.5 py-0.5 text-center font-bold text-blue-900 shadow-2xs focus:outline-none">
-                <span class="text-[11px] text-slate-500">días</span>
-              </div>
-            </div>
-
-            {{-- Comisión de viaje --}}
-            <div class="flex items-center justify-between rounded-xl bg-purple-50/60 p-2 border border-purple-100">
-              <div class="flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-purple-500"></span>
-                <span class="font-bold text-purple-900">Comisión de viaje</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <input type="number" min="0" max="31"
-                  value="{{ $item['comisiones_viaje'] ?? 0 }}"
-                  wire:change="actualizarDia({{ $origIdx }}, 'comisiones_viaje', $event.target.value)"
-                  class="w-14 rounded-md border border-purple-200 bg-white px-1.5 py-0.5 text-center font-bold text-purple-900 shadow-2xs focus:outline-none">
+                  value="{{ $item['permisos'] ?? (($item['bajas_medicas'] ?? 0) + ($item['comisiones_viaje'] ?? 0)) }}"
+                  wire:change="actualizarDia({{ $origIdx }}, 'permisos', $event.target.value)"
+                  class="w-14 rounded-md border border-indigo-200 bg-white px-1.5 py-0.5 text-center font-bold text-indigo-900 shadow-2xs focus:outline-none">
                 <span class="text-[11px] text-slate-500">días</span>
               </div>
             </div>
