@@ -2683,21 +2683,55 @@
           <p class="section-copy-sm">Consulta registros biométricos de entrada y salida del personal por fecha, código/nombre o sucursal.</p>
         </div>
         @if ($marcacionesSearchPerformed)
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            @if ($selectedMarcacionesEmpleadoId)
+              <button
+                type="button"
+                wire:click="descargarPdfMarcaciones('personal')"
+                wire:loading.attr="disabled"
+                class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                title="Descargar reporte personal en formato PDF"
+              >
+                <svg class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
+                </svg>
+                <span wire:loading.remove wire:target="descargarPdfMarcaciones('personal')">Descargar PDF (Personal)</span>
+                <span wire:loading wire:target="descargarPdfMarcaciones('personal')">Generando PDF...</span>
+              </button>
+            @endif
+
             <button
               type="button"
-              wire:click="descargarPdfMarcaciones"
+              wire:click="descargarPdfMarcaciones('sucursal')"
               wire:loading.attr="disabled"
-              class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-              title="Descargar reporte completo en formato PDF"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+              title="Descargar fichas personales de la sucursal con el mismo formato idéntico"
             >
-              <svg class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="h-4 w-4 text-[#0f67c0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
                 <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
               </svg>
-              <span wire:loading.remove wire:target="descargarPdfMarcaciones">Descargar Reporte PDF</span>
-              <span wire:loading wire:target="descargarPdfMarcaciones">Generando PDF...</span>
+              <span wire:loading.remove wire:target="descargarPdfMarcaciones('sucursal')">PDF por Sucursal</span>
+              <span wire:loading wire:target="descargarPdfMarcaciones('sucursal')">Generando...</span>
+            </button>
+
+            <button
+              type="button"
+              wire:click="descargarPdfMarcaciones('global')"
+              wire:loading.attr="disabled"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+              title="Descargar fichas personales de todo el personal a nivel nacional con el mismo formato idéntico"
+            >
+              <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
+              </svg>
+              <span wire:loading.remove wire:target="descargarPdfMarcaciones('global')">PDF Global</span>
+              <span wire:loading wire:target="descargarPdfMarcaciones('global')">Generando...</span>
             </button>
           </div>
         @endif
@@ -2709,7 +2743,7 @@
           
           <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             {{-- 1. Filtro Código / Nombre (Principal) --}}
-            <div class="md:col-span-5">
+            <div class="md:col-span-3">
               <label for="marcaciones-filter-search" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 Personal (Código o Nombre)
               </label>
@@ -2727,7 +2761,24 @@
               </div>
             </div>
 
-            {{-- Selector Modo Fecha (Rango vs Mes) --}}
+            {{-- 2. Filtro Sucursal / Regional --}}
+            <div class="md:col-span-3">
+              <label for="marcaciones-filter-sucursal" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Sucursal / Regional
+              </label>
+              <select
+                id="marcaciones-filter-sucursal"
+                wire:model="inputMarcacionesSucursal"
+                class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-[#0f67c0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0f67c0]"
+              >
+                <option value="">Todas las sucursales (Global)</option>
+                @foreach ($sucursales as $suc)
+                  <option value="{{ $suc }}">{{ $suc }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            {{-- 3. Selector Modo Fecha (Rango vs Mes) --}}
             <div class="md:col-span-2">
               <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 Tipo de fecha
@@ -2741,37 +2792,36 @@
               </select>
             </div>
 
-            {{-- Modo 1: Rango de fechas (Fecha Inicio - Fecha Fin) --}}
+            {{-- 4. Fechas (Desde/Hasta o Mes) --}}
             @if ($inputMarcacionesTipoFecha === 'rango')
-              <div class="md:col-span-3 flex items-center gap-2">
-                <div class="flex-1">
-                  <label for="marcaciones-filter-inicio" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <div class="md:col-span-2 flex items-center gap-1.5">
+                <div class="flex-1 min-w-0">
+                  <label for="marcaciones-filter-inicio" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 truncate">
                     Desde
                   </label>
                   <input
                     type="date"
                     id="marcaciones-filter-inicio"
                     wire:model="inputMarcacionesFechaInicio"
-                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-xs font-semibold text-slate-800 focus:border-[#0f67c0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0f67c0]"
+                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2 py-2 text-xs font-semibold text-slate-800 focus:border-[#0f67c0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0f67c0]"
                   >
                 </div>
-                <div class="flex-1">
-                  <label for="marcaciones-filter-fin" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                <div class="flex-1 min-w-0">
+                  <label for="marcaciones-filter-fin" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 truncate">
                     Hasta
                   </label>
                   <input
                     type="date"
                     id="marcaciones-filter-fin"
                     wire:model="inputMarcacionesFechaFin"
-                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-xs font-semibold text-slate-800 focus:border-[#0f67c0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0f67c0]"
+                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2 py-2 text-xs font-semibold text-slate-800 focus:border-[#0f67c0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0f67c0]"
                   >
                 </div>
               </div>
-            {{-- Modo 2: Por Mes --}}
             @else
-              <div class="md:col-span-3">
+              <div class="md:col-span-2">
                 <label for="marcaciones-filter-mes" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Mes seleccionado
+                  Mes
                 </label>
                 <input
                   type="month"
@@ -2782,21 +2832,21 @@
               </div>
             @endif
 
-            {{-- Botones Buscar y Limpiar --}}
-            <div class="md:col-span-2 flex items-center gap-2">
+            {{-- 5. Botones Buscar y Limpiar --}}
+            <div class="md:col-span-2 flex items-center gap-1.5">
               <button
                 type="submit"
-                class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0f67c0] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0d59a7] focus:outline-none focus:ring-2 focus:ring-[#0f67c0]/40"
+                class="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-[#0f67c0] px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0d59a7] focus:outline-none focus:ring-2 focus:ring-[#0f67c0]/40"
               >
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <span>Buscar</span>
               </button>
               
-              @if($marcacionesSearchPerformed || filled($inputMarcacionesSearch) || filled($inputMarcacionesFechaInicio) || filled($inputMarcacionesFechaFin) || filled($inputMarcacionesMes))
+              @if($marcacionesSearchPerformed || filled($inputMarcacionesSearch) || filled($inputMarcacionesSucursal) || filled($inputMarcacionesFechaInicio) || filled($inputMarcacionesFechaFin) || filled($inputMarcacionesMes))
                 <button
                   type="button"
                   wire:click="limpiarFiltrosMarcaciones"
-                  class="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+                  class="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
                   title="Limpiar filtros"
                 >
                   <span>Limpiar</span>
@@ -2819,6 +2869,16 @@
             @else
               <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600">
                 Todo el personal
+              </span>
+            @endif
+
+            @if(filled($appliedMarcacionesSucursal) && $appliedMarcacionesSucursal !== 'todas')
+              <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-violet-800 font-semibold">
+                Sucursal: <strong>{{ $appliedMarcacionesSucursal }}</strong>
+              </span>
+            @else
+              <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600">
+                Todas las sucursales (Global)
               </span>
             @endif
 
@@ -3213,22 +3273,60 @@
                 <span wire:loading wire:target="descargarExcelMarcaciones">Generando...</span>
               </button>
 
-              {{-- Botón Exportar PDF --}}
-              <button
-                type="button"
-                wire:click="descargarPdfMarcaciones"
-                wire:loading.attr="disabled"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition disabled:opacity-50 cursor-pointer"
-                title="Descargar reporte en formato PDF"
-              >
-                <svg class="h-3.5 w-3.5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
-                </svg>
-                <span wire:loading.remove wire:target="descargarPdfMarcaciones">Exportar PDF</span>
-                <span wire:loading wire:target="descargarPdfMarcaciones">Generando...</span>
-              </button>
+              {{-- Botón Exportar PDF con opciones --}}
+              <div class="inline-flex items-center rounded-lg shadow-xs border border-slate-300 bg-white overflow-hidden" x-data="{ openPdfMenu: false }">
+                <button
+                  type="button"
+                  wire:click="descargarPdfMarcaciones"
+                  wire:loading.attr="disabled"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50 cursor-pointer"
+                  title="Descargar reporte en formato PDF con formato de ficha personal"
+                >
+                  <svg class="h-3.5 w-3.5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m7 11 5 5 5-5"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14"/>
+                  </svg>
+                  <span wire:loading.remove wire:target="descargarPdfMarcaciones">
+                    @if($selectedMarcacionesEmpleadoId)
+                      Exportar PDF (Personal)
+                    @elseif(filled($appliedMarcacionesSucursal) && $appliedMarcacionesSucursal !== 'todas')
+                      Exportar Fichas Sucursal (PDF)
+                    @else
+                      Exportar Fichas Global (PDF)
+                    @endif
+                  </span>
+                  <span wire:loading wire:target="descargarPdfMarcaciones">Generando...</span>
+                </button>
+                <div class="relative">
+                  <button
+                    type="button"
+                    x-on:click="openPdfMenu = !openPdfMenu"
+                    class="border-l border-slate-200 px-1.5 py-1 hover:bg-slate-100 transition text-slate-600 text-xs font-bold cursor-pointer"
+                    title="Opciones de formato PDF"
+                  >
+                    ▾
+                  </button>
+                  <div
+                    x-cloak
+                    x-show="openPdfMenu"
+                    x-on:click.outside="openPdfMenu = false"
+                    class="absolute right-0 mt-1 w-56 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg z-50 text-xs font-semibold text-slate-700"
+                  >
+                    @if($selectedMarcacionesEmpleadoId)
+                      <button type="button" wire:click="descargarPdfMarcaciones('personal')" x-on:click="openPdfMenu = false" class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                        <span>📄 Ficha de este Personal</span>
+                      </button>
+                    @endif
+                    <button type="button" wire:click="descargarPdfMarcaciones('sucursal')" x-on:click="openPdfMenu = false" class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                      <span>🏢 Fichas por Sucursal</span>
+                    </button>
+                    <button type="button" wire:click="descargarPdfMarcaciones('global')" x-on:click="openPdfMenu = false" class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                      <span>🌐 Fichas Globales (Nacional)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3326,6 +3424,11 @@
                       <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-800" title="{{ $registro->hora_entrada === '--:--' ? 'Falta marcar entrada' : 'Falta marcar salida' }}">
                         <svg class="h-3 w-3 text-amber-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                         <span>Sin completar</span>
+                      </span>
+                    @elseif(($registro->tipo_estado ?? '') === 'falta' || ($registro->estado_marcacion ?? '') === 'Falta')
+                      <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
+                        <svg class="h-3 w-3 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                        <span>Falta</span>
                       </span>
                     @else
                       <span class="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">

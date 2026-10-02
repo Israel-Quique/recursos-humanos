@@ -44,11 +44,13 @@ class PersonalPage extends Component
     // Búsqueda explícita para la vista de Marcaciones (personal?vista=marcaciones)
     public bool $marcacionesSearchPerformed = false;
     public string $inputMarcacionesSearch = '';
+    public string $inputMarcacionesSucursal = '';
     public string $inputMarcacionesTipoFecha = 'rango'; // 'rango', 'mes'
     public string $inputMarcacionesFechaInicio = '';
     public string $inputMarcacionesFechaFin = '';
     public string $inputMarcacionesMes = '';
     public string $appliedMarcacionesSearch = '';
+    public string $appliedMarcacionesSucursal = '';
     public string $appliedMarcacionesTipoFecha = 'rango';
     public string $appliedMarcacionesFechaInicio = '';
     public string $appliedMarcacionesFechaFin = '';
@@ -1022,6 +1024,7 @@ class PersonalPage extends Component
     public function aplicarBusquedaMarcaciones(): void
     {
         $this->appliedMarcacionesSearch = trim($this->inputMarcacionesSearch);
+        $this->appliedMarcacionesSucursal = trim($this->inputMarcacionesSucursal);
         $this->appliedMarcacionesTipoFecha = $this->inputMarcacionesTipoFecha;
         $this->appliedMarcacionesFechaInicio = trim($this->inputMarcacionesFechaInicio);
         $this->appliedMarcacionesFechaFin = trim($this->inputMarcacionesFechaFin);
@@ -1032,7 +1035,7 @@ class PersonalPage extends Component
             $term = "%{$this->appliedMarcacionesSearch}%";
             $searchOperator = config('database.default') === 'pgsql' ? 'ilike' : 'like';
 
-            $matchingCollection = Empleado::query()
+            $matchingCollectionQuery = Empleado::query()
                 ->withUltimaMarcacion()
                 ->withTrashed()
                 ->where(function ($q) use ($searchOperator, $term) {
@@ -1040,8 +1043,13 @@ class PersonalPage extends Component
                         ->orWhere('nombre', $searchOperator, $term)
                         ->orWhere('apellido', $searchOperator, $term)
                         ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
-                })
-                ->get();
+                });
+
+            if (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
+                SucursalNormalizer::applyFilter($matchingCollectionQuery, 'sucursal', $this->appliedMarcacionesSucursal);
+            }
+
+            $matchingCollection = $matchingCollectionQuery->get();
 
             $this->matchingEmpleados = $matchingCollection->map(function (Empleado $emp) {
                 $estado = $emp->estadoLaboral(now());
@@ -1085,30 +1093,7 @@ class PersonalPage extends Component
                     'estado_laboral' => $estadoLaboral,
                 ];
 
-                // Determinar rango para estadísticas
-                if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
-                    try {
-                        $cMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
-                        $statStart = $cMes->copy()->startOfMonth();
-                        $statEnd = $cMes->copy()->endOfMonth();
-                    } catch (\Exception $e) {
-                        $statStart = now()->startOfMonth();
-                        $statEnd = now()->endOfMonth();
-                    }
-                } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
-                    $statStart = Carbon::parse(min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin));
-                    $statEnd = Carbon::parse(max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin));
-                } elseif (filled($this->appliedMarcacionesFechaInicio)) {
-                    $statStart = Carbon::parse($this->appliedMarcacionesFechaInicio);
-                    $statEnd = now();
-                } elseif (filled($this->appliedMarcacionesFechaFin)) {
-                    $statStart = Carbon::parse($this->appliedMarcacionesFechaFin)->startOfMonth();
-                    $statEnd = Carbon::parse($this->appliedMarcacionesFechaFin);
-                } else {
-                    $statStart = now()->startOfMonth();
-                    $statEnd = now()->endOfMonth();
-                }
-
+                [$statStart, $statEnd] = $this->resolverRangoFechasMarcaciones();
                 $this->marcacionesStats = $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
             } else {
                 $this->selectedMarcacionesEmpleadoId = null;
@@ -1142,11 +1127,13 @@ class PersonalPage extends Component
     public function limpiarFiltrosMarcaciones(): void
     {
         $this->inputMarcacionesSearch = '';
+        $this->inputMarcacionesSucursal = '';
         $this->inputMarcacionesTipoFecha = 'rango';
         $this->inputMarcacionesFechaInicio = '';
         $this->inputMarcacionesFechaFin = '';
         $this->inputMarcacionesMes = '';
         $this->appliedMarcacionesSearch = '';
+        $this->appliedMarcacionesSucursal = '';
         $this->appliedMarcacionesTipoFecha = 'rango';
         $this->appliedMarcacionesFechaInicio = '';
         $this->appliedMarcacionesFechaFin = '';
@@ -1289,6 +1276,41 @@ class PersonalPage extends Component
         $this->resetPage('registrosPage');
     }
 
+    private function resolverRangoFechasMarcaciones(): array
+    {
+        $periodoLabel = 'Todas las fechas';
+        $statStart = now()->startOfMonth();
+        $statEnd = now()->endOfMonth();
+
+        if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
+            try {
+                $cMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
+                $statStart = $cMes->copy()->startOfMonth();
+                $statEnd = $cMes->copy()->endOfMonth();
+                $periodoLabel = ucfirst($cMes->locale('es')->translatedFormat('F Y'));
+            } catch (\Exception $e) {
+                $statStart = now()->startOfMonth();
+                $statEnd = now()->endOfMonth();
+            }
+        } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
+            $fInicio = min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
+            $fFin = max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
+            $statStart = Carbon::parse($fInicio)->startOfDay();
+            $statEnd = Carbon::parse($fFin)->endOfDay();
+            $periodoLabel = $statStart->format('d/m/Y') . ' al ' . $statEnd->format('d/m/Y');
+        } elseif (filled($this->appliedMarcacionesFechaInicio)) {
+            $statStart = Carbon::parse($this->appliedMarcacionesFechaInicio)->startOfDay();
+            $statEnd = now()->endOfDay();
+            $periodoLabel = 'Desde ' . $statStart->format('d/m/Y');
+        } elseif (filled($this->appliedMarcacionesFechaFin)) {
+            $statEnd = Carbon::parse($this->appliedMarcacionesFechaFin)->endOfDay();
+            $statStart = $statEnd->copy()->startOfMonth();
+            $periodoLabel = 'Hasta ' . $statEnd->format('d/m/Y');
+        }
+
+        return [$statStart, $statEnd, $periodoLabel];
+    }
+
     private function obtenerColeccionMarcacionesReporte(): array
     {
         $searchOperator = $this->caseInsensitiveLikeOperator();
@@ -1298,30 +1320,22 @@ class PersonalPage extends Component
             ->whereHas('empleado')
             ->where($this->excludeSaturdayRecords());
 
-        $periodoLabel = 'Todas las fechas';
+        [$statStart, $statEnd, $periodoLabel] = $this->resolverRangoFechasMarcaciones();
 
         if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
-            try {
-                $carbonMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
-                $registrosQuery->whereBetween('fecha', [
-                    $carbonMes->copy()->startOfMonth()->toDateString(),
-                    $carbonMes->copy()->endOfMonth()->toDateString(),
-                ]);
-                $periodoLabel = ucfirst($carbonMes->locale('es')->translatedFormat('F Y'));
-            } catch (\Exception $e) {
-                // ignorar
-            }
+            $registrosQuery->whereBetween('fecha', [
+                $statStart->toDateString(),
+                $statEnd->toDateString(),
+            ]);
         } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
-            $fInicio = min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
-            $fFin = max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin);
-            $registrosQuery->whereBetween('fecha', [$fInicio, $fFin]);
-            $periodoLabel = Carbon::parse($fInicio)->format('d/m/Y') . ' al ' . Carbon::parse($fFin)->format('d/m/Y');
+            $registrosQuery->whereBetween('fecha', [
+                $statStart->toDateString(),
+                $statEnd->toDateString(),
+            ]);
         } elseif (filled($this->appliedMarcacionesFechaInicio)) {
-            $registrosQuery->whereDate('fecha', '>=', $this->appliedMarcacionesFechaInicio);
-            $periodoLabel = 'Desde ' . Carbon::parse($this->appliedMarcacionesFechaInicio)->format('d/m/Y');
+            $registrosQuery->whereDate('fecha', '>=', $statStart->toDateString());
         } elseif (filled($this->appliedMarcacionesFechaFin)) {
-            $registrosQuery->whereDate('fecha', '<=', $this->appliedMarcacionesFechaFin);
-            $periodoLabel = 'Hasta ' . Carbon::parse($this->appliedMarcacionesFechaFin)->format('d/m/Y');
+            $registrosQuery->whereDate('fecha', '<=', $statEnd->toDateString());
         }
 
         if ($this->selectedMarcacionesEmpleadoId) {
@@ -1335,6 +1349,12 @@ class PersonalPage extends Component
                         ->orWhere('apellido', $searchOperator, $term)
                         ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
                 });
+            });
+        }
+
+        if (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
+            $registrosQuery->whereHas('empleado', function ($empleadoQuery) {
+                SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->appliedMarcacionesSucursal);
             });
         }
 
@@ -1386,7 +1406,12 @@ class PersonalPage extends Component
                 $horasTrabajadas = sprintf('%dh %02dm', intdiv($minutosTrabajados, 60), $minutosTrabajados % 60);
             }
 
-            if ($tieneEntrada && $tieneSalida) {
+            $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+
+            if ($esFalta) {
+                $estado = 'Falta';
+                $tipoEstado = 'falta';
+            } elseif ($tieneEntrada && $tieneSalida) {
                 $estado = 'Completo';
                 $tipoEstado = 'completo';
             } elseif ($tieneEntrada || $tieneSalida) {
@@ -1401,6 +1426,7 @@ class PersonalPage extends Component
 
             return (object) [
                 'id' => $registro->id,
+                'empleado_id' => $registro->empleado_id,
                 'empleado' => $registro->empleado,
                 'codigo' => $codigoBio,
                 'fecha' => $registro->fecha,
@@ -1410,12 +1436,65 @@ class PersonalPage extends Component
                 'hora_salida' => $salidaVal ?: '--:--',
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
-                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--',
+                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--'),
                 'estado_marcacion' => $estado,
                 'tipo_estado' => $tipoEstado,
+                'es_falta' => $esFalta,
                 'observacion' => $registro->observacion,
             ];
         });
+
+        if ($this->filterEstadoMarcaciones !== 'completo' && $this->selectedMarcacionesEmpleadoId) {
+            $empleado = Empleado::find($this->selectedMarcacionesEmpleadoId);
+            if ($empleado) {
+                $stats = !empty($this->marcacionesStats)
+                    ? $this->marcacionesStats
+                    : $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
+
+                $fechasExistentes = $rows->pluck('fecha')->map(fn($f) => $f instanceof Carbon ? $f->toDateString() : Carbon::parse($f)->toDateString())->all();
+                $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
+                $faltasRows = collect();
+
+                foreach (($stats['lista_faltas'] ?? []) as $faltaItem) {
+                    $fechaStr = $faltaItem['fecha_raw'] ?? null;
+                    if (!$fechaStr && !empty($faltaItem['fecha'])) {
+                        try {
+                            $fechaStr = Carbon::createFromFormat('d/m/Y', $faltaItem['fecha'])->toDateString();
+                        } catch (\Throwable $e) {
+                            $fechaStr = Carbon::parse($faltaItem['fecha'])->toDateString();
+                        }
+                    }
+
+                    if ($fechaStr && !in_array($fechaStr, $fechasExistentes, true)) {
+                        $fechaCarbon = Carbon::parse($fechaStr);
+                        $faltasRows->push((object) [
+                            'id' => 'falta_' . $empleado->id . '_' . $fechaStr,
+                            'empleado_id' => $empleado->id,
+                            'empleado' => $empleado,
+                            'codigo' => $codigoBio,
+                            'fecha' => $fechaCarbon,
+                            'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
+                            'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
+                            'hora_entrada' => '--:--',
+                            'hora_salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => 'Falta',
+                            'estado_marcacion' => 'Falta',
+                            'tipo_estado' => 'falta',
+                            'es_falta' => true,
+                            'observacion' => $faltaItem['estado'] ?? 'Falta no justificada',
+                        ]);
+                    }
+                }
+
+                if ($faltasRows->isNotEmpty()) {
+                    $rows = $rows->concat($faltasRows)
+                        ->sortBy(fn($r) => $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString())
+                        ->values();
+                }
+            }
+        }
 
         return [
             'periodoLabel' => $periodoLabel,
@@ -1423,21 +1502,223 @@ class PersonalPage extends Component
         ];
     }
 
-    public function descargarPdfMarcaciones()
+    public function descargarPdfMarcaciones(?string $alcance = null)
     {
-        $reporteData = $this->obtenerColeccionMarcacionesReporte();
-        $periodoLabel = $reporteData['periodoLabel'];
-        $rows = $reporteData['rows'];
+        [$statStart, $statEnd, $periodoLabel] = $this->resolverRangoFechasMarcaciones();
+
+        $modo = $alcance;
+        if (!$modo) {
+            if ($this->selectedMarcacionesEmpleadoId) {
+                $modo = 'personal';
+            } elseif (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
+                $modo = 'sucursal';
+            } else {
+                $modo = 'global';
+            }
+        }
+
+        $sucursalReporteLabel = null;
+        $empleadosQuery = Empleado::query()->withUltimaMarcacion();
+
+        if ($modo === 'personal' && $this->selectedMarcacionesEmpleadoId) {
+            $empleadosQuery->withTrashed()->where('id', $this->selectedMarcacionesEmpleadoId);
+        } elseif ($modo === 'sucursal') {
+            $sucursalTarget = filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas'
+                ? $this->appliedMarcacionesSucursal
+                : ($this->marcacionesEmpleadoInfo['sucursal'] ?? null);
+
+            if ($sucursalTarget) {
+                SucursalNormalizer::applyFilter($empleadosQuery, 'sucursal', $sucursalTarget);
+                $sucursalReporteLabel = SucursalNormalizer::canonicalLabel($sucursalTarget);
+            }
+            $empleadosQuery->activosLaboralmente();
+        } else {
+            // Global
+            $empleadosQuery->activosLaboralmente();
+        }
+
+        $empleados = $empleadosQuery->orderBy('sucursal')->orderBy('nombre')->orderBy('apellido')->get();
+
+        // Si no se encontraron activos en sucursal/global, buscar también empleados con registros en el periodo
+        if ($empleados->isEmpty()) {
+            $regEmpQuery = RegistroAsistencia::query()
+                ->whereBetween('fecha', [$statStart->toDateString(), $statEnd->toDateString()]);
+
+            if ($modo === 'sucursal' && !empty($sucursalTarget)) {
+                $regEmpQuery->whereHas('empleado', fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $sucursalTarget));
+            }
+
+            $empIds = $regEmpQuery->distinct('empleado_id')->pluck('empleado_id');
+            $empleados = Empleado::withTrashed()->whereIn('id', $empIds)->orderBy('sucursal')->orderBy('nombre')->get();
+        }
+
+        if ($empleados->isEmpty()) {
+            $reporteData = $this->obtenerColeccionMarcacionesReporte();
+            $pdf = Pdf::loadView('pdf.marcaciones-personal', [
+                'periodoLabel' => $periodoLabel,
+                'fichas' => [],
+                'empleadoInfo' => $this->marcacionesEmpleadoInfo,
+                'stats' => $this->marcacionesStats,
+                'registros' => $reporteData['rows'],
+                'filterEstado' => $this->filterEstadoMarcaciones,
+                'modoReporte' => $modo,
+                'sucursalReporteLabel' => $sucursalReporteLabel,
+            ])->setPaper('a4', 'portrait');
+
+            return response()->streamDownload(fn () => print($pdf->output()), 'Reporte_Marcaciones_' . now()->format('Ymd_His') . '.pdf');
+        }
+
+        $empleadoIds = $empleados->pluck('id')->all();
+        $progService = $this->programacionLaboral();
+
+        $todasAsistencias = RegistroAsistencia::query()
+            ->with('empleado')
+            ->whereIn('empleado_id', $empleadoIds)
+            ->whereBetween('fecha', [$statStart->toDateString(), $statEnd->toDateString()])
+            ->where($this->excludeSaturdayRecords())
+            ->orderBy('fecha')
+            ->get()
+            ->groupBy('empleado_id');
+
+        $fichas = [];
+        foreach ($empleados as $empleado) {
+            $registrosEmp = $todasAsistencias->get($empleado->id, collect([]));
+
+            if ($this->filterEstadoMarcaciones === 'completo') {
+                $registrosEmp = $registrosEmp->filter(fn($r) => filled($r->hora_entrada) && filled($r->hora_salida));
+            } elseif ($this->filterEstadoMarcaciones === 'faltante') {
+                $registrosEmp = $registrosEmp->filter(fn($r) => (filled($r->hora_entrada) xor filled($r->hora_salida)));
+            }
+
+            $rowsEmp = $registrosEmp->map(function (RegistroAsistencia $registro) use ($progService, $empleado) {
+                $marcacion = $this->normalizarMarcacionAsistencia($registro);
+                $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
+                $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
+                $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
+                $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
+
+                $horario = $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+                $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
+                $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
+
+                $minutosRetraso = 0;
+                if ($tieneEntrada && $horaLimite) {
+                    $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
+                }
+
+                $minutosTrabajados = 0;
+                $horasTrabajadas = '--:--';
+                if ($tieneEntrada && $tieneSalida) {
+                    $minutosTrabajados = $this->calcularMinutosTrabajados($entradaVal, $salidaVal);
+                    $horasTrabajadas = sprintf('%dh %02dm', intdiv($minutosTrabajados, 60), $minutosTrabajados % 60);
+                }
+
+                $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
+                $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+
+                return (object) [
+                    'id' => $registro->id,
+                    'empleado' => $empleado,
+                    'codigo' => $codigoBio,
+                    'fecha' => $registro->fecha,
+                    'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
+                    'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
+                    'hora_entrada' => $entradaVal ?: '--:--',
+                    'hora_salida' => $salidaVal ?: '--:--',
+                    'horas_trabajadas' => $horasTrabajadas,
+                    'minutos_retraso' => $minutosRetraso,
+                    'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--'),
+                    'estado_marcacion' => $esFalta ? 'Falta' : (($tieneEntrada && $tieneSalida) ? 'Completo' : (($tieneEntrada || $tieneSalida) ? 'Sin completar' : 'Sin marcación')),
+                    'es_falta' => $esFalta,
+                    'observacion' => $registro->observacion,
+                ];
+            });
+
+            $statsEmp = ($this->selectedMarcacionesEmpleadoId === $empleado->id && !empty($this->marcacionesStats))
+                ? $this->marcacionesStats
+                : $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
+
+            // Integrar días con falta al listado si no se filtró estrictamente por completos
+            if ($this->filterEstadoMarcaciones !== 'completo') {
+                $fechasExistentes = $rowsEmp->pluck('fecha')->map(function ($f) {
+                    return $f instanceof Carbon ? $f->toDateString() : Carbon::parse($f)->toDateString();
+                })->all();
+
+                $faltasRows = collect();
+
+                foreach (($statsEmp['lista_faltas'] ?? []) as $faltaItem) {
+                    $fechaStr = $faltaItem['fecha_raw'] ?? null;
+                    if (!$fechaStr && !empty($faltaItem['fecha'])) {
+                        try {
+                            $fechaStr = Carbon::createFromFormat('d/m/Y', $faltaItem['fecha'])->toDateString();
+                        } catch (\Throwable $e) {
+                            $fechaStr = Carbon::parse($faltaItem['fecha'])->toDateString();
+                        }
+                    }
+
+                    if ($fechaStr && !in_array($fechaStr, $fechasExistentes, true)) {
+                        $fechaCarbon = Carbon::parse($fechaStr);
+                        $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
+
+                        $faltasRows->push((object) [
+                            'id' => 'falta_' . $empleado->id . '_' . $fechaStr,
+                            'empleado' => $empleado,
+                            'codigo' => $codigoBio,
+                            'fecha' => $fechaCarbon,
+                            'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
+                            'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
+                            'hora_entrada' => '--:--',
+                            'hora_salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => 'Falta',
+                            'estado_marcacion' => 'Falta',
+                            'es_falta' => true,
+                            'observacion' => $faltaItem['estado'] ?? 'Falta no justificada',
+                        ]);
+                    }
+                }
+
+                if ($faltasRows->isNotEmpty()) {
+                    $rowsEmp = $rowsEmp->concat($faltasRows)
+                        ->sortBy(fn($r) => $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString())
+                        ->values();
+                }
+            }
+
+            $fichas[] = [
+                'empleadoInfo' => [
+                    'id' => $empleado->id,
+                    'nombre_completo' => $empleado->nombre_completo,
+                    'codigo' => $empleado->codigo_biometrico ?: (string) $empleado->id,
+                    'sucursal' => $empleado->sucursal ?: 'Sin sucursal',
+                    'area' => $empleado->area ?: 'General',
+                ],
+                'stats' => $statsEmp,
+                'registros' => $rowsEmp,
+            ];
+        }
 
         $pdf = Pdf::loadView('pdf.marcaciones-personal', [
             'periodoLabel' => $periodoLabel,
-            'empleadoInfo' => $this->marcacionesEmpleadoInfo,
-            'stats' => $this->marcacionesStats,
-            'registros' => $rows,
+            'fichas' => $fichas,
             'filterEstado' => $this->filterEstadoMarcaciones,
+            'modoReporte' => $modo,
+            'sucursalReporteLabel' => $sucursalReporteLabel,
+            'empleadoInfo' => $fichas[0]['empleadoInfo'] ?? null,
+            'stats' => $fichas[0]['stats'] ?? [],
+            'registros' => $fichas[0]['registros'] ?? [],
         ])->setPaper('a4', 'portrait');
 
-        $fileName = 'Reporte_Marcaciones_' . ($this->marcacionesEmpleadoInfo ? Str::slug($this->marcacionesEmpleadoInfo['nombre_completo']) : 'General') . '_' . now()->format('Ymd_His') . '.pdf';
+        if ($modo === 'personal') {
+            $nombreTarget = $fichas[0]['empleadoInfo']['nombre_completo'] ?? 'Personal';
+            $fileName = 'Reporte_Marcaciones_' . Str::slug($nombreTarget) . '_' . now()->format('Ymd_His') . '.pdf';
+        } elseif ($modo === 'sucursal') {
+            $sucName = $sucursalReporteLabel ?: ($this->appliedMarcacionesSucursal ?: 'Sucursal');
+            $fileName = 'Reporte_Marcaciones_Sucursal_' . Str::slug($sucName) . '_' . now()->format('Ymd_His') . '.pdf';
+        } else {
+            $fileName = 'Reporte_Marcaciones_Global_' . now()->format('Ymd_His') . '.pdf';
+        }
 
         return response()->streamDownload(fn () => print($pdf->output()), $fileName);
     }
@@ -2448,6 +2729,12 @@ class PersonalPage extends Component
                     });
                 }
 
+                if (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
+                    $registrosQuery->whereHas('empleado', function ($empleadoQuery) {
+                        SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->appliedMarcacionesSucursal);
+                    });
+                }
+
                 if ($this->filterEstadoMarcaciones === 'completo') {
                     $registrosQuery->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
                         ->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
@@ -2477,7 +2764,12 @@ class PersonalPage extends Component
                     $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
                     $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
 
-                    if ($tieneEntrada && $tieneSalida) {
+                    $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+
+                    if ($esFalta) {
+                        $estado = 'Falta';
+                        $tipoEstado = 'falta';
+                    } elseif ($tieneEntrada && $tieneSalida) {
                         $estado = 'Completo';
                         $tipoEstado = 'completo';
                     } elseif ($tieneEntrada || $tieneSalida) {
@@ -2501,6 +2793,7 @@ class PersonalPage extends Component
                         'hora_salida' => $salidaVal ?: '--:--',
                         'estado_marcacion' => $estado,
                         'tipo_estado' => $tipoEstado,
+                        'es_falta' => $esFalta,
                     ];
                 });
             }
@@ -3353,6 +3646,20 @@ class PersonalPage extends Component
             $horario = $progService->resolverHorario($empleado, $current);
 
             if ($horario['laborable']) {
+                // Verificar que el empleado estuviera activo en la empresa en esta fecha
+                if ($empleado->fecha_ingreso && $dateStr < $empleado->fecha_ingreso->toDateString()) {
+                    $current->addDay();
+                    continue;
+                }
+                if ($empleado->fecha_contratacion && $dateStr < $empleado->fecha_contratacion->toDateString()) {
+                    $current->addDay();
+                    continue;
+                }
+                if ($empleado->fecha_despido && $dateStr > $empleado->fecha_despido->toDateString()) {
+                    $current->addDay();
+                    continue;
+                }
+
                 $tieneAsistencia = isset($asistenciaPorFecha[$dateStr]);
                 $tienePermiso = $permisos->contains(function ($p) use ($current) {
                     return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
@@ -3422,6 +3729,7 @@ class PersonalPage extends Component
                     // No marcó
                     if (!$tienePermiso && !$current->isFuture() && !$current->isToday()) {
                         $listaFaltas[] = [
+                            'fecha_raw' => $dateStr,
                             'fecha' => $fechaFmt,
                             'dia' => $diaNombre,
                             'horario_esperado' => substr((string)$horario['hora_entrada'], 0, 5) . ' - ' . substr((string)$horario['hora_salida'], 0, 5),

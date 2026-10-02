@@ -19,6 +19,10 @@ class ImportacionBiometricaService
 
     public function importarArchivo(string $rutaArchivo, string $nombreArchivo, ?User $usuario = null, ?string $rutaRelativa = null): Importacion
     {
+        $this->asegurarMemoriaImportacion();
+        @ini_set('max_execution_time', '1200');
+        @set_time_limit(1200);
+
         $resultado = $this->procesarPython($rutaArchivo);
 
         $importacion = Importacion::query()->create([
@@ -31,8 +35,6 @@ class ImportacionBiometricaService
             'created_by' => $usuario?->id,
         ]);
 
-        DB::beginTransaction();
-
         try {
             $resumen = $this->persistirMarcas($importacion, collect($resultado['marks'] ?? []), $usuario);
 
@@ -43,11 +45,7 @@ class ImportacionBiometricaService
                 'estado' => 'completado',
                 'resumen_json' => $resumen,
             ]);
-
-            DB::commit();
         } catch (\Throwable $exception) {
-            DB::rollBack();
-
             $importacion->update([
                 'estado' => 'error',
                 'mensaje_error' => $exception->getMessage(),
@@ -227,15 +225,56 @@ class ImportacionBiometricaService
 
     private function persistirMarcas(Importacion $importacion, Collection $marks, ?User $usuario = null): array
     {
+        $this->asegurarMemoriaImportacion();
+
+        // Pre-cargar todos los empleados en mapas de memoria para evitar N+1 queries
+        $empleadosByCodigo = [];
+        $empleadosByNombre = [];
+
+        foreach (Empleado::query()->withTrashed()->get() as $emp) {
+            $c = trim((string) $emp->codigo_biometrico);
+            if ($c !== '') {
+                $empleadosByCodigo[$c] = $emp;
+            }
+            $n = $this->normalizarTexto($emp->nombre_completo);
+            if ($n !== '') {
+                $empleadosByNombre[$n] = $emp;
+            }
+        }
+
         $agrupados = $marks
             ->filter(fn (array $mark) => filled($mark['fecha_hora'] ?? null))
             ->groupBy(function (array $mark) {
-                $fecha = Carbon::parse($mark['fecha_hora'])->toDateString();
+                $fecha = substr((string) $mark['fecha_hora'], 0, 10);
                 $codigo = trim((string) ($mark['codigo'] ?? ''));
                 $nombre = $this->nombrePlanoDesdeFila($mark);
 
                 return md5($fecha.'|'.$codigo.'|'.$nombre);
             });
+
+        // Pre-cargar registros de asistencia existentes para las fechas del lote
+        $fechasUnicas = [];
+        foreach ($agrupados as $grupo) {
+            $fh = $grupo->first()['fecha_hora'] ?? null;
+            if ($fh) {
+                $fechasUnicas[substr((string) $fh, 0, 10)] = true;
+            }
+        }
+
+        $registrosExistentes = [];
+        $fechasLista = array_keys($fechasUnicas);
+        if (! empty($fechasLista)) {
+            foreach (array_chunk($fechasLista, 60) as $fechaChunk) {
+                $records = RegistroAsistencia::query()
+                    ->whereIn('fecha', $fechaChunk)
+                    ->get();
+
+                foreach ($records as $rec) {
+                    $fStr = Carbon::parse($rec->fecha)->toDateString();
+                    $registrosExistentes[$rec->empleado_id.'_'.$fStr] = $rec;
+                }
+            }
+        }
 
         $registrosGenerados = 0;
         $empleadosDetectados = collect();
@@ -245,115 +284,141 @@ class ImportacionBiometricaService
         $empleadosNoRegistrados = collect();
         $empleadosCreados = collect();
 
-        foreach ($agrupados as $grupo) {
-            $primeraMarca = $grupo->first();
-            ['empleado' => $empleado, 'created' => $created] = $this->resolverEmpleado($primeraMarca, $usuario);
+        $chunks = $agrupados->chunk(500);
 
-            if (! $empleado) {
-                $marcasOmitidas += $grupo->count();
-                $empleadosNoRegistrados->push($this->descriptorEmpleadoNoRegistrado($primeraMarca));
-                continue;
+        foreach ($chunks as $chunk) {
+            $manageTx = DB::transactionLevel() === 0;
+            if ($manageTx) {
+                DB::beginTransaction();
             }
 
-            $empleadosDetectados->push($empleado->id);
-            if ($created) {
-                $empleadosCreados->push($empleado->id);
-            }
+            try {
+                foreach ($chunk as $grupo) {
+                    $primeraMarca = $grupo->first();
+                    [
+                        'empleado' => $empleado,
+                        'created' => $created,
+                    ] = $this->resolverEmpleadoEnMemoria($primeraMarca, $usuario, $empleadosByCodigo, $empleadosByNombre);
 
-            $horas = $grupo
-                ->map(function (array $mark) {
-                    return [
-                        'fecha_hora' => Carbon::parse($mark['fecha_hora']),
-                        'estado' => $this->normalizarTexto((string) ($mark['datos_originales']['Estado'] ?? $mark['datos_originales']['estado'] ?? '')),
-                        'estado_original' => $this->valorFilaFlexible($mark['datos_originales'] ?? [], ['Estado', 'estado']) ?: 'Sin estado',
-                        'verificacion' => $this->valorFilaFlexible($mark['datos_originales'] ?? [], ['Verificacion', 'Verificación', 'verificacion']) ?: 'Sin verificacion',
-                        'evento' => $this->valorFilaFlexible($mark['datos_originales'] ?? [], ['Evento', 'evento']) ?: 'Sin evento',
-                    ];
-                })
-                ->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)
-                ->values();
+                    if (! $empleado) {
+                        $marcasOmitidas += $grupo->count();
+                        $empleadosNoRegistrados->push($this->descriptorEmpleadoNoRegistrado($primeraMarca));
+                        continue;
+                    }
 
-            if ($horas->isEmpty()) {
-                continue;
-            }
+                    $empleadosDetectados->push($empleado->id);
+                    if ($created) {
+                        $empleadosCreados->push($empleado->id);
+                    }
 
-            [$entrada, $salida] = $this->resolverHorasJornada($empleado, $horas);
-            $ultimaMarca = $horas->last();
+                    $horas = $grupo
+                        ->map(function (array $mark) {
+                            $fh = Carbon::parse($mark['fecha_hora']);
+                            $orig = $mark['datos_originales'] ?? [];
+                            return [
+                                'fecha_hora' => $fh,
+                                'estado' => $this->normalizarTexto((string) ($orig['Estado'] ?? $orig['estado'] ?? '')),
+                                'estado_original' => $orig['Estado'] ?? $orig['estado'] ?? 'Sin estado',
+                                'verificacion' => $orig['Verificacion'] ?? $orig['Verificación'] ?? $orig['verificacion'] ?? 'Sin verificacion',
+                                'evento' => $orig['Evento'] ?? $orig['evento'] ?? 'Sin evento',
+                            ];
+                        })
+                        ->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)
+                        ->values();
 
-            if (! $salida) {
-                $olvidosMarcacion++;
-            }
+                    if ($horas->isEmpty()) {
+                        continue;
+                    }
 
-            $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
+                    [$entrada, $salida] = $this->resolverHorasJornada($empleado, $horas);
+                    $ultimaMarca = $horas->last();
 
-            $registro = RegistroAsistencia::query()
-                ->where('empleado_id', $empleado->id)
-                ->whereDate('fecha', $fechaOperativa->toDateString())
-                ->first();
+                    if (! $salida) {
+                        $olvidosMarcacion++;
+                    }
 
-            // Si el empleado tiene régimen especial o la marcación fue registrada/editada como Especial,
-            // no se actualizan sus datos desde el biométrico para preservar las asignaciones de RRHH.
-            if ($registro && ($empleado->es_especial || $registro->tipo_verificacion === 'Especial')) {
-                $marcasOmitidas += $grupo->count();
-                continue;
-            }
+                    $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
+                    $cacheKey = $empleado->id.'_'.$fechaOperativa->toDateString();
 
-            if (! $registro) {
-                $registro = new RegistroAsistencia([
-                    'empleado_id' => $empleado->id,
-                    'fecha' => $fechaOperativa,
-                ]);
-            }
+                    $registro = $registrosExistentes[$cacheKey] ?? null;
 
-            // Fusionar con registro existente: no sobreescribir con nulos y
-            // elegir la entrada más temprana y la salida más tardía.
-            $existingEntrada = $registro->hora_entrada ?? null;
-            $existingSalida = $registro->hora_salida ?? null;
+                    // Si el empleado tiene régimen especial o la marcación fue registrada/editada como Especial,
+                    // no se actualizan sus datos desde el biométrico para preservar las asignaciones de RRHH.
+                    if ($registro && ($empleado->es_especial || $registro->tipo_verificacion === 'Especial')) {
+                        $marcasOmitidas += $grupo->count();
+                        continue;
+                    }
 
-            // Si el registro ya tenía entrada previa y las marcas procesadas traen una hora posterior sin salida,
-            // esa marca posterior corresponde a la salida solo si dista al menos 5 minutos de la entrada.
-            if ($existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
-                $cEntrada = $this->parseTimeStringToCarbon($entrada);
-                $cExisting = $this->parseTimeStringToCarbon($existingEntrada);
-                if ($cEntrada && $cExisting && abs($cEntrada->diffInMinutes($cExisting)) >= 5) {
-                    $salida = $entrada;
-                    $entrada = $existingEntrada;
+                    $esNuevo = false;
+                    if (! $registro) {
+                        $registro = new RegistroAsistencia([
+                            'empleado_id' => $empleado->id,
+                            'fecha' => $fechaOperativa,
+                        ]);
+                        $esNuevo = true;
+                    }
+
+                    // Fusionar con registro existente: no sobreescribir con nulos y
+                    // elegir la entrada más temprana y la salida más tardía.
+                    $existingEntrada = $registro->hora_entrada ?? null;
+                    $existingSalida = $registro->hora_salida ?? null;
+
+                    if ($existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
+                        $cEntrada = $this->parseTimeStringToCarbon($entrada);
+                        $cExisting = $this->parseTimeStringToCarbon($existingEntrada);
+                        if ($cEntrada && $cExisting && abs($cEntrada->diffInMinutes($cExisting)) >= 5) {
+                            $salida = $entrada;
+                            $entrada = $existingEntrada;
+                        }
+                    }
+
+                    $mergedEntrada = $this->minTime($existingEntrada, $entrada);
+                    $mergedSalida = $this->maxTime($existingSalida, $salida);
+
+                    if ($this->sameTime($mergedEntrada, $mergedSalida)) {
+                        $mergedSalida = null;
+                    } elseif ($mergedEntrada && $mergedSalida) {
+                        $cEntrada = $this->parseTimeStringToCarbon($mergedEntrada);
+                        $cSalida = $this->parseTimeStringToCarbon($mergedSalida);
+                        if ($cEntrada && $cSalida && abs($cSalida->diffInMinutes($cEntrada)) < 5) {
+                            $mergedSalida = null;
+                        }
+                    }
+
+                    $registro->fill([
+                        'empleado_id' => $empleado->id,
+                        'importacion_id' => $importacion->id,
+                        'hora_entrada' => $mergedEntrada,
+                        'hora_salida' => $mergedSalida,
+                        'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
+                        'estado_marcacion' => $this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null),
+                        'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
+                        'observacion' => $this->observacionDesdeFila($primeraMarca) ?: $registro->observacion,
+                        'created_by' => $registro->exists ? $registro->created_by : $usuario?->id,
+                        'updated_by' => $registro->exists ? $usuario?->id : null,
+                    ]);
+
+                    $registro->save();
+                    $registrosExistentes[$cacheKey] = $registro;
+
+                    if ($registro->wasRecentlyCreated || $esNuevo) {
+                        $registrosGenerados++;
+                    } else {
+                        $registrosActualizados++;
+                    }
                 }
-            }
 
-            $mergedEntrada = $this->minTime($existingEntrada, $entrada);
-            $mergedSalida = $this->maxTime($existingSalida, $salida);
-
-            if ($this->sameTime($mergedEntrada, $mergedSalida)) {
-                $mergedSalida = null;
-            } elseif ($mergedEntrada && $mergedSalida) {
-                $cEntrada = $this->parseTimeStringToCarbon($mergedEntrada);
-                $cSalida = $this->parseTimeStringToCarbon($mergedSalida);
-                if ($cEntrada && $cSalida && abs($cSalida->diffInMinutes($cEntrada)) < 5) {
-                    $mergedSalida = null;
+                if ($manageTx) {
+                    DB::commit();
                 }
+            } catch (\Throwable $exception) {
+                if ($manageTx) {
+                    DB::rollBack();
+                }
+                throw $exception;
             }
 
-            $registro->fill([
-                'empleado_id' => $empleado->id,
-                'importacion_id' => $importacion->id,
-                'hora_entrada' => $mergedEntrada,
-                'hora_salida' => $mergedSalida,
-                'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
-                'estado_marcacion' => $this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null),
-                'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
-                'observacion' => $this->observacionDesdeFila($primeraMarca) ?: $registro->observacion,
-                'created_by' => $registro->exists ? $registro->created_by : $usuario?->id,
-                'updated_by' => $registro->exists ? $usuario?->id : null,
-            ]);
-
-            $registro->save();
-
-            if ($registro->wasRecentlyCreated) {
-                $registrosGenerados++;
-            } else {
-                $registrosActualizados++;
-            }
+            gc_collect_cycles();
         }
 
         return [
@@ -441,37 +506,73 @@ class ImportacionBiometricaService
         }
     }
 
-    private function resolverEmpleado(array $mark, ?User $usuario = null): array
-    {
+    private function resolverEmpleadoEnMemoria(
+        array $mark,
+        ?User $usuario,
+        array &$empleadosByCodigo,
+        array &$empleadosByNombre
+    ): array {
         $codigo = trim((string) ($mark['codigo'] ?? ''));
         $datosOriginales = $mark['datos_originales'] ?? [];
         $nombreOriginal = $this->nombreCompletoDesdeFila($datosOriginales);
+        $normNombre = $this->normalizarTexto($nombreOriginal);
 
-        if ($codigo !== '') {
-            $existingByCode = Empleado::query()->withTrashed()->where('codigo_biometrico', $codigo)->first();
-            if ($existingByCode) {
-                return ['empleado' => $this->actualizarEmpleadoDesdeMarca($this->restaurarEmpleadoSiEliminado($existingByCode), $mark), 'created' => false];
-            }
+        $empleado = null;
+
+        if ($codigo !== '' && isset($empleadosByCodigo[$codigo])) {
+            $empleado = $empleadosByCodigo[$codigo];
+        } elseif ($normNombre !== '' && isset($empleadosByNombre[$normNombre])) {
+            $empleado = $empleadosByNombre[$normNombre];
         }
 
-        if ($nombreOriginal !== '') {
-            $normalizedName = $this->normalizarTexto($nombreOriginal);
-            $existingByName = Empleado::query()
-                ->withTrashed()
-                ->get()
-                ->first(fn (Empleado $empleado) => $this->normalizarTexto($empleado->nombre_completo) === $normalizedName);
+        if ($empleado) {
+            $empleado = $this->restaurarEmpleadoSiEliminado($empleado);
+            $empleado = $this->actualizarEmpleadoDesdeMarca($empleado, $mark);
 
-            if ($existingByName) {
-                return ['empleado' => $this->actualizarEmpleadoDesdeMarca($this->restaurarEmpleadoSiEliminado($existingByName), $mark), 'created' => false];
+            if ($codigo !== '') {
+                $empleadosByCodigo[$codigo] = $empleado;
             }
+            if ($normNombre !== '') {
+                $empleadosByNombre[$normNombre] = $empleado;
+            }
+
+            return ['empleado' => $empleado, 'created' => false];
         }
 
         $empleadoCreado = $this->crearEmpleadoDesdeMarca($mark, $usuario);
+
+        if ($empleadoCreado) {
+            if ($codigo !== '') {
+                $empleadosByCodigo[$codigo] = $empleadoCreado;
+            }
+            if ($normNombre !== '') {
+                $empleadosByNombre[$normNombre] = $empleadoCreado;
+            }
+        }
 
         return [
             'empleado' => $empleadoCreado,
             'created' => $empleadoCreado !== null,
         ];
+    }
+
+    private function resolverEmpleado(array $mark, ?User $usuario = null): array
+    {
+        $dummyCodigo = [];
+        $dummyNombre = [];
+
+        foreach (Empleado::query()->withTrashed()->get() as $emp) {
+            $c = trim((string) $emp->codigo_biometrico);
+            if ($c !== '') {
+                $dummyCodigo[$c] = $emp;
+            }
+            $n = $this->normalizarTexto($emp->nombre_completo);
+            if ($n !== '') {
+                $dummyNombre[$n] = $emp;
+            }
+        }
+
+        return $this->resolverEmpleadoEnMemoria($mark, $usuario, $dummyCodigo, $dummyNombre);
     }
 
     private function nombrePlanoDesdeFila(array $mark): string
@@ -526,35 +627,61 @@ class ImportacionBiometricaService
         $extension = strtolower((string) pathinfo($rutaArchivo, PATHINFO_EXTENSION));
 
         $rows = match ($extension) {
-            'csv' => $this->leerCsv($rutaArchivo),
+            'csv', 'txt' => $this->leerCsv($rutaArchivo),
             'xlsx', 'xls' => $this->leerSpreadsheet($rutaArchivo),
             default => throw new \RuntimeException('Formato de archivo no soportado para importacion biometrica.'),
         };
 
+        if (empty($rows)) {
+            return [
+                'marks' => [],
+                'summary' => [
+                    'valid_rows' => 0,
+                    'employees' => 0,
+                    'duplicates' => 0,
+                ],
+            ];
+        }
+
+        $headers = array_keys($rows[0]);
+        $keyFechaHora = $this->buscarClaveHeader($headers, ['Tiempo', 'FechaHora', 'fecha_hora', 'Fecha y Hora', 'Datetime', 'date_time', 'time']);
+        $keyFecha = $this->buscarClaveHeader($headers, ['Fecha', 'fecha', 'date']);
+        $keyHora = $this->buscarClaveHeader($headers, ['Hora', 'hora']);
+        $keyCodigo = $this->buscarClaveHeader($headers, ['ID de Usuario', 'Codigo', 'codigo', 'id_externo', 'ID', 'user_id', 'userid', 'pin']);
+        $keyNombre = $this->buscarClaveHeader($headers, ['Nombre', 'nombre', 'Empleado', 'Funcionario', 'name']);
+        $keyApellido = $this->buscarClaveHeader($headers, ['Apellido', 'apellido', 'last_name', 'lastname']);
+        $keyEstado = $this->buscarClaveHeader($headers, ['Estado', 'estado', 'state', 'punch', 'tipo']);
+        $keyVerificacion = $this->buscarClaveHeader($headers, ['Verificacion', 'Verificación', 'verificacion', 'verify', 'verify_mode']);
+        $keyEvento = $this->buscarClaveHeader($headers, ['Evento', 'evento', 'event']);
+
         $marks = [];
         $employeeKeys = [];
+        $baseArchivo = basename($rutaArchivo);
+        $lastFormat = null;
 
         foreach ($rows as $row) {
-            $fechaHora = $this->resolverFechaHoraFila($row);
+            $fechaHora = $this->resolverFechaHoraRapida($row, $keyFechaHora, $keyFecha, $keyHora, $lastFormat);
 
             if (! $fechaHora) {
                 continue;
             }
 
-            $codigo = trim((string) ($this->valorFilaFlexible($row, ['ID de Usuario', 'Codigo', 'codigo', 'id_externo', 'ID']) ?? ''));
-            $nombre = trim((string) ($this->valorFilaFlexible($row, ['Nombre', 'nombre', 'Empleado', 'Funcionario']) ?? ''));
+            $codigo = $keyCodigo ? trim((string) ($row[$keyCodigo] ?? '')) : '';
+            $nombre = $keyNombre ? trim((string) ($row[$keyNombre] ?? '')) : '';
+            $tipo = $keyEstado ? trim((string) ($row[$keyEstado] ?? 'entrada')) : 'entrada';
+            $verificacion = $keyVerificacion ? trim((string) ($row[$keyVerificacion] ?? '')) : '';
 
             $marks[] = [
                 'codigo' => $codigo,
                 'fecha_hora' => $fechaHora->toIso8601String(),
-                'tipo' => trim((string) ($this->valorFilaFlexible($row, ['Estado', 'estado']) ?? 'entrada')),
-                'metodo_verificacion' => trim((string) ($this->valorFilaFlexible($row, ['Verificacion', 'Verificación', 'verificacion']) ?? '')),
-                'datos_originales' => $row + ['Archivo' => basename($rutaArchivo)],
+                'tipo' => $tipo !== '' ? $tipo : 'entrada',
+                'metodo_verificacion' => $verificacion,
+                'datos_originales' => $row + ['Archivo' => $baseArchivo],
             ];
 
             $employeeKey = $codigo !== '' ? $codigo : $nombre;
             if ($employeeKey !== '') {
-                $employeeKeys[] = $employeeKey;
+                $employeeKeys[$employeeKey] = true;
             }
         }
 
@@ -562,34 +689,103 @@ class ImportacionBiometricaService
             'marks' => $marks,
             'summary' => [
                 'valid_rows' => count($marks),
-                'employees' => count(array_unique($employeeKeys)),
+                'employees' => count($employeeKeys),
                 'duplicates' => 0,
             ],
         ];
     }
 
+    private function buscarClaveHeader(array $headers, array $posibles): ?string
+    {
+        $normHeaders = [];
+        foreach ($headers as $h) {
+            $normHeaders[$this->normalizarTexto((string) $h)] = (string) $h;
+        }
+
+        foreach ($posibles as $posible) {
+            $normPosible = $this->normalizarTexto($posible);
+            if (isset($normHeaders[$normPosible])) {
+                return $normHeaders[$normPosible];
+            }
+        }
+
+        return null;
+    }
+
     private function leerCsv(string $rutaArchivo): array
     {
-        $handle = fopen($rutaArchivo, 'rb');
+        if (! file_exists($rutaArchivo)) {
+            throw new \RuntimeException('No se pudo abrir el archivo CSV.');
+        }
 
+        $handle = fopen($rutaArchivo, 'rb');
         if (! $handle) {
             throw new \RuntimeException('No se pudo abrir el archivo CSV.');
         }
 
-        $firstLine = fgets($handle) ?: '';
-        rewind($handle);
+        // Detectar si el archivo es UTF-16 (común en exportaciones de biométricos ZKTeco)
+        $bomCheck = fread($handle, 2);
+        if ($bomCheck === "\xFF\xFE" || $bomCheck === "\xFE\xFF") {
+            fclose($handle);
+            $content = file_get_contents($rutaArchivo);
+            $utf8 = mb_convert_encoding($content, 'UTF-8', $bomCheck === "\xFF\xFE" ? 'UTF-16LE' : 'UTF-16BE');
+            $handle = fopen('php://temp', 'r+b');
+            fwrite($handle, $utf8);
+            rewind($handle);
+        } else {
+            rewind($handle);
+            // Si tiene UTF-8 BOM (\xEF\xBB\xBF), saltarlo
+            $bom3 = fread($handle, 3);
+            if ($bom3 !== "\xEF\xBB\xBF") {
+                rewind($handle);
+            }
+        }
 
-        $delimiter = str_contains($firstLine, ';') ? ';' : ',';
+        // Leer primera línea para detectar delimitador
+        $currentPos = ftell($handle);
+        $firstLine = fgets($handle) ?: '';
+        fseek($handle, $currentPos);
+
+        // Detectar delimitador: coma, punto y coma, tabulador o pipe
+        $delimiters = [',', ';', "\t", '|'];
+        $counts = [];
+        foreach ($delimiters as $delim) {
+            $counts[$delim] = substr_count($firstLine, $delim);
+        }
+        arsort($counts);
+        $delimiter = array_key_first($counts) ?: ',';
+        if (($counts[$delimiter] ?? 0) === 0) {
+            $delimiter = ',';
+        }
+
         $headers = null;
         $rows = [];
 
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if ($headers === null) {
-                $headers = $this->normalizarCabeceras($data);
+            if ($this->filaVacia($data)) {
                 continue;
             }
 
-            if ($this->filaVacia($data)) {
+            // Limpiar valores con posible codificación no-UTF8 (ISO-8859-1 / Windows-1252)
+            $data = array_map(function ($val) {
+                $valStr = (string) $val;
+                if (! mb_check_encoding($valStr, 'UTF-8')) {
+                    $valStr = mb_convert_encoding($valStr, 'UTF-8', 'ISO-8859-1');
+                }
+                return trim($valStr);
+            }, $data);
+
+            if ($headers === null) {
+                // Verificar si esta primera fila no vacía es una cabecera o ya son datos reales
+                if ($this->esFilaCabecera($data)) {
+                    $headers = $this->normalizarCabeceras($data);
+                    continue;
+                }
+
+                // Si no es cabecera (es una fila con fecha y código de marcación),
+                // generamos cabeceras estándar sintéticas y procesamos esta fila como dato
+                $headers = $this->generarCabecerasSinteticas($data);
+                $rows[] = $this->combinarFila($headers, $data);
                 continue;
             }
 
@@ -599,6 +795,111 @@ class ImportacionBiometricaService
         fclose($handle);
 
         return $rows;
+    }
+
+    private function esFilaCabecera(array $data): bool
+    {
+        $palabrasClave = [
+            'tiempo', 'fecha', 'hora', 'fechahora', 'datetime', 'date', 'time',
+            'codigo', 'id de usuario', 'id_externo', 'usuario', 'userid', 'pin', 'id',
+            'nombre', 'apellido', 'empleado', 'funcionario', 'name', 'lastname',
+            'dispositivo', 'punto del evento', 'sucursal', 'departamento', 'ciudad',
+            'verificacion', 'estado', 'evento', 'notas', 'punch', 'status',
+        ];
+
+        $coincidenciasCabecera = 0;
+        foreach ($data as $cell) {
+            $norm = $this->normalizarTexto((string) $cell);
+            if ($norm !== '' && in_array($norm, $palabrasClave, true)) {
+                $coincidenciasCabecera++;
+            }
+        }
+
+        if ($coincidenciasCabecera >= 2) {
+            return true;
+        }
+
+        $c0 = trim((string) ($data[0] ?? ''));
+        $c1 = trim((string) ($data[1] ?? ''));
+
+        if ($this->pareceFechaHora($c0) || $this->pareceFechaHora($c1)) {
+            return false;
+        }
+
+        return $coincidenciasCabecera > 0;
+    }
+
+    private function pareceFechaHora(string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/^\d{1,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,4}/', $text);
+    }
+
+    private function generarCabecerasSinteticas(array $data): array
+    {
+        $count = count($data);
+
+        // Formato estándar ZKTeco (10 a 11 columnas):
+        // 0: Tiempo, 1: ID de Usuario, 2: Nombre, 3: Apellido, 4: Num Tarjeta,
+        // 5: Dispositivo, 6: Punto de evento, 7: Verificación, 8: Estado, 9: Evento, 10: Notas
+        if ($count >= 8 && $this->pareceFechaHora((string) ($data[0] ?? ''))) {
+            $standard = [
+                'Tiempo',
+                'ID de Usuario',
+                'Nombre',
+                'Apellido',
+                'Numero de tarjeta',
+                'Dispositivo',
+                'Punto del evento',
+                'Verificacion',
+                'Estado',
+                'Evento',
+                'Notas',
+            ];
+
+            return array_map(function ($idx) use ($standard) {
+                return $standard[$idx] ?? ('columna_'.$idx);
+            }, range(0, $count - 1));
+        }
+
+        if ($count >= 8 && $this->pareceFechaHora((string) ($data[1] ?? ''))) {
+            $standard = [
+                'ID de Usuario',
+                'Tiempo',
+                'Nombre',
+                'Apellido',
+                'Numero de tarjeta',
+                'Dispositivo',
+                'Punto del evento',
+                'Verificacion',
+                'Estado',
+                'Evento',
+                'Notas',
+            ];
+
+            return array_map(function ($idx) use ($standard) {
+                return $standard[$idx] ?? ('columna_'.$idx);
+            }, range(0, $count - 1));
+        }
+
+        if ($this->pareceFechaHora((string) ($data[1] ?? ''))) {
+            $standard = ['ID de Usuario', 'Fecha', 'Hora', 'Nombre', 'Apellido', 'Sucursal'];
+            return array_map(function ($idx) use ($standard) {
+                return $standard[$idx] ?? ('columna_'.$idx);
+            }, range(0, $count - 1));
+        }
+
+        if ($this->pareceFechaHora((string) ($data[0] ?? ''))) {
+            $standard = ['Fecha', 'Hora', 'ID de Usuario', 'Nombre', 'Apellido', 'Sucursal'];
+            return array_map(function ($idx) use ($standard) {
+                return $standard[$idx] ?? ('columna_'.$idx);
+            }, range(0, $count - 1));
+        }
+
+        return array_map(fn ($idx) => 'columna_'.$idx, range(0, $count - 1));
     }
 
     private function leerSpreadsheet(string $rutaArchivo): array
@@ -614,7 +915,14 @@ class ImportacionBiometricaService
                 return [];
             }
 
-            $headers = $this->normalizarCabeceras(array_shift($sheetRows) ?: []);
+            $firstRow = array_shift($sheetRows) ?: [];
+            if ($this->esFilaCabecera($firstRow)) {
+                $headers = $this->normalizarCabeceras($firstRow);
+            } else {
+                $headers = $this->generarCabecerasSinteticas($firstRow);
+                array_unshift($sheetRows, $firstRow);
+            }
+
             $rows = collect($sheetRows)
                 ->filter(fn (array $row) => ! $this->filaVacia($row))
                 ->map(fn (array $row) => $this->combinarFila($headers, $row))
@@ -630,26 +938,116 @@ class ImportacionBiometricaService
         }
     }
 
-    private function resolverFechaHoraFila(array $row): ?Carbon
-    {
-        $fechaHora = $this->valorFilaFlexible($row, ['Tiempo', 'FechaHora', 'fecha_hora', 'Fecha y Hora', 'Datetime']);
+    private function resolverFechaHoraRapida(
+        array $row,
+        ?string $keyFechaHora,
+        ?string $keyFecha,
+        ?string $keyHora,
+        ?string &$lastFormat
+    ): ?Carbon {
+        $val = $keyFechaHora ? ($row[$keyFechaHora] ?? null) : null;
 
-        if ($fechaHora !== null && $fechaHora !== '') {
-            return $this->normalizarFechaHora($fechaHora);
+        if (filled($val)) {
+            return $this->normalizarFechaHoraRapida($val, $lastFormat);
         }
 
-        $fecha = $this->valorFilaFlexible($row, ['Fecha', 'fecha']);
-        $hora = $this->valorFilaFlexible($row, ['Hora', 'hora']);
+        if ($keyFecha) {
+            $fecha = trim((string) ($row[$keyFecha] ?? ''));
+            $hora = $keyHora ? trim((string) ($row[$keyHora] ?? '')) : '';
 
-        if ($fecha !== null && $fecha !== '' && $hora !== null && $hora !== '') {
-            return $this->normalizarFechaHora(trim((string) $fecha).' '.trim((string) $hora));
-        }
+            if ($fecha !== '' && $hora !== '') {
+                return $this->normalizarFechaHoraRapida($fecha.' '.$hora, $lastFormat);
+            }
 
-        if ($fecha !== null && $fecha !== '') {
-            return $this->normalizarFechaHora($fecha);
+            if ($fecha !== '') {
+                return $this->normalizarFechaHoraRapida($fecha, $lastFormat);
+            }
         }
 
         return null;
+    }
+
+    private function normalizarFechaHoraRapida(mixed $value, ?string &$lastFormat): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            $serial = (float) $value;
+            $days = (int) floor($serial);
+            $seconds = (int) round(($serial - $days) * 86400);
+
+            return Carbon::create(1899, 12, 30, 0, 0, 0)->addDays($days)->addSeconds($seconds);
+        }
+
+        $text = trim((string) $value);
+
+        // Regex rápido para formato día/mes/año con o sin hora
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $text, $m)) {
+            return Carbon::create(
+                (int) $m[3],
+                (int) $m[2],
+                (int) $m[1],
+                isset($m[4]) ? (int) $m[4] : 0,
+                isset($m[5]) ? (int) $m[5] : 0,
+                isset($m[6]) ? (int) $m[6] : 0
+            );
+        }
+
+        // Regex rápido para formato ISO año-mes-día
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $text, $m)) {
+            return Carbon::create(
+                (int) $m[1],
+                (int) $m[2],
+                (int) $m[3],
+                isset($m[4]) ? (int) $m[4] : 0,
+                isset($m[5]) ? (int) $m[5] : 0,
+                isset($m[6]) ? (int) $m[6] : 0
+            );
+        }
+
+        if ($lastFormat) {
+            try {
+                $dt = Carbon::createFromFormat($lastFormat, $text);
+                if ($dt !== false) {
+                    return $dt;
+                }
+            } catch (\Throwable) {
+                $lastFormat = null;
+            }
+        }
+
+        $formats = [
+            'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y',
+            'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d',
+            'm/d/Y H:i:s', 'm/d/Y H:i', 'm/d/Y',
+        ];
+
+        foreach ($formats as $fmt) {
+            try {
+                $dt = Carbon::createFromFormat($fmt, $text);
+                if ($dt !== false) {
+                    $lastFormat = $fmt;
+                    return $dt;
+                }
+            } catch (\Throwable) {
+                // continuar
+            }
+        }
+
+        try {
+            return Carbon::parse($text);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolverFechaHoraFila(array $row): ?Carbon
+    {
+        $dummy = null;
+        return $this->resolverFechaHoraRapida($row, 'Tiempo', 'Fecha', 'Hora', $dummy)
+            ?? $this->normalizarFechaHora($this->valorFilaFlexible($row, ['Tiempo', 'FechaHora', 'fecha_hora', 'Fecha y Hora', 'Datetime']));
     }
 
     private function sameTime(?string $a, ?string $b): bool
@@ -686,54 +1084,8 @@ class ImportacionBiometricaService
 
     private function normalizarFechaHora(mixed $value): ?Carbon
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            $serial = (float) $value;
-            $days = (int) floor($serial);
-            $seconds = (int) round(($serial - $days) * 86400);
-
-            return Carbon::create(1899, 12, 30, 0, 0, 0)->addDays($days)->addSeconds($seconds);
-        }
-
-        $text = trim((string) $value);
-
-        // Intentar formatos comunes (día/mes/año) antes de delegar en parse() para evitar
-        // ambigüedades entre formato 'd/m/Y' y 'm/d/Y'. Esto corrige saltos de mes al importar.
-        $formats = [
-            'd/m/Y H:i:s',
-            'd/m/Y H:i',
-            'd/m/Y',
-            'd-n-Y H:i:s',
-            'd-n-Y H:i',
-            'd-n-Y',
-            'Y-m-d H:i:s',
-            'Y-m-d H:i',
-            'Y-m-d',
-            'm/d/Y H:i:s',
-            'm/d/Y H:i',
-            'm/d/Y',
-        ];
-
-        foreach ($formats as $fmt) {
-            try {
-                $dt = Carbon::createFromFormat($fmt, $text);
-                if ($dt !== false) {
-                    return $dt;
-                }
-            } catch (\Exception) {
-                // ignorar y probar siguiente formato
-            }
-        }
-
-        // Último recurso: permitir Carbon intentar parseo liberal.
-        try {
-            return Carbon::parse($text);
-        } catch (\Throwable) {
-            return null;
-        }
+        $dummy = null;
+        return $this->normalizarFechaHoraRapida($value, $dummy);
     }
 
     private function valorFilaFlexible(array $fila, array $claves): ?string
@@ -1165,8 +1517,8 @@ class ImportacionBiometricaService
 
         $limitBytes = $this->memoryLimitToBytes($memoryLimit);
 
-        if ($limitBytes !== null && $limitBytes < 512 * 1024 * 1024) {
-            @ini_set('memory_limit', '512M');
+        if ($limitBytes !== null && $limitBytes < 1024 * 1024 * 1024) {
+            @ini_set('memory_limit', '1024M');
         }
     }
 

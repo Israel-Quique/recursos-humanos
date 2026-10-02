@@ -307,6 +307,8 @@ class ImportarExcelPage extends Component
 
     public function importFiles(): void
     {
+        $this->extendImportRuntime();
+
         $this->validate();
 
         $this->validate([
@@ -326,20 +328,41 @@ class ImportarExcelPage extends Component
 
             try {
                 $storedPath = $archivo->store('importaciones');
+                $absolutePath = Storage::disk('local')->path($storedPath);
+                if (! file_exists($absolutePath)) {
+                    $absolutePath = storage_path('app/' . $storedPath);
+                }
+                if (! file_exists($absolutePath) && method_exists($archivo, 'getRealPath') && file_exists($archivo->getRealPath())) {
+                    $absolutePath = $archivo->getRealPath();
+                }
+
                 $importacion = app(ImportacionBiometricaService::class)->importarArchivo(
-                    storage_path('app/' . $storedPath),
+                    $absolutePath,
                     $fileName,
                     auth()->user(),
                     $storedPath
                 );
 
                 $this->lastImportSummary = $importacion->resumen_json;
-                $this->uploadBatchStatus[$index] = [
-                    'name' => $fileName,
-                    'status' => 'completed',
-                    'message' => 'Importado correctamente.',
-                ];
-                $processedCount++;
+
+                $marcasTotal = (int) ($importacion->registros_total ?? 0);
+                $genCount = (int) ($importacion->registros_generados ?? 0);
+                $actCount = (int) ($importacion->resumen_json['registros_actualizados'] ?? 0);
+
+                if ($marcasTotal === 0) {
+                    $this->uploadBatchStatus[$index] = [
+                        'name' => $fileName,
+                        'status' => 'error',
+                        'message' => 'El archivo no contiene filas o marcas de fecha/hora válidas legibles.',
+                    ];
+                } else {
+                    $this->uploadBatchStatus[$index] = [
+                        'name' => $fileName,
+                        'status' => 'completed',
+                        'message' => "Importado correctamente ({$marcasTotal} marcas procesadas, {$genCount} nuevas asistencias, {$actCount} actualizadas).",
+                    ];
+                    $processedCount++;
+                }
             } catch (\Throwable $exception) {
                 report($exception);
                 $this->uploadBatchStatus[$index] = [
@@ -352,7 +375,7 @@ class ImportarExcelPage extends Component
 
         $this->reset('archivos');
 
-        if ($processedCount === count($this->uploadBatchStatus)) {
+        if ($processedCount === count($this->uploadBatchStatus) && $processedCount > 0) {
             session()->flash('status', $processedCount === 1
                 ? 'Archivo importado y asistencias generadas correctamente.'
                 : 'Archivos importados y asistencias generadas correctamente.');
@@ -361,12 +384,21 @@ class ImportarExcelPage extends Component
         }
 
         if ($processedCount > 0) {
-            session()->flash('status', 'Se completaron ' . $processedCount . ' archivos y algunos presentaron error.');
+            session()->flash('status', 'Se completaron ' . $processedCount . ' archivos y algunos presentaron observaciones.');
 
             return;
         }
 
-        $this->addError('archivos', 'No se pudo procesar ninguno de los archivos seleccionados.');
+        $this->addError('archivos', 'No se pudo procesar ninguno de los archivos seleccionados o no contenían marcas legibles.');
+    }
+
+    private function extendImportRuntime(): void
+    {
+        $seconds = max(1200, (int) config('biometrico.import_timeout', 1200));
+
+        @ini_set('max_execution_time', (string) $seconds);
+        @set_time_limit($seconds);
+        @ini_set('memory_limit', '1024M');
     }
 
     public function updatedArchivos(): void

@@ -200,6 +200,199 @@ class PersonalPageTest extends TestCase
         $component->assertFileDownloaded();
     }
 
+    public function test_personal_page_descarga_pdf_marcaciones_por_sucursal_y_global(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $empLP = Empleado::query()->create([
+            'nombre' => 'Ana',
+            'apellido' => 'Lopez',
+            'codigo_biometrico' => 'AL-101',
+            'area' => 'Operaciones',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        $empSC = Empleado::query()->create([
+            'nombre' => 'Mario',
+            'apellido' => 'Suarez',
+            'codigo_biometrico' => 'MS-202',
+            'area' => 'Comercial',
+            'sucursal' => 'Santa Cruz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empLP->id,
+            'fecha' => now()->toDateString(),
+            'hora_entrada' => '08:25:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empSC->id,
+            'fecha' => now()->toDateString(),
+            'hora_entrada' => '08:45:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Tardanza',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        // 1. Descarga por sucursal
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->set('inputMarcacionesSucursal', 'La Paz')
+            ->call('aplicarBusquedaMarcaciones')
+            ->call('descargarPdfMarcaciones', 'sucursal')
+            ->assertFileDownloaded();
+
+        // 2. Descarga global (todas las sucursales con formato idéntico)
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->call('descargarPdfMarcaciones', 'global')
+            ->assertFileDownloaded();
+
+        // 3. Verificar que la vista omite firmas en sucursal y global, y las mantiene en personal
+        $htmlSucursal = view('pdf.marcaciones-personal', [
+            'periodoLabel' => 'Octubre 2026',
+            'modoReporte' => 'sucursal',
+            'fichas' => [
+                ['empleadoInfo' => ['nombre_completo' => 'Ana Lopez', 'area' => 'Operaciones', 'sucursal' => 'La Paz', 'codigo_biometrico' => 'AL-101'], 'stats' => [], 'registros' => []],
+            ],
+        ])->render();
+        $this->assertStringNotContainsString('<table class="footer-signatures">', $htmlSucursal);
+        $this->assertStringNotContainsString('Responsable de Recursos Humanos', $htmlSucursal);
+
+        $htmlGlobal = view('pdf.marcaciones-personal', [
+            'periodoLabel' => 'Octubre 2026',
+            'modoReporte' => 'global',
+            'fichas' => [
+                ['empleadoInfo' => ['nombre_completo' => 'Ana Lopez', 'area' => 'Operaciones', 'sucursal' => 'La Paz', 'codigo_biometrico' => 'AL-101'], 'stats' => [], 'registros' => []],
+                ['empleadoInfo' => ['nombre_completo' => 'Mario Suarez', 'area' => 'Comercial', 'sucursal' => 'Santa Cruz', 'codigo_biometrico' => 'MS-202'], 'stats' => [], 'registros' => []],
+            ],
+        ])->render();
+        $this->assertStringNotContainsString('<table class="footer-signatures">', $htmlGlobal);
+        $this->assertStringNotContainsString('Responsable de Recursos Humanos', $htmlGlobal);
+
+        $htmlPersonal = view('pdf.marcaciones-personal', [
+            'periodoLabel' => 'Octubre 2026',
+            'modoReporte' => 'personal',
+            'fichas' => [
+                ['empleadoInfo' => ['nombre_completo' => 'Ana Lopez', 'area' => 'Operaciones', 'sucursal' => 'La Paz', 'codigo_biometrico' => 'AL-101'], 'stats' => [], 'registros' => []],
+            ],
+        ])->render();
+        $this->assertStringContainsString('<table class="footer-signatures">', $htmlPersonal);
+        $this->assertStringContainsString('Responsable de Recursos Humanos', $htmlPersonal);
+    }
+
+    public function test_personal_page_reportes_incluyen_faltas_en_la_tabla(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $fechaLunes = now()->startOfWeek()->subWeek();
+        $fechaMartes = $fechaLunes->copy()->addDay();
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Roberto',
+            'apellido' => 'Quispe',
+            'codigo_biometrico' => 'RQ-303',
+            'area' => 'Distribución',
+            'sucursal' => 'La Paz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->subMonths(2)->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => $fechaLunes->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        // 1. Descarga personal
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->set('inputMarcacionesSearch', 'RQ-303')
+            ->call('aplicarBusquedaMarcaciones')
+            ->call('descargarPdfMarcaciones', 'personal')
+            ->assertFileDownloaded();
+
+        // 2. Descarga por sucursal
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->set('inputMarcacionesSucursal', 'La Paz')
+            ->call('aplicarBusquedaMarcaciones')
+            ->call('descargarPdfMarcaciones', 'sucursal')
+            ->assertFileDownloaded();
+
+        // 3. Descarga global
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->call('descargarPdfMarcaciones', 'global')
+            ->assertFileDownloaded();
+
+        // 4. Verificar que la vista de PDF renderiza las faltas con badge y estilo row-falta
+        $htmlFalta = view('pdf.marcaciones-personal', [
+            'periodoLabel' => 'Octubre 2026',
+            'modoReporte' => 'personal',
+            'fichas' => [
+                [
+                    'empleadoInfo' => ['nombre_completo' => 'Roberto Quispe', 'area' => 'Distribución', 'sucursal' => 'La Paz', 'codigo' => 'RQ-303'],
+                    'stats' => ['total_faltas' => 1, 'total_omisiones' => 0],
+                    'registros' => [
+                        (object) [
+                            'fecha' => $fechaLunes,
+                            'fecha_formateada' => $fechaLunes->format('d/m/Y'),
+                            'dia' => 'Lunes',
+                            'hora_entrada' => '08:30',
+                            'hora_salida' => '16:30',
+                            'horas_trabajadas' => '8h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => 'Puntual',
+                            'estado_marcacion' => 'Completo',
+                            'es_falta' => false,
+                        ],
+                        (object) [
+                            'fecha' => $fechaMartes,
+                            'fecha_formateada' => $fechaMartes->format('d/m/Y'),
+                            'dia' => 'Martes',
+                            'hora_entrada' => '--:--',
+                            'hora_salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => 'Falta',
+                            'estado_marcacion' => 'Falta',
+                            'es_falta' => true,
+                        ],
+                    ],
+                ],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('row-falta', $htmlFalta);
+        $this->assertStringContainsString('badge-falta', $htmlFalta);
+        $this->assertStringContainsString('Falta', $htmlFalta);
+    }
+
     public function test_personal_page_descarga_pdf_y_excel_control_correctamente(): void
     {
         $user = $this->crearUsuarioConPermisoPersonal();
