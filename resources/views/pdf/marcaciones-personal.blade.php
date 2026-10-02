@@ -274,6 +274,53 @@
       letter-spacing: 0.03em;
     }
 
+    .row-feriado {
+      background-color: #f5f3ff !important;
+    }
+
+    .badge-feriado {
+      font-weight: bold;
+      color: #5b21b6;
+      background-color: #ede9fe;
+      border: 1px solid #8b5cf6;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      font-size: 8px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-feriado-trabajado {
+      font-weight: bold;
+      color: #4338ca;
+      background-color: #e0e7ff;
+      border: 1px solid #6366f1;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      font-size: 8px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .row-permiso-autorizado {
+      background-color: #f0fdf4 !important;
+    }
+
+    .badge-permiso-autorizado {
+      font-weight: bold;
+      color: #166534;
+      background-color: #dcfce7;
+      border: 1px solid #22c55e;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      font-size: 8px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
     .footer-signatures {
       width: 100%;
       margin-top: 30px;
@@ -441,7 +488,12 @@
                   {{ $empStats['total_faltas'] ?? 0 }} <span
                     style="font-size: 9px; font-weight: normal; color: #64748b;">faltas</span>
                 </div>
-                <div class="stat-sub">Registros incompletos / ausencias</div>
+                <div class="stat-sub">
+                  @if(!empty($empStats['total_feriados']) && $empStats['total_feriados'] > 0)
+                    <span style="color: #6d28d9; font-weight: bold;">{{ $empStats['total_feriados'] }} feriado(s)</span> &bull;
+                  @endif
+                  Registros incompletos / ausencias
+                </div>
               </td>
               <td class="stat-cell">
                 <div class="stat-title">Tolerancia Mensual</div>
@@ -477,17 +529,20 @@
         <tbody>
           @forelse ($empRegistros as $row)
             @php
-              $esFalta = !empty($row->es_falta) || ($row->estado_marcacion ?? '') === 'Falta' || str_contains(strtolower((string)($row->estado_marcacion ?? '')), 'falta');
+              $esFeriado = !empty($row->es_feriado) || ($row->estado_marcacion ?? '') === 'Feriado' || str_contains(strtolower((string)($row->estado_marcacion ?? '')), 'feriado');
+              $nombreFeriado = $row->nombre_feriado ?? ($esFeriado ? ($row->observacion ?: 'Feriado') : null);
+              $esFalta = !$esFeriado && (!empty($row->es_falta) || ($row->estado_marcacion ?? '') === 'Falta' || str_contains(strtolower((string)($row->estado_marcacion ?? '')), 'falta'));
+              $esPermisoAutorizado = !$esFeriado && !$esFalta && !empty($row->permiso_autorizado);
               $entradaStr = $row->hora_entrada ?? '--:--';
               $salidaStr = $row->hora_salida ?? '--:--';
               $tieneEntrada = filled($entradaStr) && $entradaStr !== '--:--';
               $tieneSalida = filled($salidaStr) && $salidaStr !== '--:--';
-              $esOmision = !$esFalta && ($tieneEntrada xor $tieneSalida);
-              $faltaEntrada = !$esFalta && !$tieneEntrada && $tieneSalida;
-              $faltaSalida = !$esFalta && $tieneEntrada && !$tieneSalida;
-              $sinMarcacion = !$esFalta && !$tieneEntrada && !$tieneSalida;
+              $esOmision = !$esFeriado && !$esFalta && !$esPermisoAutorizado && ($tieneEntrada xor $tieneSalida);
+              $faltaEntrada = !$esFeriado && !$esFalta && !$esPermisoAutorizado && !$tieneEntrada && $tieneSalida;
+              $faltaSalida = !$esFeriado && !$esFalta && !$esPermisoAutorizado && $tieneEntrada && !$tieneSalida;
+              $sinMarcacion = !$esFeriado && !$esFalta && !$esPermisoAutorizado && !$tieneEntrada && !$tieneSalida;
             @endphp
-            <tr class="{{ $esFalta ? 'row-falta' : ($esOmision ? 'row-omision' : '') }}">
+            <tr class="{{ $esFeriado ? 'row-feriado' : ($esFalta ? 'row-falta' : ($esPermisoAutorizado ? 'row-permiso-autorizado' : ($esOmision ? 'row-omision' : ''))) }}">
               @if (!$empInfo)
                 <td>
                   <strong>{{ $row->empleado?->nombre_completo ?? 'Sin nombre' }}</strong>
@@ -504,6 +559,8 @@
               <td class="center font-mono">
                 @if($tieneEntrada)
                   <strong style="color: #0f172a;">{{ $row->hora_entrada }}</strong>
+                @elseif($esFeriado)
+                  <span style="color: #6d28d9; font-weight: bold;">--:--</span>
                 @elseif($esFalta)
                   <span style="color: #991b1b; font-weight: bold;">--:--</span>
                 @elseif($faltaEntrada)
@@ -517,6 +574,8 @@
               <td class="center font-mono">
                 @if($tieneSalida)
                   <strong style="color: #0f172a;">{{ $row->hora_salida }}</strong>
+                @elseif($esFeriado)
+                  <span style="color: #6d28d9; font-weight: bold;">--:--</span>
                 @elseif($esFalta)
                   <span style="color: #991b1b; font-weight: bold;">--:--</span>
                 @elseif($faltaSalida)
@@ -528,7 +587,9 @@
                 @endif
               </td>
               <td class="center font-mono">
-                @if($esFalta)
+                @if($esFeriado && !$tieneEntrada && !$tieneSalida)
+                  <span style="color: #6d28d9; font-weight: bold;">0h 00m</span>
+                @elseif($esFalta)
                   <span style="color: #991b1b; font-weight: bold;">0h 00m</span>
                 @elseif(($row->horas_trabajadas ?? '--:--') !== '--:--')
                   <strong>{{ $row->horas_trabajadas }}</strong>
@@ -537,8 +598,21 @@
                 @endif
               </td>
               <td class="center">
-                @if($esFalta)
+                @if($esFeriado)
+                  @if($tieneEntrada && $tieneSalida)
+                    <span class="badge-feriado-trabajado">Feriado Trabajado</span>
+                  @else
+                    <span class="badge-feriado">Feriado</span>
+                  @endif
+                  @if($nombreFeriado && $nombreFeriado !== 'Feriado')
+                    <div style="font-size: 7.5px; color: #5b21b6; margin-top: 1.5px; font-weight: bold;">
+                      {{ $nombreFeriado }}
+                    </div>
+                  @endif
+                @elseif($esFalta)
                   <span class="badge-falta">Falta</span>
+                @elseif($esPermisoAutorizado)
+                  <span class="badge-permiso-autorizado">✓ Permiso Autorizado</span>
                 @elseif($faltaEntrada)
                   <span class="badge-omision-alert">Omisión Entrada</span>
                 @elseif($faltaSalida)

@@ -2014,15 +2014,26 @@
                   <td class="text-center font-mono text-xs">{{ $item['salida'] }}</td>
                   <td class="text-center font-mono text-xs font-bold text-slate-800">{{ $item['horas_trabajadas'] }}</td>
                   <td class="text-center font-mono text-xs">
-                    @if($item['retraso'] !== 'Puntual' && $item['retraso'] !== '—')
+                    @if(!empty($item['permiso_autorizado']) && $item['retraso'] === 'Puntual')
+                      <span class="text-emerald-600 font-bold text-[11px]">Permiso</span>
+                    @elseif($item['retraso'] !== 'Puntual' && $item['retraso'] !== '—')
                       <span class="text-rose-700 font-bold">{{ $item['retraso'] }}</span>
                     @else
                       <span class="text-slate-400">{{ $item['retraso'] }}</span>
                     @endif
                   </td>
                   <td class="text-center">
-                    @if($item['estado'] === 'Completo')
+                    @if(!empty($item['permiso_autorizado']) && str_contains(strtolower($item['estado'] ?? ''), 'permiso'))
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold">✓ Permiso Autorizado</span>
+                    @elseif($item['estado'] === 'Completo')
                       <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-bold">Completo</span>
+                    @elseif(str_contains(strtolower($item['estado'] ?? ''), 'feriado'))
+                      <span class="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-2 py-0.5 text-[11px] font-bold">
+                        {{ $item['estado'] }}
+                      </span>
+                      @if(!empty($item['nombre_feriado']) && $item['nombre_feriado'] !== 'Feriado')
+                        <span class="block text-[10px] text-purple-600 font-medium">{{ $item['nombre_feriado'] }}</span>
+                      @endif
                     @elseif($item['estado'] === 'Falta')
                       <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[11px] font-bold">Falta</span>
                     @else

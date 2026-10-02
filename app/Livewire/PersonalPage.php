@@ -1382,7 +1382,15 @@ class PersonalPage extends Component
 
         $progService = $this->programacionLaboral();
 
-        $rows = $allRegistros->map(function (RegistroAsistencia $registro) use ($progService) {
+        // Pre-cargar permisos aprobados agrupados por empleado para el período
+        $permisosReporte = \App\Models\PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $statEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $statStart->toDateString())
+            ->get()
+            ->groupBy('empleado_id');
+
+        $rows = $allRegistros->map(function (RegistroAsistencia $registro) use ($progService, $permisosReporte) {
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
             $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
@@ -1391,11 +1399,14 @@ class PersonalPage extends Component
 
             $empleado = $registro->empleado;
             $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+            $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+            $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
+
             $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
             $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
 
             $minutosRetraso = 0;
-            if ($tieneEntrada && $horaLimite) {
+            if ($tieneEntrada && $horaLimite && !$esFeriado) {
                 $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
             }
 
@@ -1406,11 +1417,47 @@ class PersonalPage extends Component
                 $horasTrabajadas = sprintf('%dh %02dm', intdiv($minutosTrabajados, 60), $minutosTrabajados % 60);
             }
 
-            $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+            $esFalta = !$esFeriado && ((! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta'));
 
-            if ($esFalta) {
+            // Verificar permisos autorizados para tardanza/omisión
+            $permisoAutorizado = false;
+            $tipoPermisoAutorizado = null;
+            if (!$esFeriado && !$esFalta && $registro->fecha && $empleado) {
+                $permisosEmp = $permisosReporte->get($empleado->id, collect());
+                $fechaReg = $registro->fecha instanceof \Carbon\Carbon ? $registro->fecha : \Carbon\Carbon::parse($registro->fecha);
+                if ($minutosRetraso > 0) {
+                    $perm = $permisosEmp->first(fn($p) =>
+                        $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, ['llegada_tarde', 'horas'], true)
+                    );
+                    if ($perm) {
+                        $permisoAutorizado = true;
+                        $tipoPermisoAutorizado = 'retraso';
+                        $minutosRetraso = 0; // No contar en el reporte
+                    }
+                }
+                if (!$tieneEntrada || !$tieneSalida) {
+                    $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
+                    $perm = $permisosEmp->first(fn($p) =>
+                        $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, $alcancesOmision, true)
+                    );
+                    if ($perm) {
+                        $permisoAutorizado = true;
+                        $tipoPermisoAutorizado = $tipoPermisoAutorizado ?? 'omision';
+                    }
+                }
+            }
+
+            if ($esFeriado) {
+                $estado = ($tieneEntrada && $tieneSalida) ? 'Feriado trabajado' : 'Feriado';
+                $tipoEstado = 'feriado';
+            } elseif ($esFalta) {
                 $estado = 'Falta';
                 $tipoEstado = 'falta';
+            } elseif ($permisoAutorizado) {
+                $estado = 'Permiso Autorizado';
+                $tipoEstado = 'completo';
             } elseif ($tieneEntrada && $tieneSalida) {
                 $estado = 'Completo';
                 $tipoEstado = 'completo';
@@ -1436,61 +1483,130 @@ class PersonalPage extends Component
                 'hora_salida' => $salidaVal ?: '--:--',
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
-                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--'),
+                'retraso_formateado' => $esFeriado ? (($tieneEntrada && $minutosRetraso > 0) ? "+{$minutosRetraso} min" : '—') : ($tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--')),
                 'estado_marcacion' => $estado,
                 'tipo_estado' => $tipoEstado,
                 'es_falta' => $esFalta,
-                'observacion' => $registro->observacion,
+                'es_feriado' => $esFeriado,
+                'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
+                'observacion' => $registro->observacion ?: ($esFeriado ? $nombreFeriado : null),
+                'permiso_autorizado' => $permisoAutorizado,
+                'tipo_permiso_autorizado' => $tipoPermisoAutorizado,
             ];
         });
 
-        if ($this->filterEstadoMarcaciones !== 'completo' && $this->selectedMarcacionesEmpleadoId) {
-            $empleado = Empleado::find($this->selectedMarcacionesEmpleadoId);
-            if ($empleado) {
-                $stats = !empty($this->marcacionesStats)
-                    ? $this->marcacionesStats
-                    : $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
+        if ($this->filterEstadoMarcaciones !== 'completo') {
+            $empleadosAProcesar = collect();
+            if ($this->selectedMarcacionesEmpleadoId) {
+                $emp = Empleado::find($this->selectedMarcacionesEmpleadoId);
+                if ($emp) {
+                    $empleadosAProcesar->push($emp);
+                }
+            } elseif (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
+                $empleadosAProcesar = Empleado::query()->activosLaboralmente()
+                    ->tap(fn($q) => SucursalNormalizer::applyFilter($q, 'sucursal', $this->appliedMarcacionesSucursal))
+                    ->get();
+            }
 
-                $fechasExistentes = $rows->pluck('fecha')->map(fn($f) => $f instanceof Carbon ? $f->toDateString() : Carbon::parse($f)->toDateString())->all();
-                $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
-                $faltasRows = collect();
-
-                foreach (($stats['lista_faltas'] ?? []) as $faltaItem) {
-                    $fechaStr = $faltaItem['fecha_raw'] ?? null;
-                    if (!$fechaStr && !empty($faltaItem['fecha'])) {
-                        try {
-                            $fechaStr = Carbon::createFromFormat('d/m/Y', $faltaItem['fecha'])->toDateString();
-                        } catch (\Throwable $e) {
-                            $fechaStr = Carbon::parse($faltaItem['fecha'])->toDateString();
-                        }
-                    }
-
-                    if ($fechaStr && !in_array($fechaStr, $fechasExistentes, true)) {
-                        $fechaCarbon = Carbon::parse($fechaStr);
-                        $faltasRows->push((object) [
-                            'id' => 'falta_' . $empleado->id . '_' . $fechaStr,
-                            'empleado_id' => $empleado->id,
-                            'empleado' => $empleado,
-                            'codigo' => $codigoBio,
-                            'fecha' => $fechaCarbon,
-                            'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
-                            'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
-                            'hora_entrada' => '--:--',
-                            'hora_salida' => '--:--',
-                            'horas_trabajadas' => '0h 00m',
-                            'minutos_retraso' => 0,
-                            'retraso_formateado' => 'Falta',
-                            'estado_marcacion' => 'Falta',
-                            'tipo_estado' => 'falta',
-                            'es_falta' => true,
-                            'observacion' => $faltaItem['estado'] ?? 'Falta no justificada',
-                        ]);
+            if ($empleadosAProcesar->isNotEmpty()) {
+                $fechasExistentesPorEmp = [];
+                foreach ($rows as $r) {
+                    $empId = $r->empleado_id ?? ($r->empleado?->id ?? null);
+                    $fStr = $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString();
+                    if ($empId) {
+                        $fechasExistentesPorEmp[$empId][$fStr] = true;
                     }
                 }
 
-                if ($faltasRows->isNotEmpty()) {
-                    $rows = $rows->concat($faltasRows)
-                        ->sortBy(fn($r) => $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString())
+                $extraRows = collect();
+
+                foreach ($empleadosAProcesar as $empleado) {
+                    $stats = ($this->selectedMarcacionesEmpleadoId === $empleado->id && !empty($this->marcacionesStats))
+                        ? $this->marcacionesStats
+                        : $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
+
+                    $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
+
+                    // Faltas
+                    foreach (($stats['lista_faltas'] ?? []) as $faltaItem) {
+                        $fechaStr = $faltaItem['fecha_raw'] ?? null;
+                        if (!$fechaStr && !empty($faltaItem['fecha'])) {
+                            try {
+                                $fechaStr = Carbon::createFromFormat('d/m/Y', $faltaItem['fecha'])->toDateString();
+                            } catch (\Throwable $e) {
+                                $fechaStr = Carbon::parse($faltaItem['fecha'])->toDateString();
+                            }
+                        }
+
+                        if ($fechaStr && empty($fechasExistentesPorEmp[$empleado->id][$fechaStr])) {
+                            $fechaCarbon = Carbon::parse($fechaStr);
+                            $extraRows->push((object) [
+                                'id' => 'falta_' . $empleado->id . '_' . $fechaStr,
+                                'empleado_id' => $empleado->id,
+                                'empleado' => $empleado,
+                                'codigo' => $codigoBio,
+                                'fecha' => $fechaCarbon,
+                                'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
+                                'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
+                                'hora_entrada' => '--:--',
+                                'hora_salida' => '--:--',
+                                'horas_trabajadas' => '0h 00m',
+                                'minutos_retraso' => 0,
+                                'retraso_formateado' => 'Falta',
+                                'estado_marcacion' => 'Falta',
+                                'tipo_estado' => 'falta',
+                                'es_falta' => true,
+                                'es_feriado' => false,
+                                'nombre_feriado' => null,
+                                'observacion' => $faltaItem['estado'] ?? 'Falta no justificada',
+                            ]);
+                            $fechasExistentesPorEmp[$empleado->id][$fechaStr] = true;
+                        }
+                    }
+
+                    // Feriados
+                    foreach (($stats['lista_feriados'] ?? []) as $feriadoItem) {
+                        $fechaStr = $feriadoItem['fecha_raw'] ?? null;
+                        if (!$fechaStr && !empty($feriadoItem['fecha'])) {
+                            try {
+                                $fechaStr = Carbon::createFromFormat('d/m/Y', $feriadoItem['fecha'])->toDateString();
+                            } catch (\Throwable $e) {
+                                $fechaStr = Carbon::parse($feriadoItem['fecha'])->toDateString();
+                            }
+                        }
+
+                        if ($fechaStr && empty($fechasExistentesPorEmp[$empleado->id][$fechaStr])) {
+                            $fechaCarbon = Carbon::parse($fechaStr);
+                            $nombreFeriado = $feriadoItem['nombre'] ?? 'Feriado';
+
+                            $extraRows->push((object) [
+                                'id' => 'feriado_' . $empleado->id . '_' . $fechaStr,
+                                'empleado_id' => $empleado->id,
+                                'empleado' => $empleado,
+                                'codigo' => $codigoBio,
+                                'fecha' => $fechaCarbon,
+                                'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
+                                'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
+                                'hora_entrada' => '--:--',
+                                'hora_salida' => '--:--',
+                                'horas_trabajadas' => '0h 00m',
+                                'minutos_retraso' => 0,
+                                'retraso_formateado' => '—',
+                                'estado_marcacion' => 'Feriado',
+                                'tipo_estado' => 'feriado',
+                                'es_falta' => false,
+                                'es_feriado' => true,
+                                'nombre_feriado' => $nombreFeriado,
+                                'observacion' => $nombreFeriado,
+                            ]);
+                            $fechasExistentesPorEmp[$empleado->id][$fechaStr] = true;
+                        }
+                    }
+                }
+
+                if ($extraRows->isNotEmpty()) {
+                    $rows = $rows->concat($extraRows)
+                        ->sortBy(fn($r) => ($r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString()) . ' ' . ($r->empleado?->nombre ?? ''))
                         ->values();
                 }
             }
@@ -1580,9 +1696,19 @@ class PersonalPage extends Component
             ->get()
             ->groupBy('empleado_id');
 
+        // Pre-cargar permisos aprobados agrupados por empleado
+        $permisosGrupo = \App\Models\PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->whereIn('empleado_id', $empleadoIds)
+            ->whereDate('fecha_inicio', '<=', $statEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $statStart->toDateString())
+            ->get()
+            ->groupBy('empleado_id');
+
         $fichas = [];
         foreach ($empleados as $empleado) {
             $registrosEmp = $todasAsistencias->get($empleado->id, collect([]));
+            $permisosEmp = $permisosGrupo->get($empleado->id, collect());
 
             if ($this->filterEstadoMarcaciones === 'completo') {
                 $registrosEmp = $registrosEmp->filter(fn($r) => filled($r->hora_entrada) && filled($r->hora_salida));
@@ -1590,7 +1716,7 @@ class PersonalPage extends Component
                 $registrosEmp = $registrosEmp->filter(fn($r) => (filled($r->hora_entrada) xor filled($r->hora_salida)));
             }
 
-            $rowsEmp = $registrosEmp->map(function (RegistroAsistencia $registro) use ($progService, $empleado) {
+            $rowsEmp = $registrosEmp->map(function (RegistroAsistencia $registro) use ($progService, $empleado, $permisosEmp) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
                 $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
@@ -1598,11 +1724,14 @@ class PersonalPage extends Component
                 $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
 
                 $horario = $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+                $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+                $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
+
                 $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
                 $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
 
                 $minutosRetraso = 0;
-                if ($tieneEntrada && $horaLimite) {
+                if ($tieneEntrada && $horaLimite && !$esFeriado) {
                     $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
                 }
 
@@ -1614,7 +1743,56 @@ class PersonalPage extends Component
                 }
 
                 $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
-                $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
+                $esFalta = !$esFeriado && ((! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta'));
+
+                // Verificar permisos autorizados para tardanza/omisión
+                $permisoAutorizado = false;
+                $tipoPermisoAutorizado = null;
+                if (!$esFeriado && !$esFalta && $registro->fecha) {
+                    $fechaReg = $registro->fecha instanceof \Carbon\Carbon ? $registro->fecha : \Carbon\Carbon::parse($registro->fecha);
+                    if ($minutosRetraso > 0) {
+                        $perm = $permisosEmp->first(fn($p) =>
+                            $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                            && in_array($p->alcance, ['llegada_tarde', 'horas'], true)
+                        );
+                        if ($perm) {
+                            $permisoAutorizado = true;
+                            $tipoPermisoAutorizado = 'retraso';
+                            $minutosRetraso = 0;
+                        }
+                    }
+                    if (!$tieneEntrada || !$tieneSalida) {
+                        $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
+                        $perm = $permisosEmp->first(fn($p) =>
+                            $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                            && in_array($p->alcance, $alcancesOmision, true)
+                        );
+                        if ($perm) {
+                            $permisoAutorizado = true;
+                            $tipoPermisoAutorizado = $tipoPermisoAutorizado ?? 'omision';
+                        }
+                    }
+                }
+
+                if ($esFeriado) {
+                    $estadoMarcacion = ($tieneEntrada && $tieneSalida) ? 'Feriado trabajado' : 'Feriado';
+                    $retrasoFormateado = ($tieneEntrada && $minutosRetraso > 0) ? "+{$minutosRetraso} min" : '—';
+                } elseif ($esFalta) {
+                    $estadoMarcacion = 'Falta';
+                    $retrasoFormateado = 'Falta';
+                } elseif ($permisoAutorizado) {
+                    $estadoMarcacion = 'Permiso Autorizado';
+                    $retrasoFormateado = 'Permiso';
+                } elseif ($tieneEntrada && $tieneSalida) {
+                    $estadoMarcacion = 'Completo';
+                    $retrasoFormateado = $minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual';
+                } elseif ($tieneEntrada || $tieneSalida) {
+                    $estadoMarcacion = 'Sin completar';
+                    $retrasoFormateado = $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--';
+                } else {
+                    $estadoMarcacion = 'Sin marcación';
+                    $retrasoFormateado = '--';
+                }
 
                 return (object) [
                     'id' => $registro->id,
@@ -1627,10 +1805,14 @@ class PersonalPage extends Component
                     'hora_salida' => $salidaVal ?: '--:--',
                     'horas_trabajadas' => $horasTrabajadas,
                     'minutos_retraso' => $minutosRetraso,
-                    'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--'),
-                    'estado_marcacion' => $esFalta ? 'Falta' : (($tieneEntrada && $tieneSalida) ? 'Completo' : (($tieneEntrada || $tieneSalida) ? 'Sin completar' : 'Sin marcación')),
+                    'retraso_formateado' => $retrasoFormateado,
+                    'estado_marcacion' => $estadoMarcacion,
                     'es_falta' => $esFalta,
-                    'observacion' => $registro->observacion,
+                    'es_feriado' => $esFeriado,
+                    'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
+                    'observacion' => $registro->observacion ?: ($esFeriado ? $nombreFeriado : null),
+                    'permiso_autorizado' => $permisoAutorizado,
+                    'tipo_permiso_autorizado' => $tipoPermisoAutorizado,
                 ];
             });
 
@@ -1638,14 +1820,15 @@ class PersonalPage extends Component
                 ? $this->marcacionesStats
                 : $this->calcularEstadisticasMarcacionesEmpleado($empleado->id, $statStart, $statEnd);
 
-            // Integrar días con falta al listado si no se filtró estrictamente por completos
+            // Integrar días con falta y feriados al listado si no se filtró estrictamente por completos
             if ($this->filterEstadoMarcaciones !== 'completo') {
                 $fechasExistentes = $rowsEmp->pluck('fecha')->map(function ($f) {
                     return $f instanceof Carbon ? $f->toDateString() : Carbon::parse($f)->toDateString();
                 })->all();
 
-                $faltasRows = collect();
+                $extraRows = collect();
 
+                // Faltas
                 foreach (($statsEmp['lista_faltas'] ?? []) as $faltaItem) {
                     $fechaStr = $faltaItem['fecha_raw'] ?? null;
                     if (!$fechaStr && !empty($faltaItem['fecha'])) {
@@ -1660,7 +1843,7 @@ class PersonalPage extends Component
                         $fechaCarbon = Carbon::parse($fechaStr);
                         $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
 
-                        $faltasRows->push((object) [
+                        $extraRows->push((object) [
                             'id' => 'falta_' . $empleado->id . '_' . $fechaStr,
                             'empleado' => $empleado,
                             'codigo' => $codigoBio,
@@ -1674,13 +1857,54 @@ class PersonalPage extends Component
                             'retraso_formateado' => 'Falta',
                             'estado_marcacion' => 'Falta',
                             'es_falta' => true,
+                            'es_feriado' => false,
+                            'nombre_feriado' => null,
                             'observacion' => $faltaItem['estado'] ?? 'Falta no justificada',
                         ]);
+                        $fechasExistentes[] = $fechaStr;
                     }
                 }
 
-                if ($faltasRows->isNotEmpty()) {
-                    $rowsEmp = $rowsEmp->concat($faltasRows)
+                // Feriados no trabajados
+                foreach (($statsEmp['lista_feriados'] ?? []) as $feriadoItem) {
+                    $fechaStr = $feriadoItem['fecha_raw'] ?? null;
+                    if (!$fechaStr && !empty($feriadoItem['fecha'])) {
+                        try {
+                            $fechaStr = Carbon::createFromFormat('d/m/Y', $feriadoItem['fecha'])->toDateString();
+                        } catch (\Throwable $e) {
+                            $fechaStr = Carbon::parse($feriadoItem['fecha'])->toDateString();
+                        }
+                    }
+
+                    if ($fechaStr && !in_array($fechaStr, $fechasExistentes, true)) {
+                        $fechaCarbon = Carbon::parse($fechaStr);
+                        $codigoBio = $empleado->codigo_biometrico ?: (string) $empleado->id;
+                        $nombreFeriado = $feriadoItem['nombre'] ?? 'Feriado';
+
+                        $extraRows->push((object) [
+                            'id' => 'feriado_' . $empleado->id . '_' . $fechaStr,
+                            'empleado' => $empleado,
+                            'codigo' => $codigoBio,
+                            'fecha' => $fechaCarbon,
+                            'fecha_formateada' => $fechaCarbon->format('d/m/Y'),
+                            'dia' => ucfirst($fechaCarbon->locale('es')->isoFormat('dddd')),
+                            'hora_entrada' => '--:--',
+                            'hora_salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => '—',
+                            'estado_marcacion' => 'Feriado',
+                            'es_falta' => false,
+                            'es_feriado' => true,
+                            'nombre_feriado' => $nombreFeriado,
+                            'observacion' => $nombreFeriado,
+                        ]);
+                        $fechasExistentes[] = $fechaStr;
+                    }
+                }
+
+                if ($extraRows->isNotEmpty()) {
+                    $rowsEmp = $rowsEmp->concat($extraRows)
                         ->sortBy(fn($r) => $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString())
                         ->values();
                 }
@@ -2145,8 +2369,24 @@ class PersonalPage extends Component
         $progService = $this->programacionLaboral();
         $todosLosRegistros = $query->get();
 
+        // Pre-cargar permisos aprobados para el período
+        [$sucPeriodoStart, $sucPeriodoEnd] = (function() use ($tipo) {
+            if ($tipo === 'dia') {
+                $d = Carbon::parse($this->appliedSucursalesFechaDia ?: now()->toDateString());
+                return [$d->copy()->startOfDay(), $d->copy()->endOfDay()];
+            }
+            $mes = Carbon::parse(($this->appliedSucursalesMes ?: now()->format('Y-m')) . '-01');
+            return [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()];
+        })();
+        $permisosSucursales = \App\Models\PermisoLaboral::query()
+            ->where('estado', 'aprobado')
+            ->whereDate('fecha_inicio', '<=', $sucPeriodoEnd->toDateString())
+            ->whereDate('fecha_fin', '>=', $sucPeriodoStart->toDateString())
+            ->get()
+            ->groupBy('empleado_id');
+
         // Transformación y cálculo
-        $rows = $todosLosRegistros->map(function (RegistroAsistencia $registro) use ($progService) {
+        $rows = $todosLosRegistros->map(function (RegistroAsistencia $registro) use ($progService, $permisosSucursales) {
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
             $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
@@ -2155,12 +2395,15 @@ class PersonalPage extends Component
 
             $empleado = $registro->empleado;
             $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
+            $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+            $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
+
             $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
             $horaSalidaProg = $horario['hora_salida'] ?? config('asistencia.hora_salida', '16:30:00');
             $horaLimite = $horario['hora_entrada_tolerancia'] ?? $horaEntradaProg;
 
             $minutosRetraso = 0;
-            if ($tieneEntrada && $horaLimite) {
+            if ($tieneEntrada && $horaLimite && !$esFeriado) {
                 $minutosRetraso = $this->calcularMinutosRetraso($entradaVal, $horaLimite);
             }
 
@@ -2174,11 +2417,41 @@ class PersonalPage extends Component
             $codigoBio = $empleado?->codigo_biometrico ?: (string) ($empleado?->id ?? '');
 
             // Determinar Falta
-            $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
-            $faltaTexto = $esFalta ? 'FALTA' : '--';
+            $esFalta = !$esFeriado && ((! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta'));
+            $faltaTexto = $esFeriado ? 'FERIADO' : ($esFalta ? 'FALTA' : '--');
 
-            // Determinar Omisión (si no es falta completa)
-            if ($esFalta) {
+            // Verificar permisos autorizados para tardanza/omisión
+            $permisoAutorizado = false;
+            $tipoPermisoAutorizado = null;
+            if (!$esFeriado && !$esFalta && $registro->fecha && $empleado) {
+                $permisosEmp = $permisosSucursales->get($empleado->id, collect());
+                $fechaReg = $registro->fecha instanceof Carbon ? $registro->fecha : Carbon::parse($registro->fecha);
+                if ($minutosRetraso > 0) {
+                    $perm = $permisosEmp->first(fn($p) =>
+                        $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, ['llegada_tarde', 'horas'], true)
+                    );
+                    if ($perm) {
+                        $permisoAutorizado = true;
+                        $tipoPermisoAutorizado = 'retraso';
+                        $minutosRetraso = 0;
+                    }
+                }
+                if (!$tieneEntrada || !$tieneSalida) {
+                    $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
+                    $perm = $permisosEmp->first(fn($p) =>
+                        $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, $alcancesOmision, true)
+                    );
+                    if ($perm) {
+                        $permisoAutorizado = true;
+                        $tipoPermisoAutorizado = $tipoPermisoAutorizado ?? 'omision';
+                    }
+                }
+            }
+
+            // Determinar Omisión (si no es falta completa ni feriado ni permiso)
+            if ($esFalta || $esFeriado || $permisoAutorizado) {
                 $omision = '--';
                 $tipoOmision = 'ninguna';
             } elseif ($tieneEntrada && ! $tieneSalida) {
@@ -2192,7 +2465,13 @@ class PersonalPage extends Component
                 $tipoOmision = 'ninguna';
             }
 
-            if ($tieneEntrada && $tieneSalida) {
+            if ($esFeriado) {
+                $estado = ($tieneEntrada && $tieneSalida) ? 'Feriado trabajado' : 'Feriado';
+                $tipoEstado = 'feriado';
+            } elseif ($permisoAutorizado) {
+                $estado = 'Permiso Autorizado';
+                $tipoEstado = 'puntual'; // No penalizar en filtros
+            } elseif ($tieneEntrada && $tieneSalida) {
                 if ($minutosRetraso > 0) {
                     $estado = "Retraso (+{$minutosRetraso} min)";
                     $tipoEstado = 'retraso';
@@ -2233,14 +2512,18 @@ class PersonalPage extends Component
                 'hora_salida' => $salidaVal ?: '--:--',
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
-                'retraso_formateado' => $tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--',
+                'retraso_formateado' => $esFeriado ? '—' : ($permisoAutorizado ? 'Permiso' : ($tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--')),
                 'omision' => $omision,
                 'tipo_omision' => $tipoOmision,
                 'es_falta' => $esFalta,
+                'es_feriado' => $esFeriado,
+                'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
                 'falta' => $faltaTexto,
                 'estado_marcacion' => $estado,
                 'tipo_estado' => $tipoEstado,
-                'observacion' => $registro->observacion,
+                'observacion' => $registro->observacion ?: ($esFeriado ? $nombreFeriado : null),
+                'permiso_autorizado' => $permisoAutorizado,
+                'tipo_permiso_autorizado' => $tipoPermisoAutorizado,
             ];
         });
 
@@ -3632,6 +3915,7 @@ class PersonalPage extends Component
         $listaAtrasos = [];
         $listaOmisiones = [];
         $listaFaltas = [];
+        $listaFeriados = [];
         $desgloseGlobal = [];
 
         $minutosTrabajadosTotales = 0;
@@ -3645,28 +3929,48 @@ class PersonalPage extends Component
             $dateStr = $current->toDateString();
             $horario = $progService->resolverHorario($empleado, $current);
 
-            if ($horario['laborable']) {
-                // Verificar que el empleado estuviera activo en la empresa en esta fecha
-                if ($empleado->fecha_ingreso && $dateStr < $empleado->fecha_ingreso->toDateString()) {
-                    $current->addDay();
-                    continue;
-                }
-                if ($empleado->fecha_contratacion && $dateStr < $empleado->fecha_contratacion->toDateString()) {
-                    $current->addDay();
-                    continue;
-                }
-                if ($empleado->fecha_despido && $dateStr > $empleado->fecha_despido->toDateString()) {
-                    $current->addDay();
-                    continue;
-                }
+            // Verificar que el empleado estuviera activo en la empresa en esta fecha
+            if ($empleado->fecha_ingreso && $dateStr < $empleado->fecha_ingreso->toDateString()) {
+                $current->addDay();
+                continue;
+            }
+            if ($empleado->fecha_contratacion && $dateStr < $empleado->fecha_contratacion->toDateString()) {
+                $current->addDay();
+                continue;
+            }
+            if ($empleado->fecha_despido && $dateStr > $empleado->fecha_despido->toDateString()) {
+                $current->addDay();
+                continue;
+            }
 
+            $diaNombre = ucfirst($current->locale('es')->isoFormat('dddd'));
+            $fechaFmt = $current->format('d/m/Y');
+
+            if ($horario['laborable']) {
                 $tieneAsistencia = isset($asistenciaPorFecha[$dateStr]);
-                $tienePermiso = $permisos->contains(function ($p) use ($current) {
-                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+
+                // Permiso de día completo (ausencia justificada)
+                $tienePermisoDia = $permisos->contains(function ($p) use ($current) {
+                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, ['dias', 'dia_completo', 'manana', 'tarde', 'medio_dia'], true);
                 });
 
-                $diaNombre = ucfirst($current->locale('es')->isoFormat('dddd'));
-                $fechaFmt = $current->format('d/m/Y');
+                // Permiso que cubre llegadas tarde (retraso)
+                $permisoRetraso = $permisos->first(function ($p) use ($current) {
+                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, ['llegada_tarde', 'horas'], true);
+                });
+
+                // Permiso que cubre salida temprana o sin marcación de salida
+                $permisoSalida = $permisos->first(function ($p) use ($current) {
+                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
+                        && in_array($p->alcance, ['salida_temprana', 'horas'], true);
+                });
+
+                // Para compatibilidad con lógica anterior de ausencia completa
+                $tienePermiso = $tienePermisoDia || $permisos->contains(function ($p) use ($current) {
+                    return $current->betweenIncluded($p->fecha_inicio, $p->fecha_fin);
+                });
 
                 if ($tieneAsistencia) {
                     $reg = $asistenciaPorFecha[$dateStr];
@@ -3686,34 +3990,57 @@ class PersonalPage extends Component
                     }
 
                     $minutosTrabajadosTotales += $minutosDiaTrabajados;
-                    $minutosRetrasoTotales += $minutosRetraso;
                     $diasConMarcacion++;
 
-                    // Atrasos
+                    // Atrasos: solo contar si NO hay permiso de llegada tarde
                     if ($minutosRetraso > 0) {
-                        $listaAtrasos[] = [
-                            'fecha' => $fechaFmt,
-                            'dia' => $diaNombre,
-                            'entrada' => $entrada,
-                            'salida' => $salida,
-                            'minutos_retraso' => $minutosRetraso,
-                            'retraso_formateado' => $this->formatearMinutosEtiqueta($minutosRetraso),
-                            'hora_programada' => substr((string)$horario['hora_entrada'], 0, 5),
-                        ];
+                        if (!$permisoRetraso) {
+                            $minutosRetrasoTotales += $minutosRetraso;
+                            $listaAtrasos[] = [
+                                'fecha' => $fechaFmt,
+                                'dia' => $diaNombre,
+                                'entrada' => $entrada,
+                                'salida' => $salida,
+                                'minutos_retraso' => $minutosRetraso,
+                                'retraso_formateado' => $this->formatearMinutosEtiqueta($minutosRetraso),
+                                'hora_programada' => substr((string)$horario['hora_entrada'], 0, 5),
+                                'permiso_autorizado' => false,
+                            ];
+                        }
+                        // Si hay permiso de retraso, no sumar a totales y no agregar a lista de atrasos
+                    } else {
+                        $minutosRetrasoTotales += 0; // puntual
                     }
 
-                    // Omisiones
+                    // Omisiones: solo contar si NO hay permiso aplicable
                     $olvidoEntrada = ($entrada === '--:--');
                     $olvidoSalida = ($salida === '--:--');
                     if ($olvidoEntrada || $olvidoSalida) {
                         $tipoOmision = ($olvidoEntrada && $olvidoSalida) ? 'Sin entrada ni salida' : ($olvidoEntrada ? 'Falta marcar entrada' : 'Falta marcar salida');
-                        $listaOmisiones[] = [
-                            'fecha' => $fechaFmt,
-                            'dia' => $diaNombre,
-                            'entrada' => $entrada,
-                            'salida' => $salida,
-                            'tipo_omision' => $tipoOmision,
-                        ];
+                        $permisoOmision = ($olvidoEntrada ? $permisoRetraso : null) ?? ($olvidoSalida ? $permisoSalida : null);
+                        if (!$permisoOmision) {
+                            $listaOmisiones[] = [
+                                'fecha' => $fechaFmt,
+                                'dia' => $diaNombre,
+                                'entrada' => $entrada,
+                                'salida' => $salida,
+                                'tipo_omision' => $tipoOmision,
+                                'permiso_autorizado' => false,
+                            ];
+                        }
+                    } else {
+                        $permisoOmision = null;
+                    }
+
+                    // Determinar si el día tiene algún permiso autorizado que aplique
+                    $tienePermisoAplicado = ($minutosRetraso > 0 && $permisoRetraso)
+                        || (($olvidoEntrada || $olvidoSalida) && isset($permisoOmision) && $permisoOmision);
+
+                    $estadoDia = 'Completo';
+                    if ($tienePermisoAplicado) {
+                        $estadoDia = 'Permiso Autorizado';
+                    } elseif ($entrada === '--:--' || $salida === '--:--') {
+                        $estadoDia = 'Sin completar';
                     }
 
                     $desgloseGlobal[] = [
@@ -3722,8 +4049,9 @@ class PersonalPage extends Component
                         'entrada' => $entrada,
                         'salida' => $salida,
                         'horas_trabajadas' => sprintf('%dh %02dm', intdiv($minutosDiaTrabajados, 60), $minutosDiaTrabajados % 60),
-                        'retraso' => $minutosRetraso > 0 ? $this->formatearMinutosEtiqueta($minutosRetraso) : 'Puntual',
-                        'estado' => ($entrada !== '--:--' && $salida !== '--:--') ? 'Completo' : 'Sin completar',
+                        'retraso' => ($minutosRetraso > 0 && !$permisoRetraso) ? $this->formatearMinutosEtiqueta($minutosRetraso) : 'Puntual',
+                        'estado' => $estadoDia,
+                        'permiso_autorizado' => $tienePermisoAplicado,
                     ];
                 } else {
                     // No marcó
@@ -3744,6 +4072,7 @@ class PersonalPage extends Component
                             'horas_trabajadas' => '0h 00m',
                             'retraso' => '—',
                             'estado' => 'Falta',
+                            'permiso_autorizado' => false,
                         ];
                     } elseif ($tienePermiso) {
                         $desgloseGlobal[] = [
@@ -3754,8 +4083,78 @@ class PersonalPage extends Component
                             'horas_trabajadas' => 'Permiso',
                             'retraso' => '—',
                             'estado' => 'Permiso justificado',
+                            'permiso_autorizado' => true,
                         ];
                     }
+                }
+            } elseif ($horario['es_feriado']) {
+                $fechaEsp = $horario['fecha_especial'];
+                $nombreFeriado = $fechaEsp?->nombre ?: 'Feriado';
+                $tieneAsistencia = isset($asistenciaPorFecha[$dateStr]);
+
+                if ($tieneAsistencia) {
+                    $reg = $asistenciaPorFecha[$dateStr];
+                    $norm = $this->normalizarMarcacionAsistencia($reg);
+                    $entrada = filled($norm['entrada']) ? substr($norm['entrada'], 0, 5) : '--:--';
+                    $salida = filled($norm['salida']) ? substr($norm['salida'], 0, 5) : '--:--';
+                    $minutosDiaTrabajados = 0;
+                    if ($entrada !== '--:--' && $salida !== '--:--') {
+                        $minutosDiaTrabajados = $this->calcularMinutosTrabajados($norm['entrada'], $norm['salida']);
+                    }
+                    $minutosTrabajadosTotales += $minutosDiaTrabajados;
+                    $diasConMarcacion++;
+
+                    $listaFeriados[] = [
+                        'fecha_raw' => $dateStr,
+                        'fecha' => $fechaFmt,
+                        'dia' => $diaNombre,
+                        'nombre' => $nombreFeriado,
+                        'tipo' => $fechaEsp?->tipo ?? 'feriado',
+                        'descripcion' => $fechaEsp?->descripcion,
+                        'trabajado' => true,
+                        'entrada' => $entrada,
+                        'salida' => $salida,
+                        'horas_trabajadas' => sprintf('%dh %02dm', intdiv($minutosDiaTrabajados, 60), $minutosDiaTrabajados % 60),
+                        'estado' => 'Feriado trabajado',
+                    ];
+
+                    $desgloseGlobal[] = [
+                        'fecha' => $fechaFmt,
+                        'dia' => $diaNombre,
+                        'entrada' => $entrada,
+                        'salida' => $salida,
+                        'horas_trabajadas' => sprintf('%dh %02dm', intdiv($minutosDiaTrabajados, 60), $minutosDiaTrabajados % 60),
+                        'retraso' => '—',
+                        'estado' => 'Feriado trabajado',
+                        'es_feriado' => true,
+                        'nombre_feriado' => $nombreFeriado,
+                    ];
+                } else {
+                    $listaFeriados[] = [
+                        'fecha_raw' => $dateStr,
+                        'fecha' => $fechaFmt,
+                        'dia' => $diaNombre,
+                        'nombre' => $nombreFeriado,
+                        'tipo' => $fechaEsp?->tipo ?? 'feriado',
+                        'descripcion' => $fechaEsp?->descripcion,
+                        'trabajado' => false,
+                        'entrada' => '--:--',
+                        'salida' => '--:--',
+                        'horas_trabajadas' => '0h 00m',
+                        'estado' => 'Feriado',
+                    ];
+
+                    $desgloseGlobal[] = [
+                        'fecha' => $fechaFmt,
+                        'dia' => $diaNombre,
+                        'entrada' => '--:--',
+                        'salida' => '--:--',
+                        'horas_trabajadas' => '0h 00m',
+                        'retraso' => '—',
+                        'estado' => 'Feriado',
+                        'es_feriado' => true,
+                        'nombre_feriado' => $nombreFeriado,
+                    ];
                 }
             }
 
@@ -3780,6 +4179,8 @@ class PersonalPage extends Component
             'lista_omisiones' => $listaOmisiones,
             'total_faltas' => count($listaFaltas),
             'lista_faltas' => $listaFaltas,
+            'total_feriados' => count($listaFeriados),
+            'lista_feriados' => $listaFeriados,
             'desglose_global' => $desgloseGlobal,
             'horas_trabajadas_formateado' => sprintf('%dh %02dm', intdiv($minutosTrabajadosTotales, 60), $minutosTrabajadosTotales % 60),
             'minutos_atraso_totales' => $minutosRetrasoTotales,

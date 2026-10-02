@@ -308,7 +308,9 @@
                 </td>
                 <td>{{ $row->horas_trabajadas }}</td>
                 <td>
-                  @if(($row->minutos_retraso ?? 0) > 0)
+                  @if(!empty($row->permiso_autorizado))
+                    <span style="color: #15803d; font-weight: bold; font-size: 7.5px;">Permiso</span>
+                  @elseif(($row->minutos_retraso ?? 0) > 0)
                     <span style="color: #b91c1c; font-weight: bold;">+{{ $row->minutos_retraso }}m</span>
                   @elseif($row->hora_entrada !== '--:--')
                     <span style="color: #15803d; font-weight: 600;">0m</span>
@@ -326,8 +328,15 @@
                   @endif
                 </td>
                 <td>
-                  @if($row->es_falta)
+                  @if(!empty($row->es_feriado))
+                    <span class="badge" style="background-color: #ede9fe; color: #5b21b6; border: 1px solid #8b5cf6;">FERIADO</span>
+                    @if(!empty($row->nombre_feriado) && $row->nombre_feriado !== 'Feriado')
+                      <span class="cod-sub" style="color: #6d28d9; display: block; font-size: 7px; margin-top: 1px;">{{ $row->nombre_feriado }}</span>
+                    @endif
+                  @elseif($row->es_falta)
                     <span class="badge badge-danger">FALTA</span>
+                  @elseif(!empty($row->permiso_autorizado))
+                    <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: bold;">✓ PERMISO</span>
                   @else
                     <span style="color: #94a3b8;">--</span>
                   @endif

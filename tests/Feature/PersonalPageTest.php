@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\ComunicadoPersonalMailable;
 use App\Models\Auditoria;
 use App\Models\Empleado;
+use App\Models\FechaEspecialLaboral;
 use App\Models\RegistroAsistencia;
 use App\Models\User;
 use Carbon\Carbon;
@@ -391,6 +392,117 @@ class PersonalPageTest extends TestCase
         $this->assertStringContainsString('row-falta', $htmlFalta);
         $this->assertStringContainsString('badge-falta', $htmlFalta);
         $this->assertStringContainsString('Falta', $htmlFalta);
+    }
+
+    public function test_personal_page_reportes_incluyen_feriados_en_la_tabla(): void
+    {
+        $user = $this->crearUsuarioConPermisoPersonal();
+
+        $fechaFeriado = now()->startOfWeek()->subWeeks(2)->addDays(2); // Miércoles
+        $fechaNormal = $fechaFeriado->copy()->subDay(); // Martes
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Carlos',
+            'apellido' => 'Mendoza',
+            'codigo_biometrico' => 'CM-777',
+            'area' => 'Operaciones',
+            'sucursal' => 'Santa Cruz',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => now()->subMonths(3)->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        // Crear marcación para día normal
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => $fechaNormal->toDateString(),
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'tipo_verificacion' => 'Huella',
+            'estado_marcacion' => 'Normal',
+            'created_by' => $user->id,
+        ]);
+
+        // Registrar feriado departamental de Santa Cruz
+        FechaEspecialLaboral::query()->create([
+            'fecha' => $fechaFeriado->toDateString(),
+            'sucursal' => 'Santa Cruz',
+            'nombre' => 'Aniversario de Santa Cruz',
+            'tipo' => 'feriado',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        // 1. Descarga por sucursal Santa Cruz
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->set('inputMarcacionesSucursal', 'Santa Cruz')
+            ->call('aplicarBusquedaMarcaciones')
+            ->call('descargarPdfMarcaciones', 'sucursal')
+            ->assertFileDownloaded();
+
+        // 2. Descarga personal
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->set('inputMarcacionesSearch', 'CM-777')
+            ->call('aplicarBusquedaMarcaciones')
+            ->call('descargarPdfMarcaciones', 'personal')
+            ->assertFileDownloaded();
+
+        // 3. Descarga global
+        Livewire::test('personal-page')
+            ->set('vista', 'marcaciones')
+            ->call('descargarPdfMarcaciones', 'global')
+            ->assertFileDownloaded();
+
+        // 4. Verificar que la vista de PDF renderiza feriados con badge y estilo row-feriado
+        $htmlFeriado = view('pdf.marcaciones-personal', [
+            'periodoLabel' => 'Octubre 2026',
+            'modoReporte' => 'sucursal',
+            'sucursalReporteLabel' => 'Santa Cruz',
+            'fichas' => [
+                [
+                    'empleadoInfo' => ['nombre_completo' => 'Carlos Mendoza', 'area' => 'Operaciones', 'sucursal' => 'Santa Cruz', 'codigo' => 'CM-777'],
+                    'stats' => ['total_faltas' => 0, 'total_omisiones' => 0, 'total_feriados' => 1],
+                    'registros' => [
+                        (object) [
+                            'fecha' => $fechaNormal,
+                            'fecha_formateada' => $fechaNormal->format('d/m/Y'),
+                            'dia' => 'Martes',
+                            'hora_entrada' => '08:30',
+                            'hora_salida' => '16:30',
+                            'horas_trabajadas' => '8h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => 'Puntual',
+                            'estado_marcacion' => 'Completo',
+                            'es_falta' => false,
+                            'es_feriado' => false,
+                        ],
+                        (object) [
+                            'fecha' => $fechaFeriado,
+                            'fecha_formateada' => $fechaFeriado->format('d/m/Y'),
+                            'dia' => 'Miércoles',
+                            'hora_entrada' => '--:--',
+                            'hora_salida' => '--:--',
+                            'horas_trabajadas' => '0h 00m',
+                            'minutos_retraso' => 0,
+                            'retraso_formateado' => '—',
+                            'estado_marcacion' => 'Feriado',
+                            'es_falta' => false,
+                            'es_feriado' => true,
+                            'nombre_feriado' => 'Aniversario de Santa Cruz',
+                        ],
+                    ],
+                ],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('row-feriado', $htmlFeriado);
+        $this->assertStringContainsString('badge-feriado', $htmlFeriado);
+        $this->assertStringContainsString('Aniversario de Santa Cruz', $htmlFeriado);
+        $this->assertStringContainsString('1 feriado(s)', $htmlFeriado);
     }
 
     public function test_personal_page_descarga_pdf_y_excel_control_correctamente(): void
