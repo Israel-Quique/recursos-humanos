@@ -67,13 +67,13 @@ class PlanillaRefrigerioService
         $end = $referenceMonth->copy()->endOfMonth();
         $diasMes = $this->obtenerDiasHabilesMes($referenceMonth);
 
-        // 1. Permisos aprobados en el rango (excluyendo permisos por horas)
+        // 1. Permisos aprobados en el rango. Los de horas justifican omisiones;
+        // los de día completo además generan su propio estado no pagado.
         $permisosQuery = PermisoLaboral::query()
             ->with('empleado')
             ->where(function ($q) {
                 $q->where('estado', 'aprobado')->orWhere('estado', 'Aprobado');
             })
-            ->where('alcance', '!=', 'horas')
             ->whereDate('fecha_inicio', '<=', $end->toDateString())
             ->whereDate('fecha_fin', '>=', $start->toDateString());
 
@@ -149,9 +149,13 @@ class PlanillaRefrigerioService
             // Permisos del empleado
             $permisosEmp = $permisosAprobados->get($empId, collect());
             $permisosPorFecha = [];
+            $omisionesJustificadasPorFecha = [];
 
             foreach ($permisosEmp as $permiso) {
                 if ($permiso->alcance === 'horas') {
+                    if ($permiso->tipo !== 'falta' && $permiso->fecha_inicio) {
+                        $omisionesJustificadasPorFecha[$permiso->fecha_inicio->toDateString()] = true;
+                    }
                     continue;
                 }
 
@@ -266,8 +270,21 @@ class PlanillaRefrigerioService
                 } elseif ($asist) {
                     // Solo una marcación completa genera pago. Entrada o salida faltante = omisión.
                     $norm = $this->analisisAsistencia->normalizarMarcacionAsistencia($asist);
-                    $marcacionCompleta = filled($norm['entrada']) && filled($norm['salida']);
-                    $estado = $marcacionCompleta ? 'a' : ($carbonDia->isToday() ? '' : 'o');
+                    $tieneEntrada = filled($norm['entrada']);
+                    $tieneSalida = filled($norm['salida']);
+                    $marcacionCompleta = $tieneEntrada && $tieneSalida;
+
+                    if ($marcacionCompleta || isset($omisionesJustificadasPorFecha[$fIso])) {
+                        $estado = 'a';
+                    } elseif ($carbonDia->isToday()) {
+                        $estado = '';
+                    } else {
+                        $estado = match (true) {
+                            $tieneEntrada && ! $tieneSalida => 'os',
+                            ! $tieneEntrada && $tieneSalida => 'oe',
+                            default => 'o',
+                        };
+                    }
                 } elseif (isset($permisosPorFecha[$fIso])) {
                     $estado = $permisosPorFecha[$fIso];
                 } else {
@@ -285,8 +302,13 @@ class PlanillaRefrigerioService
                 // Desgloses por tipo - '' (sin dato) y 'a' no se penalizan
                 if ($estado === 'f') {
                     $fechasFaltas[] = ['fecha' => $fCorta, 'detalle' => 'Inasistencia injustificada'];
-                } elseif ($estado === 'o') {
-                    $fechasOmisiones[] = ['fecha' => $fCorta, 'detalle' => 'Omisión de marcado'];
+                } elseif (in_array($estado, ['o', 'oe', 'os'], true)) {
+                    $detalleOmision = match ($estado) {
+                        'oe' => 'Omisión de entrada',
+                        'os' => 'Omisión de salida',
+                        default => 'Omisión de marcado',
+                    };
+                    $fechasOmisiones[] = ['fecha' => $fCorta, 'detalle' => $detalleOmision, 'tipo' => $estado];
                 } elseif ($estado === 'fe') {
                     $motivoFeriado = $fechaEspecial?->nombre ?: 'Feriado o día no laborable';
                     $fechasFeriados[] = ['fecha' => $fCorta, 'detalle' => $motivoFeriado];
@@ -310,6 +332,8 @@ class PlanillaRefrigerioService
                     $detalleNoPagado = match ($estado) {
                         'f' => 'Inasistencia sin permiso',
                         'o' => 'Omisión de entrada o salida',
+                        'oe' => 'Omisión de entrada',
+                        'os' => 'Omisión de salida',
                         'fe' => $fechaEspecial?->nombre ?: 'Feriado o día no laborable',
                         'bm' => 'Baja médica autorizada',
                         'cv' => 'Comisión de viaje laboral',
@@ -327,6 +351,8 @@ class PlanillaRefrigerioService
             // Conteos de días
             $faltasCount = count($fechasFaltas);
             $omisionesCount = count($fechasOmisiones);
+            $omisionesEntradaCount = count(array_filter($fechasOmisiones, fn(array $fecha) => ($fecha['tipo'] ?? '') === 'oe'));
+            $omisionesSalidaCount = count(array_filter($fechasOmisiones, fn(array $fecha) => ($fecha['tipo'] ?? '') === 'os'));
             $permisosCount = count($fechasPermisos);
             $bajasCount = count($fechasBajas);
             $comisionesCount = count($fechasComisiones);
@@ -361,6 +387,8 @@ class PlanillaRefrigerioService
                 // Días individuales acumulados
                 'faltas' => $faltasCount,
                 'omisiones' => $omisionesCount,
+                'omisiones_entrada' => $omisionesEntradaCount,
+                'omisiones_salida' => $omisionesSalidaCount,
                 'permisos' => $permisosCount,
                 'bajas_medicas' => $bajasCount,
                 'comisiones_viaje' => $comisionesCount,
@@ -560,6 +588,8 @@ class PlanillaRefrigerioService
                     if ($st === 'BM') { $st = 'Bm'; }
                     if ($st === 'CV') { $st = 'Cv'; }
                     if ($st === 'FE') { $st = 'Fe'; }
+                    if ($st === 'OE') { $st = 'Oe'; }
+                    if ($st === 'OS') { $st = 'Os'; }
                     $sheet1->setCellValue("{$cLet}{$r}", $st);
 
                     // Colores por celda según simbología
@@ -567,6 +597,8 @@ class PlanillaRefrigerioService
                         'A', 'P' => 'DCFCE7',
                         'F' => 'FEE2E2',
                         'O' => 'FEF3C7',
+                        'Oe' => 'FFEDD5',
+                        'Os' => 'FEF3C7',
                         'Bm' => 'DBEAFE',
                         'Cv' => 'EDE9FE',
                         'Fe' => 'E2E8F0',
@@ -576,6 +608,8 @@ class PlanillaRefrigerioService
                         'A', 'P' => '15803D',
                         'F' => '991B1B',
                         'O' => '9A3412',
+                        'Oe' => '9A3412',
+                        'Os' => '92400E',
                         'Bm' => '1D4ED8',
                         'Cv' => '6D28D9',
                         'Fe' => '334155',
@@ -660,6 +694,8 @@ class PlanillaRefrigerioService
             ['code' => 'A', 'bg' => 'DCFCE7', 'txt' => '15803D', 'name' => 'Asistencia', 'desc' => 'Entrada y salida completas: día pagado.'],
             ['code' => 'F', 'bg' => 'FEE2E2', 'txt' => '991B1B', 'name' => 'Falta', 'desc' => 'No asistió a su jornada.'],
             ['code' => 'O', 'bg' => 'FEF3C7', 'txt' => '9A3412', 'name' => 'Omisión', 'desc' => 'No registró entrada o salida.'],
+            ['code' => 'Oe', 'bg' => 'FFEDD5', 'txt' => '9A3412', 'name' => 'Omisión de entrada', 'desc' => 'Registró salida, pero no entrada.'],
+            ['code' => 'Os', 'bg' => 'FEF3C7', 'txt' => '92400E', 'name' => 'Omisión de salida', 'desc' => 'Registró entrada, pero no salida.'],
             ['code' => 'Bm', 'bg' => 'DBEAFE', 'txt' => '1D4ED8', 'name' => 'Baja médica', 'desc' => 'Incapacidad médica o reposo.'],
             ['code' => 'Cv', 'bg' => 'EDE9FE', 'txt' => '6D28D9', 'name' => 'Comisión de viaje', 'desc' => 'En comisión de trabajo o viaje laboral.'],
             ['code' => 'Fe', 'bg' => 'E2E8F0', 'txt' => '334155', 'name' => 'Feriado / asueto', 'desc' => 'Día no laborable: no genera pago de refrigerio.'],
@@ -735,7 +771,9 @@ class PlanillaRefrigerioService
             // Fila 2: Omisión
             $sheet2->setCellValue("A{$r2}", 'Omisión de registro');
             $sheet2->setCellValue("B{$r2}", (int) ($item['omisiones'] ?? 0));
-            $sheet2->setCellValue("C{$r2}", count($item['fechas_omisiones'] ?? []) > 0 ? collect($item['fechas_omisiones'])->pluck('fecha')->implode(', ') : 'Sin omisiones');
+            $sheet2->setCellValue("C{$r2}", count($item['fechas_omisiones'] ?? []) > 0
+                ? collect($item['fechas_omisiones'])->map(fn($o) => "{$o['fecha']} ({$o['detalle']})")->implode('; ')
+                : 'Sin omisiones');
             $sheet2->getStyle("B{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $rowOmision = $r2;
             $r2++;

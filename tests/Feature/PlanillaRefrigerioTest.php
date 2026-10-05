@@ -137,8 +137,10 @@ class PlanillaRefrigerioTest extends TestCase
 
         // Validar códigos en la matriz
         $this->assertEquals('f', $itemEmp['dias']['2026-09-02'] ?? '');
-        $this->assertEquals('o', $itemEmp['dias']['2026-09-03'] ?? '');
-        $this->assertEquals('o', $itemEmp['dias']['2026-09-04'] ?? '');
+        $this->assertEquals('oe', $itemEmp['dias']['2026-09-03'] ?? '');
+        $this->assertEquals('os', $itemEmp['dias']['2026-09-04'] ?? '');
+        $this->assertEquals(1, $itemEmp['omisiones_entrada']);
+        $this->assertEquals(1, $itemEmp['omisiones_salida']);
         $this->assertEquals('bm', $itemEmp['dias']['2026-09-08'] ?? '');
         $this->assertEquals('bm', $itemEmp['dias']['2026-09-09'] ?? '');
         $this->assertEquals('cv', $itemEmp['dias']['2026-09-15'] ?? '');
@@ -148,7 +150,7 @@ class PlanillaRefrigerioTest extends TestCase
 
     public function test_solo_paga_asistencia_completa_y_jala_feriados_permisos_y_omisiones(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-08 12:00:00'));
+        $this->travelTo(Carbon::parse('2026-09-09 12:00:00'));
 
         $empleado = Empleado::query()->create([
             'nombre' => 'Ana',
@@ -195,6 +197,26 @@ class PlanillaRefrigerioTest extends TestCase
             'estado_marcacion' => 'Entrada',
         ]);
 
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-09-08',
+            'hora_entrada' => null,
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Salida',
+        ]);
+
+        PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'permiso',
+            'alcance' => 'horas',
+            'estado' => 'aprobado',
+            'fecha_inicio' => '2026-09-08',
+            'fecha_fin' => '2026-09-08',
+            'hora_inicio' => '08:30:00',
+            'hora_fin' => '08:30:00',
+            'motivo' => 'JUSTIFICACIÓN POR OMISIÓN DE ENTRADA',
+        ]);
+
         $resultado = app(PlanillaRefrigerioService::class)
             ->calcularPlanilla(Carbon::parse('2026-09-01'), null, 20.00);
         $item = collect($resultado['items'])->firstWhere('empleado_id', $empleado->id);
@@ -202,12 +224,13 @@ class PlanillaRefrigerioTest extends TestCase
         $this->assertSame('a', $item['dias']['2026-09-01']);
         $this->assertSame('fe', $item['dias']['2026-09-02']);
         $this->assertSame('bm', $item['dias']['2026-09-03']);
-        $this->assertSame('o', $item['dias']['2026-09-04']);
+        $this->assertSame('os', $item['dias']['2026-09-04']);
         $this->assertSame('f', $item['dias']['2026-09-07']);
-        $this->assertSame(1, $item['dias_pagados']);
+        $this->assertSame('a', $item['dias']['2026-09-08'], 'La omisión con boleta aprobada no debe descontarse');
+        $this->assertSame(2, $item['dias_pagados']);
         $this->assertSame(1, $item['feriados']);
         $this->assertSame(4, $item['total_dias']);
-        $this->assertEquals(20.00, $item['monto_pagado']);
+        $this->assertEquals(40.00, $item['monto_pagado']);
         $this->assertEquals(80.00, $item['total_monto']);
         $this->assertCount(4, $item['fechas_no_pagadas']);
     }
@@ -463,6 +486,8 @@ class PlanillaRefrigerioTest extends TestCase
         $this->assertStringContainsString('cell-p', $html);
         $this->assertStringContainsString('cell-f', $html);
         $this->assertStringContainsString('cell-o', $html);
+        $this->assertStringContainsString('cell-oe', $html);
+        $this->assertStringContainsString('cell-os', $html);
         $this->assertStringContainsString('cell-a', $html);
         $this->assertStringContainsString('cell-bm', $html);
         $this->assertStringContainsString('cell-cv', $html);

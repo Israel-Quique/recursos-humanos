@@ -152,6 +152,9 @@
       border: 1.5px solid #1e293b !important;
     }
 
+    .cell-oe { background-color: #d1d5db !important; color: #000000 !important; font-weight: 900 !important; border: 2px solid #111827 !important; }
+    .cell-os { background-color: #e5e7eb !important; color: #000000 !important; font-weight: 900 !important; border: 1.5px dashed #111827 !important; }
+
     /* A: Atraso - Celda blanca con subrayado marcador grueso inferior */
     .cell-a {
       background-color: #ffffff !important;
@@ -350,6 +353,8 @@
                 'p'  => 'cell-a-asistencia', // compatibilidad con datos viejos
                 'f'  => 'cell-f',
                 'o'  => 'cell-o',
+                'oe' => 'cell-oe',
+                'os' => 'cell-os',
                 'bm' => 'cell-bm',
                 'cv' => 'cell-cv',
                 'fe' => 'cell-fe',
@@ -361,6 +366,8 @@
                 'p'  => 'A', // compatibilidad con datos viejos
                 'f'  => 'F',
                 'o'  => 'O',
+                'oe' => 'Oe',
+                'os' => 'Os',
                 'bm' => 'Bm',
                 'cv' => 'Cv',
                 'fe' => 'Fe',
@@ -413,9 +420,10 @@
           <div class="legend-desc">Inasistencia injustificada. 1 día no pagado. Fondo negro invertido.</div>
         </td>
         <td>
-          <span class="legend-badge cell-o">O</span>
+          <span class="legend-badge cell-oe">Oe</span>
+          <span class="legend-badge cell-os">Os</span>
           <span class="legend-title">Omisión</span>
-          <div class="legend-desc">Sin registro entrada o salida. 1 día no pagado. Trama gris.</div>
+          <div class="legend-desc">Oe = sin entrada; Os = sin salida. Una boleta aprobada elimina la omisión.</div>
         </td>
         <td>
           <span class="legend-badge cell-bm">Bm</span>

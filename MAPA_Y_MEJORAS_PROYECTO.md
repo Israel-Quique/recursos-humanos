@@ -303,11 +303,12 @@ Hay pruebas específicas para:
 Estado al 5 de octubre de 2026:
 
 ```text
-PlanillaRefrigerioTest: 11 pruebas, 106 verificaciones correctas.
+PlanillaRefrigerioTest: 11 pruebas, 111 verificaciones correctas.
 ReporteReglamentoTest + ReportesMejorasTest: 16 pruebas, 143 verificaciones correctas.
+BoletaConComprobanteTest (casos de omisión): 4 pruebas, 27 verificaciones correctas.
 ```
 
-Regla de refrigerio implementada: solo una jornada con entrada y salida completas genera pago. Faltas, omisiones de entrada o salida, permisos, bajas médicas, comisiones y feriados/asuetos se consolidan como días no pagados. La misma fuente de cálculo alimenta planilla, PDF, Excel y la pestaña Refrigerio de Reportes.
+Regla de refrigerio implementada: una jornada con entrada y salida completas genera pago. Las omisiones se distinguen como `Oe` (sin entrada) y `Os` (sin salida); si existe una boleta por horas aprobada para esa fecha, la omisión queda justificada y la jornada no se descuenta. Faltas, omisiones no justificadas, permisos de día completo, bajas médicas, comisiones y feriados/asuetos se consolidan como días no pagados. La misma fuente de cálculo alimenta planilla, PDF, Excel y la pestaña Refrigerio de Reportes.
 
 Nota del entorno: en esta instalación de PHP para Windows, `is_readable()` devuelve `false` incluso para archivos legibles y PHPUnit rechaza el `bootstrap` configurado. Las pruebas se ejecutaron cargando `vendor/autoload.php` antes de iniciar PHPUnit, sin cambiar código de producción.
 

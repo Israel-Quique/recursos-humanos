@@ -109,7 +109,7 @@ class PlanillaRefrigerioPage extends Component
             $primerItem = $itemsLoaded[0] ?? [];
 
             // Recalcular planillas previas a la regla que incluye feriados y días pagados.
-            if (empty($primerItem['dias'] ?? []) || (int) ($registro->datos['regla_version'] ?? 0) < 2) {
+            if (empty($primerItem['dias'] ?? []) || (int) ($registro->datos['regla_version'] ?? 0) < 3) {
                 $this->jalarDatos(false);
                 return;
             }
@@ -214,7 +214,7 @@ class PlanillaRefrigerioPage extends Component
      * Actualiza el estado de un día específico y recalcula totales en vivo.
      * '' = sin dato biométrico (no penaliza)
      * 'a' = asistencia (no penaliza)
-     * 'f'/'o'/permisos = se penaliza como 1 día no pagado.
+     * 'f'/'o'/'oe'/'os'/permisos = se penaliza como 1 día no pagado.
      */
     public function actualizarEstadoDia(int $index, string $fecha, string $nuevoEstado): void
     {
@@ -266,9 +266,14 @@ class PlanillaRefrigerioPage extends Component
             } elseif ($st === 'f') {
                 $faltas++;
                 $fechasFaltas[] = ['fecha' => $fFormatted, 'detalle' => 'Inasistencia injustificada'];
-            } elseif ($st === 'o') {
+            } elseif (in_array($st, ['o', 'oe', 'os'], true)) {
                 $omisiones++;
-                $fechasOmisiones[] = ['fecha' => $fFormatted, 'detalle' => 'Omisión de marcado'];
+                $detalleOmision = match ($st) {
+                    'oe' => 'Omisión de entrada',
+                    'os' => 'Omisión de salida',
+                    default => 'Omisión de marcado',
+                };
+                $fechasOmisiones[] = ['fecha' => $fFormatted, 'detalle' => $detalleOmision, 'tipo' => $st];
             } elseif ($st === 'fe') {
                 $feriados++;
                 $fechasFeriados[] = ['fecha' => $fFormatted, 'detalle' => 'Feriado o día no laborable'];
@@ -298,6 +303,8 @@ class PlanillaRefrigerioPage extends Component
                     'detalle' => match ($st) {
                         'f' => 'Inasistencia sin permiso',
                         'o' => 'Omisión de entrada o salida',
+                        'oe' => 'Omisión de entrada',
+                        'os' => 'Omisión de salida',
                         'fe' => 'Feriado o día no laborable',
                         'bm' => 'Baja médica autorizada',
                         'cv' => 'Comisión de viaje laboral',
@@ -312,6 +319,8 @@ class PlanillaRefrigerioPage extends Component
 
         $this->items[$index]['faltas'] = $faltas;
         $this->items[$index]['omisiones'] = $omisiones;
+        $this->items[$index]['omisiones_entrada'] = count(array_filter($fechasOmisiones, fn(array $fecha) => ($fecha['tipo'] ?? '') === 'oe'));
+        $this->items[$index]['omisiones_salida'] = count(array_filter($fechasOmisiones, fn(array $fecha) => ($fecha['tipo'] ?? '') === 'os'));
         $this->items[$index]['permisos'] = $permisos;
         $this->items[$index]['bajas_medicas'] = $bajas;
         $this->items[$index]['comisiones_viaje'] = $comisiones;
@@ -392,7 +401,7 @@ class PlanillaRefrigerioPage extends Component
     public function guardarPlanilla(): void
     {
         $datos = [
-            'regla_version' => 2,
+            'regla_version' => 3,
             'items' => $this->items,
             'dias_mes' => $this->diasMes,
             'metricas' => $this->calcularMetricas(),
@@ -526,6 +535,8 @@ class PlanillaRefrigerioPage extends Component
             'a'  => 'Asistencia',
             'f'  => 'Falta',
             'o'  => 'Omisión',
+            'oe' => 'Omisión de entrada',
+            'os' => 'Omisión de salida',
             'fe' => 'Feriado / asueto',
         ];
 

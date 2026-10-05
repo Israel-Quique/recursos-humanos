@@ -107,6 +107,7 @@
           <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-center">
             <span class="text-xs font-semibold text-amber-700 uppercase">Omisiones (Biométrico)</span>
             <p class="mt-1 text-xl font-extrabold text-amber-800">{{ $selectedDetail['omisiones'] ?? 0 }}</p>
+            <p class="mt-1 text-[10px] text-amber-700">Entrada: {{ $selectedDetail['omisiones_entrada'] ?? 0 }} · Salida: {{ $selectedDetail['omisiones_salida'] ?? 0 }}</p>
           </div>
           <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center">
             <span class="text-xs font-semibold text-indigo-700 uppercase">Incidencias y Permisos</span>
@@ -513,6 +514,8 @@
                       ''   => ['class'=>'celda-cuadrito celda-cuadrito-blank', 'td'=>'background-color:#f1f5f9!important;border-right:1px solid #e2e8f0!important;border-bottom:1px solid #e2e8f0!important;opacity:0.7;', 'sel'=>'background-color:transparent!important;color:#94a3b8!important;font-weight:400!important;'],
                       'f'  => ['class'=>'celda-cuadrito celda-cuadrito-f',  'td'=>'background-color:#fee2e2!important;border:2px solid #ef4444!important;',  'sel'=>'background-color:#fee2e2!important;color:#b91c1c!important;font-weight:900!important;'],
                       'o'  => ['class'=>'celda-cuadrito celda-cuadrito-o',  'td'=>'background-color:#fef3c7!important;border:2px solid #f59e0b!important;',  'sel'=>'background-color:#fef3c7!important;color:#b45309!important;font-weight:900!important;'],
+                      'oe' => ['class'=>'celda-cuadrito celda-cuadrito-o',  'td'=>'background-color:#ffedd5!important;border:2px solid #f97316!important;',  'sel'=>'background-color:#ffedd5!important;color:#9a3412!important;font-weight:900!important;'],
+                      'os' => ['class'=>'celda-cuadrito celda-cuadrito-o',  'td'=>'background-color:#fef3c7!important;border:2px solid #d97706!important;',  'sel'=>'background-color:#fef3c7!important;color:#92400e!important;font-weight:900!important;'],
                       'bm' => ['class'=>'celda-cuadrito celda-cuadrito-bm', 'td'=>'background-color:#dbeafe!important;border:2px solid #3b82f6!important;',  'sel'=>'background-color:#dbeafe!important;color:#1d4ed8!important;font-weight:900!important;'],
                       'cv' => ['class'=>'celda-cuadrito celda-cuadrito-cv', 'td'=>'background-color:#ede9fe!important;border:2px solid #8b5cf6!important;',  'sel'=>'background-color:#ede9fe!important;color:#6d28d9!important;font-weight:900!important;'],
                       'fe' => ['class'=>'celda-cuadrito celda-cuadrito-fe', 'td'=>'background-color:#e2e8f0!important;border:2px solid #64748b!important;',  'sel'=>'background-color:#e2e8f0!important;color:#334155!important;font-weight:900!important;'],
@@ -553,6 +556,8 @@
                             $optVal === 'a' => 'A',
                             $optVal === 'f' => 'F',
                             $optVal === 'o' => 'O',
+                            $optVal === 'oe' => 'Oe',
+                            $optVal === 'os' => 'Os',
                             $optVal === 'fe' => 'Fe',
                             $optVal === 'bm' || str_contains($optVal, 'baja') => 'Bm',
                             $optVal === 'cv' || str_contains($optVal, 'comision') => 'Cv',
@@ -660,12 +665,28 @@
               <span class="w-8 h-8 rounded-lg bg-[#fef3c7] text-[#b45309] font-black text-sm flex items-center justify-center border border-amber-300 shadow-xs">O</span>
               <span class="font-extrabold text-slate-900 text-xs uppercase">Omisión</span>
             </div>
-            <p class="text-[11px] text-slate-600 leading-snug">No registró entrada o salida.</p>
+            <p class="text-[11px] text-slate-600 leading-snug">Código genérico conservado para ajustes manuales antiguos.</p>
+          </div>
+
+          <div class="rounded-xl border border-orange-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 font-black text-xs flex items-center justify-center border border-orange-300">Oe</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Sin entrada</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">Tiene salida, pero falta la marcación de entrada.</p>
+          </div>
+
+          <div class="rounded-xl border border-amber-200 bg-white p-3 shadow-2xs flex flex-col justify-between">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center border border-amber-300">Os</span>
+              <span class="font-extrabold text-slate-900 text-xs uppercase">Sin salida</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">Tiene entrada, pero falta la marcación de salida.</p>
           </div>
 
           {{-- Tipos dinámicos de permisos (Jalados desde Incidencias y Permisos) --}}
           @foreach(($tiposEstados ?? []) as $tKey => $tLabel)
-            @if(!in_array($tKey, ['a','f','o']))
+            @if(!in_array($tKey, ['a','f','o','oe','os']))
               @php
                 $siglaLabel = match(true) {
                   $tKey === 'bm' || str_contains($tKey, 'baja') || str_contains(mb_strtolower($tLabel), 'baja') => 'Bm',
@@ -748,6 +769,7 @@
               <div class="flex items-center gap-2">
                 <span class="h-2 w-2 rounded-full bg-amber-500"></span>
                 <span class="font-bold text-amber-900">Omisión</span>
+                <span class="text-[10px] text-amber-700">E: {{ $item['omisiones_entrada'] ?? 0 }} · S: {{ $item['omisiones_salida'] ?? 0 }}</span>
               </div>
               <div class="flex items-center gap-1.5">
                 <input type="number" min="0" max="31"
