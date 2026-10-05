@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use App\Services\AnalisisAsistenciaService;
 use App\Services\AnalisisReglamentoReporteService;
+use App\Services\PlanillaRefrigerioService;
 use App\Support\SucursalNormalizer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Cache;
@@ -112,6 +113,7 @@ class ReportesPage extends Component
         $monthlyReport = $analysis->resumenMensualReporte($referenceMonth, $this->selectedBranch);
         $incidents = $analysis->incidenciasPorRango($rangeStart, $rangeEnd, $this->selectedBranch);
         $reporteSucursales = $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch);
+        $reporteRefrigerio = app(PlanillaRefrigerioService::class)->calcularPlanilla($referenceMonth, $this->selectedBranch);
         $branchLabel = $this->selectedBranch !== '' ? $this->selectedBranch : 'Todas las sucursales';
 
         $pdf = Pdf::loadView('pdf.reportes-general', [
@@ -121,6 +123,7 @@ class ReportesPage extends Component
             'monthlyReport' => $monthlyReport,
             'incidents' => $incidents,
             'reporteSucursales' => $reporteSucursales,
+            'reporteRefrigerio' => $reporteRefrigerio,
         ])->setPaper('a4');
 
         $fileName = 'reporte-general-asistencia-'.Str::slug($branchLabel).'-'.$referenceMonth->format('Y-m').'.pdf';
@@ -231,6 +234,30 @@ class ReportesPage extends Component
             1800,
             fn() => $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch)
         );
+
+        // Misma fuente de verdad que la planilla: asistencia completa paga;
+        // feriados, permisos, faltas y omisiones no pagan refrigerio.
+        $reporteRefrigerio = app(PlanillaRefrigerioService::class)->calcularPlanilla(
+            $referenceMonth,
+            $this->selectedBranch
+        );
+        $itemsRefrigerio = collect($reporteRefrigerio['items'] ?? [])
+            ->filter(fn(array $item) => (int) ($item['total_dias'] ?? 0) > 0);
+
+        if (filled($this->search)) {
+            $term = Str::ascii(Str::lower(trim($this->search)));
+            $itemsRefrigerio = $itemsRefrigerio->filter(function (array $item) use ($term) {
+                $nombre = Str::ascii(Str::lower($item['nombre'] ?? ''));
+                $codigo = Str::ascii(Str::lower((string) ($item['codigo'] ?? '')));
+                $sucursal = Str::ascii(Str::lower($item['sucursal'] ?? ''));
+
+                return str_contains($nombre, $term)
+                    || str_contains($codigo, $term)
+                    || str_contains($sucursal, $term);
+            });
+        }
+
+        $reporteRefrigerio['items_no_pagados'] = $itemsRefrigerio->values()->all();
 
         // --- FILTRADO Y ORDENACIÓN DE ATRASOS ---
         $atrasosItems = collect($reporteAtrasoOmision['atrasos'] ?? []);
@@ -407,6 +434,7 @@ class ReportesPage extends Component
             'omisionesStats'       => $omisionesStats,
             'reportePersonal'      => $reportePersonal,
             'reporteSucursales'    => $reporteSucursales,
+            'reporteRefrigerio'    => $reporteRefrigerio,
             'reporteReglamento'    => $this->obtenerReporteReglamento($reporteAtrasoOmision),
             'funcionarioReglamentoConsultado' => $funcionarioReglamentoConsultado,
             'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,

@@ -1,0 +1,18 @@
+.git/
+.env
+.env.*
+.python-packages/
+vendor/
+node_modules/
+storage/
+bootstrap/cache/
+public/css/app.css
+public/build/
+graphify-out/cache/
+graphify-out/costs*
+graphify-out/manifest*
+FOTOS PARA CREDENCIALES/
+*.mp4
+*.xlsx
+*.csv
+exit

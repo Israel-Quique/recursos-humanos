@@ -53,3 +53,5 @@ FOTOS PARA CREDENCIALES/
 *.mp4
 /VIDEO_ASISTENCIA.mp4
 
+# Graphify
+graphify-out/

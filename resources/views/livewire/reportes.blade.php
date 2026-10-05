@@ -288,6 +288,15 @@
         <span class="report-tab-badge report-tab-badge-rose">{{ $totalOmisiones }}</span>
       @endif
     </button>
+    <button type="button" role="tab" :aria-selected="tab === 'refrigerio'" @click="tab = 'refrigerio'"
+      :class="tab === 'refrigerio' ? 'report-tab-button-active' : ''"
+      class="report-tab-button" id="tab-refrigerio">
+      <svg xmlns="http://www.w3.org/2000/svg" class="report-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V3"/><path d="M8 3v4M12 3v4M16 3v4M7 21h10"/></svg>
+      <span>Refrigerio</span>
+      @if(($reporteRefrigerio['metricas']['gran_total_dias'] ?? 0) > 0)
+        <span class="report-tab-badge report-tab-badge-rose">{{ $reporteRefrigerio['metricas']['gran_total_dias'] }}</span>
+      @endif
+    </button>
     <button type="button" role="tab" :aria-selected="tab === 'cumpleanos'" @click="tab = 'cumpleanos'"
       :class="tab === 'cumpleanos' ? 'report-tab-button-active' : ''"
       class="report-tab-button" id="tab-cumpleanos">
@@ -971,6 +980,86 @@
           {{ $detalleOmisiones->links() }}
         </div>
       @endif
+    </section>
+  </div>
+
+  {{-- ============================================================ --}}
+  {{-- REPORTE DE DÍAS PAGADOS Y NO PAGADOS DE REFRIGERIO           --}}
+  {{-- ============================================================ --}}
+  <div x-show="tab === 'refrigerio'" x-transition.opacity.duration.200ms role="tabpanel">
+    <section class="mb-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Días pagados</p>
+        <p class="mt-2 text-2xl font-bold text-emerald-900">{{ $reporteRefrigerio['metricas']['gran_total_dias_pagados'] ?? 0 }}</p>
+        <p class="text-xs text-emerald-700 mt-1">Solo asistencia completa</p>
+      </div>
+      <div class="rounded-2xl border border-emerald-300 bg-emerald-900 p-4 text-center text-white shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-200">Monto a pagar</p>
+        <p class="mt-2 text-2xl font-bold">Bs. {{ number_format($reporteRefrigerio['metricas']['gran_total_monto_pagado'] ?? 0, 2) }}</p>
+        <p class="text-xs text-emerald-200 mt-1">Refrigerio efectivamente ganado</p>
+      </div>
+      <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Días no pagados</p>
+        <p class="mt-2 text-2xl font-bold text-rose-900">{{ $reporteRefrigerio['metricas']['gran_total_dias'] ?? 0 }}</p>
+        <p class="text-xs text-rose-700 mt-1">Faltas, omisiones, permisos y feriados</p>
+      </div>
+      <div class="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 text-center shadow-xs">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-sky-700">Feriados / asuetos</p>
+        <p class="mt-2 text-2xl font-bold text-sky-900">{{ $reporteRefrigerio['metricas']['total_feriados'] ?? 0 }}</p>
+        <p class="text-xs text-sky-700 mt-1">No generan pago</p>
+      </div>
+    </section>
+
+    <section class="surface-card">
+      <div class="history-header">
+        <div>
+          <p class="section-kicker">Planilla de refrigerio</p>
+          <h2 class="section-title">Días sin pago por funcionario</h2>
+        </div>
+        <p class="section-copy-sm">{{ $monthLabel }}</p>
+      </div>
+
+      <div class="mt-6 overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-600">
+            <tr>
+              <th class="px-4 py-3">Funcionario</th>
+              <th class="px-4 py-3">Sucursal</th>
+              <th class="px-4 py-3 text-center">Días pagados</th>
+              <th class="px-4 py-3 text-right">A pagar</th>
+              <th class="px-4 py-3 text-center">No pagados</th>
+              <th class="px-4 py-3">Detalle</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            @forelse(($reporteRefrigerio['items_no_pagados'] ?? []) as $item)
+              <tr class="align-top hover:bg-slate-50/70">
+                <td class="px-4 py-3 font-semibold text-slate-900">
+                  {{ $item['nombre'] }}
+                  <div class="text-xs font-normal text-slate-500">{{ $item['codigo'] }}</div>
+                </td>
+                <td class="px-4 py-3 text-slate-600">{{ $item['sucursal'] }}</td>
+                <td class="px-4 py-3 text-center font-bold text-emerald-800">{{ $item['dias_pagados'] ?? 0 }}</td>
+                <td class="px-4 py-3 text-right font-bold text-emerald-800">Bs. {{ number_format($item['monto_pagado'] ?? 0, 2) }}</td>
+                <td class="px-4 py-3 text-center font-bold text-rose-800">{{ $item['total_dias'] ?? 0 }}</td>
+                <td class="px-4 py-3 text-slate-600">
+                  <div class="flex max-w-xl flex-wrap gap-1.5">
+                    @foreach(($item['fechas_no_pagadas'] ?? []) as $fecha)
+                      <span class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs">
+                        <strong>{{ strtoupper($fecha['tipo'] ?? '') }}</strong> · {{ $fecha['fecha'] ?? '' }} · {{ $fecha['detalle'] ?? '' }}
+                      </span>
+                    @endforeach
+                  </div>
+                </td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="6" class="px-4 py-10 text-center text-slate-400">No existen días sin pago para los filtros seleccionados.</td>
+              </tr>
+            @endforelse
+          </tbody>
+        </table>
+      </div>
     </section>
   </div>
 

@@ -349,6 +349,48 @@
       <p style="text-align: center; color: #94a3b8; padding: 20px;">No se encontraron registros de sucursales para el periodo seleccionado.</p>
     @endforelse
 
+    <div class="branch-block" style="page-break-before: always;">
+      <table class="branch-header-table">
+        <tr>
+          <td><span class="branch-header-title">Refrigerio: días pagados y no pagados</span></td>
+          <td class="branch-header-meta">
+            Pagados: <strong>{{ $reporteRefrigerio['metricas']['gran_total_dias_pagados'] ?? 0 }}</strong> &bull;
+            No pagados: <strong>{{ $reporteRefrigerio['metricas']['gran_total_dias'] ?? 0 }}</strong> &bull;
+            Feriados: <strong>{{ $reporteRefrigerio['metricas']['total_feriados'] ?? 0 }}</strong>
+          </td>
+        </tr>
+      </table>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Funcionario</th>
+            <th>Sucursal</th>
+            <th class="text-center">Días pagados</th>
+            <th class="text-right">A pagar</th>
+            <th class="text-center">Días no pagados</th>
+            <th>Detalle no pagado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse(collect($reporteRefrigerio['items'] ?? [])->filter(fn($item) => ($item['total_dias'] ?? 0) > 0) as $item)
+            <tr>
+              <td class="font-bold">{{ $item['nombre'] }} <span class="font-mono">({{ $item['codigo'] }})</span></td>
+              <td>{{ $item['sucursal'] }}</td>
+              <td class="text-center">{{ $item['dias_pagados'] ?? 0 }}</td>
+              <td class="text-right">Bs. {{ number_format($item['monto_pagado'] ?? 0, 2) }}</td>
+              <td class="text-center font-bold">{{ $item['total_dias'] ?? 0 }}</td>
+              <td>
+                {{ collect($item['fechas_no_pagadas'] ?? [])->map(fn($fecha) => ($fecha['fecha'] ?? '').' '.strtoupper($fecha['tipo'] ?? '').': '.($fecha['detalle'] ?? ''))->implode('; ') }}
+              </td>
+            </tr>
+          @empty
+            <tr class="empty-row"><td colspan="6">No existen días de refrigerio no pagados en el período.</td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+
     <div class="footer">
       Documento institucional oficial · Cómputo verificado por Recursos Humanos · Correos de Bolivia
     </div>

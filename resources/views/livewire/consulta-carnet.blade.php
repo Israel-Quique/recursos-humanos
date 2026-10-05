@@ -288,7 +288,7 @@
             </div>
           </div>
 
-          {{-- SECCIÓN: COMPROBANTE / FOTO DE JUSTIFICACIÓN OBLIGATORIA --}}
+          {{-- SECCIÓN: COMPROBANTE / FOTO DE JUSTIFICACIÓN (DESACTIVADO TEMPORALMENTE)
           <div class="rounded-xl border-2 {{ $errors->has('comprobante') ? 'border-rose-300 bg-rose-50/40' : 'border-indigo-200 bg-indigo-50/30' }} p-4 space-y-3">
             <div class="flex items-center justify-between">
               <div>
@@ -377,6 +377,7 @@
               </p>
             @enderror
           </div>
+          --}}
 
           {{-- BANNER DE REGLA 48 HORAS PARA OMISIÓN / RETRASO --}}
           @if ($this->plazo48HorasInfo['aplica'])
@@ -416,7 +417,7 @@
             && filled(trim($boletaHastaFecha))
             && ($this->esRangoDias || filled(trim($boletaHastaHora)))
             && filled(trim($boletaTiempoSolicitado))
-            && !empty($comprobante)
+            // && !empty($comprobante) // Temporalmente desactivado (comprobante no obligatorio)
             && !$this->plazo48HorasInfo['vencido'];
         @endphp
 
@@ -446,7 +447,7 @@
             @else
               <div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
                 <svg class="h-4 w-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>Completa el motivo y sube la foto del comprobante para habilitar el envío</span>
+                <span>Completa el motivo y los datos requeridos para habilitar el envío</span>
               </div>
             @endif
           </div>

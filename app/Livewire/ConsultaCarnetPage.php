@@ -644,7 +644,7 @@ class ConsultaCarnetPage extends Component
         }
     }
 
-    public function payloadBoleta(bool $requiereComprobante = true): array
+    public function payloadBoleta(bool $requiereComprobante = false): array
     {
         $esRangoDias = $this->esRangoDias;
 
@@ -661,7 +661,7 @@ class ConsultaCarnetPage extends Component
             'boletaTiempoSolicitado' => ['required', 'string', 'max:50'],
             'boletaCiudad' => ['required', 'string', 'max:60'],
             'boletaFechaTexto' => ['required', 'string', 'max:80'],
-            'comprobante' => $requiereComprobante ? ['required', 'image', 'max:5120'] : ['nullable'],
+            'comprobante' => $requiereComprobante ? ['required', 'image', 'max:5120'] : ['nullable', 'image', 'max:5120'],
         ], [
             'boletaNombre.required' => 'Ingresa el nombre del funcionario.',
             'boletaCi.required' => 'Ingresa el carnet del funcionario.',
@@ -794,37 +794,44 @@ class ConsultaCarnetPage extends Component
             'created_by' => null, // Solicitado directamente por el empleado
         ]);
 
-        // 2. Almacenar la foto del comprobante en disco seguro
-        $extension = $this->comprobante->getClientOriginalExtension() ?: 'jpg';
-        $nombreOriginal = $this->comprobante->getClientOriginalName();
-        $rutaArchivo = $this->comprobante->storeAs(
-            'comprobantes',
-            'comprobante_' . $permiso->id . '_' . time() . '.' . $extension,
-            'public'
-        );
+        // 2. Almacenar la foto del comprobante en disco seguro (si se proporcionó)
+        $comprobanteRegistro = null;
+        $rutaArchivo = null;
 
-        $mimeType = $this->comprobante->getMimeType() ?: 'image/' . $extension;
-        $tamanoBytes = $this->comprobante->getSize();
-        $realPath = $this->comprobante->getRealPath();
-        $contenidoBinario = $realPath && file_exists($realPath) ? file_get_contents($realPath) : null;
-        $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
+        if ($this->comprobante) {
+            $extension = $this->comprobante->getClientOriginalExtension() ?: 'jpg';
+            $nombreOriginal = $this->comprobante->getClientOriginalName();
+            $rutaArchivo = $this->comprobante->storeAs(
+                'comprobantes',
+                'comprobante_' . $permiso->id . '_' . time() . '.' . $extension,
+                'public'
+            );
 
-        $comprobanteRegistro = PermisoComprobante::query()->create([
-            'permiso_laboral_id' => $permiso->id,
-            'ruta_archivo' => $rutaArchivo,
-            'archivo_binario' => null,
-            'archivo_base64' => $contenidoBase64,
-            'nombre_original' => $nombreOriginal,
-            'mime_type' => $mimeType,
-            'tamano_bytes' => $tamanoBytes,
-            'created_by' => null,
-        ]);
+            $mimeType = $this->comprobante->getMimeType() ?: 'image/' . $extension;
+            $tamanoBytes = $this->comprobante->getSize();
+            $realPath = $this->comprobante->getRealPath();
+            $contenidoBinario = $realPath && file_exists($realPath) ? file_get_contents($realPath) : null;
+            $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
+
+            $comprobanteRegistro = PermisoComprobante::query()->create([
+                'permiso_laboral_id' => $permiso->id,
+                'ruta_archivo' => $rutaArchivo,
+                'archivo_binario' => null,
+                'archivo_base64' => $contenidoBase64,
+                'nombre_original' => $nombreOriginal,
+                'mime_type' => $mimeType,
+                'tamano_bytes' => $tamanoBytes,
+                'created_by' => null,
+            ]);
+        }
 
         // 3. Registrar en Auditoría
         app(AuditoriaService::class)->registrar(
             'Incidencias',
             'solicitar_boleta_empleado',
-            'El funcionario envió una solicitud de boleta con comprobante adjunto desde el portal.',
+            $comprobanteRegistro
+                ? 'El funcionario envió una solicitud de boleta con comprobante adjunto desde el portal.'
+                : 'El funcionario envió una solicitud de boleta desde el portal.',
             $permiso,
             null,
             [
@@ -832,7 +839,7 @@ class ConsultaCarnetPage extends Component
                 'empleado' => $empleado->nombre_completo,
                 'ci' => $empleado->codigo_biometrico ?: $this->carnet,
                 'email' => $empleado->email,
-                'comprobante' => $comprobanteRegistro->nombre_original,
+                'comprobante' => $comprobanteRegistro?->nombre_original,
                 'ruta' => $rutaArchivo,
             ]
         );
@@ -850,8 +857,12 @@ class ConsultaCarnetPage extends Component
         $this->comprobante = null;
 
         $notificacionMsg = $empleado->email
-            ? "Boleta y comprobante enviados a Recursos Humanos. Te llegará la notificación a: {$empleado->email}."
-            : 'Boleta y comprobante enviados correctamente a Recursos Humanos.';
+            ? ($comprobanteRegistro
+                ? "Boleta y comprobante enviados a Recursos Humanos. Te llegará la notificación a: {$empleado->email}."
+                : "Boleta enviada a Recursos Humanos. Te llegará la notificación a: {$empleado->email}.")
+            : ($comprobanteRegistro
+                ? 'Boleta y comprobante enviados correctamente a Recursos Humanos.'
+                : 'Boleta enviada correctamente a Recursos Humanos.');
 
         session()->flash('status', $notificacionMsg);
 

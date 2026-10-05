@@ -329,14 +329,11 @@
                 </td>
                 <td>
                   @if(!empty($row->es_feriado))
-                    <span class="badge" style="background-color: #ede9fe; color: #5b21b6; border: 1px solid #8b5cf6;">FERIADO</span>
-                    @if(!empty($row->nombre_feriado) && $row->nombre_feriado !== 'Feriado')
-                      <span class="cod-sub" style="color: #6d28d9; display: block; font-size: 7px; margin-top: 1px;">{{ $row->nombre_feriado }}</span>
-                    @endif
+                    <span class="badge" style="background-color: #ede9fe; color: #5b21b6; border: 1px solid #8b5cf6;">FERIADO{{ (!empty($row->nombre_feriado) && $row->nombre_feriado !== 'Feriado') ? ': ' . \Illuminate\Support\Str::limit($row->nombre_feriado, 12) : '' }}</span>
                   @elseif($row->es_falta)
                     <span class="badge badge-danger">FALTA</span>
                   @elseif(!empty($row->permiso_autorizado))
-                    <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: bold;">✓ PERMISO</span>
+                    <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: bold;">{{ strtoupper($row->tipo_permiso_label ?? 'PERMISO') }}</span>
                   @else
                     <span style="color: #94a3b8;">--</span>
                   @endif
@@ -363,18 +360,5 @@
         </tbody>
       </table>
     @endforelse
-
-    <table class="signatures">
-      <tr>
-        <td>
-          <div class="sign-line">Responsable de Recursos Humanos</div>
-          <div class="sign-title">Control y Validación de Asistencia</div>
-        </td>
-        <td>
-          <div class="sign-line">Jefatura / Responsable de Sucursal</div>
-          <div class="sign-title">Revisión de Asistencia Regional</div>
-        </td>
-      </tr>
-    </table>
   </body>
 </html>

@@ -178,6 +178,14 @@
       border: 1.5px dashed #000000 !important;
     }
 
+    /* Fe: Feriado o asueto - gris con borde grueso */
+    .cell-fe {
+      background-color: #cbd5e1 !important;
+      color: #000000 !important;
+      font-weight: 900 !important;
+      border: 2px solid #475569 !important;
+    }
+
     /* Filas de totales */
     .total-row td {
       background-color: #f8fafc;
@@ -318,6 +326,8 @@
 
         <th class="th-summary-dias">Días Desc.</th>
         <th class="th-summary-monto">A No Pagar (Bs.)</th>
+        <th class="th-summary-dias">Días Pag.</th>
+        <th class="th-summary-monto">A Pagar (Bs.)</th>
       </tr>
     </thead>
     <tbody>
@@ -342,6 +352,7 @@
                 'o'  => 'cell-o',
                 'bm' => 'cell-bm',
                 'cv' => 'cell-cv',
+                'fe' => 'cell-fe',
                 default => 'cell-perm',
               };
               $cellCode = match($st) {
@@ -352,6 +363,7 @@
                 'o'  => 'O',
                 'bm' => 'Bm',
                 'cv' => 'Cv',
+                'fe' => 'Fe',
                 default => strtoupper(substr($st,0,2)),
               };
             @endphp
@@ -364,10 +376,12 @@
           <td class="text-right font-bold" style="background: {{ $hasDiscount ? '#f1f5f9' : 'transparent' }}; padding-right: 3px; color: {{ $hasDiscount ? '#000000' : '#94a3b8' }};">
             Bs. {{ number_format($item['total_monto'] ?? 0, 2) }}
           </td>
+          <td class="font-bold text-center" style="background: #f0fdf4; color: #166534;">{{ $item['dias_pagados'] ?? 0 }} d</td>
+          <td class="text-right font-bold" style="background: #f0fdf4; color: #166534; padding-right: 3px;">Bs. {{ number_format($item['monto_pagado'] ?? 0, 2) }}</td>
         </tr>
       @empty
         <tr>
-          <td colspan="{{ count($diasMes) + 4 }}" class="text-center" style="padding: 12px;">No se encontraron registros de personal.</td>
+          <td colspan="{{ count($diasMes) + 6 }}" class="text-center" style="padding: 12px;">No se encontraron registros de personal.</td>
         </tr>
       @endforelse
     </tbody>
@@ -377,6 +391,8 @@
         <td colspan="{{ count($diasMes) }}"></td>
         <td class="text-center font-bold" style="background: #e2e8f0; border-left: 2px solid #000000;">{{ $metricas['gran_total_dias'] }} d</td>
         <td class="text-right font-bold" style="background: #cbd5e1; padding-right: 3px;">Bs. {{ number_format($metricas['gran_total_monto'], 2) }}</td>
+        <td class="text-center font-bold" style="background: #dcfce7;">{{ $metricas['gran_total_dias_pagados'] ?? 0 }} d</td>
+        <td class="text-right font-bold" style="background: #bbf7d0; padding-right: 3px;">Bs. {{ number_format($metricas['gran_total_monto_pagado'] ?? 0, 2) }}</td>
       </tr>
     </tfoot>
   </table>
@@ -410,6 +426,11 @@
           <span class="legend-badge cell-cv">Cv</span>
           <span class="legend-title">Comisión viaje</span>
           <div class="legend-desc">Comisión o viaje laboral. 1 día no pagado. Borde discontinuo.</div>
+        </td>
+        <td>
+          <span class="legend-badge cell-fe">Fe</span>
+          <span class="legend-title">Feriado / asueto</span>
+          <div class="legend-desc">Día no laborable. No genera pago de refrigerio.</div>
         </td>
         <td style="border-right: none;">
           <span class="legend-badge cell-perm">Px</span>

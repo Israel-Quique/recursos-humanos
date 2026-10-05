@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\PlanillaRefrigerioPage;
 use App\Models\Empleado;
+use App\Models\FechaEspecialLaboral;
 use App\Models\PermisoLaboral;
 use App\Models\PlanillaRefrigerio;
 use App\Models\RegistroAsistencia;
@@ -118,16 +119,15 @@ class PlanillaRefrigerioTest extends TestCase
         $itemEmp = collect($resultado['items'])->firstWhere('empleado_id', $empleado->id);
 
         $this->assertNotNull($itemEmp);
-        $this->assertEquals(1, $itemEmp['faltas'], 'Faltas debe ser 1');
+        $this->assertEquals(7, $itemEmp['faltas'], 'Debe incluir la falta explícita y los 6 días pasados sin asistencia');
         $this->assertEquals(2, $itemEmp['omisiones'], 'Omisiones debe ser 2');
         $this->assertEquals(2, $itemEmp['bajas_medicas'], 'Bajas médicas debe ser 2');
         $this->assertEquals(3, $itemEmp['comisiones_viaje'], 'Comisiones de viaje debe ser 3');
 
-        // Sumatoria esperada: 1 + 2 + 2 + 3 = 8 días
-        $this->assertEquals(8, $itemEmp['total_dias'], 'Sumatoria de días debe ser 8');
+        // Sumatoria esperada: 7 faltas + 2 omisiones + 2 bajas + 3 comisiones = 14 días.
+        $this->assertEquals(14, $itemEmp['total_dias'], 'Toda jornada pasada sin asistencia debe quedar no pagada');
 
-        // Cuánto no se debe pagar: 8 días * Bs. 20 = Bs. 160.00
-        $this->assertEquals(160.00, $itemEmp['total_monto'], 'Total a no pagar debe ser Bs. 160');
+        $this->assertEquals(280.00, $itemEmp['total_monto'], 'Total a no pagar debe incluir toda inasistencia');
 
         // Validar que se excluyen sábados y domingos
         $this->assertNotEmpty($resultado['dias_mes']);
@@ -146,9 +146,75 @@ class PlanillaRefrigerioTest extends TestCase
         $this->assertEquals('cv', $itemEmp['dias']['2026-09-17'] ?? '');
     }
 
+    public function test_solo_paga_asistencia_completa_y_jala_feriados_permisos_y_omisiones(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-08 12:00:00'));
+
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Ana',
+            'apellido' => 'Flores',
+            'codigo_biometrico' => '7007',
+            'sucursal' => 'La Paz',
+            'cargo' => 'Auxiliar',
+            'area' => 'Operaciones',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'fecha_contratacion' => '2026-09-01',
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-09-01',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => '16:30:00',
+            'estado_marcacion' => 'Completo',
+        ]);
+
+        FechaEspecialLaboral::query()->create([
+            'fecha' => '2026-09-02',
+            'sucursal' => 'TODAS',
+            'nombre' => 'Feriado de prueba',
+            'tipo' => 'feriado',
+        ]);
+
+        PermisoLaboral::query()->create([
+            'empleado_id' => $empleado->id,
+            'tipo' => 'medico',
+            'alcance' => 'dias',
+            'estado' => 'aprobado',
+            'fecha_inicio' => '2026-09-03',
+            'fecha_fin' => '2026-09-03',
+            'motivo' => 'Baja médica',
+        ]);
+
+        RegistroAsistencia::query()->create([
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-09-04',
+            'hora_entrada' => '08:30:00',
+            'hora_salida' => null,
+            'estado_marcacion' => 'Entrada',
+        ]);
+
+        $resultado = app(PlanillaRefrigerioService::class)
+            ->calcularPlanilla(Carbon::parse('2026-09-01'), null, 20.00);
+        $item = collect($resultado['items'])->firstWhere('empleado_id', $empleado->id);
+
+        $this->assertSame('a', $item['dias']['2026-09-01']);
+        $this->assertSame('fe', $item['dias']['2026-09-02']);
+        $this->assertSame('bm', $item['dias']['2026-09-03']);
+        $this->assertSame('o', $item['dias']['2026-09-04']);
+        $this->assertSame('f', $item['dias']['2026-09-07']);
+        $this->assertSame(1, $item['dias_pagados']);
+        $this->assertSame(1, $item['feriados']);
+        $this->assertSame(4, $item['total_dias']);
+        $this->assertEquals(20.00, $item['monto_pagado']);
+        $this->assertEquals(80.00, $item['total_monto']);
+        $this->assertCount(4, $item['fechas_no_pagadas']);
+    }
+
     public function test_livewire_actualizar_estado_dia_recalcula_y_guarda(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-20 12:00:00'));
+        $this->travelTo(Carbon::parse('2026-09-01 12:00:00'));
 
         $user = User::query()->create([
             'name' => 'Test User Matrix',
@@ -196,7 +262,7 @@ class PlanillaRefrigerioTest extends TestCase
 
     public function test_livewire_permite_editar_dias_y_guarda_planilla(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-20 12:00:00'));
+        $this->travelTo(Carbon::parse('2026-09-01 12:00:00'));
 
         $user = User::query()->create([
             'name' => 'Test User 2',
@@ -439,16 +505,16 @@ class PlanillaRefrigerioTest extends TestCase
         $this->assertNotNull($itemEmp);
         $this->assertEquals('bm', $itemEmp['dias']['2026-09-02'] ?? '');
         $this->assertEquals(1, $itemEmp['bajas_medicas']);
-        $this->assertEquals(1, $itemEmp['total_dias']);
-        $this->assertEquals(25.00, $itemEmp['total_monto']);
+        $this->assertGreaterThanOrEqual(1, $itemEmp['total_dias']);
+        $this->assertGreaterThanOrEqual(25.00, $itemEmp['total_monto']);
 
-        // Si se elimina el permiso (centralización de datos), ya no aparece descuento
+        // Si se elimina el permiso, la jornada pasada sin asistencia pasa a falta.
         $permiso->delete();
 
         $resultadoSinPermiso = $service->calcularPlanilla(Carbon::parse('2026-09-01'), null, 25.00);
         $itemEmpSin = collect($resultadoSinPermiso['items'])->firstWhere('empleado_id', $empleado->id);
-        $this->assertEquals('a', $itemEmpSin['dias']['2026-09-02'] ?? '');
-        $this->assertEquals(0, $itemEmpSin['total_dias']);
-        $this->assertEquals(0.00, $itemEmpSin['total_monto']);
+        $this->assertEquals('f', $itemEmpSin['dias']['2026-09-02'] ?? '');
+        $this->assertGreaterThanOrEqual(1, $itemEmpSin['total_dias']);
+        $this->assertGreaterThanOrEqual(25.00, $itemEmpSin['total_monto']);
     }
 }

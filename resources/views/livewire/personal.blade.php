@@ -2023,8 +2023,8 @@
                     @endif
                   </td>
                   <td class="text-center">
-                    @if(!empty($item['permiso_autorizado']) && str_contains(strtolower($item['estado'] ?? ''), 'permiso'))
-                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold">✓ Permiso Autorizado</span>
+                    @if(!empty($item['permiso_autorizado']) || str_contains(strtolower($item['estado'] ?? ''), 'permiso') || str_contains(strtolower($item['estado'] ?? ''), 'baja') || str_contains(strtolower($item['estado'] ?? ''), 'médic'))
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold">✓ {{ $item['estado'] ?? 'Permiso Autorizado' }}</span>
                     @elseif($item['estado'] === 'Completo')
                       <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-bold">Completo</span>
                     @elseif(str_contains(strtolower($item['estado'] ?? ''), 'feriado'))

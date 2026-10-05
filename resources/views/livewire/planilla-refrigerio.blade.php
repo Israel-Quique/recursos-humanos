@@ -99,7 +99,7 @@
         </div>
 
         {{-- Resumen de días --}}
-        <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-center">
             <span class="text-xs font-semibold text-rose-700 uppercase">Faltas (Biométrico)</span>
             <p class="mt-1 text-xl font-extrabold text-rose-800">{{ $selectedDetail['faltas'] ?? 0 }}</p>
@@ -111,6 +111,10 @@
           <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center">
             <span class="text-xs font-semibold text-indigo-700 uppercase">Incidencias y Permisos</span>
             <p class="mt-1 text-xl font-extrabold text-indigo-800">{{ $selectedDetail['permisos'] ?? (($selectedDetail['bajas_medicas'] ?? 0) + ($selectedDetail['comisiones_viaje'] ?? 0)) }}</p>
+          </div>
+          <div class="rounded-xl border border-slate-300 bg-slate-100 p-3 text-center">
+            <span class="text-xs font-semibold text-slate-700 uppercase">Feriados / asuetos</span>
+            <p class="mt-1 text-xl font-extrabold text-slate-900">{{ $selectedDetail['feriados'] ?? 0 }}</p>
           </div>
         </div>
 
@@ -125,6 +129,22 @@
                 @foreach($selectedDetail['fechas_faltas'] as $f)
                   <li class="flex justify-between items-center bg-rose-50/50 px-3 py-1.5 rounded-md">
                     <span class="font-semibold text-rose-900">{{ $f['fecha'] }}</span>
+                    <span class="text-slate-500">{{ $f['detalle'] }}</span>
+                  </li>
+                @endforeach
+              </ul>
+            </div>
+          @endif
+
+          @if(!empty($selectedDetail['fechas_feriados']))
+            <div class="rounded-xl border border-slate-300 bg-white p-4">
+              <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-slate-600"></span> Feriados y asuetos no pagados ({{ count($selectedDetail['fechas_feriados']) }})
+              </h4>
+              <ul class="mt-2 space-y-1 text-xs text-slate-600">
+                @foreach($selectedDetail['fechas_feriados'] as $f)
+                  <li class="flex justify-between items-center bg-slate-50 px-3 py-1.5 rounded-md">
+                    <span class="font-semibold text-slate-900">{{ $f['fecha'] }}</span>
                     <span class="text-slate-500">{{ $f['detalle'] }}</span>
                   </li>
                 @endforeach
@@ -174,7 +194,7 @@
             </div>
           @endif
 
-          @if(empty($selectedDetail['fechas_faltas']) && empty($selectedDetail['fechas_omisiones']) && empty($todosPermisos))
+          @if(empty($selectedDetail['fechas_faltas']) && empty($selectedDetail['fechas_omisiones']) && empty($selectedDetail['fechas_feriados']) && empty($todosPermisos))
             <div class="text-center py-8 text-slate-400">
               <p>Este funcionario no tiene registros automáticos en el período.</p>
               <p class="text-xs mt-1">Los días pueden haber sido ingresados o ajustados de forma manual.</p>
@@ -186,6 +206,7 @@
           <div>
             <span class="text-xs text-slate-500">Total días descuento: <strong>{{ $selectedDetail['total_dias'] }}</strong></span>
             <span class="ml-3 text-xs text-rose-700 font-bold">A descontar: Bs. {{ number_format($selectedDetail['total_monto'] ?? 0, 2) }}</span>
+            <span class="ml-3 text-xs text-emerald-700 font-bold">Pagados: {{ $selectedDetail['dias_pagados'] ?? 0 }} días · Bs. {{ number_format($selectedDetail['monto_pagado'] ?? 0, 2) }}</span>
           </div>
           <button type="button" wire:click="cerrarDetalleFechas" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition">
             Entendido
@@ -204,7 +225,7 @@
         <p class="report-hero-kicker">Agencia Boliviana de Correos · Recursos Humanos</p>
         <h1 class="report-hero-title">Planilla de Descuento de Refrigerio / Comida</h1>
         <p class="report-hero-copy">
-          Control de días no correspondidos (Faltas, Omisiones, Bajas Médicas y Comisiones de Viaje) · 
+          Solo se pagan jornadas con entrada y salida completas. Faltas, omisiones, permisos, bajas médicas y feriados no generan refrigerio ·
           <strong>{{ $periodoLabel }}</strong> · Sucursal: <strong>{{ $selectedBranch ?: 'Todas las sucursales' }}</strong>
           @if($ultimaGuardada)
             · <span class="text-emerald-700 font-medium">✓ Guardada el {{ $ultimaGuardada }}</span>
@@ -311,12 +332,20 @@
   {{-- ============================================================ --}}
   {{-- TARJETAS DE MÉTRICAS EJECUTIVAS                              --}}
   {{-- ============================================================ --}}
-  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Personal Activo</p>
       <div class="mt-2 flex items-baseline justify-between">
         <p class="text-2xl font-extrabold text-slate-900">{{ $metricas['total_personal'] }}</p>
         <span class="text-xs font-semibold text-slate-500">{{ $metricas['personal_con_descuento'] }} afectados</span>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-300 bg-slate-100 p-4 shadow-sm">
+      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Feriados / Asuetos</p>
+      <div class="mt-2 flex items-baseline justify-between">
+        <p class="text-2xl font-extrabold text-slate-900">{{ $metricas['total_feriados'] ?? 0 }}</p>
+        <span class="text-xs font-medium text-slate-600">no pagados</span>
       </div>
     </div>
 
@@ -361,6 +390,16 @@
         <p class="text-2xl font-black text-white">Bs. {{ number_format($metricas['gran_total_monto'], 2) }}</p>
         <span class="text-[11px] text-rose-200">Tarifa Bs. {{ number_format((float) ($tarifaDiaria ?: 0), 2) }}/día</span>
       </div>
+    </div>
+
+    <div class="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 shadow-sm">
+      <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Días Pagados</p>
+      <p class="mt-2 text-2xl font-extrabold text-emerald-900">{{ $metricas['gran_total_dias_pagados'] ?? 0 }}</p>
+    </div>
+
+    <div class="rounded-2xl border border-emerald-400 bg-gradient-to-br from-emerald-800 to-green-950 text-white p-4 shadow-md">
+      <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-100">Total a Pagar</p>
+      <p class="mt-1 text-2xl font-black">Bs. {{ number_format($metricas['gran_total_monto_pagado'] ?? 0, 2) }}</p>
     </div>
   </div>
 
@@ -441,6 +480,8 @@
               <th class="py-2.5 px-2.5 text-right w-24 min-w-[95px] border-r border-slate-300 bg-rose-100/90 text-rose-950 font-black" title="Monto a no pagar">
                 A No Pagar<br><span class="text-[8px] font-bold text-rose-800">(Bs. {{ number_format((float) ($tarifaDiaria ?: 0), 2) }}/d)</span>
               </th>
+              <th class="py-2.5 px-2 text-center w-20 min-w-[75px] border-r border-slate-300 bg-emerald-100/90 text-emerald-950 font-black">Días<br>Pagados</th>
+              <th class="py-2.5 px-2.5 text-right w-24 min-w-[95px] border-r border-slate-300 bg-emerald-100/90 text-emerald-950 font-black">A Pagar<br><span class="text-[8px]">(Bs.)</span></th>
               <th class="py-2.5 px-1.5 text-center w-10 min-w-[40px] text-slate-700 font-bold" title="Detalle de incidencias">
                 Info
               </th>
@@ -474,6 +515,7 @@
                       'o'  => ['class'=>'celda-cuadrito celda-cuadrito-o',  'td'=>'background-color:#fef3c7!important;border:2px solid #f59e0b!important;',  'sel'=>'background-color:#fef3c7!important;color:#b45309!important;font-weight:900!important;'],
                       'bm' => ['class'=>'celda-cuadrito celda-cuadrito-bm', 'td'=>'background-color:#dbeafe!important;border:2px solid #3b82f6!important;',  'sel'=>'background-color:#dbeafe!important;color:#1d4ed8!important;font-weight:900!important;'],
                       'cv' => ['class'=>'celda-cuadrito celda-cuadrito-cv', 'td'=>'background-color:#ede9fe!important;border:2px solid #8b5cf6!important;',  'sel'=>'background-color:#ede9fe!important;color:#6d28d9!important;font-weight:900!important;'],
+                      'fe' => ['class'=>'celda-cuadrito celda-cuadrito-fe', 'td'=>'background-color:#e2e8f0!important;border:2px solid #64748b!important;',  'sel'=>'background-color:#e2e8f0!important;color:#334155!important;font-weight:900!important;'],
                     ];
                     // Colores para tipos dinámicos de permisos
                     $dynamicColors = ['e8d5f5','ffd6e0','d5f5e8','f5f0d5','d5e8f5','f5d5e8','e8f5d5','f5d5d5'];
@@ -511,6 +553,7 @@
                             $optVal === 'a' => 'A',
                             $optVal === 'f' => 'F',
                             $optVal === 'o' => 'O',
+                            $optVal === 'fe' => 'Fe',
                             $optVal === 'bm' || str_contains($optVal, 'baja') => 'Bm',
                             $optVal === 'cv' || str_contains($optVal, 'comision') => 'Cv',
                             default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $optVal), 0, 2) ?: substr($optLabel, 0, 2)),
@@ -538,6 +581,13 @@
                   Bs. {{ number_format($item['total_monto'], 2) }}
                 </td>
 
+                <td class="py-2 px-2 text-center font-black text-emerald-800 bg-emerald-50/70 border-r border-b border-slate-300">
+                  {{ $item['dias_pagados'] ?? 0 }} d
+                </td>
+                <td class="py-2 px-2.5 text-right font-mono text-xs font-black text-emerald-800 bg-emerald-50/70 border-r border-b border-slate-300">
+                  Bs. {{ number_format($item['monto_pagado'] ?? 0, 2) }}
+                </td>
+
                 {{-- Botón Info / Detalle de Fechas --}}
                 <td class="py-2 px-1 text-center border-b border-slate-300">
                   <button type="button" wire:click="abrirDetalleFechas({{ $origIdx }})"
@@ -552,7 +602,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="{{ count($diasMes) + 5 }}" class="py-12 text-center text-slate-400">
+                <td colspan="{{ count($diasMes) + 7 }}" class="py-12 text-center text-slate-400">
                   No se encontraron funcionarios para los filtros seleccionados.
                 </td>
               </tr>
@@ -569,6 +619,8 @@
               <td class="py-3 px-2.5 text-right text-rose-950 border-l border-slate-300 bg-rose-100/90 font-mono text-xs font-black">
                 Bs. {{ number_format($metricas['gran_total_monto'], 2) }}
               </td>
+              <td class="py-3 px-2 text-center text-emerald-950 border-l border-slate-300 bg-emerald-100/90 font-black">{{ $metricas['gran_total_dias_pagados'] ?? 0 }} días</td>
+              <td class="py-3 px-2.5 text-right text-emerald-950 border-l border-slate-300 bg-emerald-100/90 font-mono font-black">Bs. {{ number_format($metricas['gran_total_monto_pagado'] ?? 0, 2) }}</td>
               <td class="border-l border-slate-300 bg-slate-100"></td>
             </tr>
           </tfoot>
@@ -618,11 +670,13 @@
                 $siglaLabel = match(true) {
                   $tKey === 'bm' || str_contains($tKey, 'baja') || str_contains(mb_strtolower($tLabel), 'baja') => 'Bm',
                   $tKey === 'cv' || str_contains($tKey, 'comision') || str_contains(mb_strtolower($tLabel), 'comision') || str_contains(mb_strtolower($tLabel), 'comisión') => 'Cv',
+                  $tKey === 'fe' => 'Fe',
                   default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $tKey), 0, 2) ?: substr($tLabel, 0, 2)),
                 };
                 $cardBadge = match($siglaLabel) {
                   'Bm' => ['bg' => 'bg-[#dbeafe]', 'txt' => 'text-[#1d4ed8]', 'border' => 'border-sky-300', 'card' => 'border-sky-200'],
                   'Cv' => ['bg' => 'bg-[#ede9fe]', 'txt' => 'text-[#6d28d9]', 'border' => 'border-purple-300', 'card' => 'border-purple-200'],
+                  'Fe' => ['bg' => 'bg-slate-200', 'txt' => 'text-slate-800', 'border' => 'border-slate-400', 'card' => 'border-slate-300'],
                   default => ['bg' => 'bg-slate-100', 'txt' => 'text-slate-800', 'border' => 'border-slate-300', 'card' => 'border-slate-200'],
                 };
               @endphp
@@ -631,7 +685,7 @@
                   <span class="w-8 h-8 rounded-lg {{ $cardBadge['bg'] }} {{ $cardBadge['txt'] }} font-black text-xs flex items-center justify-center border {{ $cardBadge['border'] }} shadow-xs">{{ $siglaLabel }}</span>
                   <span class="font-extrabold text-slate-900 text-xs uppercase">{{ $tLabel }}</span>
                 </div>
-                <p class="text-[11px] text-slate-600 leading-snug">Permiso: {{ $tLabel }}. = 1 día no pagado.</p>
+                <p class="text-[11px] text-slate-600 leading-snug">{{ $tKey === 'fe' ? 'Feriado o asueto: no genera pago de refrigerio.' : 'Permiso: '.$tLabel.'. = 1 día no pagado.' }}</p>
               </div>
             @endif
           @endforeach
@@ -666,6 +720,7 @@
               </span>
               <span class="text-[11px] font-semibold opacity-90">{{ $item['sucursal'] }}</span>
             </div>
+
             <h3 class="mt-2 text-sm font-extrabold leading-tight {{ $hasDescuento ? 'text-white' : 'text-slate-900' }}">
               {{ $item['nombre'] }}
             </h3>
@@ -717,6 +772,11 @@
                 <span class="text-[11px] text-slate-500">días</span>
               </div>
             </div>
+
+            <div class="flex items-center justify-between rounded-xl bg-slate-100 p-2 border border-slate-300">
+              <span class="font-bold text-slate-800">Feriados / asuetos</span>
+              <span class="font-black text-slate-900">{{ $item['feriados'] ?? 0 }} días</span>
+            </div>
           </div>
 
           {{-- Sumatoria y Cuánto No se Debe Pagar --}}
@@ -733,6 +793,11 @@
               <span class="font-mono font-black text-sm text-rose-800">
                 Bs. {{ number_format($item['total_monto'] ?? 0, 2) }}
               </span>
+            </div>
+
+            <div class="flex justify-between items-center rounded-xl bg-emerald-100/70 p-2 border border-emerald-200">
+              <span class="text-[11px] font-extrabold text-emerald-900 uppercase">Pagados:</span>
+              <span class="font-mono font-black text-sm text-emerald-800">{{ $item['dias_pagados'] ?? 0 }} días · Bs. {{ number_format($item['monto_pagado'] ?? 0, 2) }}</span>
             </div>
 
             <button type="button" wire:click="abrirDetalleFechas({{ $origIdx }})"

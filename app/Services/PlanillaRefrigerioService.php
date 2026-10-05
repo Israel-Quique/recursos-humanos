@@ -118,21 +118,17 @@ class PlanillaRefrigerioService
 
         $asistenciasColeccion = $asistenciasQuery->get();
 
-        // 4. Fechas donde el biométrico tuvo actividad registrada en este mes agrupadas por sucursal normalizada
-        $fechasBiometricoPorSucursal = [];
-        foreach ($asistenciasColeccion as $r) {
-            $sucKey = SucursalNormalizer::canonicalKey($r->empleado?->sucursal);
-            if ($sucKey && $r->fecha) {
-                $fStr = $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString();
-                $fechasBiometricoPorSucursal[$sucKey][$fStr] = true;
-            }
-        }
-
         // Agrupar asistencias por empleado_id|fecha
         $asistencias = $asistenciasColeccion->groupBy(function (RegistroAsistencia $r) {
             $f = $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString();
             return $r->empleado_id . '|' . $f;
         });
+
+        try {
+            $tiposPermisosMap = TipoPermiso::obtenerTodos();
+        } catch (\Throwable) {
+            $tiposPermisosMap = [];
+        }
 
         // 5. Procesar cada empleado
         $items = [];
@@ -141,13 +137,14 @@ class PlanillaRefrigerioService
         $totalPermisos = 0;
         $totalBajas = 0;
         $totalComisiones = 0;
+        $totalFeriados = 0;
+        $granTotalDiasPagados = 0;
         $granTotalDias = 0;
+        $granTotalMontoPagado = 0.0;
         $granTotalMonto = 0.0;
 
         foreach ($empleados as $empleado) {
             $empId = $empleado->id;
-            $empSucKey = SucursalNormalizer::canonicalKey($empleado->sucursal);
-            $fechasActivasSucursal = $fechasBiometricoPorSucursal[$empSucKey] ?? [];
 
             // Permisos del empleado
             $permisosEmp = $permisosAprobados->get($empId, collect());
@@ -189,16 +186,6 @@ class PlanillaRefrigerioService
                 // Solo se ejecuta si el permiso fue creado antes de la migración y
                 // todavía no tiene la clave estructurada.
                 $motivoTexto = mb_strtolower(trim(($permiso->tipo ?? '') . ' ' . ($permiso->motivo ?? '')));
-
-                // Cargar tipos dinámicos una sola vez por request
-                static $tiposPermisosMap = null;
-                if ($tiposPermisosMap === null) {
-                    try {
-                        $tiposPermisosMap = TipoPermiso::obtenerTodos();
-                    } catch (\Throwable) {
-                        $tiposPermisosMap = [];
-                    }
-                }
 
                 $esBajaMedica = $permiso->tipo === 'medico'
                     || str_contains($motivoTexto, 'medic')
@@ -259,48 +246,38 @@ class PlanillaRefrigerioService
             $fechasPermisos = [];
             $fechasBajas = [];
             $fechasComisiones = [];
+            $fechasFeriados = [];
+            $fechasNoPagadas = [];
 
             foreach ($diasMes as $diaInfo) {
                 $fIso = $diaInfo['fecha'];
                 $fCorta = $diaInfo['fecha_corta'];
                 $carbonDia = Carbon::parse($fIso);
 
-                // 1. Verificar si es día no laborable / feriado para su sucursal
+                // 1. Un feriado o asueto tampoco genera pago de refrigerio.
+                $fechaEspecial = $this->programacionLaboral->obtenerFechaEspecial($carbonDia, $empleado->sucursal);
                 $esNoLaborable = $this->programacionLaboral->esDiaNoLaborable($carbonDia, $empleado->sucursal);
 
                 $key = $empId . '|' . $fIso;
                 $asist = $asistencias->get($key)?->first();
 
                 if ($esNoLaborable) {
-                    // Feriado o asueto: jornada normal, no se penaliza → 'a'
-                    $estado = 'a';
+                    $estado = 'fe';
+                } elseif ($asist) {
+                    // Solo una marcación completa genera pago. Entrada o salida faltante = omisión.
+                    $norm = $this->analisisAsistencia->normalizarMarcacionAsistencia($asist);
+                    $marcacionCompleta = filled($norm['entrada']) && filled($norm['salida']);
+                    $estado = $marcacionCompleta ? 'a' : ($carbonDia->isToday() ? '' : 'o');
                 } elseif (isset($permisosPorFecha[$fIso])) {
                     $estado = $permisosPorFecha[$fIso];
-                } elseif ($asist) {
-                    // Validación oficial mediante AnalisisAsistenciaService
-                    $norm = $this->analisisAsistencia->normalizarMarcacionAsistencia($asist);
-                    $esOmision = $norm['solo_entrada'] || (filled($norm['salida']) && blank($norm['entrada']));
-
-                    // Si la salida está pendiente dentro de la jornada de hoy
-                    if ($esOmision && $norm['solo_entrada'] && $carbonDia->isToday()) {
-                        $esOmision = false;
-                    }
-
-                    $estado = $esOmision ? 'o' : 'a';
-                } elseif (isset($fechasActivasSucursal[$fIso])) {
-                    // Hubo actividad biométrica en SU sucursal pero el funcionario no marcó
+                } else {
                     $contratado = $empleado->fecha_contratacion === null || $empleado->fecha_contratacion->toDateString() <= $fIso;
                     $noDespedido = $empleado->fecha_despido === null || $empleado->fecha_despido->toDateString() > $fIso;
+                    $jornadaFinalizada = $carbonDia->copy()->startOfDay()->lt(now()->startOfDay());
 
-                    if ($contratado && $noDespedido) {
-                        $estado = 'f'; // Falta injustificada
-                    } else {
-                        $estado = 'a';
-                    }
-                } else {
-                    // Sin datos biométricos para este día/sucursal → celda en blanco
-                    // No se asume asistencia ni falta: el biométrico aún no ha reportado.
-                    $estado = '';
+                    // Una jornada pasada sin marcación es inasistencia, aunque el biométrico
+                    // de la sucursal no tenga otros registros. Hoy y fechas futuras quedan pendientes.
+                    $estado = $contratado && $noDespedido && $jornadaFinalizada ? 'f' : '';
                 }
 
                 $diasEmp[$fIso] = $estado;
@@ -310,6 +287,9 @@ class PlanillaRefrigerioService
                     $fechasFaltas[] = ['fecha' => $fCorta, 'detalle' => 'Inasistencia injustificada'];
                 } elseif ($estado === 'o') {
                     $fechasOmisiones[] = ['fecha' => $fCorta, 'detalle' => 'Omisión de marcado'];
+                } elseif ($estado === 'fe') {
+                    $motivoFeriado = $fechaEspecial?->nombre ?: 'Feriado o día no laborable';
+                    $fechasFeriados[] = ['fecha' => $fCorta, 'detalle' => $motivoFeriado];
                 } elseif ($estado !== 'a' && $estado !== '' && $estado !== 'p') {
                     // Todos los permisos e incidencias jalados desde Incidencias y Permisos
                     $labelPermiso = match($estado) {
@@ -325,6 +305,23 @@ class PlanillaRefrigerioService
                         $fechasComisiones[] = ['fecha' => $fCorta, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
                     }
                 }
+
+                if ($estado !== 'a' && $estado !== '' && $estado !== 'p') {
+                    $detalleNoPagado = match ($estado) {
+                        'f' => 'Inasistencia sin permiso',
+                        'o' => 'Omisión de entrada o salida',
+                        'fe' => $fechaEspecial?->nombre ?: 'Feriado o día no laborable',
+                        'bm' => 'Baja médica autorizada',
+                        'cv' => 'Comisión de viaje laboral',
+                        default => $tiposPermisosMap[$estado] ?? ('Permiso ' . strtoupper($estado)),
+                    };
+                    $fechasNoPagadas[] = [
+                        'fecha' => $fCorta,
+                        'fecha_iso' => $fIso,
+                        'tipo' => $estado,
+                        'detalle' => $detalleNoPagado,
+                    ];
+                }
             }
 
             // Conteos de días
@@ -333,16 +330,23 @@ class PlanillaRefrigerioService
             $permisosCount = count($fechasPermisos);
             $bajasCount = count($fechasBajas);
             $comisionesCount = count($fechasComisiones);
+            $feriadosCount = count($fechasFeriados);
+            $diasPagadosCount = count(array_filter($diasEmp, fn(string $estado) => in_array($estado, ['a', 'p'], true)));
+            $diasSinDatoCount = count(array_filter($diasEmp, fn(string $estado) => $estado === ''));
 
-            $totalDiasEmp = $faltasCount + $omisionesCount + $permisosCount;
+            $totalDiasEmp = $faltasCount + $omisionesCount + $permisosCount + $feriadosCount;
             $totalMontoEmp = round($totalDiasEmp * $tarifaDiaria, 2);
+            $montoPagadoEmp = round($diasPagadosCount * $tarifaDiaria, 2);
 
             $totalFaltas += $faltasCount;
             $totalOmisiones += $omisionesCount;
             $totalPermisos += $permisosCount;
             $totalBajas += $bajasCount;
             $totalComisiones += $comisionesCount;
+            $totalFeriados += $feriadosCount;
+            $granTotalDiasPagados += $diasPagadosCount;
             $granTotalDias += $totalDiasEmp;
+            $granTotalMontoPagado += $montoPagadoEmp;
             $granTotalMonto += $totalMontoEmp;
 
             $items[] = [
@@ -360,10 +364,14 @@ class PlanillaRefrigerioService
                 'permisos' => $permisosCount,
                 'bajas_medicas' => $bajasCount,
                 'comisiones_viaje' => $comisionesCount,
+                'feriados' => $feriadosCount,
+                'dias_pagados' => $diasPagadosCount,
+                'dias_sin_dato' => $diasSinDatoCount,
                 // Totales
                 'total_dias' => $totalDiasEmp,
                 'tarifa_diaria' => $tarifaDiaria,
                 'total_monto' => $totalMontoEmp,
+                'monto_pagado' => $montoPagadoEmp,
                 'observaciones' => '',
                 // Desgloses de fechas para consulta
                 'fechas_faltas' => $fechasFaltas,
@@ -371,6 +379,8 @@ class PlanillaRefrigerioService
                 'fechas_permisos' => $fechasPermisos,
                 'fechas_bajas' => $fechasBajas,
                 'fechas_comisiones' => $fechasComisiones,
+                'fechas_feriados' => $fechasFeriados,
+                'fechas_no_pagadas' => $fechasNoPagadas,
             ];
         }
 
@@ -389,7 +399,10 @@ class PlanillaRefrigerioService
                 'total_permisos' => $totalPermisos,
                 'total_bajas_medicas' => $totalBajas,
                 'total_comisiones_viaje' => $totalComisiones,
+                'total_feriados' => $totalFeriados,
+                'gran_total_dias_pagados' => $granTotalDiasPagados,
                 'gran_total_dias' => $granTotalDias,
+                'gran_total_monto_pagado' => round($granTotalMontoPagado, 2),
                 'gran_total_monto' => round($granTotalMonto, 2),
             ],
         ];
@@ -467,7 +480,7 @@ class PlanillaRefrigerioService
         $r = 1;
         // Membrete
         $numDias = count($diasMes);
-        $totalColsCount = 2 + $numDias + 6; // N°, Nombre, Días..., F, O, Bm, Cv, Total, Monto
+        $totalColsCount = 2 + $numDias + 9; // N°, Nombre, Días..., incidencias y totales pagados/no pagados
         $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalColsCount);
 
         $sheet1->mergeCells("C{$r}:{$lastColLetter}{$r}");
@@ -507,15 +520,21 @@ class PlanillaRefrigerioService
         $colO = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
         $colBm = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
         $colCv = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+        $colFe = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
         $colTotal = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
         $colMonto = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+        $colDiasPagados = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+        $colMontoPagado = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
 
         $sheet1->setCellValue("{$colF}{$headerRow}", "F\n(Faltas)");
         $sheet1->setCellValue("{$colO}{$headerRow}", "O\n(Omisión)");
         $sheet1->setCellValue("{$colBm}{$headerRow}", "Bm\n(Baja Méd)");
         $sheet1->setCellValue("{$colCv}{$headerRow}", "Cv\n(Comisión)");
-        $sheet1->setCellValue("{$colTotal}{$headerRow}", "Total Días\nDescuento");
-        $sheet1->setCellValue("{$colMonto}{$headerRow}", "Total a No\nPagar (Bs.)");
+        $sheet1->setCellValue("{$colFe}{$headerRow}", "Fe\n(Feriado)");
+        $sheet1->setCellValue("{$colTotal}{$headerRow}", "Días No\nPagados");
+        $sheet1->setCellValue("{$colMonto}{$headerRow}", "A No\nPagar (Bs.)");
+        $sheet1->setCellValue("{$colDiasPagados}{$headerRow}", "Días\nPagados");
+        $sheet1->setCellValue("{$colMontoPagado}{$headerRow}", "A Pagar\n(Bs.)");
 
         // Estilos cabecera
         $sheet1->getStyle("A{$headerRow}:{$lastColLetter}{$headerRow}")->getFont()->setBold(true)->setSize(8.5)->getColor()->setRGB('FFFFFF');
@@ -537,26 +556,29 @@ class PlanillaRefrigerioService
                 $fIso = $dia['fecha'];
                 $cLet = $colDiasMap[$fIso] ?? null;
                 if ($cLet) {
-                    $st = strtoupper($diasItem[$fIso] ?? 'P');
+                    $st = strtoupper($diasItem[$fIso] ?? '');
                     if ($st === 'BM') { $st = 'Bm'; }
                     if ($st === 'CV') { $st = 'Cv'; }
+                    if ($st === 'FE') { $st = 'Fe'; }
                     $sheet1->setCellValue("{$cLet}{$r}", $st);
 
                     // Colores por celda según simbología
                     $bgRGB = match ($st) {
-                        'P' => 'DCFCE7',
+                        'A', 'P' => 'DCFCE7',
                         'F' => 'FEE2E2',
                         'O' => 'FEF3C7',
                         'Bm' => 'DBEAFE',
                         'Cv' => 'EDE9FE',
+                        'Fe' => 'E2E8F0',
                         default => 'FFFFFF',
                     };
                     $txtRGB = match ($st) {
-                        'P' => '15803D',
+                        'A', 'P' => '15803D',
                         'F' => '991B1B',
                         'O' => '9A3412',
                         'Bm' => '1D4ED8',
                         'Cv' => '6D28D9',
+                        'Fe' => '334155',
                         default => '0F172A',
                     };
 
@@ -566,20 +588,24 @@ class PlanillaRefrigerioService
                 }
             }
 
-            // Totales por fórmulas
-            $sheet1->setCellValue("{$colF}{$r}", "=COUNTIF({$firstDayCol}{$r}:{$lastDayCol}{$r}, \"F\")");
-            $sheet1->setCellValue("{$colO}{$r}", "=COUNTIF({$firstDayCol}{$r}:{$lastDayCol}{$r}, \"O\")");
-            $sheet1->setCellValue("{$colBm}{$r}", "=COUNTIF({$firstDayCol}{$r}:{$lastDayCol}{$r}, \"Bm\")");
-            $sheet1->setCellValue("{$colCv}{$r}", "=COUNTIF({$firstDayCol}{$r}:{$lastDayCol}{$r}, \"Cv\")");
-            $sheet1->setCellValue("{$colTotal}{$r}", "=SUM({$colF}{$r}:{$colCv}{$r})");
-            $sheet1->setCellValue("{$colMonto}{$r}", "={$colTotal}{$r}*{$tarifaDiaria}");
+            // Los totales vienen de la misma regla del sistema e incluyen permisos dinámicos.
+            $sheet1->setCellValue("{$colF}{$r}", (int) ($item['faltas'] ?? 0));
+            $sheet1->setCellValue("{$colO}{$r}", (int) ($item['omisiones'] ?? 0));
+            $sheet1->setCellValue("{$colBm}{$r}", (int) ($item['bajas_medicas'] ?? 0));
+            $sheet1->setCellValue("{$colCv}{$r}", (int) ($item['comisiones_viaje'] ?? 0));
+            $sheet1->setCellValue("{$colFe}{$r}", (int) ($item['feriados'] ?? 0));
+            $sheet1->setCellValue("{$colTotal}{$r}", (int) ($item['total_dias'] ?? 0));
+            $sheet1->setCellValue("{$colMonto}{$r}", (float) ($item['total_monto'] ?? 0));
+            $sheet1->setCellValue("{$colDiasPagados}{$r}", (int) ($item['dias_pagados'] ?? 0));
+            $sheet1->setCellValue("{$colMontoPagado}{$r}", (float) ($item['monto_pagado'] ?? 0));
 
             // Formatos
             $sheet1->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet1->getStyle("B{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-            $sheet1->getStyle("{$colF}{$r}:{$colTotal}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle("{$colF}{$r}:{$colDiasPagados}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet1->getStyle("{$colMonto}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet1->getStyle("{$colMonto}{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet1->getStyle("{$colMontoPagado}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet1->getStyle("{$colMonto}{$r}:{$colMontoPagado}{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
 
             // Resaltar si tiene descuento
             $totalDias = (int) ($item['total_dias'] ?? 0);
@@ -587,6 +613,7 @@ class PlanillaRefrigerioService
                 $sheet1->getStyle("{$colTotal}{$r}")->getFont()->setBold(true)->getColor()->setRGB('991B1B');
                 $sheet1->getStyle("{$colMonto}{$r}")->getFont()->setBold(true)->getColor()->setRGB('991B1B');
             }
+            $sheet1->getStyle("{$colDiasPagados}{$r}:{$colMontoPagado}{$r}")->getFont()->setBold(true)->getColor()->setRGB('166534');
 
             $r++;
         }
@@ -601,15 +628,19 @@ class PlanillaRefrigerioService
         $sheet1->setCellValue("{$colO}{$totalRow}", "=SUM({$colO}{$dataStartRow}:{$colO}{$dataEndRow})");
         $sheet1->setCellValue("{$colBm}{$totalRow}", "=SUM({$colBm}{$dataStartRow}:{$colBm}{$dataEndRow})");
         $sheet1->setCellValue("{$colCv}{$totalRow}", "=SUM({$colCv}{$dataStartRow}:{$colCv}{$dataEndRow})");
+        $sheet1->setCellValue("{$colFe}{$totalRow}", "=SUM({$colFe}{$dataStartRow}:{$colFe}{$dataEndRow})");
         $sheet1->setCellValue("{$colTotal}{$totalRow}", "=SUM({$colTotal}{$dataStartRow}:{$colTotal}{$dataEndRow})");
         $sheet1->setCellValue("{$colMonto}{$totalRow}", "=SUM({$colMonto}{$dataStartRow}:{$colMonto}{$dataEndRow})");
+        $sheet1->setCellValue("{$colDiasPagados}{$totalRow}", "=SUM({$colDiasPagados}{$dataStartRow}:{$colDiasPagados}{$dataEndRow})");
+        $sheet1->setCellValue("{$colMontoPagado}{$totalRow}", "=SUM({$colMontoPagado}{$dataStartRow}:{$colMontoPagado}{$dataEndRow})");
 
         $sheet1->getStyle("A{$totalRow}:{$lastColLetter}{$totalRow}")->getFont()->setBold(true)->setSize(9.5);
         $sheet1->getStyle("A{$totalRow}:{$lastColLetter}{$totalRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
         $sheet1->getStyle("A{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getStyle("{$colF}{$totalRow}:{$colTotal}{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle("{$colF}{$totalRow}:{$colDiasPagados}{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle("{$colMonto}{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getStyle("{$colMonto}{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet1->getStyle("{$colMontoPagado}{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle("{$colMonto}{$totalRow}:{$colMontoPagado}{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
 
         // Bordes de tabla
         $sheet1->getStyle("A{$headerRow}:{$lastColLetter}{$totalRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
@@ -626,11 +657,12 @@ class PlanillaRefrigerioService
 
         $r++;
         $simbologias = [
-            ['code' => 'P', 'bg' => 'DCFCE7', 'txt' => '15803D', 'name' => 'Presente', 'desc' => 'El colaborador realizó su jornada laboral.'],
+            ['code' => 'A', 'bg' => 'DCFCE7', 'txt' => '15803D', 'name' => 'Asistencia', 'desc' => 'Entrada y salida completas: día pagado.'],
             ['code' => 'F', 'bg' => 'FEE2E2', 'txt' => '991B1B', 'name' => 'Falta', 'desc' => 'No asistió a su jornada.'],
             ['code' => 'O', 'bg' => 'FEF3C7', 'txt' => '9A3412', 'name' => 'Omisión', 'desc' => 'No registró entrada o salida.'],
             ['code' => 'Bm', 'bg' => 'DBEAFE', 'txt' => '1D4ED8', 'name' => 'Baja médica', 'desc' => 'Incapacidad médica o reposo.'],
             ['code' => 'Cv', 'bg' => 'EDE9FE', 'txt' => '6D28D9', 'name' => 'Comisión de viaje', 'desc' => 'En comisión de trabajo o viaje laboral.'],
+            ['code' => 'Fe', 'bg' => 'E2E8F0', 'txt' => '334155', 'name' => 'Feriado / asueto', 'desc' => 'Día no laborable: no genera pago de refrigerio.'],
         ];
 
         foreach ($simbologias as $sim) {
@@ -654,8 +686,11 @@ class PlanillaRefrigerioService
         $sheet1->getColumnDimension($colO)->setWidth(10);
         $sheet1->getColumnDimension($colBm)->setWidth(11);
         $sheet1->getColumnDimension($colCv)->setWidth(11);
+        $sheet1->getColumnDimension($colFe)->setWidth(10);
         $sheet1->getColumnDimension($colTotal)->setWidth(12);
         $sheet1->getColumnDimension($colMonto)->setWidth(14);
+        $sheet1->getColumnDimension($colDiasPagados)->setWidth(11);
+        $sheet1->getColumnDimension($colMontoPagado)->setWidth(14);
 
         // =========================================================================
         // HOJA 2: FORMATO VERTICAL / FICHA POR FUNCIONARIO (Solicitado específicamente)
@@ -721,23 +756,43 @@ class PlanillaRefrigerioService
             $rowComision = $r2;
             $r2++;
 
-            // Fila 5: Sumatoria de días
+            // Fila 5: Feriado / asueto
+            $sheet2->setCellValue("A{$r2}", 'Feriado o asueto');
+            $sheet2->setCellValue("B{$r2}", (int) ($item['feriados'] ?? 0));
+            $sheet2->setCellValue("C{$r2}", count($item['fechas_feriados'] ?? []) > 0 ? collect($item['fechas_feriados'])->pluck('fecha')->implode(', ') : 'Sin feriados');
+            $sheet2->getStyle("B{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $r2++;
+
+            // Sumatoria de días no pagados (incluye permisos dinámicos)
             $sheet2->setCellValue("A{$r2}", 'SUMATORIA DÍAS A DESCONTAR:');
-            $sheet2->setCellValue("B{$r2}", "=SUM(B{$rowFalta}:B{$rowComision})");
+            $sheet2->setCellValue("B{$r2}", (int) ($item['total_dias'] ?? 0));
             $sheet2->setCellValue("C{$r2}", "Total días no correspondidos");
             $sheet2->getStyle("A{$r2}:C{$r2}")->getFont()->setBold(true);
             $sheet2->getStyle("B{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $rowSum = $r2;
             $r2++;
 
-            // Fila 6: Cuánto no se debe pagar (Monto en Bs.)
+            // Cuánto no se debe pagar (Monto en Bs.)
             $sheet2->setCellValue("A{$r2}", 'CUÁNTO NO SE DEBE PAGAR:');
-            $sheet2->setCellValue("B{$r2}", "=B{$rowSum}*{$tarifaDiaria}");
+            $sheet2->setCellValue("B{$r2}", (float) ($item['total_monto'] ?? 0));
             $sheet2->setCellValue("C{$r2}", "Tarifa: Bs. " . number_format($tarifaDiaria, 2) . "/día");
             $sheet2->getStyle("A{$r2}:C{$r2}")->getFont()->setBold(true)->getColor()->setRGB('991B1B');
             $sheet2->getStyle("B{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet2->getStyle("B{$r2}")->getNumberFormat()->setFormatCode('"Bs. "#,##0.00');
             $sheet2->getStyle("A{$r2}:C{$r2}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF2F2');
+            $r2++;
+
+            $sheet2->setCellValue("A{$r2}", 'DÍAS PAGADOS:');
+            $sheet2->setCellValue("B{$r2}", (int) ($item['dias_pagados'] ?? 0));
+            $sheet2->setCellValue("C{$r2}", 'Solo jornadas con entrada y salida completas');
+            $sheet2->getStyle("A{$r2}:C{$r2}")->getFont()->setBold(true)->getColor()->setRGB('166534');
+            $r2++;
+
+            $sheet2->setCellValue("A{$r2}", 'TOTAL A PAGAR:');
+            $sheet2->setCellValue("B{$r2}", (float) ($item['monto_pagado'] ?? 0));
+            $sheet2->setCellValue("C{$r2}", "Tarifa: Bs. " . number_format($tarifaDiaria, 2) . "/día pagado");
+            $sheet2->getStyle("A{$r2}:C{$r2}")->getFont()->setBold(true)->getColor()->setRGB('166534');
+            $sheet2->getStyle("B{$r2}")->getNumberFormat()->setFormatCode('"Bs. "#,##0.00');
 
             // Bordes del bloque
             $sheet2->getStyle("A{$startCard}:C{$r2}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');

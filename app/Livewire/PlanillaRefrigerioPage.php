@@ -3,6 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\PlanillaRefrigerio;
+use App\Models\FechaEspecialLaboral;
+use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
 use App\Models\TipoPermiso;
 use App\Services\AnalisisAsistenciaService;
@@ -66,6 +68,7 @@ class PlanillaRefrigerioPage extends Component
         foreach ($this->items as &$item) {
             $item['tarifa_diaria'] = $tarifa;
             $item['total_monto'] = round(($item['total_dias'] ?? 0) * $tarifa, 2);
+            $item['monto_pagado'] = round(($item['dias_pagados'] ?? 0) * $tarifa, 2);
         }
         unset($item);
         $this->isDirty = true;
@@ -105,8 +108,8 @@ class PlanillaRefrigerioPage extends Component
             $itemsLoaded = $registro->datos['items'];
             $primerItem = $itemsLoaded[0] ?? [];
 
-            // Si la planilla guardada no tiene matriz de días o está vacía, calcular fresco
-            if (empty($primerItem['dias'] ?? [])) {
+            // Recalcular planillas previas a la regla que incluye feriados y días pagados.
+            if (empty($primerItem['dias'] ?? []) || (int) ($registro->datos['regla_version'] ?? 0) < 2) {
                 $this->jalarDatos(false);
                 return;
             }
@@ -119,12 +122,19 @@ class PlanillaRefrigerioPage extends Component
                     $start = $ref->copy()->startOfMonth();
                     $end   = $ref->copy()->endOfMonth();
 
-                    $ultimoBiometrico = RegistroAsistencia::whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
-                        ->where('created_at', '>', $guardadoEn)
-                        ->exists();
+                    $hayFuenteNueva = RegistroAsistencia::whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+                            ->where('updated_at', '>', $guardadoEn)
+                            ->exists()
+                        || PermisoLaboral::whereDate('fecha_inicio', '<=', $end->toDateString())
+                            ->whereDate('fecha_fin', '>=', $start->toDateString())
+                            ->where('updated_at', '>', $guardadoEn)
+                            ->exists()
+                        || FechaEspecialLaboral::whereBetween('fecha', [$start->toDateString(), $end->toDateString()])
+                            ->where('updated_at', '>', $guardadoEn)
+                            ->exists();
 
-                    if ($ultimoBiometrico) {
-                        // Hay datos biométricos más recientes que la planilla guardada → recalcular
+                    if ($hayFuenteNueva) {
+                        // Hay asistencias, permisos o feriados más recientes → recalcular.
                         $this->jalarDatos(false);
                         return;
                     }
@@ -163,7 +173,7 @@ class PlanillaRefrigerioPage extends Component
         $this->isDirty = true;
 
         if ($mostrarMensaje) {
-            session()->flash('status', 'Datos extraídos correctamente de asistencias y permisos autorizados.');
+            session()->flash('status', 'Datos extraídos de asistencias, permisos y feriados.');
         }
     }
 
@@ -229,12 +239,17 @@ class PlanillaRefrigerioPage extends Component
         $permisos = 0;
         $bajas = 0;
         $comisiones = 0;
+        $feriados = 0;
+        $diasPagados = 0;
+        $diasSinDato = 0;
 
         $fechasFaltas = [];
         $fechasOmisiones = [];
         $fechasPermisos = [];
         $fechasBajas = [];
         $fechasComisiones = [];
+        $fechasFeriados = [];
+        $fechasNoPagadas = [];
 
         foreach ($this->items[$index]['dias'] as $fKey => $st) {
             $st = strtolower($st);
@@ -244,12 +259,19 @@ class PlanillaRefrigerioPage extends Component
                 $fFormatted = $fKey;
             }
 
-            if ($st === 'f') {
+            if (in_array($st, ['a', 'p'], true)) {
+                $diasPagados++;
+            } elseif ($st === '') {
+                $diasSinDato++;
+            } elseif ($st === 'f') {
                 $faltas++;
                 $fechasFaltas[] = ['fecha' => $fFormatted, 'detalle' => 'Inasistencia injustificada'];
             } elseif ($st === 'o') {
                 $omisiones++;
                 $fechasOmisiones[] = ['fecha' => $fFormatted, 'detalle' => 'Omisión de marcado'];
+            } elseif ($st === 'fe') {
+                $feriados++;
+                $fechasFeriados[] = ['fecha' => $fFormatted, 'detalle' => 'Feriado o día no laborable'];
             } elseif ($st !== 'a' && $st !== '' && $st !== 'p') {
                 // Cualquier permiso/incidencia desde Incidencias y Permisos
                 $permisos++;
@@ -267,23 +289,45 @@ class PlanillaRefrigerioPage extends Component
                     $fechasComisiones[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => 'Comisión de viaje laboral'];
                 }
             }
+
+            if (!in_array($st, ['', 'a', 'p'], true)) {
+                $fechasNoPagadas[] = [
+                    'fecha' => $fFormatted,
+                    'fecha_iso' => $fKey,
+                    'tipo' => $st,
+                    'detalle' => match ($st) {
+                        'f' => 'Inasistencia sin permiso',
+                        'o' => 'Omisión de entrada o salida',
+                        'fe' => 'Feriado o día no laborable',
+                        'bm' => 'Baja médica autorizada',
+                        'cv' => 'Comisión de viaje laboral',
+                        default => 'Permiso: ' . strtoupper($st),
+                    },
+                ];
+            }
         }
 
         $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
-        $totalDias = $faltas + $omisiones + $permisos;
+        $totalDias = $faltas + $omisiones + $permisos + $feriados;
 
         $this->items[$index]['faltas'] = $faltas;
         $this->items[$index]['omisiones'] = $omisiones;
         $this->items[$index]['permisos'] = $permisos;
         $this->items[$index]['bajas_medicas'] = $bajas;
         $this->items[$index]['comisiones_viaje'] = $comisiones;
+        $this->items[$index]['feriados'] = $feriados;
+        $this->items[$index]['dias_pagados'] = $diasPagados;
+        $this->items[$index]['dias_sin_dato'] = $diasSinDato;
         $this->items[$index]['total_dias'] = $totalDias;
         $this->items[$index]['total_monto'] = round($totalDias * $tarifa, 2);
+        $this->items[$index]['monto_pagado'] = round($diasPagados * $tarifa, 2);
         $this->items[$index]['fechas_faltas'] = $fechasFaltas;
         $this->items[$index]['fechas_omisiones'] = $fechasOmisiones;
         $this->items[$index]['fechas_permisos'] = $fechasPermisos;
         $this->items[$index]['fechas_bajas'] = $fechasBajas;
         $this->items[$index]['fechas_comisiones'] = $fechasComisiones;
+        $this->items[$index]['fechas_feriados'] = $fechasFeriados;
+        $this->items[$index]['fechas_no_pagadas'] = $fechasNoPagadas;
 
         $this->isDirty = true;
     }
@@ -320,10 +364,14 @@ class PlanillaRefrigerioPage extends Component
             $this->items[$index]['permisos'] = $permisos;
         }
 
-        $totalDias = $faltas + $omisiones + $permisos;
+        $feriados = (int) ($this->items[$index]['feriados'] ?? 0);
+        $totalDias = $faltas + $omisiones + $permisos + $feriados;
         $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
+        $diasPagados = max(0, count($this->items[$index]['dias'] ?? []) - $totalDias - (int) ($this->items[$index]['dias_sin_dato'] ?? 0));
+        $this->items[$index]['dias_pagados'] = $diasPagados;
         $this->items[$index]['total_dias'] = $totalDias;
         $this->items[$index]['total_monto'] = round($totalDias * $tarifa, 2);
+        $this->items[$index]['monto_pagado'] = round($diasPagados * $tarifa, 2);
         $this->isDirty = true;
     }
 
@@ -344,6 +392,7 @@ class PlanillaRefrigerioPage extends Component
     public function guardarPlanilla(): void
     {
         $datos = [
+            'regla_version' => 2,
             'items' => $this->items,
             'dias_mes' => $this->diasMes,
             'metricas' => $this->calcularMetricas(),
@@ -447,6 +496,7 @@ class PlanillaRefrigerioPage extends Component
     {
         $itemsCol = collect($this->items);
         $totalDias = (int) $itemsCol->sum('total_dias');
+        $totalDiasPagados = (int) $itemsCol->sum('dias_pagados');
         $tarifa = max(0, (float) ($this->tarifaDiaria ?: 0));
 
         return [
@@ -457,7 +507,10 @@ class PlanillaRefrigerioPage extends Component
             'total_permisos' => (int) $itemsCol->sum(fn($i) => ($i['permisos'] ?? (($i['bajas_medicas'] ?? 0) + ($i['comisiones_viaje'] ?? 0)))),
             'total_bajas_medicas' => (int) $itemsCol->sum('bajas_medicas'),
             'total_comisiones_viaje' => (int) $itemsCol->sum('comisiones_viaje'),
+            'total_feriados' => (int) $itemsCol->sum('feriados'),
+            'gran_total_dias_pagados' => $totalDiasPagados,
             'gran_total_dias' => $totalDias,
+            'gran_total_monto_pagado' => round($totalDiasPagados * $tarifa, 2),
             'gran_total_monto' => round($totalDias * $tarifa, 2),
         ];
     }
@@ -473,6 +526,7 @@ class PlanillaRefrigerioPage extends Component
             'a'  => 'Asistencia',
             'f'  => 'Falta',
             'o'  => 'Omisión',
+            'fe' => 'Feriado / asueto',
         ];
 
         // Todos los demás estados provienen de Incidencias y Permisos (TipoPermiso)
