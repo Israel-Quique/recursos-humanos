@@ -5,13 +5,13 @@
     <title>Reporte de Marcaciones por Sucursal - {{ $sucursalLabel ?? 'General' }}</title>
     <style>
       @page {
-        margin: 16px 18px;
+        margin: 14px 18px 12px 18px;
         size: letter portrait;
       }
       body {
         font-family: 'DejaVu Sans', sans-serif;
-        color: #1e293b;
-        font-size: 7.5px;
+        color: #000000;
+        font-size: 8.5px;
         line-height: 1.25;
         margin: 0;
         padding: 0;
@@ -22,52 +22,58 @@
       }
       .header-table {
         width: 100%;
-        border-bottom: 2px solid #0f172a;
-        padding-bottom: 4px;
-        margin-bottom: 6px;
+        border-bottom: 2px solid #000000;
+        padding-bottom: 3px;
+        margin-bottom: 5px;
       }
       .kicker {
-        font-size: 7px;
+        font-size: 8px;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: #475569;
+        color: #1a1a1a;
         font-weight: bold;
       }
       .title {
-        font-size: 13px;
-        font-weight: bold;
-        color: #0f172a;
+        font-size: 14px;
+        font-weight: 900;
+        color: #000000;
         margin-top: 1px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
       }
       .meta-right {
         text-align: right;
-        font-size: 7.5px;
-        color: #475569;
+        font-size: 8px;
+        color: #1a1a1a;
       }
       .info-box {
         width: 100%;
-        border: 1px solid #cbd5e1;
-        border-radius: 4px;
-        background-color: #f8fafc;
-        margin-bottom: 8px;
+        border: 1.5px solid #000000;
+        background-color: #ffffff;
+        margin-bottom: 6px;
         border-collapse: collapse;
       }
       .info-box td {
         padding: 3.5px 6px;
         vertical-align: top;
-        font-size: 7.5px;
+        font-size: 8px;
+        border-right: 1px solid #9ca3af;
+        border-bottom: 1px solid #9ca3af;
+      }
+      .info-box td:last-child {
+        border-right: none;
       }
       .info-label {
-        font-size: 6.5px;
+        font-size: 7px;
         text-transform: uppercase;
         font-weight: bold;
-        color: #64748b;
+        color: #374151;
         display: block;
         margin-bottom: 1px;
       }
       .info-val {
-        font-weight: 600;
-        color: #0f172a;
+        font-weight: bold;
+        color: #000000;
       }
       .sucursal-block {
         margin-bottom: 10px;
@@ -75,26 +81,26 @@
       }
       .sucursal-banner {
         width: 100%;
-        background-color: #0f172a;
+        background-color: #1f2937;
         color: #ffffff;
         border-collapse: collapse;
-        margin-top: 5px;
+        margin-top: 4px;
       }
       .sucursal-banner td {
         padding: 4px 7px;
         vertical-align: middle;
       }
       .sucursal-title {
-        font-size: 9.5px;
+        font-size: 10px;
         font-weight: bold;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.04em;
         color: #ffffff;
       }
       .sucursal-meta {
         text-align: right;
-        font-size: 7.5px;
-        color: #e2e8f0;
+        font-size: 8px;
+        color: #e5e7eb;
       }
       .sucursal-meta strong {
         color: #ffffff;
@@ -111,14 +117,14 @@
         page-break-inside: avoid;
       }
       .data-table th {
-        background-color: #1e293b;
+        background-color: #1f2937;
         color: #ffffff;
-        font-size: 7px;
+        font-size: 8px;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.04em;
         padding: 4px 3px;
         font-weight: bold;
-        border: 1px solid #1e293b;
+        border: 1px solid #1f2937;
         text-align: center;
       }
       .data-table th.text-left {
@@ -126,29 +132,30 @@
         padding-left: 5px;
       }
       .data-table td {
-        padding: 3px 3px;
-        border: 1px solid #e2e8f0;
-        font-size: 7px;
+        padding: 3.5px 4px;
+        border: 1px solid #9ca3af;
+        font-size: 8px;
         text-align: center;
         vertical-align: middle;
+        color: #000000;
       }
       .data-table td.text-left {
         text-align: left;
         padding-left: 5px;
       }
       .data-table tr:nth-child(even) td {
-        background-color: #f8fafc;
+        background-color: #fafafa;
       }
       .dia-sub {
-        font-size: 6px;
-        color: #64748b;
+        font-size: 6.5px;
+        color: #374151;
         text-transform: capitalize;
         display: block;
         margin-top: 1px;
       }
       .cod-sub {
-        font-size: 6.5px;
-        color: #475569;
+        font-size: 7px;
+        color: #374151;
         font-weight: normal;
         display: block;
         margin-top: 1px;
@@ -156,33 +163,43 @@
       .badge {
         display: inline-block;
         padding: 1.5px 4px;
-        border-radius: 3px;
-        font-size: 6.5px;
+        border-radius: 2px;
+        font-size: 7px;
         font-weight: bold;
         white-space: nowrap;
+        text-transform: uppercase;
       }
       .badge-success {
-        background-color: #dcfce7;
-        color: #166534;
+        background-color: #ffffff;
+        color: #000000;
+        border: 1px solid #6b7280;
       }
       .badge-warning {
-        background-color: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
+        background-color: #ffffff;
+        color: #000000;
+        border: 1.5px dashed #000000;
       }
       .badge-danger {
-        background-color: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
-        font-weight: 800;
-        letter-spacing: 0.03em;
+        background-color: #000000;
+        color: #ffffff;
+        border: 1px solid #000000;
+        font-weight: 900;
+        letter-spacing: 0.04em;
       }
-      .badge-secondary {
-        background-color: #f1f5f9;
-        color: #475569;
+      .badge-feriado {
+        background-color: #e5e7eb;
+        color: #000000;
+        border: 1.5px solid #000000;
+        font-weight: bold;
+      }
+      .badge-permiso {
+        background-color: #f3f4f6;
+        color: #000000;
+        border: 1.5px solid #000000;
+        font-weight: bold;
       }
       .signatures {
-        margin-top: 18px;
+        margin-top: 22px;
         width: 100%;
         page-break-inside: avoid;
       }
@@ -192,15 +209,17 @@
         padding: 0 30px;
       }
       .sign-line {
-        border-top: 1px solid #64748b;
-        margin-top: 30px;
+        border-top: 1.5px solid #000000;
+        margin-top: 26px;
         padding-top: 3px;
         font-weight: bold;
-        font-size: 7.5px;
+        font-size: 8px;
+        color: #000000;
+        text-transform: uppercase;
       }
       .sign-title {
-        font-size: 6.5px;
-        color: #64748b;
+        font-size: 7px;
+        color: #374151;
       }
     </style>
   </head>
@@ -248,7 +267,7 @@
         </td>
         <td>
           <span class="info-label">Faltas Registradas</span>
-          <span class="info-val" style="color: {{ ($stats['total_faltas'] ?? 0) > 0 ? '#b91c1c' : '#0f172a' }}; font-weight: bold;">
+          <span class="info-val" style="color: #000000; font-weight: 900;">
             {{ $stats['total_faltas'] ?? 0 }}
           </span>
         </td>
@@ -275,7 +294,7 @@
           </tr>
         </table>
 
-        {{-- Tabla de datos de la sucursal (8 columnas ajustadas para formato vertical) --}}
+        {{-- Tabla de datos de la sucursal --}}
         <table class="data-table">
           <thead>
             <tr>
@@ -286,7 +305,7 @@
               <th style="width: 9%;">Horas Trab.</th>
               <th style="width: 10%;">Retraso</th>
               <th style="width: 14%;">Omisiones</th>
-              <th style="width: 11%;">Faltas</th>
+              <th style="width: 11%;">Faltas / Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -309,13 +328,13 @@
                 <td>{{ $row->horas_trabajadas }}</td>
                 <td>
                   @if(!empty($row->permiso_autorizado))
-                    <span style="color: #15803d; font-weight: bold; font-size: 7.5px;">Permiso</span>
+                    <strong>Permiso</strong>
                   @elseif(($row->minutos_retraso ?? 0) > 0)
-                    <span style="color: #b91c1c; font-weight: bold;">+{{ $row->minutos_retraso }}m</span>
+                    <strong>+{{ $row->minutos_retraso }}m</strong>
                   @elseif($row->hora_entrada !== '--:--')
-                    <span style="color: #15803d; font-weight: 600;">0m</span>
+                    <span>0m</span>
                   @else
-                    <span style="color: #94a3b8;">--</span>
+                    <span style="color: #6b7280;">--</span>
                   @endif
                 </td>
                 <td>
@@ -324,24 +343,24 @@
                   @elseif($row->tipo_omision === 'sin_entrada')
                     <span class="badge badge-warning">Sin Entrada</span>
                   @else
-                    <span style="color: #94a3b8;">--</span>
+                    <span style="color: #6b7280;">--</span>
                   @endif
                 </td>
                 <td>
                   @if(!empty($row->es_feriado))
-                    <span class="badge" style="background-color: #ede9fe; color: #5b21b6; border: 1px solid #8b5cf6;">FERIADO{{ (!empty($row->nombre_feriado) && $row->nombre_feriado !== 'Feriado') ? ': ' . \Illuminate\Support\Str::limit($row->nombre_feriado, 12) : '' }}</span>
+                    <span class="badge badge-feriado">FERIADO{{ (!empty($row->nombre_feriado) && $row->nombre_feriado !== 'Feriado') ? ': ' . \Illuminate\Support\Str::limit($row->nombre_feriado, 14) : '' }}</span>
                   @elseif($row->es_falta)
                     <span class="badge badge-danger">FALTA</span>
                   @elseif(!empty($row->permiso_autorizado))
-                    <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: bold;">{{ strtoupper($row->tipo_permiso_label ?? 'PERMISO') }}</span>
+                    <span class="badge badge-permiso">{{ strtoupper($row->tipo_permiso_label ?? 'PERMISO') }}</span>
                   @else
-                    <span style="color: #94a3b8;">--</span>
+                    <span style="color: #6b7280;">--</span>
                   @endif
                 </td>
               </tr>
             @empty
               <tr>
-                <td colspan="8" style="padding: 10px; text-align: center; color: #64748b;">
+                <td colspan="8" style="padding: 10px; text-align: center; color: #4b5563;">
                   No hay registros para esta sucursal.
                 </td>
               </tr>
@@ -353,7 +372,7 @@
       <table class="data-table" style="margin-top: 15px;">
         <tbody>
           <tr>
-            <td colspan="8" style="padding: 20px; text-align: center; color: #64748b; font-size: 8.5px;">
+            <td colspan="8" style="padding: 20px; text-align: center; color: #4b5563; font-size: 8.5px;">
               No se encontraron marcaciones para los filtros seleccionados.
             </td>
           </tr>

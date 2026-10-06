@@ -14,15 +14,15 @@
   </title>
   <style>
     @page {
-      margin: 12px 16px;
+      margin: 14px 20px 12px 20px;
       size: a4 portrait;
     }
 
     body {
       font-family: 'DejaVu Sans', sans-serif;
-      color: #1e293b;
-      font-size: 7.5px;
-      line-height: 1.15;
+      color: #000000;
+      font-size: 9.5px;
+      line-height: 1.25;
       margin: 0;
       padding: 0;
     }
@@ -41,131 +41,143 @@
       page-break-inside: avoid;
     }
 
+    /* ENCABEZADO INSTITUCIONAL - FORMATO MONOCROMÁTICO DE ALTO CONTRASTE */
     .header-table {
       width: 100%;
-      border-bottom: 1.5px solid #0f172a;
+      border-bottom: 2px solid #000000;
       padding-bottom: 3px;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
 
     .kicker {
-      font-size: 6.5px;
-      letter-spacing: 0.15em;
+      font-size: 8px;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: #475569;
+      color: #1a1a1a;
       font-weight: bold;
     }
 
     .title {
-      font-size: 13px;
-      font-weight: bold;
-      color: #0f172a;
+      font-size: 15px;
+      font-weight: 900;
+      color: #000000;
       margin-top: 1px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .meta-subtitle {
+      font-size: 8.5px;
+      color: #1a1a1a;
+      margin-top: 2px;
     }
 
     .meta-right {
       text-align: right;
-      font-size: 7px;
-      line-height: 1.25;
-      color: #475569;
+      font-size: 8px;
+      line-height: 1.3;
+      color: #1a1a1a;
     }
 
+    /* CAJA DE INFORMACIÓN DEL PERSONAL */
     .info-box {
       width: 100%;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      background-color: #f8fafc;
-      margin-bottom: 4px;
+      border: 1.5px solid #000000;
+      background-color: #ffffff;
+      margin-bottom: 5px;
       border-collapse: collapse;
     }
 
     .info-box td {
-      padding: 2.5px 6px;
+      padding: 3.5px 6px;
       vertical-align: middle;
-      font-size: 7.5px;
+      border-right: 1px solid #9ca3af;
+    }
+
+    .info-box td:last-child {
+      border-right: none;
     }
 
     .info-label {
-      font-size: 6px;
+      font-size: 7px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #64748b;
+      letter-spacing: 0.06em;
+      color: #374151;
       font-weight: bold;
       display: block;
       margin-bottom: 1px;
     }
 
     .info-value {
-      font-size: 9px;
-      font-weight: bold;
-      color: #0f172a;
+      font-size: 11px;
+      font-weight: 900;
+      color: #000000;
     }
 
+    /* CUADRO DE MÉTRICAS RESUMEN */
     .stats-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
 
     .stat-cell {
       width: 25%;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #000000;
       background: #ffffff;
-      padding: 2.5px 5px;
+      padding: 3.5px 5px;
       text-align: center;
     }
 
     .stat-title {
-      font-size: 6.5px;
+      font-size: 7.5px;
       text-transform: uppercase;
       font-weight: bold;
-      color: #64748b;
-      letter-spacing: 0.05em;
+      color: #1f2937;
+      letter-spacing: 0.04em;
     }
 
     .stat-num {
-      font-size: 11px;
-      font-weight: bold;
-      color: #0f172a;
+      font-size: 14px;
+      font-weight: 900;
+      color: #000000;
       margin-top: 1px;
     }
 
     .stat-sub {
-      font-size: 6.5px;
-      color: #64748b;
+      font-size: 7.5px;
+      color: #374151;
       margin-top: 0px;
     }
 
+    /* TÍTULO DE SECCIÓN */
     .section-heading {
-      font-size: 8px;
-      font-weight: bold;
+      font-size: 9px;
+      font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #0f172a;
-      border-bottom: 1px solid #cbd5e1;
+      color: #000000;
+      border-bottom: 1.5px solid #000000;
       padding-bottom: 2px;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
       margin-top: 2px;
     }
 
+    /* TABLA PRINCIPAL DE MARCACIONES */
     table.data-table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 2px;
-      font-size: 7.5px;
-      line-height: 1.15;
+      line-height: 1.25;
     }
 
     .data-table th {
-      background-color: #f1f5f9;
-      color: #0f172a;
-      font-size: 7px;
+      background-color: #1f2937;
+      color: #ffffff;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-top: 1px solid #94a3b8;
-      border-bottom: 1.5px solid #64748b;
-      padding: 2.5px 4px;
+      letter-spacing: 0.04em;
+      border: 1px solid #1f2937;
       text-align: left;
     }
 
@@ -175,25 +187,96 @@
     }
 
     .data-table td {
-      border-bottom: 1px solid #e2e8f0;
-      padding: 1.8px 4px;
+      border: 1px solid #9ca3af;
       vertical-align: middle;
-      font-size: 7.5px;
+      color: #000000;
     }
 
-    .data-table tr:nth-child(even) {
-      background-color: #f8fafc;
+    .data-table tr:nth-child(even) td {
+      background-color: #fafafa;
     }
 
     .font-mono {
       font-family: 'DejaVu Sans Mono', monospace, sans-serif;
-      font-size: 7.5px;
     }
 
+    /* VARIACIONES DINÁMICAS: TIPOGRAFÍA MÁS GRANDE Y AJUSTE A 1 PLANA EXACTA */
+    .tabla-densa th {
+      padding: 3.5px 4px;
+      font-size: 8.5px;
+    }
+    .tabla-densa td {
+      padding: 3.2px 4px;
+      font-size: 9.2px;
+    }
+    .tabla-densa .font-mono {
+      font-size: 9.2px;
+    }
+    .tabla-densa .badge-ok,
+    .tabla-densa .badge-late,
+    .tabla-densa .badge-absent,
+    .tabla-densa .badge-falta,
+    .tabla-densa .badge-feriado,
+    .tabla-densa .badge-feriado-trabajado,
+    .tabla-densa .badge-permiso-autorizado,
+    .tabla-densa .badge-omision-alert,
+    .tabla-densa .badge-omision-missing {
+      font-size: 7.5px;
+      padding: 1.5px 4px;
+    }
+
+    .tabla-media th {
+      padding: 4.8px 5px;
+      font-size: 9.2px;
+    }
+    .tabla-media td {
+      padding: 4.8px 5px;
+      font-size: 10.0px;
+    }
+    .tabla-media .font-mono {
+      font-size: 10.0px;
+    }
+    .tabla-media .badge-ok,
+    .tabla-media .badge-late,
+    .tabla-media .badge-absent,
+    .tabla-media .badge-falta,
+    .tabla-media .badge-feriado,
+    .tabla-media .badge-feriado-trabajado,
+    .tabla-media .badge-permiso-autorizado,
+    .tabla-media .badge-omision-alert,
+    .tabla-media .badge-omision-missing {
+      font-size: 8.2px;
+      padding: 2px 5px;
+    }
+
+    .tabla-amplia th {
+      padding: 6.5px 6px;
+      font-size: 10.0px;
+    }
+    .tabla-amplia td {
+      padding: 7.5px 6px;
+      font-size: 11.0px;
+    }
+    .tabla-amplia .font-mono {
+      font-size: 11.0px;
+    }
+    .tabla-amplia .badge-ok,
+    .tabla-amplia .badge-late,
+    .tabla-amplia .badge-absent,
+    .tabla-amplia .badge-falta,
+    .tabla-amplia .badge-feriado,
+    .tabla-amplia .badge-feriado-trabajado,
+    .tabla-amplia .badge-permiso-autorizado,
+    .tabla-amplia .badge-omision-alert,
+    .tabla-amplia .badge-omision-missing {
+      font-size: 9.0px;
+      padding: 2.5px 6px;
+    }
+
+    /* BADGES MONOCROMÁTICOS (100% APTOS PARA TÓNER Y FOTOCOPIADORA) */
     .badge-ok,
     .badge-late,
     .badge-absent,
-    .badge-omision,
     .badge-falta,
     .badge-feriado,
     .badge-feriado-trabajado,
@@ -201,124 +284,148 @@
     .badge-omision-alert,
     .badge-omision-missing {
       display: inline-block;
-      padding: 1px 3.5px;
-      border-radius: 2px;
-      font-size: 6.5px;
-      line-height: 1;
+      line-height: 1.15;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.02em;
       white-space: nowrap;
+      border-radius: 2px;
     }
 
     .badge-ok {
       font-weight: normal;
-      color: #111827;
-      background: #f3f4f6;
-      border: 1px solid #9ca3af;
+      color: #000000;
+      background: #ffffff;
+      border: 1px solid #6b7280;
     }
 
     .badge-late {
-      color: #b91c1c;
-      background: #fee2e2;
-      border: 1px solid #ef4444;
+      color: #000000;
+      background: #ffffff;
+      border: 1.5px solid #000000;
+      font-weight: bold;
     }
 
     .badge-absent {
-      color: #475569;
-      background: #f1f5f9;
-      border: 1px solid #94a3b8;
+      color: #4b5563;
+      background: #ffffff;
+      border: 1px dotted #9ca3af;
+      font-weight: normal;
     }
 
     .row-omision {
-      background-color: #fff7ed !important;
+      background-color: #ffffff !important;
     }
 
     .badge-omision-alert {
-      color: #9a3412;
-      background-color: #ffedd5;
-      border: 1px solid #f97316;
+      color: #000000;
+      background-color: #ffffff;
+      border: 1.5px dashed #000000;
+      font-weight: bold;
     }
 
     .badge-omision-missing {
-      color: #c2410c;
-      background-color: #ffedd5;
-      border: 1px dashed #ea580c;
+      color: #000000;
+      background-color: #ffffff;
+      border-bottom: 1.5px dashed #000000;
+      font-style: italic;
+      font-weight: bold;
+      border-radius: 0;
+      padding: 0 1px;
     }
 
     .row-falta {
-      background-color: #fef2f2 !important;
+      background-color: #f3f4f6 !important;
     }
 
     .badge-falta {
-      color: #991b1b;
-      background-color: #fee2e2;
-      border: 1px solid #ef4444;
+      color: #ffffff;
+      background-color: #000000;
+      border: 1px solid #000000;
+      font-weight: 900;
+      letter-spacing: 0.05em;
     }
 
     .row-feriado {
-      background-color: #f5f3ff !important;
+      background-color: #f3f4f6 !important;
     }
 
     .badge-feriado {
-      color: #5b21b6;
-      background-color: #ede9fe;
-      border: 1px solid #8b5cf6;
+      color: #000000;
+      background-color: #e5e7eb;
+      border: 1.5px solid #000000;
+      font-weight: bold;
     }
 
     .badge-feriado-trabajado {
-      color: #4338ca;
-      background-color: #e0e7ff;
-      border: 1px solid #6366f1;
+      color: #000000;
+      background-color: #ffffff;
+      border: 1.5px solid #000000;
+      font-weight: bold;
     }
 
     .row-permiso-autorizado {
-      background-color: #f0fdf4 !important;
+      background-color: #ffffff !important;
     }
 
     .badge-permiso-autorizado {
-      color: #166534;
-      background-color: #dcfce7;
-      border: 1px solid #22c55e;
+      color: #000000;
+      background-color: #f3f4f6;
+      border: 1.5px solid #000000;
+      font-weight: bold;
     }
 
+    /* FIRMAS DE RESPONSABILIDAD */
     .footer-signatures {
       width: 100%;
-      margin-top: 8px;
+      margin-top: 20px;
       border-collapse: collapse;
       page-break-inside: avoid;
+    }
+
+    .tabla-densa + .footer-signatures {
+      margin-top: 12px;
+    }
+
+    .tabla-media + .footer-signatures {
+      margin-top: 22px;
+    }
+
+    .tabla-amplia + .footer-signatures {
+      margin-top: 32px;
     }
 
     .footer-signatures td {
       width: 50%;
       text-align: center;
       vertical-align: top;
-      padding: 2px 25px;
+      padding: 2px 30px;
     }
 
     .sign-line {
-      border-top: 1px solid #64748b;
-      margin-top: 22px;
-      padding-top: 2px;
-      font-size: 7px;
+      border-top: 1.5px solid #000000;
+      padding-top: 3px;
+      font-size: 8px;
       font-weight: bold;
-      color: #334155;
+      color: #000000;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .sign-sub {
-      font-size: 6px;
-      color: #64748b;
+      font-size: 7px;
+      color: #374151;
+      margin-top: 1px;
     }
 
     .page-footer {
       position: fixed;
-      bottom: -10px;
+      bottom: -6px;
       left: 0;
       right: 0;
       text-align: center;
-      font-size: 7px;
-      color: #94a3b8;
-      border-top: 0.5px solid #e2e8f0;
+      font-size: 7.5px;
+      color: #6b7280;
+      border-top: 0.5px solid #9ca3af;
       padding-top: 2px;
     }
   </style>
@@ -373,6 +480,16 @@
       $empStats = $ficha['stats'] ?? [];
       $empRegistros = $ficha['registros'] ?? [];
       $esUltimaFicha = ($index === $totalFichas - 1);
+      $cantRegs = count($empRegistros);
+
+      // Determinación dinámica de espaciado y tipografía para llenar 1 plana exacta
+      if ($cantRegs > 25) {
+          $denseClass = 'tabla-densa';
+      } elseif ($cantRegs > 17) {
+          $denseClass = 'tabla-media';
+      } else {
+          $denseClass = 'tabla-amplia';
+      }
     @endphp
 
     <div class="ficha-personal" style="{{ !$esUltimaFicha ? 'page-break-after: always;' : '' }}">
@@ -382,7 +499,7 @@
           <td style="vertical-align: middle;">
             <p class="kicker">CORREOS DE BOLIVIA · RECURSOS HUMANOS</p>
             <h1 class="title">Reporte de Marcaciones de Asistencia</h1>
-            <p style="font-size: 7.5px; color: #475569; margin-top: 1px;">
+            <p class="meta-subtitle">
               Período: <strong>{{ $periodoLabel }}</strong>
               @if(!empty($empInfo['sucursal']))
                 &nbsp;&bull;&nbsp; Sucursal: <strong>{{ $empInfo['sucursal'] }}</strong>
@@ -436,7 +553,7 @@
               </td>
               <td class="stat-cell">
                 <div class="stat-title">Retraso Total</div>
-                <div class="stat-num" style="color: #0f172a;">
+                <div class="stat-num">
                   {{ $empStats['minutos_atraso_totales'] ?? 0 }} min
                 </div>
                 <div class="stat-sub">{{ $empStats['total_atrasos'] ?? 0 }} día(s) con retraso</div>
@@ -444,20 +561,20 @@
               <td class="stat-cell">
                 <div class="stat-title">Omisiones / Faltas / Permisos</div>
                 <div class="stat-num">
-                  {{ $empStats['total_omisiones'] ?? 0 }} <span style="font-size: 7.5px; font-weight: normal; color: #64748b;">om.</span> /
-                  {{ $empStats['total_faltas'] ?? 0 }} <span style="font-size: 7.5px; font-weight: normal; color: #64748b;">fal.</span> /
-                  {{ $empStats['total_permisos'] ?? 0 }} <span style="font-size: 7.5px; font-weight: normal; color: #166534;">perm.</span>
+                  {{ $empStats['total_omisiones'] ?? 0 }} <span style="font-size: 8.5px; font-weight: normal; color: #4b5563;">om.</span> /
+                  {{ $empStats['total_faltas'] ?? 0 }} <span style="font-size: 8.5px; font-weight: normal; color: #4b5563;">fal.</span> /
+                  {{ $empStats['total_permisos'] ?? 0 }} <span style="font-size: 8.5px; font-weight: normal; color: #1f2937;">perm.</span>
                 </div>
                 <div class="stat-sub">
                   @if(!empty($empStats['total_feriados']) && $empStats['total_feriados'] > 0)
-                    <span style="color: #5b21b6; font-weight: bold;">{{ $empStats['total_feriados'] }} feriado(s)</span> &bull;
+                    <strong>{{ $empStats['total_feriados'] }} feriado(s)</strong> &bull;
                   @endif
                   Registros del período
                 </div>
               </td>
               <td class="stat-cell">
                 <div class="stat-title">Tolerancia Mensual</div>
-                <div class="stat-num" style="font-size: 9.5px; margin-top: 2px; color: #0f172a;">
+                <div class="stat-num" style="font-size: 11px; margin-top: 2px;">
                   {{ $empStats['estado_tolerancia'] ?? 'Dentro de tolerancia' }}
                 </div>
                 <div class="stat-sub">{{ $empStats['saldo_tolerancia'] ?? '' }}</div>
@@ -472,18 +589,18 @@
         Detalle de Registros de Marcación ({{ count($empRegistros) }} registros)
       </div>
 
-      <table class="data-table">
+      <table class="data-table {{ $denseClass }}">
         <thead>
           <tr>
             @if (!$empInfo)
               <th style="width: 26%;">Personal</th>
             @endif
-            <th class="center" style="width: {{ !$empInfo ? '13%' : '15%' }};">Fecha</th>
-            <th class="center" style="width: {{ !$empInfo ? '11%' : '14%' }};">Día</th>
-            <th class="center" style="width: {{ !$empInfo ? '12%' : '17%' }};">Hora Entrada</th>
-            <th class="center" style="width: {{ !$empInfo ? '12%' : '17%' }};">Hora Salida</th>
+            <th class="center" style="width: {{ !$empInfo ? '13%' : '14%' }};">Fecha</th>
+            <th class="center" style="width: {{ !$empInfo ? '11%' : '13%' }};">Día</th>
+            <th class="center" style="width: {{ !$empInfo ? '12%' : '15%' }};">Hora Entrada</th>
+            <th class="center" style="width: {{ !$empInfo ? '12%' : '15%' }};">Hora Salida</th>
             <th class="center" style="width: {{ !$empInfo ? '12%' : '15%' }};">Horas Trab.</th>
-            <th class="center" style="width: {{ !$empInfo ? '14%' : '22%' }};">Estado / Retraso</th>
+            <th class="center" style="width: {{ !$empInfo ? '16%' : '28%' }};">Estado / Retraso</th>
           </tr>
         </thead>
         <tbody>
@@ -507,48 +624,48 @@
               @if (!$empInfo)
                 <td>
                   <strong>{{ $row->empleado?->nombre_completo ?? 'Sin nombre' }}</strong>
-                  <span style="display: block; font-size: 6.5px; color: #475569;">Cód: {{ $row->codigo ?? $row->empleado?->codigo_biometrico }}</span>
+                  <span style="display: block; font-size: 7.5px; color: #4b5563;">Cód: {{ $row->codigo ?? $row->empleado?->codigo_biometrico }}</span>
                 </td>
               @endif
               <td class="center">
                 <strong>{{ $row->fecha_formateada ?? (\Carbon\Carbon::parse($row->fecha)->format('d/m/Y')) }}</strong>
               </td>
-              <td class="center" style="text-transform: capitalize; color: #475569;">
+              <td class="center" style="text-transform: capitalize; color: #374151;">
                 {{ $row->dia ?? (\Carbon\Carbon::parse($row->fecha)->locale('es')->isoFormat('dddd')) }}
               </td>
               <td class="center font-mono">
                 @if($tieneEntrada)
-                  <strong style="color: #0f172a;">{{ $row->hora_entrada }}</strong>
+                  <strong>{{ $row->hora_entrada }}</strong>
                 @elseif($esFeriado || $esFalta || $esPermisoAutorizado)
-                  <span style="color: #94a3b8;">--:--</span>
+                  <span style="color: #6b7280;">--:--</span>
                 @elseif($faltaEntrada)
                   <span class="badge-omision-missing">Sin Entrada</span>
                 @else
-                  <span style="color: #94a3b8;">--:--</span>
+                  <span style="color: #6b7280;">--:--</span>
                 @endif
               </td>
               <td class="center font-mono">
                 @if($tieneSalida)
-                  <strong style="color: #0f172a;">{{ $row->hora_salida }}</strong>
+                  <strong>{{ $row->hora_salida }}</strong>
                 @elseif($esFeriado || $esFalta || $esPermisoAutorizado)
-                  <span style="color: #94a3b8;">--:--</span>
+                  <span style="color: #6b7280;">--:--</span>
                 @elseif($faltaSalida)
                   <span class="badge-omision-missing">Sin Salida</span>
                 @else
-                  <span style="color: #94a3b8;">--:--</span>
+                  <span style="color: #6b7280;">--:--</span>
                 @endif
               </td>
               <td class="center font-mono">
                 @if($esFeriado && !$tieneEntrada && !$tieneSalida)
-                  <span style="color: #64748b;">0h 00m</span>
+                  <span style="color: #4b5563;">0h 00m</span>
                 @elseif($esFalta)
-                  <span style="color: #991b1b; font-weight: bold;">0h 00m</span>
+                  <strong>0h 00m</strong>
                 @elseif($esPermisoAutorizado && !$tieneEntrada && !$tieneSalida)
-                  <span style="color: #166534; font-weight: bold;">Permiso</span>
+                  <strong>Permiso</strong>
                 @elseif(($row->horas_trabajadas ?? '--:--') !== '--:--')
                   <strong>{{ $row->horas_trabajadas }}</strong>
                 @else
-                  <span style="color: #64748b;">--:--</span>
+                  <span style="color: #4b5563;">--:--</span>
                 @endif
               </td>
               <td class="center">
@@ -556,7 +673,7 @@
                   @if($tieneEntrada && $tieneSalida)
                     <span class="badge-feriado-trabajado">Feriado Trab.</span>
                   @else
-                    <span class="badge-feriado">Feriado{{ (!empty($nombreFeriado) && $nombreFeriado !== 'Feriado') ? ': ' . \Illuminate\Support\Str::limit($nombreFeriado, 14) : '' }}</span>
+                    <span class="badge-feriado">Feriado{{ (!empty($nombreFeriado) && $nombreFeriado !== 'Feriado') ? ': ' . $nombreFeriado : '' }}</span>
                   @endif
                 @elseif($esFalta)
                   <span class="badge-falta">Falta</span>
@@ -580,7 +697,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="{{ !$empInfo ? '7' : '6' }}" style="text-align: center; padding: 10px; color: #94a3b8;">
+              <td colspan="{{ !$empInfo ? '7' : '6' }}" style="text-align: center; padding: 14px; color: #6b7280;">
                 No se encontraron registros de marcación para los criterios seleccionados.
               </td>
             </tr>
@@ -588,7 +705,7 @@
         </tbody>
       </table>
 
-      {{-- FIRMAS DE RESPONSABILIDAD: Omitidas en reportes globales y por sucursal por restricción de espacio --}}
+      {{-- FIRMAS DE RESPONSABILIDAD: Mantenidas en reporte personal, omitidas en sucursal/global --}}
       @if (!in_array($modoReporte ?? '', ['sucursal', 'global'], true) && ($totalFichas ?? 1) === 1)
         <table class="footer-signatures">
           <tr>
