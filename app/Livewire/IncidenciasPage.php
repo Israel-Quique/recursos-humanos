@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Mail\BoletaEstadoMailable;
+use App\Models\ConfiguracionBoleta;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
@@ -95,6 +96,28 @@ class IncidenciasPage extends Component
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function alternarComprobantes(): void
+    {
+        abort_unless(auth()->user()?->can('gestionar personal'), 403);
+
+        $habilitados = !ConfiguracionBoleta::comprobantesHabilitados();
+        $configuracion = ConfiguracionBoleta::query()->firstOrNew(['id' => 1]);
+        $configuracion->comprobantes_habilitados = $habilitados;
+        $configuracion->save();
+
+        app(AuditoriaService::class)->registrar(
+            'Incidencias',
+            'configurar_comprobantes',
+            $habilitados ? 'Se habilitaron los comprobantes obligatorios de boletas.' : 'Se deshabilitaron los comprobantes de boletas.',
+            $configuracion,
+            ['comprobantes_habilitados' => !$habilitados],
+            ['comprobantes_habilitados' => $habilitados],
+        );
+        session()->flash('status', $habilitados
+            ? 'Comprobantes habilitados: el usuario debe adjuntar una foto para generar su boleta.'
+            : 'Comprobantes deshabilitados: el usuario puede generar su boleta sin adjunto.');
     }
 
     public function updatingTipoFiltro(): void
@@ -692,6 +715,7 @@ class IncidenciasPage extends Component
         $tiposPermisosModel = TipoPermiso::query()->orderBy('nombre')->get();
 
         return view('livewire.incidencias', [
+            'comprobantesHabilitados' => ConfiguracionBoleta::comprobantesHabilitados(),
             'incidencias' => $incidencias,
             'empleados' => $empleados,
             'empleadosFormulario' => $empleadosFormulario,

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\ConfiguracionBoleta;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
@@ -49,7 +50,7 @@ class ConsultaCarnetPage extends Component
     public string $boletaCiudad = 'LA PAZ';
     public string $boletaFechaTexto = '';
 
-    // Archivo de comprobante (foto obligatoria)
+    // Archivo de comprobante (habilitado por RRHH)
     public $comprobante = null;
 
     // Empleado encontrado para visualización de datos iniciales en la consulta
@@ -644,9 +645,13 @@ class ConsultaCarnetPage extends Component
         }
     }
 
-    public function payloadBoleta(bool $requiereComprobante = false): array
+    public function payloadBoleta(): array
     {
         $esRangoDias = $this->esRangoDias;
+        $requiereComprobante = ConfiguracionBoleta::comprobantesHabilitados();
+        if (!$requiereComprobante) {
+            $this->comprobante = null;
+        }
 
         $this->validate([
             'boletaNombre' => ['required', 'string', 'max:150'],
@@ -661,7 +666,7 @@ class ConsultaCarnetPage extends Component
             'boletaTiempoSolicitado' => ['required', 'string', 'max:50'],
             'boletaCiudad' => ['required', 'string', 'max:60'],
             'boletaFechaTexto' => ['required', 'string', 'max:80'],
-            'comprobante' => $requiereComprobante ? ['required', 'image', 'max:5120'] : ['nullable', 'image', 'max:5120'],
+            'comprobante' => $requiereComprobante ? ['required', 'image', 'max:5120'] : ['prohibited'],
         ], [
             'boletaNombre.required' => 'Ingresa el nombre del funcionario.',
             'boletaCi.required' => 'Ingresa el carnet del funcionario.',
@@ -873,7 +878,7 @@ class ConsultaCarnetPage extends Component
 
     public function descargarExcel()
     {
-        $boleta = $this->payloadBoleta(false);
+        $boleta = $this->payloadBoleta();
 
         $excelService = app(BoletaExcelService::class);
         $spreadsheet = $excelService->generarSpreadsheet($boleta);
@@ -890,7 +895,9 @@ class ConsultaCarnetPage extends Component
 
     public function render()
     {
-        return view('livewire.consulta-carnet')
+        return view('livewire.consulta-carnet', [
+            'comprobantesHabilitados' => ConfiguracionBoleta::comprobantesHabilitados(),
+        ])
             ->layout('layouts.guest', ['title' => 'Consulta por carnet y boletas']);
     }
 }

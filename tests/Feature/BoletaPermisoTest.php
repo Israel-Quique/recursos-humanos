@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\ConsultaCarnetPage;
+use App\Models\ConfiguracionBoleta;
 use App\Models\Empleado;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -40,6 +41,7 @@ class BoletaPermisoTest extends TestCase
 
     public function test_descarga_pdf_boleta(): void
     {
+        ConfiguracionBoleta::query()->create(['comprobantes_habilitados' => true]);
         $empleado = Empleado::query()->create([
             'nombre' => 'Marco Antonio',
             'apellido' => 'Espinoza Rojas',

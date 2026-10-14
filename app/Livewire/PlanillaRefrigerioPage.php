@@ -108,8 +108,10 @@ class PlanillaRefrigerioPage extends Component
             $itemsLoaded = $registro->datos['items'];
             $primerItem = $itemsLoaded[0] ?? [];
 
-            // Recalcular planillas previas a la regla que incluye feriados y días pagados.
-            if (empty($primerItem['dias'] ?? []) || (int) ($registro->datos['regla_version'] ?? 0) < 3) {
+            $this->tarifaDiaria = (float) $registro->tarifa_diaria;
+
+            // Recalcular planillas previas a la regla de permisos pagados.
+            if (empty($primerItem['dias'] ?? []) || (int) ($registro->datos['regla_version'] ?? 0) < 4) {
                 $this->jalarDatos(false);
                 return;
             }
@@ -214,7 +216,7 @@ class PlanillaRefrigerioPage extends Component
      * Actualiza el estado de un día específico y recalcula totales en vivo.
      * '' = sin dato biométrico (no penaliza)
      * 'a' = asistencia (no penaliza)
-     * 'f'/'o'/'oe'/'os'/permisos = se penaliza como 1 día no pagado.
+     * Faltas, omisiones, feriados y permisos exceptuados = 1 día no pagado.
      */
     public function actualizarEstadoDia(int $index, string $fecha, string $nuevoEstado): void
     {
@@ -231,6 +233,11 @@ class PlanillaRefrigerioPage extends Component
             }
         }
 
+        $service = app(PlanillaRefrigerioService::class);
+        $nombres = $this->obtenerTiposEstados();
+        if ($nuevoEstado !== '') {
+            $nuevoEstado = $service->estadoPermisoRefrigerio($nuevoEstado, $nombres[$nuevoEstado] ?? '');
+        }
         $this->items[$index]['dias'][$fecha] = $nuevoEstado;
 
         // Recalcular conteos y desgloses
@@ -252,7 +259,8 @@ class PlanillaRefrigerioPage extends Component
         $fechasNoPagadas = [];
 
         foreach ($this->items[$index]['dias'] as $fKey => $st) {
-            $st = strtolower($st);
+            $st = $st === '' ? '' : $service->estadoPermisoRefrigerio(strtolower($st), $nombres[$st] ?? '');
+            $this->items[$index]['dias'][$fKey] = $st;
             try {
                 $fFormatted = Carbon::parse($fKey)->format('d/m/Y');
             } catch (\Throwable) {
@@ -283,6 +291,7 @@ class PlanillaRefrigerioPage extends Component
                 $label = match($st) {
                     'bm' => 'Baja médica autorizada',
                     'cv' => 'Comisión de viaje laboral',
+                    'pc' => 'Permiso bajo contrato',
                     default => 'Permiso: ' . strtoupper($st),
                 };
                 $fechasPermisos[] = ['fecha' => $fFormatted, 'dias' => 1, 'motivo' => $label, 'tipo' => $st];
@@ -308,6 +317,7 @@ class PlanillaRefrigerioPage extends Component
                         'fe' => 'Feriado o día no laborable',
                         'bm' => 'Baja médica autorizada',
                         'cv' => 'Comisión de viaje laboral',
+                        'pc' => 'Permiso bajo contrato',
                         default => 'Permiso: ' . strtoupper($st),
                     },
                 ];
@@ -401,7 +411,7 @@ class PlanillaRefrigerioPage extends Component
     public function guardarPlanilla(): void
     {
         $datos = [
-            'regla_version' => 3,
+            'regla_version' => 4,
             'items' => $this->items,
             'dias_mes' => $this->diasMes,
             'metricas' => $this->calcularMetricas(),
@@ -538,6 +548,9 @@ class PlanillaRefrigerioPage extends Component
             'oe' => 'Omisión de entrada',
             'os' => 'Omisión de salida',
             'fe' => 'Feriado / asueto',
+            'bm' => 'Baja médica',
+            'cv' => 'Comisión de viaje',
+            'pc' => 'Permiso bajo contrato',
         ];
 
         // Todos los demás estados provienen de Incidencias y Permisos (TipoPermiso)

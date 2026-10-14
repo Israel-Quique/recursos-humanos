@@ -226,7 +226,7 @@
         <p class="report-hero-kicker">Agencia Boliviana de Correos · Recursos Humanos</p>
         <h1 class="report-hero-title">Planilla de Descuento de Refrigerio / Comida</h1>
         <p class="report-hero-copy">
-          Solo se pagan jornadas con entrada y salida completas. Faltas, omisiones, permisos, bajas médicas y feriados no generan refrigerio ·
+          Se pagan jornadas completas y permisos aprobados. Se descuentan faltas, omisiones sin justificar, bajas médicas, comisiones de viaje, permisos bajo contrato y feriados ·
           <strong>{{ $periodoLabel }}</strong> · Sucursal: <strong>{{ $selectedBranch ?: 'Todas las sucursales' }}</strong>
           @if($ultimaGuardada)
             · <span class="text-emerald-700 font-medium">✓ Guardada el {{ $ultimaGuardada }}</span>
@@ -647,7 +647,7 @@
               <span class="w-8 h-8 rounded-lg bg-[#dcfce7] text-[#15803d] font-black text-sm flex items-center justify-center border border-emerald-300 shadow-xs">A</span>
               <span class="font-extrabold text-slate-900 text-xs uppercase">Asistencia</span>
             </div>
-            <p class="text-[11px] text-slate-600 leading-snug">El colaborador realizó su jornada laboral.</p>
+            <p class="text-[11px] text-slate-600 leading-snug">Jornada completa o permiso aprobado que genera refrigerio.</p>
           </div>
 
           {{-- F: Falta (Biométrico) --}}
@@ -706,13 +706,13 @@
                   <span class="w-8 h-8 rounded-lg {{ $cardBadge['bg'] }} {{ $cardBadge['txt'] }} font-black text-xs flex items-center justify-center border {{ $cardBadge['border'] }} shadow-xs">{{ $siglaLabel }}</span>
                   <span class="font-extrabold text-slate-900 text-xs uppercase">{{ $tLabel }}</span>
                 </div>
-                <p class="text-[11px] text-slate-600 leading-snug">{{ $tKey === 'fe' ? 'Feriado o asueto: no genera pago de refrigerio.' : 'Permiso: '.$tLabel.'. = 1 día no pagado.' }}</p>
+                <p class="text-[11px] text-slate-600 leading-snug">{{ app(\App\Services\PlanillaRefrigerioService::class)->estadoPermisoRefrigerio($tKey, $tLabel) === 'a' ? 'Aprobado: cuenta como asistencia y genera refrigerio.' : 'No genera pago de refrigerio: 1 día no pagado.' }}</p>
               </div>
             @endif
           @endforeach
         </div>
         <div class="px-5 py-2 bg-slate-100 border-t border-slate-200 text-[11px] text-slate-500 italic">
-          Nota: Todo estado distinto de <strong>A (Asistencia)</strong> cuenta como <strong>1 día no pagado</strong>. Los tipos de permisos se sincronizan automáticamente con el módulo de Incidencias.
+          Nota: Los permisos aprobados cuentan como <strong>A (Asistencia)</strong>, excepto bajas médicas, comisiones de viaje y permisos bajo contrato. Las omisiones justificadas con boleta aprobada por horas conservan su asistencia. Faltas, omisiones sin justificar y feriados no generan refrigerio.
         </div>
       </div>
     </div>

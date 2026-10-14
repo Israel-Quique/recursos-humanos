@@ -383,7 +383,48 @@
         }
       </style>
 
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+        {{-- Switch: Exigir comprobantes en boletas con función clara --}}
+        <button
+          type="button"
+          wire:click="alternarComprobantes"
+          wire:loading.attr="disabled"
+          wire:loading.class="opacity-60 pointer-events-none"
+          role="switch"
+          aria-checked="{{ $comprobantesHabilitados ? 'true' : 'false' }}"
+          aria-label="{{ $comprobantesHabilitados ? 'Deshabilitar comprobantes' : 'Habilitar comprobantes' }}"
+          title="{{ $comprobantesHabilitados ? 'Comprobante obligatorio activo: el trabajador debe adjuntar foto/respaldo para emitir su boleta. Clic para deshabilitar comprobantes.' : 'Comprobante opcional: el trabajador puede generar su boleta sin adjuntar foto. Clic para habilitar comprobantes.' }}"
+          class="group inline-flex items-center gap-3 rounded-[0.85rem] border border-slate-200/90 bg-white px-3 py-1.5 text-left transition-all duration-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm cursor-pointer disabled:opacity-50 select-none"
+        >
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors {{ $comprobantesHabilitados ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/70' : 'bg-slate-100 text-slate-400 border border-slate-200/70' }}">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-slate-800">Comprobante en boletas</span>
+                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-extrabold uppercase tracking-wide {{ $comprobantesHabilitados ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600' }}">
+                  {{ $comprobantesHabilitados ? 'Obligatorio' : 'Opcional' }}
+                </span>
+              </div>
+              <span class="text-[11px] font-medium text-slate-500">
+                {{ $comprobantesHabilitados ? 'Exige foto/respaldo al solicitar boleta' : 'Permite emitir boleta sin adjuntar foto' }}
+              </span>
+            </div>
+          </div>
+
+          {{-- Switch Toggle interactivo con animación deslizante --}}
+          <span class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {{ $comprobantesHabilitados ? 'bg-emerald-600' : 'bg-slate-300' }}">
+            <span class="sr-only">{{ $comprobantesHabilitados ? 'Deshabilitar comprobantes' : 'Habilitar comprobantes' }}</span>
+            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {{ $comprobantesHabilitados ? 'translate-x-5' : 'translate-x-0' }}"></span>
+          </span>
+        </button>
+
+        {{-- Separador vertical sutil --}}
+        <div class="hidden md:block h-7 w-[1px] bg-slate-200 mx-0.5"></div>
+
         {{-- Botón: Tipos de Permiso (Engranaje) --}}
         <button
           type="button"

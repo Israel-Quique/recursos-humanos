@@ -441,9 +441,9 @@
           <div class="legend-desc">Día no laborable. No genera pago de refrigerio.</div>
         </td>
         <td style="border-right: none;">
-          <span class="legend-badge cell-perm">Px</span>
-          <span class="legend-title">Permiso</span>
-          <div class="legend-desc">Cualquier permiso autorizado. 1 día no pagado.</div>
+          <span class="legend-badge cell-perm">PC</span>
+          <span class="legend-title">Permiso bajo contrato</span>
+          <div class="legend-desc">1 día no pagado. Los demás permisos aprobados cuentan como asistencia.</div>
         </td>
       </tr>
     </table>

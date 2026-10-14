@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\ConsultaCarnetPage;
 use App\Livewire\IncidenciasPage;
+use App\Models\ConfiguracionBoleta;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
@@ -18,6 +19,73 @@ use Tests\TestCase;
 class BoletaConComprobanteTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        ConfiguracionBoleta::query()->create(['comprobantes_habilitados' => true]);
+    }
+
+    public function test_rrhh_puede_habilitar_y_deshabilitar_comprobantes_de_forma_persistente(): void
+    {
+        $admin = $this->crearAdmin();
+        Livewire::actingAs($admin)->test(IncidenciasPage::class)
+            ->assertSee('Deshabilitar comprobantes')
+            ->call('alternarComprobantes')
+            ->assertSee('Habilitar comprobantes');
+        $this->assertFalse(ConfiguracionBoleta::comprobantesHabilitados());
+
+        Livewire::actingAs($admin)->test(IncidenciasPage::class)
+            ->assertSee('Habilitar comprobantes')
+            ->call('alternarComprobantes')
+            ->assertSee('Deshabilitar comprobantes');
+        $this->assertTrue(ConfiguracionBoleta::comprobantesHabilitados());
+        $this->assertDatabaseHas('auditorias', ['accion' => 'configurar_comprobantes']);
+    }
+
+    public function test_no_se_puede_cambiar_la_configuracion_sin_permiso(): void
+    {
+        $admin = $this->crearAdmin();
+        $component = Livewire::actingAs($admin)->test(IncidenciasPage::class);
+        $admin->revokePermissionTo('gestionar personal');
+
+        $component->call('alternarComprobantes')->assertForbidden();
+        $this->assertTrue(ConfiguracionBoleta::comprobantesHabilitados());
+    }
+
+    public function test_desactivar_comprobantes_permite_generar_boleta_sin_archivo(): void
+    {
+        $this->crearEmpleado();
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
+
+        Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaMotivo', 'Consulta medica en la CNS')
+            ->assertDontSee('Foto del Comprobante / Respaldo')
+            ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('descargarPdf')
+            ->assertHasNoErrors()
+            ->assertFileDownloaded();
+
+        $this->assertSame(1, PermisoLaboral::query()->count());
+        $this->assertSame(0, PermisoComprobante::query()->count());
+    }
+
+    public function test_exigir_comprobante_se_aplica_a_formularios_ya_abiertos_y_excel(): void
+    {
+        $this->crearEmpleado();
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
+        $component = Livewire::test(ConsultaCarnetPage::class)
+            ->set('carnet', '1234567')
+            ->call('abrirBoletaModal')
+            ->set('boletaMotivo', 'Consulta medica en la CNS');
+
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
+        $component->call('descargarPdf')->assertHasErrors(['comprobante' => 'required']);
+        $component->call('descargarExcel')->assertHasErrors(['comprobante' => 'required']);
+        $this->assertSame(0, PermisoLaboral::query()->count());
+    }
 
     private function crearEmpleado(?string $email = 'carlos.mendoza@correos.gob.bo', string $codigo = '1234567', string $nombre = 'Carlos', string $apellido = 'Mendoza'): Empleado
     {

@@ -8,6 +8,7 @@ use App\Models\FechaEspecialLaboral;
 use App\Models\PermisoLaboral;
 use App\Models\PlanillaRefrigerio;
 use App\Models\RegistroAsistencia;
+use App\Models\TipoPermiso;
 use App\Models\User;
 use App\Services\PlanillaRefrigerioService;
 use Carbon\Carbon;
@@ -541,5 +542,110 @@ class PlanillaRefrigerioTest extends TestCase
         $this->assertEquals('f', $itemEmpSin['dias']['2026-09-02'] ?? '');
         $this->assertGreaterThanOrEqual(1, $itemEmpSin['total_dias']);
         $this->assertGreaterThanOrEqual(25.00, $itemEmpSin['total_monto']);
+    }
+
+    public function test_permisos_aprobados_cuentan_como_asistencia_salvo_excepciones(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-02 00:00:00'));
+
+        $casos = [
+            ['tramite_personal', 'aprobado', 'dias', null, null, 'a'],
+            ['estudio', 'Aprobado', 'dias', '08:30:00', null, 'a'],
+            ['asunto_familiar', 'aprobado', 'dias', null, '16:30:00', 'a'],
+            ['consulta_medica', 'aprobado', 'dias', null, null, 'a'],
+            ['salud', 'aprobado', 'horas', null, null, 'a'],
+            ['comision_laboral', 'aprobado', 'dias', null, null, 'a'],
+            ['baja_medica', 'aprobado', 'dias', '08:30:00', null, 'bm'],
+            ['comision_de_viaje', 'aprobado', 'dias', '08:30:00', '16:30:00', 'cv'],
+            ['permiso_bajo_contrato', 'aprobado', 'dias', null, null, 'pc'],
+            ['omision_entrada', 'aprobado', 'dias', null, '16:30:00', 'oe'],
+            ['omision_salida', 'aprobado', 'dias', '08:30:00', null, 'os'],
+            ['tramite_personal', 'pendiente', 'dias', null, null, 'f'],
+            ['tramite_personal', 'rechazado', 'dias', '08:30:00', null, 'os'],
+        ];
+
+        foreach ($casos as $index => [$clave, $estado, $alcance, $entrada, $salida, $esperado]) {
+            $empleado = Empleado::query()->create([
+                'nombre' => 'Permiso',
+                'apellido' => 'Prueba ' . $index,
+                'area' => 'Operaciones',
+                'codigo_biometrico' => (string) (8000 + $index),
+                'sucursal' => 'La Paz',
+                'fecha_contratacion' => '2026-09-01',
+                'hora_entrada_programada' => '08:30:00',
+                'hora_salida_programada' => '16:30:00',
+            ]);
+            PermisoLaboral::query()->create([
+                'empleado_id' => $empleado->id,
+                'tipo' => 'permiso',
+                'tipo_permiso_clave' => $clave,
+                'motivo' => 'Prueba de permiso aprobado',
+                'alcance' => $alcance,
+                'estado' => $estado,
+                'fecha_inicio' => '2026-09-01',
+                'fecha_fin' => '2026-09-01',
+            ]);
+            if ($entrada || $salida) {
+                RegistroAsistencia::query()->create([
+                    'empleado_id' => $empleado->id,
+                    'fecha' => '2026-09-01',
+                    'hora_entrada' => $entrada,
+                    'hora_salida' => $salida,
+                    'estado_marcacion' => $entrada && $salida ? 'Completo' : ($entrada ? 'Entrada' : 'Salida'),
+                ]);
+            }
+
+            $resultado = app(PlanillaRefrigerioService::class)->calcularPlanilla(Carbon::parse('2026-09-01'));
+            $item = collect($resultado['items'])->firstWhere('empleado_id', $empleado->id);
+            $this->assertNotNull($item, $clave);
+            $this->assertSame($esperado, $item['dias']['2026-09-01'], $clave);
+            $this->assertSame($esperado === 'a' ? 1 : 0, $item['dias_pagados'], $clave);
+            $this->assertSame($esperado === 'a' ? 0 : 1, $item['total_dias'], $clave);
+            $this->assertEquals($esperado === 'a' ? 20 : 0, $item['monto_pagado'], $clave);
+            $this->assertEquals($esperado === 'a' ? 0 : 20, $item['total_monto'], $clave);
+        }
+    }
+
+    public function test_ajuste_manual_de_permiso_pagado_conserva_totales_al_guardar(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-02 00:00:00'));
+        TipoPermiso::sembrarDefaults();
+        TipoPermiso::query()->create([
+            'clave' => 'permiso_bajo_contrato',
+            'nombre' => 'Permiso bajo contrato',
+            'activo' => true,
+        ]);
+        $user = User::query()->create([
+            'name' => 'Permisos Tester',
+            'email' => 'permisos.refrigerio@correos.bo',
+            'password' => bcrypt('password'),
+        ]);
+        $user->givePermissionTo('gestionar personal');
+        Empleado::query()->create([
+            'nombre' => 'Permiso',
+            'apellido' => 'Manual',
+            'area' => 'Operaciones',
+            'hora_entrada_programada' => '08:30:00',
+            'hora_salida_programada' => '16:30:00',
+            'codigo_biometrico' => '8888',
+            'sucursal' => 'La Paz',
+            'fecha_contratacion' => '2026-09-01',
+        ]);
+
+        Livewire::actingAs($user)->test(PlanillaRefrigerioPage::class)
+            ->call('actualizarEstadoDia', 0, '2026-09-01', 'tramite_personal')
+            ->assertSet('items.0.dias.2026-09-01', 'a')
+            ->assertSet('items.0.total_dias', 0)
+            ->assertSet('items.0.dias_pagados', 1)
+            ->assertSet('items.0.monto_pagado', 20)
+            ->call('actualizarEstadoDia', 0, '2026-09-01', 'permiso_bajo_contrato')
+            ->assertSet('items.0.dias.2026-09-01', 'pc')
+            ->assertSet('items.0.total_dias', 1)
+            ->assertSet('items.0.dias_pagados', 0)
+            ->call('guardarPlanilla');
+
+        $saved = PlanillaRefrigerio::query()->firstOrFail();
+        $this->assertSame(4, $saved->datos['regla_version']);
+        $this->assertEquals(20, $saved->datos['items'][0]['total_monto']);
     }
 }
