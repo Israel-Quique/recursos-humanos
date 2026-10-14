@@ -19,6 +19,33 @@ class ImportarCsvTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_importar_pando_no_asigna_marcaciones_al_empleado_de_oruro_con_el_mismo_codigo(): void
+    {
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Empleado',
+            'apellido' => 'Oruro',
+            'codigo_biometrico' => '1',
+            'sucursal' => 'Oruro',
+            'area' => 'Operaciones',
+            'hora_entrada_programada' => '08:30:00',
+            'fecha_contratacion' => '2026-01-01',
+        ]);
+
+        $importacion = app(ImportacionBiometricaService::class)->importarMarcacionesBiometrico([
+            'department' => 'Pando',
+            'branch' => 'Sucursal Pando',
+            'ip' => '172.65.26.43',
+        ], [
+            ['codigo' => '1', 'nombre' => 'Persona', 'apellido' => 'Pando', 'fecha_hora' => '2026-10-01T08:30:00', 'punch' => '0'],
+            ['codigo' => '1', 'nombre' => 'Persona', 'apellido' => 'Pando', 'fecha_hora' => '2026-10-01T16:30:00', 'punch' => '1'],
+        ]);
+
+        $this->assertSame(0, RegistroAsistencia::query()->where('empleado_id', $empleado->id)->count());
+        $this->assertSame('Oruro', $empleado->fresh()->sucursal);
+        $this->assertSame('Empleado', $empleado->fresh()->nombre);
+        $this->assertSame(2, $importacion->resumen_json['marcas_omitidas']);
+    }
+
     private function crearAdmin(): User
     {
         $permiso = Permission::findOrCreate('gestionar personal', 'web');

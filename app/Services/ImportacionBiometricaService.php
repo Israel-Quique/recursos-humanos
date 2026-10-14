@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\Importacion;
 use App\Models\RegistroAsistencia;
 use App\Models\User;
+use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -526,6 +527,13 @@ class ImportacionBiometricaService
         }
 
         if ($empleado) {
+            $sucursalMarca = $this->resolverSucursal($datosOriginales);
+            if (SucursalNormalizer::canonicalKey($sucursalMarca) !== null
+                && SucursalNormalizer::canonicalKey($empleado->sucursal) !== null
+                && !SucursalNormalizer::matches($sucursalMarca, $empleado->sucursal)) {
+                // Los códigos locales de un reloj pueden repetirse en otra regional.
+                return ['empleado' => null, 'created' => false];
+            }
             $empleado = $this->restaurarEmpleadoSiEliminado($empleado);
             $empleado = $this->actualizarEmpleadoDesdeMarca($empleado, $mark);
 

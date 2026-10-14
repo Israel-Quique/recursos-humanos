@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Empleado;
+use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -269,6 +270,8 @@ class ExtraccionBiometricoZkService
         $handle = fopen($filePath, 'wb');
         $employeesByCode = Empleado::query()
             ->whereNotNull('codigo_biometrico')
+            ->when(filled($device['branch'] ?? $device['department'] ?? null), fn($query) =>
+                SucursalNormalizer::applyFilter($query, 'sucursal', $device['branch'] ?? $device['department']))
             ->get()
             ->keyBy(fn(Empleado $empleado) => trim((string) $empleado->codigo_biometrico));
 
@@ -293,8 +296,10 @@ class ExtraccionBiometricoZkService
                 $apellidoBiometrico = $apellidoBiometrico !== '' ? $apellidoBiometrico : $apellidoBiometricoNormalizado;
             }
 
-            $nombreExportado = trim((string) ($empleado?->nombre ?? '')) ?: $nombreBiometrico;
-            $apellidoExportado = trim((string) ($empleado?->apellido ?? '')) ?: $apellidoBiometrico;
+            // El reloj es la fuente principal; el respaldo local debe ser de su sucursal.
+            $tieneNombreBiometrico = $nombreBiometrico !== '' || $apellidoBiometrico !== '';
+            $nombreExportado = $tieneNombreBiometrico ? $nombreBiometrico : trim((string) ($empleado?->nombre ?? ''));
+            $apellidoExportado = $tieneNombreBiometrico ? $apellidoBiometrico : trim((string) ($empleado?->apellido ?? ''));
 
             $estadoHumano = $this->traducirEstadoHumano($row);
             $eventoHumano = $this->traducirEventoHumano($row);

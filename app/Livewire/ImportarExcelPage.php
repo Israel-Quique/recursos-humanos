@@ -195,7 +195,8 @@ class ImportarExcelPage extends Component
 
             session()->flash(
                 'status',
-                'Conexion TCP/IP verificada correctamente con ' . $device['branch'] . '. ' . $probe['last_sync'] . '.'
+                ($probe['connected'] ? 'Conexion TCP/IP verificada correctamente con ' : 'No se pudo conectar con ')
+                    . $device['branch'] . '. ' . $probe['last_sync'] . '.'
             );
         } catch (\Throwable $exception) {
             report($exception);
@@ -283,7 +284,7 @@ class ImportarExcelPage extends Component
                 try {
                     $probe = $conexion->probarConexion($index);
 
-                    $this->reconnectProgress[$index]['status'] = 'ok';
+                    $this->reconnectProgress[$index]['status'] = $probe['connected'] ? 'ok' : 'error';
                     $this->reconnectProgress[$index]['message'] = $probe['last_sync'] ?? 'Disponible';
                 } catch (\Throwable $ex) {
                     report($ex);
