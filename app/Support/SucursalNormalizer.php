@@ -80,11 +80,10 @@ class SucursalNormalizer
             return $query;
         }
 
-        if (count($aliases) === 1) {
-            return $query->where($column, $aliases[0]);
-        }
+        $columnSql = $query->getQuery()->getGrammar()->wrap($column);
+        $normalizedAliases = array_unique(array_map(fn (string $alias) => mb_strtolower(trim($alias)), $aliases));
 
-        return $query->whereIn($column, $aliases);
+        return $query->whereIn(\Illuminate\Support\Facades\DB::raw("LOWER(TRIM({$columnSql}))"), $normalizedAliases);
     }
 
     public static function optionsFromValues(iterable $values, bool $includeTodas = false): array

@@ -33,7 +33,7 @@ class SincronizacionBiometricoService
         $storedDevice = $this->resolveStoredDevice($device);
 
         // Pre-verificación rápida TCP para evitar esperas largas si la sucursal está apagada o sin red
-        if (! $this->isDeviceReachable($device, 1.2)) {
+        if (! $this->conexionBiometricoService->verificarConexion($device, 1.2)['connected']) {
             $msg = 'Dispositivo no alcanzable en la red (' . ($device['ip'] ?? '') . ':' . ($device['port'] ?? 4370) . ').';
             if ($storedDevice) {
                 $storedDevice->forceFill([
@@ -143,24 +143,6 @@ class SincronizacionBiometricoService
         }
     }
 
-    private function isDeviceReachable(array $device, float $timeout = 1.2): bool
-    {
-        $ip = trim((string) ($device['ip'] ?? ''));
-        $port = (int) ($device['port'] ?? 4370);
-
-        if ($ip === '') {
-            return false;
-        }
-
-        $socket = @fsockopen($ip, $port, $errno, $errstr, $timeout);
-        if (is_resource($socket)) {
-            fclose($socket);
-            return true;
-        }
-
-        return false;
-    }
-
     private function resolveStoredDevice(array $device): ?BiometricoDispositivo
     {
         $ip = trim((string) ($device['ip'] ?? ''));
@@ -254,7 +236,7 @@ class SincronizacionBiometricoService
         $lastSyncedAt = $this->resolveLastSyncedAt($storedDevice);
 
         if (!$lastSyncedAt) {
-            return $windowStart;
+            return null;
         }
 
         // Reprocesar una ventana reciente evita que un timestamp guardado

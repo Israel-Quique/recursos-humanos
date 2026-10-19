@@ -285,7 +285,8 @@ class ExtraccionBiometricoZkService
         foreach ($rows as $row) {
             $fechaHora = Carbon::parse((string) ($row['fecha_hora'] ?? now()->toIso8601String()));
             $codigo = trim((string) ($row['codigo'] ?? ''));
-            $empleado = $employeesByCode->get($codigo);
+            $regional = SucursalNormalizer::canonicalKey($device['branch'] ?? $device['department'] ?? '');
+            $empleado = $employeesByCode->get($regional.':'.$codigo) ?? $employeesByCode->get($codigo);
             $nombreBiometrico = trim((string) ($row['nombre'] ?? ''));
             $apellidoBiometrico = trim((string) ($row['apellido'] ?? ''));
             $nombreCompletoBiometrico = trim((string) ($row['nombre_completo'] ?? ''));

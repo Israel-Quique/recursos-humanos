@@ -43,7 +43,10 @@ class ImportarCsvTest extends TestCase
         $this->assertSame(0, RegistroAsistencia::query()->where('empleado_id', $empleado->id)->count());
         $this->assertSame('Oruro', $empleado->fresh()->sucursal);
         $this->assertSame('Empleado', $empleado->fresh()->nombre);
-        $this->assertSame(2, $importacion->resumen_json['marcas_omitidas']);
+        $this->assertSame(0, $importacion->resumen_json['marcas_omitidas']);
+        $pando = Empleado::query()->where('codigo_biometrico', 'pando:1')->firstOrFail();
+        $this->assertSame('Pando', $pando->sucursal);
+        $this->assertSame(1, $pando->asistencias()->count());
     }
 
     private function crearAdmin(): User

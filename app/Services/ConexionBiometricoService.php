@@ -65,7 +65,7 @@ class ConexionBiometricoService
             throw new \RuntimeException('No se encontro el biometrico seleccionado para probar la conexion.');
         }
 
-        $probe = $this->probeDevice($devices[$index]);
+        $probe = $this->verificarConexion($devices[$index]);
         $this->persistProbeResult($devices[$index], $probe);
 
         return $probe;
@@ -197,7 +197,7 @@ class ConexionBiometricoService
 
     private function snapshotDeviceStatus(array $device, bool $probe = true): array
     {
-        $liveProbe = $probe ? $this->probeDevice($device, $this->statusProbeTimeout()) : null;
+        $liveProbe = $probe ? $this->verificarConexion($device, $this->statusProbeTimeout()) : null;
 
         if ($liveProbe && $liveProbe['connected']) {
             return $liveProbe;
@@ -238,11 +238,11 @@ class ConexionBiometricoService
         ];
     }
 
-    private function probeDevice(array $device): array
+    public function verificarConexion(array $device, ?float $timeout = null): array
     {
         $ip = $device['ip'];
         $port = max(1, (int) ($device['port'] ?? 4370));
-        $timeout = max(1, (float) config('biometrico.timeout', 2));
+        $timeout = max(0.5, $timeout ?? (float) config('biometrico.timeout', 2));
         return $this->probeDeviceTcp($device, $ip, $port, $timeout);
     }
 

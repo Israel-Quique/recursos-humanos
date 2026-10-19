@@ -9,6 +9,7 @@ use App\Services\ConexionBiometricoService;
 use App\Services\ExtraccionBiometricoZkService;
 use App\Services\ImportacionBiometricaService;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -102,12 +103,18 @@ class ImportarExcelPage extends Component
 
     public function saveBiometrico(): void
     {
+        $this->deviceDepartment = trim($this->deviceDepartment);
+        $this->deviceBranch = trim($this->deviceBranch);
+        $this->deviceIp = trim($this->deviceIp);
+        $this->devicePort = trim($this->devicePort) ?: '4370';
+        $this->deviceConnectionMode = trim($this->deviceConnectionMode) ?: 'TCP/IP';
+
         $data = $this->validate([
             'deviceDepartment' => ['required', 'string', 'max:120'],
             'deviceBranch' => ['required', 'string', 'max:160'],
             'deviceIp' => ['required', 'ip', 'max:80', Rule::unique('biometrico_dispositivos', 'ip')->ignore($this->editingBiometricoId)],
             'devicePort' => ['required', 'integer', 'min:1', 'max:65535'],
-            'deviceConnectionMode' => ['required', 'string', 'max:30'],
+            'deviceConnectionMode' => ['required', Rule::in($this->connectionModes())],
             'deviceCommunicationPassword' => ['nullable', 'string', 'max:80'],
         ], [
             'deviceDepartment.required' => 'Ingresa el departamento.',
@@ -116,6 +123,16 @@ class ImportarExcelPage extends Component
             'deviceIp.ip' => 'La IP del biometrico no tiene un formato valido.',
             'deviceIp.unique' => 'Ya existe un biometrico registrado con esa IP.',
             'devicePort.required' => 'Ingresa el puerto del biometrico.',
+            'devicePort.integer' => 'El puerto debe ser un numero entero, por ejemplo 4370.',
+            'devicePort.min' => 'El puerto debe estar entre 1 y 65535.',
+            'devicePort.max' => 'El puerto debe estar entre 1 y 65535.',
+            'deviceConnectionMode.in' => 'La conexion directa disponible es TCP/IP.',
+        ], [
+            'deviceDepartment' => 'departamento',
+            'deviceBranch' => 'sucursal o nombre del biometrico',
+            'deviceIp' => 'IP',
+            'devicePort' => 'puerto',
+            'deviceCommunicationPassword' => 'contrasena de comunicacion',
         ]);
 
         $payload = [
@@ -128,32 +145,29 @@ class ImportarExcelPage extends Component
             'is_active' => true,
         ];
 
-        if ($this->editingBiometricoId) {
-            $device = BiometricoDispositivo::query()->findOrFail($this->editingBiometricoId);
-            $before = $this->auditableBiometricoPayload($device);
-            $device->update($payload);
-            app(AuditoriaService::class)->registrar(
-                'Biometricos',
-                'Actualizar',
-                'Se actualizo la conexion del biometrico ' . $device->branch . '.',
-                $device,
-                $before,
-                $this->auditableBiometricoPayload($device->fresh()),
-                ['origen_equipo' => $this->origenEquipoModificacion()]
-            );
-            $message = 'Biometrico actualizado correctamente.';
-        } else {
-            $device = BiometricoDispositivo::query()->create($payload);
-            app(AuditoriaService::class)->registrar(
-                'Biometricos',
-                'Crear',
-                'Se registro el biometrico ' . $device->branch . '.',
-                $device,
-                null,
-                $this->auditableBiometricoPayload($device),
-                ['origen_equipo' => $this->origenEquipoModificacion()]
-            );
-            $message = 'Biometrico registrado correctamente.';
+        try {
+            $message = DB::transaction(function () use ($payload) {
+                $editing = $this->editingBiometricoId !== null;
+                $device = $editing
+                    ? BiometricoDispositivo::query()->findOrFail($this->editingBiometricoId)
+                    : new BiometricoDispositivo();
+                $before = $editing ? $this->auditableBiometricoPayload($device) : null;
+                $device->fill($payload)->save();
+                app(AuditoriaService::class)->registrar(
+                    'Biometricos',
+                    $editing ? 'Actualizar' : 'Crear',
+                    ($editing ? 'Se actualizo la conexion del biometrico ' : 'Se registro el biometrico ') . $device->branch . '.',
+                    $device,
+                    $before,
+                    $this->auditableBiometricoPayload($device->fresh()),
+                    ['origen_equipo' => $this->origenEquipoModificacion()]
+                );
+                return $editing ? 'Biometrico actualizado correctamente.' : 'Biometrico registrado correctamente.';
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->addError('biometrico', 'No se pudo guardar el biometrico. Revisa la conexion a la base de datos y las migraciones del servidor e intenta nuevamente.');
+            return;
         }
 
         $this->resetBiometricoForm();
@@ -230,6 +244,25 @@ class ImportarExcelPage extends Component
             session()->flash('status', 'No se pudo extraer el Excel del biometrico: ' . $exception->getMessage());
 
             return null;
+        }
+    }
+
+    public function sincronizarBiometrico(int $deviceIndex): void
+    {
+        abort_unless(auth()->user()?->can('importar biometria'), 403);
+        $this->extendExtractionRuntime();
+
+        try {
+            $devices = app(ConexionBiometricoService::class)->dispositivosConfigurados();
+            if (!isset($devices[$deviceIndex])) {
+                throw new \RuntimeException('No se encontro el biometrico seleccionado.');
+            }
+            $result = app(\App\Services\SincronizacionBiometricoService::class)
+                ->sincronizarDispositivo($devices[$deviceIndex], true);
+            session()->flash('status', $result['device'] . ': ' . $result['message']);
+        } catch (\Throwable $exception) {
+            report($exception);
+            session()->flash('status', 'No se pudo sincronizar: ' . $exception->getMessage());
         }
     }
 
@@ -521,7 +554,7 @@ class ImportarExcelPage extends Component
 
     private function connectionModes(): array
     {
-        return ['TCP/IP', 'RS485', 'RS232'];
+        return ['TCP/IP'];
     }
 
     private function resetBiometricoForm(): void

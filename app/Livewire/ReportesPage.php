@@ -171,7 +171,8 @@ class ReportesPage extends Component
 
     public function obtenerReporteReglamento(?array $preloadedBase = null): array
     {
-        $cacheKey = "rep_reglamento_{$this->referenceMonth}_{$this->selectedBranch}";
+        $version = Cache::get('reportes:version', '0');
+        $cacheKey = "rep_reglamento_{$version}_{$this->referenceMonth}_{$this->selectedBranch}";
 
         return Cache::remember($cacheKey, 1800, function () use ($preloadedBase) {
             $ref = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
@@ -215,6 +216,7 @@ class ReportesPage extends Component
         $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
         $rangeStart = $referenceMonth->copy()->startOfMonth();
         $rangeEnd = $referenceMonth->copy()->endOfMonth();
+        $version = Cache::get('reportes:version', '0');
 
         // Reporte personal del empleado autenticado
         $authUser = auth()->user()?->loadMissing('empleado');
@@ -222,7 +224,7 @@ class ReportesPage extends Component
         if ($authUser?->empleado_id) {
             $empId = (int) $authUser->empleado_id;
             $reportePersonal = Cache::remember(
-                "rep_personal_{$empId}_{$this->referenceMonth}",
+                "rep_personal_{$version}_{$empId}_{$this->referenceMonth}",
                 1800,
                 fn() => $analysis->detalleMensualPorEmpleado($empId, $referenceMonth, null)
             );
@@ -230,7 +232,7 @@ class ReportesPage extends Component
 
         // Datos de atrasos y omisiones del mes cacheados (30 minutos)
         $reporteAtrasoOmision = Cache::remember(
-            "rep_atraso_omision_{$this->referenceMonth}_{$this->selectedBranch}",
+            "rep_atraso_omision_{$version}_{$this->referenceMonth}_{$this->selectedBranch}",
             1800,
             fn() => $analysis->reporteMensualNoMarcadosYAtrasos($referenceMonth, $this->selectedBranch)
         );
@@ -335,7 +337,7 @@ class ReportesPage extends Component
 
         // Reporte consolidado por sucursal para vista y agrupaciones (cacheado base 30 minutos)
         $reporteSucursalesBase = Cache::remember(
-            "rep_sucursales_{$this->referenceMonth}_{$this->selectedBranch}",
+            "rep_sucursales_{$version}_{$this->referenceMonth}_{$this->selectedBranch}",
             1800,
             fn() => $analysis->reporteConsolidadoPorSucursal($referenceMonth, $this->selectedBranch)
         );
@@ -389,7 +391,7 @@ class ReportesPage extends Component
                 ]),
         ];
 
-        $cacheKeyBase = "rep_{$this->referenceMonth}_{$this->selectedBranch}";
+        $cacheKeyBase = "rep_{$version}_{$this->referenceMonth}_{$this->selectedBranch}";
 
         // Búsqueda interactiva de funcionario específico en la pestaña Reglamento
         $funcionarioReglamentoConsultado = null;

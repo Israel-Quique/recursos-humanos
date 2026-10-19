@@ -16,6 +16,82 @@ class ConexionBiometricoPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function formularioBiometrico(): \Livewire\Features\SupportTesting\Testable
+    {
+        $user = User::query()->create([
+            'name' => 'Admin equipos', 'email' => 'equipos@example.test', 'password' => bcrypt('test'),
+        ]);
+        $user->givePermissionTo(Permission::findOrCreate('importar biometria', 'web'));
+
+        return Livewire::actingAs($user)->test(ImportarExcelPage::class)
+            ->call('openBiometricoModal')
+            ->set('deviceDepartment', 'Pando')
+            ->set('deviceBranch', 'Sucursal Pando')
+            ->set('deviceIp', '172.65.26.43');
+    }
+
+    public function test_agregar_equipo_acepta_espacios_al_pegar_y_puerto_predeterminado(): void
+    {
+        $this->formularioBiometrico()
+            ->set('deviceDepartment', ' Pando ')
+            ->set('deviceBranch', ' Sucursal Pando ')
+            ->set('deviceIp', ' 172.65.26.43 ')
+            ->set('devicePort', '')
+            ->call('saveBiometrico')->assertHasNoErrors()
+            ->assertSet('showBiometricoModal', false);
+
+        $this->assertDatabaseHas('biometrico_dispositivos', [
+            'department' => 'Pando', 'branch' => 'Sucursal Pando', 'ip' => '172.65.26.43', 'port' => 4370,
+        ]);
+        Livewire::test(ImportarExcelPage::class)->assertSee('Sucursal Pando')->assertSee('172.65.26.43');
+    }
+
+    public function test_ip_duplicada_muestra_error_y_conserva_los_datos_del_formulario(): void
+    {
+        BiometricoDispositivo::query()->create([
+            'department' => 'Pando', 'branch' => 'Existente', 'ip' => '172.65.26.43', 'port' => 4370,
+        ]);
+        $this->formularioBiometrico()->set('deviceIp', ' 172.65.26.43 ')
+            ->call('saveBiometrico')->assertHasErrors(['deviceIp' => 'unique'])
+            ->assertSee('Ya existe un biometrico registrado con esa IP.')
+            ->assertSet('showBiometricoModal', true)
+            ->assertSet('deviceBranch', 'Sucursal Pando');
+        $this->assertDatabaseCount('biometrico_dispositivos', 1);
+    }
+
+    public function test_error_de_auditoria_no_deja_un_equipo_guardado_a_medias(): void
+    {
+        $this->mock(\App\Services\AuditoriaService::class, function ($mock) {
+            $mock->shouldReceive('registrar')->once()->andThrow(new \RuntimeException('Error de prueba'));
+        });
+        $this->formularioBiometrico()->call('saveBiometrico')
+            ->assertHasErrors('biometrico')->assertSet('showBiometricoModal', true);
+        $this->assertDatabaseCount('biometrico_dispositivos', 0);
+    }
+
+    public function test_editar_equipo_conserva_su_ip_y_actualiza_puerto_sin_crear_duplicados(): void
+    {
+        $device = BiometricoDispositivo::query()->create([
+            'department' => 'Pando', 'branch' => 'Anterior', 'ip' => '172.65.26.43', 'port' => 4370,
+        ]);
+        $this->formularioBiometrico()->call('openEditBiometricoModal', $device->id)
+            ->set('deviceBranch', 'Nueva sucursal')->set('devicePort', ' 4371 ')
+            ->call('saveBiometrico')->assertHasNoErrors();
+        $this->assertDatabaseCount('biometrico_dispositivos', 1);
+        $this->assertDatabaseHas('biometrico_dispositivos', ['id' => $device->id, 'branch' => 'Nueva sucursal', 'port' => 4371]);
+    }
+
+    public function test_datos_invalidos_muestran_errores_sin_guardar_equipo(): void
+    {
+        $this->formularioBiometrico()->set('deviceDepartment', '   ')
+            ->set('deviceIp', 'http://172.65.26.43:4370')->set('devicePort', '70000')
+            ->call('saveBiometrico')->assertHasErrors(['deviceDepartment', 'deviceIp', 'devicePort'])
+            ->assertSee('No se pudo guardar. Revisa los siguientes datos:')
+            ->assertSee('El puerto debe estar entre 1 y 65535.')
+            ->assertSet('showBiometricoModal', true);
+        $this->assertDatabaseCount('biometrico_dispositivos', 0);
+    }
+
     public function test_pando_se_registra_y_descarga_desde_su_propia_ip(): void
     {
         config()->set('biometrico.devices', []);

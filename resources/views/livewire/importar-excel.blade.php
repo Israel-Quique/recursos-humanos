@@ -6,7 +6,7 @@
   @endif
 
   @if ($showBiometricoModal)
-    <div class="app-modal-backdrop" wire:click="closeBiometricoModal">
+    <div class="app-modal-backdrop" wire:key="biometrico-modal" wire:click.self="closeBiometricoModal">
       <div class="app-modal-card" x-on:click.stop>
         <button type="button" wire:click="closeBiometricoModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar modal">X</button>
         <div class="app-modal-head">
@@ -19,7 +19,20 @@
           </div>
         </div>
 
-        <form wire:submit="saveBiometrico" class="mt-8 grid gap-5 md:grid-cols-2">
+        <form wire:submit="saveBiometrico" novalidate class="mt-8 grid gap-5 md:grid-cols-2">
+          @if ($errors->any())
+            <div role="alert" class="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              <p>No se pudo guardar. Revisa los siguientes datos:</p>
+              <ul class="mt-2 list-disc pl-5">
+                @foreach ($errors->all() as $error)
+                  <li>{{ $error }}</li>
+                @endforeach
+              </ul>
+            </div>
+          @endif
+          <p class="section-copy-sm md:col-span-2">
+            El equipo se guarda en este sistema. Para conectarse, el servidor debe tener acceso a la IP y al puerto del biometrico.
+          </p>
           <div>
             <label class="form-label">Departamento</label>
             <input type="text" wire:model="deviceDepartment" class="form-input" placeholder="Ej. La Paz">
@@ -33,11 +46,13 @@
           <div>
             <label class="form-label">IP</label>
             <input type="text" wire:model="deviceIp" class="form-input" placeholder="Ej. 172.65.14.108">
+            <p class="section-copy-sm">Solo la IP del equipo, sin http:// ni puerto.</p>
             @error('deviceIp') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
             <label class="form-label">Puerto</label>
             <input type="number" wire:model="devicePort" class="form-input" min="1" max="65535" placeholder="4370">
+            <p class="section-copy-sm">Si lo dejas vacio, se utiliza 4370.</p>
             @error('devicePort') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
@@ -56,8 +71,9 @@
           </div>
           <div class="md:col-span-2 app-modal-actions">
             <button type="button" wire:click="closeBiometricoModal" class="app-modal-secondary">Cancelar</button>
-            <button type="submit" class="login-submit app-modal-submit">
-              {{ $editingBiometricoId ? 'Guardar cambios' : 'Guardar biometrico' }}
+            <button type="submit" wire:loading.attr="disabled" wire:target="saveBiometrico" class="login-submit app-modal-submit">
+              <span wire:loading.remove wire:target="saveBiometrico">{{ $editingBiometricoId ? 'Guardar cambios' : 'Guardar biometrico' }}</span>
+              <span wire:loading wire:target="saveBiometrico">Guardando...</span>
             </button>
           </div>
         </form>
@@ -358,6 +374,13 @@
             <span>{{ $device['last_sync'] }}</span>
           </div>
           <div class="mt-5 flex flex-wrap gap-3">
+            @can('importar biometria')
+              <button type="button" wire:click="sincronizarBiometrico({{ $loop->index }})"
+                wire:loading.attr="disabled" wire:target="sincronizarBiometrico" class="table-action-button">
+                <span wire:loading.remove wire:target="sincronizarBiometrico">Sincronizar historial</span>
+                <span wire:loading wire:target="sincronizarBiometrico">Sincronizando...</span>
+              </button>
+            @endcan
             <button
               type="button"
               wire:click="probarConexion({{ $loop->index }})"

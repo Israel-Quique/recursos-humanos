@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -54,6 +55,8 @@ class ImportacionBiometricaService
 
             throw $exception;
         }
+
+        Cache::forever('reportes:version', (string) Str::uuid());
 
         return $importacion->fresh();
     }
@@ -147,6 +150,8 @@ class ImportacionBiometricaService
             'resumen_json' => $resumenFinal,
         ]);
 
+        Cache::forever('reportes:version', (string) Str::uuid());
+
         return $importacion->fresh();
     }
 
@@ -239,7 +244,7 @@ class ImportacionBiometricaService
             }
             $n = $this->normalizarTexto($emp->nombre_completo);
             if ($n !== '') {
-                $empleadosByNombre[$n] = $emp;
+                $empleadosByNombre[$n][$emp->id] = $emp;
             }
         }
 
@@ -267,7 +272,7 @@ class ImportacionBiometricaService
         if (! empty($fechasLista)) {
             foreach (array_chunk($fechasLista, 60) as $fechaChunk) {
                 $records = RegistroAsistencia::query()
-                    ->whereIn('fecha', $fechaChunk)
+                    ->whereIn(DB::raw('DATE(fecha)'), $fechaChunk)
                     ->get();
 
                 foreach ($records as $rec) {
@@ -517,44 +522,59 @@ class ImportacionBiometricaService
         $datosOriginales = $mark['datos_originales'] ?? [];
         $nombreOriginal = $this->nombreCompletoDesdeFila($datosOriginales);
         $normNombre = $this->normalizarTexto($nombreOriginal);
+        $sucursalMarca = $this->resolverSucursal($datosOriginales);
+        $sucursalConocida = SucursalNormalizer::canonicalKey($sucursalMarca) !== null;
+        $codigoRegional = $sucursalConocida && $codigo !== ''
+            ? SucursalNormalizer::canonicalKey($sucursalMarca).':'.$codigo
+            : $codigo;
 
         $empleado = null;
 
-        if ($codigo !== '' && isset($empleadosByCodigo[$codigo])) {
-            $empleado = $empleadosByCodigo[$codigo];
-        } elseif ($normNombre !== '' && isset($empleadosByNombre[$normNombre])) {
-            $empleado = $empleadosByNombre[$normNombre];
+        if ($codigo !== '') {
+            $empleado = $empleadosByCodigo[$codigoRegional] ?? $empleadosByCodigo[$codigo] ?? null;
+        }
+
+        $codigoDeOtraSucursal = $empleado && $sucursalConocida
+                && SucursalNormalizer::canonicalKey($empleado->sucursal) !== null
+                && !SucursalNormalizer::matches($sucursalMarca, $empleado->sucursal);
+
+        if (!$empleado || $codigoDeOtraSucursal) {
+            $candidatos = collect($empleadosByNombre[$normNombre] ?? [])
+                ->filter(fn (Empleado $candidate) => !$sucursalConocida || SucursalNormalizer::matches($sucursalMarca, $candidate->sucursal));
+            $empleado = $candidatos->count() === 1 ? $candidatos->first() : null;
+
+            if (!$empleado && $candidatos->count() > 1) {
+                return ['empleado' => null, 'created' => false];
+            }
         }
 
         if ($empleado) {
-            $sucursalMarca = $this->resolverSucursal($datosOriginales);
-            if (SucursalNormalizer::canonicalKey($sucursalMarca) !== null
-                && SucursalNormalizer::canonicalKey($empleado->sucursal) !== null
-                && !SucursalNormalizer::matches($sucursalMarca, $empleado->sucursal)) {
-                // Los códigos locales de un reloj pueden repetirse en otra regional.
-                return ['empleado' => null, 'created' => false];
-            }
             $empleado = $this->restaurarEmpleadoSiEliminado($empleado);
             $empleado = $this->actualizarEmpleadoDesdeMarca($empleado, $mark);
 
             if ($codigo !== '') {
-                $empleadosByCodigo[$codigo] = $empleado;
+                $empleadosByCodigo[$codigoRegional] = $empleado;
             }
             if ($normNombre !== '') {
-                $empleadosByNombre[$normNombre] = $empleado;
+                $empleadosByNombre[$normNombre][$empleado->id] = $empleado;
             }
 
             return ['empleado' => $empleado, 'created' => false];
         }
 
+        // La tabla usa codigos unicos globales; los relojes usan codigos locales.
+        // Solo el codigo repetido necesita el prefijo de su regional.
+        if ($codigoDeOtraSucursal) {
+            $mark['codigo'] = $codigoRegional;
+        }
         $empleadoCreado = $this->crearEmpleadoDesdeMarca($mark, $usuario);
 
         if ($empleadoCreado) {
             if ($codigo !== '') {
-                $empleadosByCodigo[$codigo] = $empleadoCreado;
+                $empleadosByCodigo[$codigoRegional] = $empleadoCreado;
             }
             if ($normNombre !== '') {
-                $empleadosByNombre[$normNombre] = $empleadoCreado;
+                $empleadosByNombre[$normNombre][$empleadoCreado->id] = $empleadoCreado;
             }
         }
 
@@ -576,7 +596,7 @@ class ImportacionBiometricaService
             }
             $n = $this->normalizarTexto($emp->nombre_completo);
             if ($n !== '') {
-                $dummyNombre[$n] = $emp;
+                $dummyNombre[$n][$emp->id] = $emp;
             }
         }
 
@@ -1255,7 +1275,8 @@ class ImportacionBiometricaService
         $codigo = trim((string) ($mark['codigo'] ?? ''));
         $sucursal = $this->resolverSucursal($fila);
 
-        if ($codigo !== '' && blank($empleado->codigo_biometrico)) {
+        if ($codigo !== '' && blank($empleado->codigo_biometrico)
+            && !Empleado::query()->withTrashed()->where('codigo_biometrico', $codigo)->whereKeyNot($empleado->id)->exists()) {
             $payload['codigo_biometrico'] = $codigo;
         }
 
