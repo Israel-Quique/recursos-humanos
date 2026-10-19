@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Empleado;
+use App\Models\ConfiguracionBoleta;
 use App\Models\PermisoComprobante;
 use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
@@ -447,6 +448,7 @@ class PerfilHorasPage extends Component
         $filteredFaltasCount = collect($filteredRows)->filter(fn ($r) => $r['es_falta'] ?? false)->count();
 
         return view('livewire.perfil-horas', [
+            'comprobantesHabilitados' => ConfiguracionBoleta::comprobantesHabilitados(),
             'monthOptions' => $monthOptions,
             'monthLabel' => ucfirst($referenceMonth->locale('es')->translatedFormat('F Y')),
             'personalReport' => $personalReport,
@@ -737,9 +739,25 @@ class PerfilHorasPage extends Component
         }
     }
 
+    private function validarComprobanteBoleta(): void
+    {
+        $habilitados = ConfiguracionBoleta::comprobantesHabilitados();
+        if (!$habilitados) {
+            $this->comprobante = null;
+        }
+        $this->validate([
+            'comprobante' => $habilitados ? ['required', 'image', 'max:5120'] : ['nullable'],
+        ], [
+            'comprobante.required' => 'Es obligatorio subir una foto o comprobante que justifique el motivo de la boleta.',
+            'comprobante.image' => 'El comprobante debe ser un archivo de imagen válido (JPG, PNG o WEBP).',
+            'comprobante.max' => 'La imagen del comprobante no puede pesar más de 5MB.',
+        ]);
+    }
+
     public function descargarPdf()
     {
         $esRangoDias = $this->esRangoDias;
+        $this->validarComprobanteBoleta();
 
         $this->validate([
             'boletaMotivo' => ['required', 'string', 'max:255'],
@@ -749,13 +767,9 @@ class PerfilHorasPage extends Component
             'boletaHastaFecha' => ['required', 'string', 'max:20'],
             'boletaHastaHora' => $esRangoDias ? ['nullable', 'string', 'max:10'] : ['required', 'string', 'max:10'],
             'boletaTiempoSolicitado' => ['required', 'string', 'max:50'],
-            'comprobante' => ['required', 'image', 'max:5120'],
         ], [
             'boletaMotivo.required' => 'Ingresa el motivo de la justificación o boleta.',
             'boletaTiempoSolicitado.required' => 'Indica el tiempo solicitado.',
-            'comprobante.required' => 'Es obligatorio subir una foto o comprobante que justifique el motivo de la boleta.',
-            'comprobante.image' => 'El comprobante debe ser un archivo de imagen válido (JPG, PNG o WEBP).',
-            'comprobante.max' => 'La imagen del comprobante no puede pesar más de 5MB.',
         ]);
 
         if ($this->plazo48HorasInfo['vencido']) {
@@ -822,6 +836,7 @@ class PerfilHorasPage extends Component
 
     private function procesarEnvioBoleta(Empleado $empleado)
     {
+        $this->validarComprobanteBoleta();
         $fechaInicio = $this->parsearFechaCarbon($this->boletaDesdeFecha)->toDateString();
         $fechaFin = $this->parsearFechaCarbon($this->boletaHastaFecha)->toDateString();
 
@@ -845,37 +860,43 @@ class PerfilHorasPage extends Component
             'created_by' => null,
         ]);
 
-        // 2. Guardar comprobante
-        $extension = $this->comprobante->getClientOriginalExtension() ?: 'jpg';
-        $nombreOriginal = $this->comprobante->getClientOriginalName();
-        $rutaArchivo = $this->comprobante->storeAs(
-            'comprobantes',
-            'comprobante_' . $permiso->id . '_' . time() . '.' . $extension,
-            'public'
-        );
+        // 2. Guardar comprobante cuando la configuracion lo habilita.
+        $comprobanteRegistro = null;
+        $rutaArchivo = null;
+        if ($this->comprobante) {
+            $extension = $this->comprobante->getClientOriginalExtension() ?: 'jpg';
+            $nombreOriginal = $this->comprobante->getClientOriginalName();
+            $rutaArchivo = $this->comprobante->storeAs(
+                'comprobantes',
+                'comprobante_' . $permiso->id . '_' . time() . '.' . $extension,
+                'public'
+            );
 
-        $mimeType = $this->comprobante->getMimeType() ?: 'image/' . $extension;
-        $tamanoBytes = $this->comprobante->getSize();
-        $realPath = $this->comprobante->getRealPath();
-        $contenidoBinario = $realPath && file_exists($realPath) ? file_get_contents($realPath) : null;
-        $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
+            $mimeType = $this->comprobante->getMimeType() ?: 'image/' . $extension;
+            $tamanoBytes = $this->comprobante->getSize();
+            $realPath = $this->comprobante->getRealPath();
+            $contenidoBinario = $realPath && file_exists($realPath) ? file_get_contents($realPath) : null;
+            $contenidoBase64 = $contenidoBinario ? base64_encode($contenidoBinario) : null;
 
-        $comprobanteRegistro = PermisoComprobante::query()->create([
-            'permiso_laboral_id' => $permiso->id,
-            'ruta_archivo' => $rutaArchivo,
-            'archivo_binario' => null,
-            'archivo_base64' => $contenidoBase64,
-            'nombre_original' => $nombreOriginal,
-            'mime_type' => $mimeType,
-            'tamano_bytes' => $tamanoBytes,
-            'created_by' => null,
-        ]);
+            $comprobanteRegistro = PermisoComprobante::query()->create([
+                'permiso_laboral_id' => $permiso->id,
+                'ruta_archivo' => $rutaArchivo,
+                'archivo_binario' => null,
+                'archivo_base64' => $contenidoBase64,
+                'nombre_original' => $nombreOriginal,
+                'mime_type' => $mimeType,
+                'tamano_bytes' => $tamanoBytes,
+                'created_by' => null,
+            ]);
+        }
 
         // 3. Auditoría
         app(AuditoriaService::class)->registrar(
             'Incidencias',
             'solicitar_boleta_empleado',
-            'El funcionario generó una boleta de permiso/omisión con comprobante adjunto.',
+            $comprobanteRegistro
+                ? 'El funcionario generó una boleta de permiso/omisión con comprobante adjunto.'
+                : 'El funcionario generó una boleta de permiso/omisión sin comprobante adjunto.',
             $permiso,
             null,
             [
@@ -883,7 +904,7 @@ class PerfilHorasPage extends Component
                 'empleado' => $empleado->nombre_completo,
                 'ci' => $empleado->codigo_biometrico ?: (string) $empleado->id,
                 'email' => $empleado->email,
-                'comprobante' => $comprobanteRegistro->nombre_original,
+                'comprobante' => $comprobanteRegistro?->nombre_original,
                 'ruta' => $rutaArchivo,
             ]
         );
@@ -918,9 +939,10 @@ class PerfilHorasPage extends Component
         $this->showPedirEmailModal = false;
         $this->comprobante = null;
 
-        $notificacionMsg = $empleado->email
-            ? "Boleta y comprobante enviados a Recursos Humanos. Te llegará la notificación a: {$empleado->email}."
-            : 'Boleta y comprobante enviados correctamente a Recursos Humanos.';
+        $notificacionMsg = ($comprobanteRegistro ? 'Boleta y comprobante enviados' : 'Boleta enviada') . ' a Recursos Humanos.';
+        if ($empleado->email) {
+            $notificacionMsg .= " Te llegará la notificación a: {$empleado->email}.";
+        }
 
         session()->flash('status', $notificacionMsg);
 

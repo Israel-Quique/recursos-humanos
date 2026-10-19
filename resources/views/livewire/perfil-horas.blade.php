@@ -1654,6 +1654,7 @@
           </div>
 
           {{-- SUBIDA OBLIGATORIA DE COMPROBANTE CON DRAG & DROP --}}
+          @if ($comprobantesHabilitados)
           <div style="border-radius:1.25rem;border:1.5px solid #c7d2fe;background:#eff6ff;padding:1.25rem;box-shadow:0 2px 8px rgba(99,102,241,0.06);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
               <h3 style="font-size:.8rem;font-weight:900;text-transform:uppercase;color:#312e81;margin:0;display:flex;align-items:center;gap:.4rem;">
@@ -1712,6 +1713,7 @@
             @enderror
           </div>
 
+          @endif
           {{-- BANNER DE REGLA 48 HORAS PARA OMISIÓN / RETRASO --}}
           @if ($this->plazo48HorasInfo['aplica'])
             @if ($this->plazo48HorasInfo['vencido'])
@@ -1746,7 +1748,7 @@
             && filled(trim($boletaHastaFecha))
             && ($this->esRangoDias || filled(trim($boletaHastaHora)))
             && filled(trim($boletaTiempoSolicitado))
-            && !empty($comprobante)
+            && (!$comprobantesHabilitados || !empty($comprobante))
             && !$this->plazo48HorasInfo['vencido'];
         @endphp
 
@@ -1773,7 +1775,7 @@
             </div>
           @else
             <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.75rem;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:.75rem;font-weight:700;">
-              <span>⚠️ Completa el motivo y sube la foto del comprobante para habilitar el envío</span>
+              <span>{{ $comprobantesHabilitados ? '⚠️ Completa el motivo y sube la foto del comprobante para habilitar el envío' : '⚠️ Completa el motivo y los datos requeridos para habilitar el envío' }}</span>
             </div>
           @endif
         </div>

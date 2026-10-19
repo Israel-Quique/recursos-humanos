@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\ConsultaCarnetPage;
 use App\Livewire\IncidenciasPage;
+use App\Livewire\PerfilHorasPage;
 use App\Models\ConfiguracionBoleta;
 use App\Models\Empleado;
 use App\Models\PermisoComprobante;
@@ -70,6 +71,44 @@ class BoletaConComprobanteTest extends TestCase
 
         $this->assertSame(1, PermisoLaboral::query()->count());
         $this->assertSame(0, PermisoComprobante::query()->count());
+    }
+
+    public function test_switch_desactivado_permite_enviar_desde_mis_horas_sin_foto(): void
+    {
+        $empleado = $this->crearEmpleado();
+        Livewire::actingAs($this->crearAdmin())->test(IncidenciasPage::class)->call('alternarComprobantes');
+
+        Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
+            ->call('abrirBoletaModal')
+            ->set('boletaMotivo', 'Consulta medica')
+            ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->assertDontSee('Arrastra y suelta aquí la foto del comprobante')
+            ->call('descargarPdf')->assertHasNoErrors()->assertFileDownloaded();
+
+        $this->assertDatabaseCount('permisos_laborales', 1);
+        $this->assertDatabaseCount('permiso_comprobantes', 0);
+    }
+
+    public function test_mis_horas_exige_foto_si_rrhh_activa_el_switch_con_formulario_abierto(): void
+    {
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
+        $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $this->crearEmpleado()])
+            ->call('abrirBoletaModal')->set('boletaMotivo', 'Consulta medica');
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
+        $component->call('descargarPdf')->assertHasErrors(['comprobante' => 'required']);
+        $this->assertDatabaseCount('permisos_laborales', 0);
+    }
+
+    public function test_mis_horas_revisa_switch_tambien_al_confirmar_correo(): void
+    {
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
+        $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $this->crearEmpleado(null)])
+            ->call('abrirBoletaModal')->set('boletaMotivo', 'Consulta medica')
+            ->call('descargarPdf')->assertSet('showPedirEmailModal', true);
+        ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
+        $component->set('boletaEmail', 'correo@example.test')->call('confirmarEmailYDescargar')
+            ->assertHasErrors(['comprobante' => 'required']);
+        $this->assertDatabaseCount('permisos_laborales', 0);
     }
 
     public function test_exigir_comprobante_se_aplica_a_formularios_ya_abiertos_y_excel(): void
