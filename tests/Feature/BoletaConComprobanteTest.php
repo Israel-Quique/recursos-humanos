@@ -61,7 +61,7 @@ class BoletaConComprobanteTest extends TestCase
 
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Consulta medica en la CNS')
             ->assertDontSee('Foto del Comprobante / Respaldo')
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
@@ -79,7 +79,7 @@ class BoletaConComprobanteTest extends TestCase
         Livewire::actingAs($this->crearAdmin())->test(IncidenciasPage::class)->call('alternarComprobantes');
 
         Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Consulta medica')
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
             ->assertDontSee('Arrastra y suelta aquí la foto del comprobante')
@@ -93,7 +93,7 @@ class BoletaConComprobanteTest extends TestCase
     {
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
         $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $this->crearEmpleado()])
-            ->call('abrirBoletaModal')->set('boletaMotivo', 'Consulta medica');
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')->set('boletaMotivo', 'Consulta medica');
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
         $component->call('descargarPdf')->assertHasErrors(['comprobante' => 'required']);
         $this->assertDatabaseCount('permisos_laborales', 0);
@@ -103,7 +103,7 @@ class BoletaConComprobanteTest extends TestCase
     {
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
         $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $this->crearEmpleado(null)])
-            ->call('abrirBoletaModal')->set('boletaMotivo', 'Consulta medica')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')->set('boletaMotivo', 'Consulta medica')
             ->call('descargarPdf')->assertSet('showPedirEmailModal', true);
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
         $component->set('boletaEmail', 'correo@example.test')->call('confirmarEmailYDescargar')
@@ -117,7 +117,7 @@ class BoletaConComprobanteTest extends TestCase
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
         $component = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Consulta medica en la CNS');
 
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
@@ -161,7 +161,7 @@ class BoletaConComprobanteTest extends TestCase
 
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Consulta medica en la CNS')
             ->set('boletaTipo', 'medico')
             ->set('comprobante', null)
@@ -183,7 +183,7 @@ class BoletaConComprobanteTest extends TestCase
 
         $response = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Baja medica de 1 dia')
             ->set('boletaTipo', 'medico')
             ->set('boletaDesdeFecha', '02/09/2026')
@@ -319,6 +319,7 @@ class BoletaConComprobanteTest extends TestCase
             ->assertSet('boletaHastaFecha', '2026-08-15')
             ->assertSet('boletaNombre', $empleado->nombre_completo)
             ->assertSet('boletaCiudad', mb_strtoupper($empleado->sucursal))
+            ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('comprobante', $imagenFalsa)
             ->call('descargarPdf');
 
@@ -347,7 +348,7 @@ class BoletaConComprobanteTest extends TestCase
         // 1. Al intentar descargar sin correo en BD ni en formulario, se abre el popup modal
         $component = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Comision de servicio')
             ->set('boletaTipo', 'comision')
             ->set('comprobante', $imagenFalsa)
@@ -376,7 +377,7 @@ class BoletaConComprobanteTest extends TestCase
 
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Comision de prueba')
             ->set('boletaTipo', 'comision')
             ->set('boletaEmail', 'intento_cambio@correos.gob.bo')
@@ -415,7 +416,7 @@ class BoletaConComprobanteTest extends TestCase
 
         $component = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaDesdeFecha', '2026-09-10')
             ->set('boletaHastaFecha', '2026-09-12')
             ->assertSet('boletaTiempoSolicitado', '3 DÍAS')
@@ -446,7 +447,7 @@ class BoletaConComprobanteTest extends TestCase
 
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaModalidad', 'dias')
             ->set('boletaDesdeFecha', '2026-09-10')
             ->set('boletaHastaFecha', '2026-09-10')
@@ -509,7 +510,7 @@ class BoletaConComprobanteTest extends TestCase
         // Intento de justificar omisión de hace 3 días (2026-09-05 08:30 -> ~78 horas > 48h)
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', $empleado->codigo_biometrico)
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaTipo', 'particular')
             ->set('boletaDesdeFecha', '2026-09-05')
             ->set('boletaDesdeHora', '08:30')
@@ -538,7 +539,7 @@ class BoletaConComprobanteTest extends TestCase
         // Retraso de ayer 2026-09-07 09:00 -> ~30 horas transcurridas (dentro de las 48h)
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', $empleado->codigo_biometrico)
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaTipo', 'particular')
             ->set('boletaDesdeFecha', '2026-09-07')
             ->set('boletaDesdeHora', '09:00')
@@ -568,7 +569,7 @@ class BoletaConComprobanteTest extends TestCase
         // Intento de omisión para mañana (2026-09-09)
         Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', $empleado->codigo_biometrico)
-            ->call('abrirBoletaModal')
+            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaTipo', 'particular')
             ->set('boletaDesdeFecha', '2026-09-09')
             ->set('boletaDesdeHora', '08:30')

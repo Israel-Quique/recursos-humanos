@@ -499,7 +499,7 @@ class PerfilHorasPage extends Component
     {
         $this->boletaNombre = $this->empleado->nombre_completo;
         $this->boletaCi = (string) ($this->empleado->codigo_biometrico ?: $this->empleado->id);
-        $this->boletaCargo = (string) ($this->empleado->cargo ?: ($this->empleado->area ? 'AREA DE ' . $this->empleado->area : 'PERSONAL'));
+        $this->boletaCargo = ''; // El usuario debe escribir su cargo manualmente (no se guarda en BD)
         $this->boletaEmail = (string) ($this->empleado->email ?: '');
         $this->tieneEmailRegistrado = filled($this->empleado->email);
         $this->showPedirEmailModal = false;
@@ -760,6 +760,7 @@ class PerfilHorasPage extends Component
         $this->validarComprobanteBoleta();
 
         $this->validate([
+            'boletaCargo' => ['required', 'string', 'max:150'],
             'boletaMotivo' => ['required', 'string', 'max:255'],
             'boletaTipo' => ['required', 'in:comision,particular,medico,omision,retraso'],
             'boletaDesdeFecha' => ['required', 'string', 'max:20'],
@@ -768,6 +769,7 @@ class PerfilHorasPage extends Component
             'boletaHastaHora' => $esRangoDias ? ['nullable', 'string', 'max:10'] : ['required', 'string', 'max:10'],
             'boletaTiempoSolicitado' => ['required', 'string', 'max:50'],
         ], [
+            'boletaCargo.required' => 'Ingresa tu cargo.',
             'boletaMotivo.required' => 'Ingresa el motivo de la justificación o boleta.',
             'boletaTiempoSolicitado.required' => 'Indica el tiempo solicitado.',
         ]);
@@ -915,7 +917,7 @@ class PerfilHorasPage extends Component
         $boleta = [
             'nombre' => $empleado->nombre_completo,
             'ci' => (string) ($empleado->codigo_biometrico ?: $empleado->id),
-            'cargo' => (string) ($empleado->cargo ?: ($empleado->area ? 'AREA DE ' . $empleado->area : 'PERSONAL')),
+            'cargo' => trim($this->boletaCargo),
             'motivo' => $this->boletaMotivo,
             'tipo' => $this->boletaTipo,
             'desde_fecha' => $desdeCarbon->format('d/m/Y'),

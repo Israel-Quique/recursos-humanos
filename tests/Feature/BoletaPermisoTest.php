@@ -35,7 +35,7 @@ class BoletaPermisoTest extends TestCase
             ->assertSet('showBoletaModal', true)
             ->assertSet('boletaNombre', 'Marco Antonio Espinoza Rojas')
             ->assertSet('boletaCi', '10909669')
-            ->assertSet('boletaCargo', 'AREA DE Sistemas')
+            ->assertSet('boletaCargo', '')
             ->assertSet('boletaCiudad', 'LA PAZ');
     }
 
@@ -61,6 +61,7 @@ class BoletaPermisoTest extends TestCase
         $component = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '10909669')
             ->call('abrirBoletaModal')
+            ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion de coordinacion')
             ->set('comprobante', $imagen)
             ->call('descargarPdf');
@@ -85,6 +86,7 @@ class BoletaPermisoTest extends TestCase
         $component = Livewire::test(ConsultaCarnetPage::class)
             ->set('carnet', '10909669')
             ->call('abrirBoletaModal')
+            ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion AGETIC')
             ->call('descargarExcel');
 

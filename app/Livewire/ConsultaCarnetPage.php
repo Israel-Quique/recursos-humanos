@@ -460,7 +460,7 @@ class ConsultaCarnetPage extends Component
         $this->empleadoId = $empleado->id;
         $this->boletaNombre = $empleado->nombre_completo;
         $this->boletaCi = (string) ($empleado->codigo_biometrico ?: $carnet);
-        $this->boletaCargo = (string) ($empleado->cargo ?: ($empleado->area ? 'AREA DE ' . $empleado->area : 'PERSONAL'));
+        $this->boletaCargo = ''; // El usuario debe escribir su cargo manualmente (no se guarda en BD)
         $this->boletaEmail = (string) ($empleado->email ?: '');
         $this->tieneEmailRegistrado = filled($empleado->email);
         $this->showPedirEmailModal = false;
@@ -656,7 +656,7 @@ class ConsultaCarnetPage extends Component
         $this->validate([
             'boletaNombre' => ['required', 'string', 'max:150'],
             'boletaCi' => ['required', 'string', 'max:50'],
-            'boletaCargo' => ['nullable', 'string', 'max:150'],
+            'boletaCargo' => ['required', 'string', 'max:150'],
             'boletaMotivo' => ['required', 'string', 'max:255'],
             'boletaTipo' => ['required', 'in:comision,particular,medico,omision,retraso'],
             'boletaDesdeFecha' => ['required', 'string', 'max:20'],
@@ -670,6 +670,7 @@ class ConsultaCarnetPage extends Component
         ], [
             'boletaNombre.required' => 'Ingresa el nombre del funcionario.',
             'boletaCi.required' => 'Ingresa el carnet del funcionario.',
+            'boletaCargo.required' => 'Ingresa tu cargo.',
             'boletaMotivo.required' => 'Ingresa el motivo de la comisión o permiso.',
             'boletaTiempoSolicitado.required' => 'Indica el tiempo solicitado.',
             'comprobante.required' => 'Es obligatorio subir una foto o comprobante que justifique el motivo de la boleta.',

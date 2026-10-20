@@ -183,7 +183,7 @@
               : null;
           @endphp
           @if ($logoObrasBase64)
-            <img src="{{ $logoObrasBase64 }}" height="56" style="height: 56px; width: auto; max-width: 160px;" alt="Ministerio de Obras Públicas">
+            <img src="{{ $logoObrasBase64 }}" height="95" style="height: 95px; width: 95px;" alt="Escudo del Estado Plurinacional de Bolivia">
           @else
             <div style="font-size: 8.5pt; font-weight: bold; color: #334155; line-height: 1.15;">
               ESTADO PLURINACIONAL<br>DE BOLIVIA
@@ -226,7 +226,7 @@
       <tr>
         <td class="label-cell">CARGO:</td>
         <td colspan="3">
-          <div class="value-box">{{ mb_strtoupper($boleta['cargo'] ?? 'PERSONAL') }}</div>
+          <div class="value-box">{{ mb_strtoupper($boleta['cargo'] ?? '') }}</div>
         </td>
       </tr>
       <tr>

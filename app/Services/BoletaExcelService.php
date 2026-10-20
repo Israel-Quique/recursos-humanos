@@ -100,7 +100,7 @@ class BoletaExcelService
         $sheet->getStyle("A{$r}")->getFont()->setBold(true)->setSize(8.5);
 
         $sheet->mergeCells("D{$r}:W{$r}");
-        $sheet->setCellValue("D{$r}", mb_strtoupper($boleta['cargo'] ?? 'PERSONAL'));
+        $sheet->setCellValue("D{$r}", mb_strtoupper($boleta['cargo'] ?? ''));
         $sheet->getStyle("D{$r}:W{$r}")->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN);
 
         // Fila 12 / 40: Motivo

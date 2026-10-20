@@ -652,7 +652,7 @@ class IncidenciasPage extends Component
         $boleta = [
             'nombre' => $empleado?->nombre_completo ?? 'PERSONAL',
             'ci' => (string) ($empleado?->codigo_biometrico ?: $empleado?->id ?: 'S/D'),
-            'cargo' => (string) ($empleado?->cargo ?: 'PERSONAL'),
+            'cargo' => '', // El cargo no se guarda en el sistema; queda en blanco
             'motivo' => $motivoCompleto,
             'tipo' => $tipoBoleta,
             'desde_fecha' => $desdeFecha,
