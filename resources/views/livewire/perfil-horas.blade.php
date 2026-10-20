@@ -1474,16 +1474,20 @@
 
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.5rem;">Tipo de Permiso *</label>
-              <div class="ph-radio-permiso" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;">
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
+              <div class="ph-radio-permiso" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:.5rem;">
+                <label style="display:flex;align-items:center;gap:.4rem;padding:.5rem .6rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'particular' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'particular' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.72rem;font-weight:700;color:{{ $boletaTipo === 'particular' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="particular">
                   <span>PARTICULAR</span>
                 </label>
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'comision' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'comision' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'comision' ? '#1e60c6' : '#334155' }};">
+                <label style="display:flex;align-items:center;gap:.4rem;padding:.5rem .6rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'comision' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'comision' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.72rem;font-weight:700;color:{{ $boletaTipo === 'comision' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="comision">
                   <span>COMISIÓN</span>
                 </label>
-                <label style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'medico' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'medico' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.75rem;font-weight:700;color:{{ $boletaTipo === 'medico' ? '#1e60c6' : '#334155' }};">
+                <label style="display:flex;align-items:center;gap:.4rem;padding:.5rem .6rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'rip' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'rip' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.72rem;font-weight:700;color:{{ $boletaTipo === 'rip' ? '#1e60c6' : '#334155' }};">
+                  <input type="radio" wire:model.live="boletaTipo" value="rip">
+                  <span>ART. 45 R.I.P.</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:.4rem;padding:.5rem .6rem;border-radius:.75rem;border:1.5px solid {{ $boletaTipo === 'medico' ? '#1e60c6' : '#cbd5e1' }};background:{{ $boletaTipo === 'medico' ? '#eff6ff' : '#fff' }};cursor:pointer;font-size:.72rem;font-weight:700;color:{{ $boletaTipo === 'medico' ? '#1e60c6' : '#334155' }};">
                   <input type="radio" wire:model.live="boletaTipo" value="medico">
                   <span>MÉDICO</span>
                 </label>

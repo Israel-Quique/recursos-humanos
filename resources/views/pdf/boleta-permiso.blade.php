@@ -182,18 +182,19 @@
   <div class="papeleta-container">
     <table class="header-table">
       <tr>
-        <td class="header-logo" style="width: 170px; text-align: left; vertical-align: middle;">
+        <td class="header-logo" style="width: 175px; text-align: left; vertical-align: middle;">
           @php
-            $logoObrasPath = public_path('images/obrasPublicas.png');
+            $logoObrasPath = public_path('images/logo-mopsv-boleta.png');
             $logoObrasBase64 = file_exists($logoObrasPath)
               ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoObrasPath))
               : null;
           @endphp
           @if ($logoObrasBase64)
-            <img src="{{ $logoObrasBase64 }}" height="95" style="height: 95px; width: 95px;" alt="Escudo del Estado Plurinacional de Bolivia">
+            <img src="{{ $logoObrasBase64 }}" height="42" style="height: 42px; width: auto; max-width: 170px;" alt="Ministerio de Obras Públicas, Servicios y Vivienda">
           @else
-            <div style="font-size: 8.5pt; font-weight: bold; color: #334155; line-height: 1.15;">
-              ESTADO PLURINACIONAL<br>DE BOLIVIA
+            <div style="font-size: 8pt; font-weight: bold; color: #334155; line-height: 1.15;">
+              ESTADO PLURINACIONAL DE BOLIVIA<br>
+              <span style="font-size: 7pt; color: #b45309;">MINISTERIO DE OBRAS PÚBLICAS</span>
             </div>
           @endif
         </td>
@@ -203,17 +204,17 @@
           <div class="title-dept">RECURSOS HUMANOS</div>
           <div class="title-doc">PAPELETA DE COMISIÓN - PERMISO PARTICULAR</div>
         </td>
-        <td class="header-logo" style="width: 170px; text-align: right; vertical-align: middle;">
+        <td class="header-logo" style="width: 145px; text-align: right; vertical-align: middle;">
           @php
-            $logoCorreosPath = public_path('images/menu-logo.png');
+            $logoCorreosPath = public_path('images/logo-correos-nuevo.png');
             $logoCorreosBase64 = file_exists($logoCorreosPath)
-              ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoCorreosPath))
+              ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoCorreosPath))
               : null;
           @endphp
           @if ($logoCorreosBase64)
-            <img src="{{ $logoCorreosBase64 }}" height="52" style="height: 52px; width: auto; max-width: 160px;" alt="Correos de Bolivia">
+            <img src="{{ $logoCorreosBase64 }}" height="40" style="height: 40px; width: auto; max-width: 135px;" alt="Correos de Bolivia">
           @else
-            <strong style="font-size: 15pt; color: #1e60c6;">CORREOS</strong>
+            <strong style="font-size: 13pt; color: #1e60c6;">CORREOS DE BOLIVIA</strong>
           @endif
         </td>
       </tr>
@@ -270,18 +271,22 @@
       </tbody>
     </table>
 
-    {{-- Tipo de Permiso --}}
+    {{-- Tipo de Permiso (Modelo 2: Comisión, Particular, Art. 45 RIP, Médico) --}}
     <table class="type-table">
       <tr>
-        <td style="width: 33.3%;">
+        <td style="width: 22%;">
           COMISIÓN
           <span class="check-square">{{ ($boleta['tipo'] ?? '') === 'comision' ? 'X' : '' }}</span>
         </td>
-        <td style="width: 33.3%; text-align: center;">
+        <td style="width: 24%; text-align: center;">
           PARTICULAR
-          <span class="check-square">{{ in_array(($boleta['tipo'] ?? ''), ['particular', 'omision', 'retraso']) ? 'X' : '' }}</span>
+          <span class="check-square">{{ in_array(($boleta['tipo'] ?? ''), ['particular']) ? 'X' : '' }}</span>
         </td>
-        <td style="width: 33.3%; text-align: right;">
+        <td style="width: 36%; text-align: center;">
+          Art. 45, parág. III del R.I.P.
+          <span class="check-square">{{ in_array(($boleta['tipo'] ?? ''), ['rip', 'omision', 'retraso']) ? 'X' : '' }}</span>
+        </td>
+        <td style="width: 18%; text-align: right;">
           MÉDICO
           <span class="check-square">{{ ($boleta['tipo'] ?? '') === 'medico' ? 'X' : '' }}</span>
         </td>

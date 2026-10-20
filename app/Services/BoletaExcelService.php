@@ -34,16 +34,28 @@ class BoletaExcelService
     {
         $r = $startRow;
 
+        // Logo MOPSV en la esquina superior izquierda
+        $logoMopsvPath = public_path('images/logo-mopsv-boleta.png');
+        if (file_exists($logoMopsvPath)) {
+            $drawingMopsv = new Drawing();
+            $drawingMopsv->setName('Logo MOPSV');
+            $drawingMopsv->setDescription('Ministerio de Obras Públicas, Servicios y Vivienda');
+            $drawingMopsv->setPath($logoMopsvPath);
+            $drawingMopsv->setCoordinates("A{$r}");
+            $drawingMopsv->setHeight(36);
+            $drawingMopsv->setWorksheet($sheet);
+        }
+
         // Logo de Correos en la esquina superior derecha
-        $logoPath = public_path('images/menu-logo.png');
-        if (file_exists($logoPath)) {
-            $drawing = new Drawing();
-            $drawing->setName('Logo Correos');
-            $drawing->setDescription('Agencia Boliviana de Correos');
-            $drawing->setPath($logoPath);
-            $drawing->setCoordinates("S{$r}");
-            $drawing->setHeight(48);
-            $drawing->setWorksheet($sheet);
+        $logoCorreosPath = public_path('images/logo-correos-nuevo.png');
+        if (file_exists($logoCorreosPath)) {
+            $drawingCorreos = new Drawing();
+            $drawingCorreos->setName('Logo Correos');
+            $drawingCorreos->setDescription('Correos de Bolivia');
+            $drawingCorreos->setPath($logoCorreosPath);
+            $drawingCorreos->setCoordinates("S{$r}");
+            $drawingCorreos->setHeight(34);
+            $drawingCorreos->setWorksheet($sheet);
         }
 
         // 1. Encabezado
@@ -164,7 +176,7 @@ class BoletaExcelService
         $sheet->getStyle("T{$r}")->getFont()->setBold(true);
         $sheet->getStyle("T{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
 
-        // Fila 17 / 45: Tipo de permiso
+        // Fila 17 / 45: Tipo de permiso (Modelo 2)
         $r += 3;
         $sheet->setCellValue("B{$r}", 'COMISION');
         $sheet->getStyle("B{$r}")->getFont()->setBold(true);
@@ -173,12 +185,19 @@ class BoletaExcelService
         $sheet->getStyle("D{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle("D{$r}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
-        $sheet->setCellValue("G{$r}", 'PARTICULAR');
-        $sheet->getStyle("G{$r}")->getFont()->setBold(true);
-        $sheet->setCellValue("I{$r}", ($boleta['tipo'] ?? '') === 'particular' ? 'x' : '');
-        $sheet->getStyle("I{$r}")->getFont()->setBold(true)->setSize(11);
-        $sheet->getStyle("I{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle("I{$r}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->setCellValue("F{$r}", 'PARTICULAR');
+        $sheet->getStyle("F{$r}")->getFont()->setBold(true);
+        $sheet->setCellValue("H{$r}", in_array(($boleta['tipo'] ?? ''), ['particular']) ? 'x' : '');
+        $sheet->getStyle("H{$r}")->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle("H{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("H{$r}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        $sheet->setCellValue("J{$r}", 'Art. 45, parág. III del R.I.P.');
+        $sheet->getStyle("J{$r}")->getFont()->setBold(true)->setSize(7.5);
+        $sheet->setCellValue("P{$r}", in_array(($boleta['tipo'] ?? ''), ['rip', 'omision', 'retraso']) ? 'x' : '');
+        $sheet->getStyle("P{$r}")->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle("P{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("P{$r}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         $sheet->setCellValue("S{$r}", 'MEDICO');
         $sheet->getStyle("S{$r}")->getFont()->setBold(true);

@@ -162,16 +162,20 @@
 
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-2">Tipo de Permiso *</label>
-              <div class="grid grid-cols-3 gap-3">
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'comision' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
-                  <input type="radio" wire:model.live="boletaTipo" value="comision" class="text-[#1e60c6] focus:ring-[#1e60c6]">
-                  <span class="text-xs font-bold">COMISIÓN</span>
-                </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'particular' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border {{ $boletaTipo === 'particular' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
                   <input type="radio" wire:model.live="boletaTipo" value="particular" class="text-[#1e60c6] focus:ring-[#1e60c6]">
                   <span class="text-xs font-bold">PARTICULAR</span>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-xl border {{ $boletaTipo === 'medico' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border {{ $boletaTipo === 'comision' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
+                  <input type="radio" wire:model.live="boletaTipo" value="comision" class="text-[#1e60c6] focus:ring-[#1e60c6]">
+                  <span class="text-xs font-bold">COMISIÓN</span>
+                </label>
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border {{ $boletaTipo === 'rip' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
+                  <input type="radio" wire:model.live="boletaTipo" value="rip" class="text-[#1e60c6] focus:ring-[#1e60c6]">
+                  <span class="text-xs font-bold">ART. 45 R.I.P.</span>
+                </label>
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border {{ $boletaTipo === 'medico' ? 'border-[#1e60c6] bg-blue-50/70 font-black text-[#1e60c6] ring-2 ring-[#1e60c6]/20' : 'border-slate-200 bg-white text-slate-700' }} cursor-pointer transition">
                   <input type="radio" wire:model.live="boletaTipo" value="medico" class="text-[#1e60c6] focus:ring-[#1e60c6]">
                   <span class="text-xs font-bold">MÉDICO</span>
                 </label>

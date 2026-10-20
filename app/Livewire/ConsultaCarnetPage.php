@@ -658,7 +658,7 @@ class ConsultaCarnetPage extends Component
             'boletaCi' => ['required', 'string', 'max:50'],
             'boletaCargo' => ['required', 'string', 'max:150'],
             'boletaMotivo' => ['required', 'string', 'max:255'],
-            'boletaTipo' => ['required', 'in:comision,particular,medico,omision,retraso'],
+            'boletaTipo' => ['required', 'in:comision,particular,medico,omision,retraso,rip'],
             'boletaDesdeFecha' => ['required', 'string', 'max:20'],
             'boletaDesdeHora' => $esRangoDias ? ['nullable', 'string', 'max:10'] : ['required', 'string', 'max:10'],
             'boletaHastaFecha' => ['required', 'string', 'max:20'],
