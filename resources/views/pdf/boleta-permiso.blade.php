@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>Papeleta de Comisión - Permiso Particular</title>
   <style>
+    /* Hoja carta (215.9 x 279.4 mm): la boleta ocupa exactamente la mitad superior (139.7 mm) */
     @page {
-      margin: 18mm 18mm;
+      margin: 7mm 12mm 0 12mm;
       size: letter portrait;
     }
     * {
@@ -15,20 +16,26 @@
     body {
       margin: 0;
       padding: 0;
-      font-size: 9.5pt;
+      font-size: 8.5pt;
       color: #000;
     }
     .papeleta-container {
+      width: 100%;
       border: 2px solid #0f172a;
       border-radius: 6px;
-      padding: 24px 26px;
-      margin: 0 auto;
-      position: relative;
+      padding: 10px 18px;
+    }
+    .cut-line {
+      position: absolute;
+      top: 132.7mm; /* 139.7mm (mitad exacta) - 7mm margen superior */
+      left: -12mm;
+      right: -12mm;
+      border-top: 1px dashed #94a3b8;
     }
     .header-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      margin-bottom: 6px;
     }
     .header-logo {
       vertical-align: middle;
@@ -67,10 +74,10 @@
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 2px;
     }
     .data-table td {
-      padding: 6px 3px;
+      padding: 3px 3px;
       vertical-align: middle;
     }
     .label-cell {
@@ -90,12 +97,12 @@
     .schedule-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 16px 0;
+      margin: 8px 0;
     }
     .schedule-table td, .schedule-table th {
       border: 1.5px solid #0f172a;
       text-align: center;
-      padding: 8px 6px;
+      padding: 4px 6px;
       font-size: 8.5pt;
     }
     .schedule-table th {
@@ -108,7 +115,7 @@
     .type-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 14px 0 22px 0;
+      margin: 4px 0 6px 0;
     }
     .type-table td {
       vertical-align: middle;
@@ -131,7 +138,7 @@
     .signatures-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 55px;
+      margin-top: 42px;
     }
     .signatures-table td {
       width: 33.33%;
@@ -151,13 +158,13 @@
     .footer-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 30px;
+      margin-top: 10px;
     }
     .city-date-text {
       text-align: right;
       font-size: 8.5pt;
       font-weight: bold;
-      padding-bottom: 8px;
+      padding-bottom: 4px;
       color: #1e293b;
     }
     .note-text {
@@ -310,6 +317,9 @@
       </tr>
     </table>
   </div>
+
+  {{-- Línea de corte: mitad exacta de la hoja carta --}}
+  <div class="cut-line"></div>
 
 </body>
 </html>
