@@ -15,10 +15,15 @@ use Tests\TestCase;
 class PerfilHorasAnunciosFaltasTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AccesoPersonalDePrueba;
 
     protected function setUp(): void
     {
         parent::setUp();
+        \Spatie\Permission\Models\Permission::findOrCreate('gestionar personal', 'web');
+        $operador = \App\Models\User::query()->create(['name' => 'operador-prueba', 'email' => 'operador@example.test', 'password' => 'secreto123']);
+        $operador->givePermissionTo('gestionar personal');
+        $this->actingAs($operador);
         $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->seed(\Database\Seeders\ReglaSancionSeeder::class);
 
@@ -55,7 +60,7 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
     {
         $empleado = $this->crearEmpleado('10909669');
 
-        Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
+        $this->perfilPersonal($empleado)
             ->assertSee('Normativa y Faltas (Art. 45)')
             ->assertSee('Normativa Interna · Artículo 45')
             ->assertSee('Control de Asistencia, Atrasos y Régimen Disciplinario')
@@ -67,7 +72,7 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
     {
         $empleado = $this->crearEmpleado('10909669');
 
-        $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
+        $component = $this->perfilPersonal($empleado)
             ->call('abrirModalNormativa')
             ->assertSet('mostrarModalNormativa', true)
             ->assertSee('ARTÍCULO 45: Faltas, Infracciones y Consecuencias Disciplinarias')
@@ -145,7 +150,7 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
             'estado' => 'Presente',
         ]);
 
-        Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
+        $this->perfilPersonal($empleado)
             ->assertSee('Has superado el margen de tolerancia mensual de 30 minutos')
             ->assertSee('Retraso acumulado: 50 min')
             ->assertSee('Artículo 45, Numeral I')
@@ -171,10 +176,7 @@ class PerfilHorasAnunciosFaltasTest extends TestCase
 
         // Día 11: Falta (Día laborable sin ninguna marcación) - no creamos registro
 
-        $test = Livewire::test(PerfilHorasPage::class, [
-            'empleado' => $empleado,
-            'referenceMonth' => '2026-08',
-        ]);
+        $test = $this->perfilPersonal($empleado)->set('referenceMonth', '2026-08');
 
         // Al filtrar por omisiones: debe mostrar el día 10 (omisión) y NO el día 11 (falta)
         $test->call('setFilterState', 'omisiones')

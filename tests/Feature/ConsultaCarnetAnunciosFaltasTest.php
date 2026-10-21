@@ -12,10 +12,15 @@ use Tests\TestCase;
 class ConsultaCarnetAnunciosFaltasTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AccesoPersonalDePrueba;
 
     protected function setUp(): void
     {
         parent::setUp();
+        \Spatie\Permission\Models\Permission::findOrCreate('gestionar personal', 'web');
+        $operador = \App\Models\User::query()->create(['name' => 'operador-prueba', 'email' => 'operador@example.test', 'password' => 'secreto123']);
+        $operador->givePermissionTo('gestionar personal');
+        $this->actingAs($operador);
         $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->seed(\Database\Seeders\ReglaSancionSeeder::class);
 
@@ -52,20 +57,21 @@ class ConsultaCarnetAnunciosFaltasTest extends TestCase
     {
         $empleado = $this->crearEmpleado('554433');
 
-        Livewire::test(ConsultaCarnetPage::class)
+        $this->consultaPersonal()
             ->assertSee('Buscar por carnet')
             ->assertSee('Consultar Asistencia')
             ->set('carnet', '554433')
-            ->assertSee($empleado->nombre_completo)
-            ->assertSee('Área de OPERACIONES')
-            ->assertSee('trabajador@correos.gob.bo');
+            ->assertDontSee($empleado->nombre_completo)
+            ->assertDontSee('trabajador@correos.gob.bo')
+            ->call('buscar')->assertHasNoErrors()->assertRedirect();
     }
 
     public function test_consulta_carnet_abre_modal_boleta_con_carnet_valido(): void
     {
+        \App\Models\ConfiguracionBoleta::query()->updateOrCreate(['id' => 1], ['comprobantes_habilitados' => true]);
         $empleado = $this->crearEmpleado('778899');
 
-        Livewire::test(ConsultaCarnetPage::class)
+        $this->consultaPersonal()
             ->set('carnet', '778899')
             ->call('abrirBoletaModal')
             ->assertSet('showBoletaModal', true)

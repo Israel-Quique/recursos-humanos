@@ -60,7 +60,7 @@ class GestionAccesosPage extends Component
     {
         abort_unless(auth()->user()?->can('gestionar accesos'), 403);
 
-        $firstUser = User::query()->orderBy('name')->first();
+        $firstUser = User::query()->where('acceso_personal', false)->orderBy('name')->first();
         if ($firstUser) {
             $this->selectedUserId = $firstUser->id;
             $this->selectedRole = $this->normalizeRole($firstUser->getRoleNames()->first());
@@ -169,7 +169,7 @@ class GestionAccesosPage extends Component
 
     public function openEditModal(int $userId): void
     {
-        $user = User::query()->findOrFail($userId);
+        $user = User::query()->where('acceso_personal', false)->findOrFail($userId);
 
         $this->resetValidation();
         $this->editingUserId = $user->id;
@@ -209,7 +209,7 @@ class GestionAccesosPage extends Component
 
         $data = $this->validate($this->editRules(), $this->validationMessages());
 
-        $user = User::query()->findOrFail($data['editingUserId']);
+        $user = User::query()->where('acceso_personal', false)->findOrFail($data['editingUserId']);
         $antes = $this->snapshotUser($user);
         $normalizedEmail = $this->normalizeCorreosEmail($data['editEmail']);
 
@@ -287,7 +287,7 @@ class GestionAccesosPage extends Component
             return;
         }
 
-        $user = User::query()->with('empleado')->findOrFail($userId);
+        $user = User::query()->where('acceso_personal', false)->with('empleado')->findOrFail($userId);
         $roleName = $user->getRoleNames()->first() ?? 'sin rol';
 
         if ($roleName === 'administrador' && User::role('administrador')->count() <= 1) {
@@ -329,7 +329,7 @@ class GestionAccesosPage extends Component
             return;
         }
 
-        $user = User::query()->with('empleado')->findOrFail($this->pendingDeleteUserId);
+        $user = User::query()->where('acceso_personal', false)->with('empleado')->findOrFail($this->pendingDeleteUserId);
         $roleName = $user->getRoleNames()->first() ?? 'sin rol';
 
         if ($roleName === 'administrador' && User::role('administrador')->count() <= 1) {
@@ -358,7 +358,7 @@ class GestionAccesosPage extends Component
         $user->delete();
 
         if ($this->selectedUserId === $this->pendingDeleteUserId) {
-            $firstUser = User::query()->orderBy('name')->first();
+            $firstUser = User::query()->where('acceso_personal', false)->orderBy('name')->first();
             $this->selectedUserId = $firstUser?->id;
             $this->selectedRole = $this->normalizeRole($firstUser?->getRoleNames()->first());
         }
@@ -369,7 +369,7 @@ class GestionAccesosPage extends Component
 
     public function render()
     {
-        $query = User::query()->with('empleado');
+        $query = User::query()->where('acceso_personal', false)->with('empleado');
 
         if (trim($this->search) !== '') {
             $searchTerm = '%' . trim($this->search) . '%';
@@ -401,10 +401,10 @@ class GestionAccesosPage extends Component
             ->get(['id', 'nombre', 'apellido', 'area', 'sucursal']);
 
         $stats = [
-            'total' => User::count(),
+            'total' => User::where('acceso_personal', false)->count(),
             'admins' => User::role('administrador')->count(),
             'gestores' => User::role('gestor')->count(),
-            'vinculados' => User::whereNotNull('empleado_id')->count(),
+            'vinculados' => User::where('acceso_personal', false)->whereNotNull('empleado_id')->count(),
         ];
 
         return view('livewire.gestion-accesos', [

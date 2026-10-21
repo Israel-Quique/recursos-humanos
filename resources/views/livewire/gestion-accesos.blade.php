@@ -1,4 +1,5 @@
 <div class="page-stack">
+  <livewire:accesos-personales />
   {{-- Notificaciones / Alertas Flash --}}
   @if (session()->has('status'))
     <div class="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-sm backdrop-blur-sm transition-all">

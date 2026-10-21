@@ -16,10 +16,15 @@ use Tests\TestCase;
 class BoletaAprobadaPerdonaAtrasoTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AccesoPersonalDePrueba;
 
     protected function setUp(): void
     {
         parent::setUp();
+        \Spatie\Permission\Models\Permission::findOrCreate('gestionar personal', 'web');
+        $operador = \App\Models\User::query()->create(['name' => 'operador-prueba', 'email' => 'operador@example.test', 'password' => 'secreto123']);
+        $operador->givePermissionTo('gestionar personal');
+        $this->actingAs($operador);
         $this->travelTo(Carbon::parse('2026-08-14 10:00:00'));
     }
 
@@ -82,7 +87,7 @@ class BoletaAprobadaPerdonaAtrasoTest extends TestCase
         $this->assertSame(25, $fila['retraso_original']);
 
         // 2. Validar perfil-horas Livewire view
-        Livewire::test(PerfilHorasPage::class, ['empleado' => $empleado])
+        $this->perfilPersonal($empleado)
             ->set('referenceMonth', '2026-08')
             ->assertSee('0 min (Justificado)')
             ->assertSee('Boleta Aprobada')

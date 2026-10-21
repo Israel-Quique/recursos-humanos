@@ -21,7 +21,6 @@ use Livewire\WithFileUploads;
 class PerfilHorasPage extends Component
 {
     use WithFileUploads;
-    use \App\Livewire\Concerns\AutenticaBoletas;
 
     public Empleado $empleado;
     public string $referenceMonth = '';
@@ -334,6 +333,7 @@ class PerfilHorasPage extends Component
     {
         $incidencia = PermisoLaboral::query()
             ->with(['empleado', 'comprobantePrincipal'])
+            ->where('empleado_id', $this->empleadoAutorizado()->id)
             ->findOrFail($incidenciaId);
 
         $comprobante = $incidencia->comprobantePrincipal;
@@ -361,12 +361,19 @@ class PerfilHorasPage extends Component
 
     public function mount(Empleado $empleado): void
     {
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($empleado);
         $this->empleado = $empleado;
         $this->referenceMonth = $this->resolveInitialMonth();
     }
 
+    public function hydrate(): void
+    {
+        $this->empleadoAutorizado();
+    }
+
     public function buscarOtroCarnet(): void
     {
+        abort_if(auth()->user()?->acceso_personal, 403);
         $carnet = trim($this->searchCarnet);
         if ($carnet === '') {
             return;
@@ -498,7 +505,6 @@ class PerfilHorasPage extends Component
 
     public function abrirBoletaModal(?string $fecha = null, ?string $horaInicio = null, ?string $horaFin = null, ?string $motivo = null, ?string $tipo = null): void
     {
-        $this->reset('codigoBoleta', 'estadoCodigoBoleta');
         $this->boletaNombre = $this->empleado->nombre_completo;
         $this->boletaCi = (string) ($this->empleado->codigo_biometrico ?: $this->empleado->id);
         $this->boletaCargo = ''; // El usuario debe escribir su cargo manualmente (no se guarda en BD)
@@ -590,9 +596,9 @@ class PerfilHorasPage extends Component
     {
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
 
-        abort_unless($incidencia->empleado_id === $this->empleadoParaCodigo()->id, 403);
+        abort_unless($incidencia->empleado_id === $this->empleadoAutorizado()->id, 403);
 
-        return $this->generarBoletaAutenticada($incidencia->empleado, fn () => (new IncidenciasPage)->descargarBoletaPdf($incidencia->id));
+        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
     }
 
     public function updatedBoletaDesdeHora(): void
@@ -785,14 +791,16 @@ class PerfilHorasPage extends Component
             ]);
         }
 
-        $empleado = $this->empleadoParaCodigo();
+        $empleado = $this->empleadoAutorizado();
 
-        return $this->generarBoletaAutenticada($empleado, fn () => $this->procesarEnvioBoleta($empleado));
+        return \Illuminate\Support\Facades\DB::transaction(fn () => $this->procesarEnvioBoleta($empleado));
     }
 
-    protected function empleadoParaCodigo(): Empleado
+    protected function empleadoAutorizado(): Empleado
     {
-        return Empleado::query()->findOrFail($this->empleado->id);
+        $empleado = Empleado::query()->findOrFail($this->empleado->id);
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($empleado);
+        return $empleado;
     }
 
     public function confirmarEmailYDescargar()

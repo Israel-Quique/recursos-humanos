@@ -344,7 +344,6 @@
 
         </div>
 
-        @include('livewire.partials.codigo-boleta')
         @php
           $requisitosCumplidos = filled(trim($boletaNombre))
             && filled(trim($boletaCi))
@@ -412,7 +411,7 @@
               <p class="login-brand-kicker">Consulta y Boletas</p>
               <h1 class="login-brand-title login-brand-title-public">Buscar por carnet</h1>
               <p class="login-welcome-copy login-welcome-copy-public">
-                Accede a tu resumen mensual de asistencia o genera tu papeleta de permiso oficial escribiendo tu carnet o código biométrico.
+                Accede a tu resumen mensual de asistencia y tus boletas con tu carnet o código biométrico y contraseña.
               </p>
             </div>
           </div>
@@ -439,12 +438,22 @@
                   type="text"
                   class="form-input login-input"
                   placeholder="Ingresa tu carnet (ej: 10909669)"
-                  autocomplete="off"
+                  autocomplete="username"
                 >
               </div>
               @error('carnet')
                 <p class="form-error form-error-dark">{{ $message }}</p>
               @enderror
+
+                <label for="consulta-password" class="login-form-label mt-4">Contraseña</label>
+                <div class="login-input-shell">
+                  <span class="login-input-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 1 1 8 0v3"/></svg>
+                  </span>
+                  <input id="consulta-password" type="password" wire:model="password" class="form-input login-input" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+                </div>
+                @error('password')<p class="form-error form-error-dark">{{ $message }}</p>@enderror
+                <p class="mt-2 text-xs text-slate-300">En tu primer ingreso, la contraseña es tu código biométrico. Deberás cambiarla para continuar. RRHH debe habilitar tu acceso.</p>
 
               {{-- DATOS INICIALES DEL FUNCIONARIO AL ESCRIBIR EL CARNET --}}
               @if ($empleadoEncontrado)
@@ -484,7 +493,7 @@
                           <span class="font-bold text-amber-700 text-[12px]">Sin correo registrado</span>
                           <div class="mt-0.5">
                             <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                              ⚠️ Pendiente (Se solicitará al generar boleta)
+                              ⚠️ Pendiente: solicita su registro a RRHH
                             </span>
                           </div>
                         @endif

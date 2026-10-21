@@ -100,6 +100,7 @@
             </svg>
           </button>
         </form>
+        <a href="{{ route('consulta-carnet') }}" class="mt-4 inline-block text-sm text-white underline">Consultar mis horas por carnet</a>
       </div>
     </section>
 

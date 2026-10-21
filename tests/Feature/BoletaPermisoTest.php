@@ -14,16 +14,16 @@ use Tests\TestCase;
 class BoletaPermisoTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AccesoPersonalDePrueba;
 
     protected function setUp(): void
     {
         parent::setUp();
+        \Spatie\Permission\Models\Permission::findOrCreate('gestionar personal', 'web');
+        $operador = \App\Models\User::query()->create(['name' => 'operador-prueba', 'email' => 'operador@example.test', 'password' => 'secreto123']);
+        $operador->givePermissionTo('gestionar personal');
+        $this->actingAs($operador);
         \Illuminate\Support\Facades\Mail::fake();
-    }
-
-    private function codigoEnviado(): string
-    {
-        return \Illuminate\Support\Facades\Mail::sent(\App\Mail\CodigoBoletaMailable::class)->last()->codigo;
     }
 
     public function test_abrir_modal_boleta_precarga_datos_del_empleado(): void
@@ -40,7 +40,7 @@ class BoletaPermisoTest extends TestCase
             'fecha_contratacion' => '2026-08-01',
         ]);
 
-        Livewire::test(ConsultaCarnetPage::class)
+        $this->consultaPersonal()
             ->set('carnet', '10909669')
             ->call('abrirBoletaModal')
             ->assertSet('showBoletaModal', true)
@@ -69,14 +69,12 @@ class BoletaPermisoTest extends TestCase
         Storage::fake('public');
         $imagen = UploadedFile::fake()->image('comprobante.jpg', 400, 400);
 
-        $component = Livewire::test(ConsultaCarnetPage::class)
+        $component = $this->consultaPersonal()
             ->set('carnet', '10909669')
             ->call('abrirBoletaModal')
             ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion de coordinacion')
             ->set('comprobante', $imagen)
-            ->call('enviarCodigoBoleta')->assertHasNoErrors()
-            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf');
 
         $component->assertFileDownloaded();
@@ -97,13 +95,11 @@ class BoletaPermisoTest extends TestCase
             'fecha_contratacion' => '2026-08-01',
         ]);
 
-        $component = Livewire::test(ConsultaCarnetPage::class)
+        $component = $this->consultaPersonal()
             ->set('carnet', '10909669')
             ->call('abrirBoletaModal')
             ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion AGETIC')
-            ->call('enviarCodigoBoleta')->assertHasNoErrors()
-            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarExcel');
 
         $component->assertFileDownloaded();

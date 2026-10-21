@@ -19,6 +19,7 @@ use Tests\TestCase;
 class FotoEmpleadoUsuarioTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AccesoPersonalDePrueba;
 
     private User $gestorUser;
 
@@ -129,7 +130,7 @@ class FotoEmpleadoUsuarioTest extends TestCase
 
         $signedUrl = URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false);
 
-        $this->get($signedUrl)
+        $this->actingAs($this->cuentaPersonal($empleado))->get($signedUrl)
             ->assertOk()
             ->assertSee('ph-avatar-img')
             ->assertSee('adela.jpg');

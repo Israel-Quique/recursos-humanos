@@ -7,6 +7,9 @@ use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -19,7 +22,7 @@ class ExtraccionBiometricoZkService
 
     public function exportarExcel(array $device, ?int $year = null, ?int $month = null): string
     {
-        return $this->exportarFilasComoCsv(
+        $csvPath = $this->exportarFilasComoCsv(
             $device,
             $this->filtrarMarcacionesPorPeriodo(
                 $this->extraerMarcaciones($device),
@@ -27,6 +30,44 @@ class ExtraccionBiometricoZkService
                 $month
             )
         );
+        $excelPath = substr($csvPath, 0, -4).'.xlsx';
+        $spreadsheet = new Spreadsheet();
+        $handle = null;
+        try {
+            $handle = fopen($csvPath, 'rb');
+            if ($handle === false) {
+                throw new \RuntimeException('No se pudo leer las marcaciones para generar el Excel.');
+            }
+            // Omitir el BOM UTF-8 que utiliza la exportación CSV interna.
+            fread($handle, 3);
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Marcaciones');
+            $rowNumber = 1;
+            while (($values = fgetcsv($handle)) !== false) {
+                foreach ($values as $column => $value) {
+                    // Conservar códigos/tarjetas con ceros iniciales y evitar interpretar fórmulas.
+                    $sheet->setCellValueExplicit([$column + 1, $rowNumber], (string) $value, DataType::TYPE_STRING);
+                }
+                $rowNumber++;
+            }
+            $sheet->freezePane('A2');
+            $sheet->setAutoFilter('A1:K'.($rowNumber - 1));
+            $sheet->getStyle('A1:K1')->getFont()->setBold(true);
+            foreach (range('A', 'K') as $column) {
+                $sheet->getColumnDimension($column)->setWidth(25);
+            }
+            (new Xlsx($spreadsheet))->save($excelPath);
+            return $excelPath;
+        } catch (\Throwable $exception) {
+            @unlink($excelPath);
+            throw $exception;
+        } finally {
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
+            $spreadsheet->disconnectWorksheets();
+            @unlink($csvPath);
+        }
     }
 
     public function exportarMarcacionesComoCsv(array $device, array $rows): string

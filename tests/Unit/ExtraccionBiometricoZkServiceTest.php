@@ -11,6 +11,42 @@ class ExtraccionBiometricoZkServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_extraer_excel_genera_xlsx_real_filtra_periodo_y_conserva_codigos_como_texto(): void
+    {
+        if (! class_exists(\ZipArchive::class)) {
+            $this->markTestSkipped('La lectura de XLSX para esta comprobación requiere la extensión PHP zip.');
+        }
+        $service = \Mockery::mock(ExtraccionBiometricoZkService::class)->makePartial();
+        $service->shouldReceive('extraerMarcaciones')->twice()->andReturn([
+            ['codigo' => '000123', 'nombre' => 'MARÍA', 'apellido' => 'PÉREZ', 'numero_tarjeta' => '0009876543210123456', 'fecha_hora' => '2026-10-01T08:15:00', 'notas' => '=1+1'],
+            ['codigo' => '000123', 'nombre' => 'MARÍA', 'apellido' => 'PÉREZ', 'fecha_hora' => '2026-09-30T16:30:00'],
+        ]);
+        $device = ['department' => 'Pando', 'branch' => 'Sucursal Pando'];
+        foreach ([[2026, 10, 2], [null, null, 3]] as [$year, $month, $expectedRows]) {
+            $path = $service->exportarExcel($device, $year, $month);
+            $workbook = null;
+            try {
+                $this->assertStringEndsWith('.xlsx', $path);
+                $this->assertSame('Xlsx', \PhpOffice\PhpSpreadsheet\IOFactory::identify($path));
+                $this->assertFileDoesNotExist(substr($path, 0, -5).'.csv');
+                $workbook = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+                $sheet = $workbook->getActiveSheet();
+                $this->assertSame($expectedRows, $sheet->getHighestRow());
+                $this->assertSame('Tiempo', $sheet->getCell('A1')->getValue());
+                $this->assertSame('01/10/2026 08:15', $sheet->getCell('A2')->getValue());
+                $this->assertSame('000123', $sheet->getCell('B2')->getValue());
+                $this->assertSame('MARÍA', $sheet->getCell('C2')->getValue());
+                $this->assertSame('0009876543210123456', $sheet->getCell('E2')->getValue());
+                $this->assertSame('=1+1', $sheet->getCell('K2')->getValue());
+                $this->assertSame(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING, $sheet->getCell('K2')->getDataType());
+                $this->assertSame('A2', $sheet->getFreezePane());
+            } finally {
+                $workbook?->disconnectWorksheets();
+                @unlink($path);
+            }
+        }
+    }
+
     public function test_exportar_pando_no_reemplaza_nombres_del_reloj_con_empleados_de_oruro(): void
     {
         foreach ([['Oruro', '7', 'Empleado', 'Oruro'], ['Cobija', '8', 'Empleado', 'Pando']] as [$sucursal, $codigo, $nombre, $apellido]) {

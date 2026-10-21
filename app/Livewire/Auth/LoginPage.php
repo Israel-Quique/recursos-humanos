@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use App\Models\User;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
@@ -19,15 +20,16 @@ class LoginPage extends Component
     public function mount(): void
     {
         if (Auth::check()) {
-            $this->redirectRoute('inicio', navigate: true);
+            $user = Auth::user();
+            $this->redirectRoute($user->must_change_password ? 'password.change' : ($user->acceso_personal ? 'mis-horas' : 'inicio'), navigate: true);
         }
     }
 
     public function login(): void
     {
         $credentials = $this->validate([
-            'email' => ['required', 'string'],
-            'password' => ['required', 'string'],
+            'email' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string', 'max:72'],
         ], [
             'email.required' => 'Ingresa tu usuario o correo.',
             'password.required' => 'Ingresa tu contrasena.',
@@ -35,23 +37,31 @@ class LoginPage extends Component
 
         $login = trim($credentials['email']);
 
-        $user = User::query()
-            ->where('email', $login)
-            ->orWhere('name', $login)
-            ->get()
-            ->first(fn (User $candidate) => Hash::check($credentials['password'], $candidate->password));
-
+        $key = 'login:'.hash('sha256', strtolower($login).'|'.request()->ip());
+        $ipKey = 'login-ip:'.hash('sha256', (string) request()->ip());
+        if (RateLimiter::tooManyAttempts($key, 5) || RateLimiter::tooManyAttempts($ipKey, 60)) {
+            $this->addError('email', 'Demasiados intentos. Espera un minuto antes de intentar de nuevo.');
+            return;
+        }
+        RateLimiter::hit($key, 60);
+        RateLimiter::hit($ipKey, 60);
+        $user = User::query()->where('acceso_personal', false)
+            ->where(fn ($q) => $q->where('email', $login)->orWhere('name', $login))
+            ->get()->first(fn (User $candidate) => Hash::check($credentials['password'], $candidate->password));
         if (! $user) {
             $this->addError('email', 'Las credenciales no coinciden con nuestra base de datos.');
             return;
         }
 
         Auth::login($user, $this->remember);
-        request()->session()->regenerate();
+        session()->regenerate();
+        session()->put('password_hash_web', $user->password);
+        RateLimiter::clear($key);
+        $this->reset('password');
 
         session()->flash('status', 'Bienvenido al sistema de recursos humanos.');
 
-        $this->redirectRoute('inicio', navigate: true);
+        $this->redirectRoute($user->must_change_password ? 'password.change' : ($user->acceso_personal ? 'mis-horas' : 'inicio'), navigate: true);
     }
 
     public function togglePassword(): void

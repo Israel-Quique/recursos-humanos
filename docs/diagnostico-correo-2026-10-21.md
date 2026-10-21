@@ -2,6 +2,10 @@
 
 Fecha: 21 de octubre de 2026. Horario: Bolivia (UTC−04).
 
+Nota: este informe conserva las pruebas históricas de entrega. Posteriormente
+se retiró la verificación de boletas por correo y se reemplazó por el acceso
+personal con contraseña a Mis horas. Se mantienen SMTP y sus protecciones TLS.
+
 ## Resultado confirmado
 
 La conexión de la aplicación con Zimbra funciona con TLS obligatorio,
@@ -59,8 +63,8 @@ La aplicación no puede retirar este bloqueo ni administrar la reputación
 de Google con las credenciales SMTP. No se modificaron el DNS, las colas
 del servidor ni las configuraciones de Gmail.
 
-Para futuros envíos, el sistema registra el Message-ID de aceptación SMTP
-sin registrar el código, para que TI pueda seguir cada mensaje en los logs.
+Durante este diagnóstico, el módulo de códigos registró el identificador de
+aceptación SMTP sin registrar el código para seguir cada mensaje en los logs.
 La aceptación por Zimbra no constituye confirmación de entrega al destinatario.
 
 ## Prueba interna autorizada

@@ -23,9 +23,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ConsultaCarnetPage extends Component
 {
     use WithFileUploads;
-    use \App\Livewire\Concerns\AutenticaBoletas;
 
     public string $carnet = '';
+    public string $password = '';
 
     // Filtro y modal de anuncios de faltas y reglamento
     public string $categoriaAnuncio = 'todas';
@@ -233,6 +233,7 @@ class ConsultaCarnetPage extends Component
         if (! $this->empleadoEncontrado) {
             return null;
         }
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($this->empleadoEncontrado);
 
         try {
             $empleado = $this->empleadoEncontrado;
@@ -391,6 +392,7 @@ class ConsultaCarnetPage extends Component
         if (! $this->empleadoEncontrado) {
             return collect();
         }
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($this->empleadoEncontrado);
 
         return PermisoLaboral::query()
             ->with(['comprobantePrincipal'])
@@ -400,66 +402,61 @@ class ConsultaCarnetPage extends Component
             ->get();
     }
 
+    public function mount(): void
+    {
+        if (auth()->user()?->acceso_personal) {
+            abort_unless(app(\App\Services\AccesoPersonalService::class)->puedeIngresar(auth()->user()), 403);
+            $this->redirect(app(\App\Services\AccesoPersonalService::class)->destino(auth()->user()));
+        }
+    }
+
+    public function hydrate(): void
+    {
+        if ($this->empleadoEncontrado) {
+            app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($this->empleadoEncontrado);
+        }
+    }
+
     public function updatedCarnet($value): void
     {
-        $carnet = trim((string) $value);
-        if (strlen($carnet) >= 3) {
-            $this->empleadoEncontrado = Empleado::query()
-                ->where('codigo_biometrico', $carnet)
-                ->first();
-        } else {
-            $this->empleadoEncontrado = null;
+        $this->empleadoEncontrado = null;
+    }
+
+    private function autenticarConsulta(): ?Empleado
+    {
+        $this->validate(['carnet' => ['required', 'string', 'max:50'], 'password' => ['required', 'string', 'max:72']], [
+            'carnet.required' => 'Ingresa tu carnet o código biométrico.',
+            'password.required' => 'Ingresa tu contraseña.',
+        ]);
+        try {
+            $user = app(\App\Services\AccesoPersonalService::class)->ingresar($this->carnet, $this->password);
+        } finally {
+            $this->reset('password');
         }
+        if ($user->must_change_password) {
+            $this->redirectRoute('password.change', navigate: true);
+            return null;
+        }
+        $empleado = $user->empleado;
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($empleado);
+        return $empleado;
     }
 
     public function buscar(): void
     {
-        $data = $this->validate([
-            'carnet' => ['required', 'string', 'max:50'],
-        ], [
-            'carnet.required' => 'Ingresa tu carnet o codigo.',
-        ]);
-
-        $carnet = trim($data['carnet']);
-
-        $empleado = Empleado::query()
-            ->where('codigo_biometrico', $carnet)
-            ->first();
-
-        if (! $empleado) {
-            $this->addError('carnet', 'No encontramos un trabajador con ese carnet o codigo registrado.');
-
-            return;
+        if ($this->autenticarConsulta()) {
+            $this->redirect(app(\App\Services\AccesoPersonalService::class)->destino(auth()->user()), navigate: true);
         }
-
-        $this->empleadoEncontrado = $empleado;
-
-        $signedPath = URL::signedRoute('perfil-horas', ['empleado' => $empleado->id], absolute: false);
-
-        $this->redirect($signedPath, navigate: true);
     }
 
     public function abrirBoletaModal(): void
     {
-        $data = $this->validate([
-            'carnet' => ['required', 'string', 'max:50'],
-        ], [
-            'carnet.required' => 'Ingresa tu carnet o codigo para generar la boleta.',
-        ]);
-
-        $carnet = trim($data['carnet']);
-
-        $empleado = Empleado::query()
-            ->where('codigo_biometrico', $carnet)
-            ->first();
-
+        $empleado = $this->autenticarConsulta();
         if (! $empleado) {
-            $this->addError('carnet', 'No encontramos un trabajador con ese carnet o codigo registrado.');
-
             return;
         }
+        $carnet = (string) $empleado->codigo_biometrico;
 
-        $this->reset('codigoBoleta', 'estadoCodigoBoleta');
         $this->empleadoId = $empleado->id;
         $this->boletaNombre = $empleado->nombre_completo;
         $this->boletaCi = (string) ($empleado->codigo_biometrico ?: $carnet);
@@ -625,9 +622,9 @@ class ConsultaCarnetPage extends Component
     {
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
 
-        abort_unless($incidencia->empleado_id === $this->empleadoParaCodigo()->id, 403);
+        abort_unless($incidencia->empleado_id === $this->empleadoAutorizado()->id, 403);
 
-        return $this->generarBoletaAutenticada($incidencia->empleado, fn () => (new IncidenciasPage)->descargarBoletaPdf($incidencia->id));
+        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
     }
 
     public function quitarComprobante(): void
@@ -710,25 +707,27 @@ class ConsultaCarnetPage extends Component
         ];
     }
 
-    protected function empleadoParaCodigo(): Empleado
+    protected function empleadoAutorizado(): Empleado
     {
-        return Empleado::query()->findOrFail((int) $this->empleadoId);
+        $empleado = Empleado::query()->findOrFail((int) $this->empleadoId);
+        app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($empleado);
+        return $empleado;
     }
 
     public function descargarPdf()
     {
         $boleta = $this->payloadBoleta();
-        $empleado = $this->empleadoParaCodigo();
+        $empleado = $this->empleadoAutorizado();
         // La identidad impresa también procede de la ficha, nunca de campos manipulables.
         $boleta['nombre'] = $empleado->nombre_completo;
         $boleta['ci'] = (string) $empleado->codigo_biometrico;
 
-        return $this->generarBoletaAutenticada($empleado, fn () => $this->procesarEnvioBoleta($boleta, $empleado));
+        return \Illuminate\Support\Facades\DB::transaction(fn () => $this->procesarEnvioBoleta($boleta, $empleado));
     }
 
     public function confirmarEmailYDescargar()
     {
-        // El correo de autenticación solo se administra desde RRHH.
+        // El correo registrado solo se administra desde RRHH.
         return $this->descargarPdf();
     }
 
@@ -845,26 +844,24 @@ class ConsultaCarnetPage extends Component
     public function descargarExcel()
     {
         $boleta = $this->payloadBoleta();
-        $empleado = $this->empleadoParaCodigo();
+        $empleado = $this->empleadoAutorizado();
         $boleta['nombre'] = $empleado->nombre_completo;
         $boleta['ci'] = (string) $empleado->codigo_biometrico;
 
-        return $this->generarBoletaAutenticada($empleado, function () use ($boleta) {
-            $spreadsheet = app(BoletaExcelService::class)->generarSpreadsheet($boleta);
-            $writer = new Xlsx($spreadsheet);
-            ob_start();
-            try {
-                $writer->save('php://output');
-                $contenido = ob_get_contents();
-            } finally {
-                ob_end_clean();
-            }
-            $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.xlsx';
+        $spreadsheet = app(BoletaExcelService::class)->generarSpreadsheet($boleta);
+        $writer = new Xlsx($spreadsheet);
+        ob_start();
+        try {
+            $writer->save('php://output');
+            $contenido = ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
+        $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.xlsx';
 
-            return response()->streamDownload(fn () => print($contenido), $fileName, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            ]);
-        });
+        return response()->streamDownload(fn () => print($contenido), $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function render()

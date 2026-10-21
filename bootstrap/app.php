@@ -14,6 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => route(
+            $request->is('mis-horas', 'perfil-horas/*', 'cambiar-contrasena') ? 'consulta-carnet' : 'login'
+        ));
+        $middleware->redirectUsersTo(fn (\Illuminate\Http\Request $request) => route(
+            $request->user()?->must_change_password ? 'password.change' : ($request->user()?->acceso_personal ? 'mis-horas' : 'inicio')
+        ));
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

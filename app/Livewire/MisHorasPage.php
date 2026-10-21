@@ -12,6 +12,9 @@ class MisHorasPage extends Component
 
     public function mount(): void
     {
+        if (auth()->user()?->acceso_personal) {
+            $this->redirect(app(\App\Services\AccesoPersonalService::class)->destino(auth()->user()));
+        }
         $this->referenceMonth = now()->format('Y-m');
     }
 
@@ -19,6 +22,10 @@ class MisHorasPage extends Component
     {
         $user = auth()->user()?->loadMissing('empleado');
         $empleado = $user?->empleado;
+        if ($user?->acceso_personal) {
+            abort_unless($empleado, 403);
+            app(\App\Services\AccesoPersonalService::class)->autorizarEmpleado($empleado);
+        }
         $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
         $rangeStart = $referenceMonth->copy()->startOfMonth();
         $rangeEnd = $referenceMonth->copy()->endOfMonth();

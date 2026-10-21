@@ -15,6 +15,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Livewire\Livewire::addPersistentMiddleware([
+            \App\Http\Middleware\AccesoPersonal::class,
+            \App\Http\Middleware\ExigirCambioPassword::class,
+        ]);
         Paginator::useBootstrapFive();
 
         // El Administrador tiene acceso total a todo el sistema ("Super Admin")

@@ -927,9 +927,13 @@
   <div class="ph-topbar no-print">
     <div class="ph-topbar-brand">
       <span class="ph-topbar-brand-dot"></span>
-      Portal de Asistencia · Consulta por Carnet
+      {{ auth()->user()?->acceso_personal ? 'Mis horas' : 'Portal de Asistencia · Consulta por Carnet' }}
     </div>
     <div class="ph-topbar-actions" style="display:flex;align-items:center;gap:.5rem;">
+      @if(auth()->user()?->acceso_personal)
+        <a href="{{ route('password.change') }}" class="ph-btn-ghost">Cambiar contraseña</a>
+        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="ph-btn-ghost">Cerrar sesión</button></form>
+      @endif
       <button wire:click="abrirModalNormativa" type="button" class="ph-btn-ghost" style="color:#0f67c0;border-color:#bfdbfe;background:#eff6ff;font-weight:700;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>📢 Normativa y Faltas (Art. 45)</span>
@@ -938,6 +942,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>📄 Generar Boleta</span>
       </button>
+      @unless(auth()->user()?->acceso_personal)
       <a
         href="{{ route('consulta-carnet') }}"
         onclick="if(window.history.length>1){event.preventDefault();window.history.back();}"
@@ -946,6 +951,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
         Volver
       </a>
+      @endunless
       <button onclick="window.print()" type="button" class="ph-btn-ghost">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
         Imprimir
@@ -1679,7 +1685,6 @@
 
         </div>
 
-        @include('livewire.partials.codigo-boleta')
         @php
           $requisitosCumplidos = filled(trim($boletaNombre))
             && filled(trim($boletaCi))

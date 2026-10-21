@@ -29,35 +29,40 @@ Script Python de preprocesamiento: `scripts/process_biometrics.py`.
 Notas:
 - Este repositorio es un scaffold independiente. Para integrarlo en producción, ejecutar los pasos de instalación y migraciones.
 
-## Códigos de autenticación para boletas
+## Acceso personal a Mis horas
 
-Al desplegar, ejecutar `php artisan migrate --force` para crear `boleta_codigos`.
-No se requieren nuevas cuentas de usuario ni contraseñas de empleados.
+En **Administración de accesos → Acceso de empleados a Mis horas**, RRHH puede
+habilitar o bloquear todas las sucursales, una sucursal o personas seleccionadas
+para un grupo de prueba. La excepción individual tiene prioridad sobre la sucursal,
+y esta sobre la regla general. Sin reglas el acceso está bloqueado. Quitar una
+excepción hace que se herede la regla superior; bloquear la regla general no
+elimina las excepciones habilitadas.
 
-En la consulta por carnet o en el perfil de horas, abrir la boleta y pulsar
-**Enviar / reenviar código a mi correo**. El código aleatorio de seis dígitos
-se envía desde el remitente de RRHH configurado en `MAIL_FROM_ADDRESS`, mediante
-el mismo correo del sistema. Escribirlo en el formulario y generar la boleta.
-Cada código autoriza una sola generación; PDF y Excel requieren autenticación.
+El empleado ingresa desde **Consulta por carnet** (`/consulta-carnet`), con su
+carnet o código biométrico y el campo de contraseña agregado en esa misma pantalla.
+La contraseña inicial es su código biométrico.
+La cuenta se crea al primer ingreso autorizado. Debe cambiar la contraseña antes
+de consultar datos, usando al menos 8 caracteres y un valor diferente del código.
+Solo puede consultar sus propias horas y generar sus boletas en la vista habitual
+de perfil de horas. No necesita usar el formulario administrativo de inicio de sesión.
+No tiene permisos de administración. Los bloqueos se comprueban también en las
+sesiones abiertas. RRHH puede restablecer la contraseña al código biométrico;
+se volverá a exigir el cambio. Las cuentas administrativas existentes se conservan.
 
-El destinatario se obtiene de la ficha del empleado en **Personal** y no puede
-registrarse ni cambiarse desde el portal público. Si falta o es incorrecto,
-RRHH debe corregirlo antes de solicitar el código. Se admite el correo válido
-que RRHH haya registrado, incluido el institucional de Zimbra.
+Ejecutar `php artisan migrate --force` y `php artisan optimize:clear` al desplegar.
+La migración agrega los campos de acceso personal y las reglas, y retira la tabla
+de códigos de boletas, que dejó de utilizarse. No se habilita a nadie automáticamente.
+El formulario de consulta por carnet sigue siendo público, pero exige contraseña
+para consultar datos o acceder a boletas. No muestra la ficha al escribir el carnet.
+Estas validaciones también se aplican si hay una sesión de RRHH abierta: el portal
+exige las credenciales de la persona habilitada y el cambio de su contraseña inicial.
+Los perfiles y enlaces anteriores requieren una sesión autorizada; conocer un
+código o disponer de un enlace firmado no permite ver datos ajenos.
 
-El código vence a los diez minutos, se bloquea tras cinco intentos incorrectos
-y solo funciona para ese empleado y la sesión que lo solicitó. Se puede pedir
-otro después de un minuto; el nuevo invalida el anterior. La base de datos
-guarda el hash, y el código se consume junto con la generación del documento
-en una transacción para impedir su reutilización.
-
-Configurar `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`,
-`MAIL_PASSWORD`, `MAIL_ENCRYPTION` y el remitente de RRHH con credenciales
-vigentes de Zimbra, y ejecutar `php artisan config:clear` después de cambiarlas.
-Los modos `log` y `array` no envían mensajes y no permiten solicitar códigos
-fuera de las pruebas. Ante un fallo SMTP se muestra un error y no se habilita
-la generación. No se necesita activar las notificaciones de aprobación/rechazo
-de boletas para enviar estos códigos.
+Se retiró la autenticación por código de correo para PDF/Excel. Se mantienen
+el servicio de correo y su configuración SMTP en `.env` (`MAIL_MAILER=smtp`,
+`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`
+y el remitente). Los cambios de acceso no envían correos ni códigos.
 
 ### Protección del correo del sistema
 
@@ -71,9 +76,8 @@ remitente autorizado.
 
 Si SMTP funciona desde consola pero falla en la página, comprobar el proceso
 web: puede seguir usando el `openssl.cafile` anterior hasta reiniciarse.
-Los fallos de certificado se registran como `motivo=certificado_tls`, junto con
-el tipo de proceso PHP y su archivo de autoridades; no se registran códigos
-ni credenciales. Un código cuyo envío falló no se guarda y no puede verificarse.
+Verificar la configuración TLS desde el proceso web y evitar registrar credenciales
+en los mensajes de diagnóstico.
 
 El archivo `.env` se conserva solo en el servidor y queda fuera del seguimiento
 de Git. Retirarlo de Git no elimina versiones anteriores del historial:
@@ -97,7 +101,9 @@ No usar `migrate:fresh` ni sustituir la base de datos de produccion por la local
 
 En **Importar**, el boton **Sincronizar historial** del equipo importa sus
 marcaciones antiguas y recientes para los reportes. **Extraer Excel** solo
-descarga un archivo. La primera sincronizacion automatica tambien toma el
+descarga un archivo Excel real `.xlsx`, con las mismas columnas de marcaciones,
+filtros y encabezado fijo. Conserva los ceros iniciales de códigos y tarjetas.
+La primera sincronizacion automatica tambien toma el
 historial completo. Las siguientes revisan la ventana reciente.
 Los reportes se actualizan al terminar una importacion, sin esperar la cache.
 Si un codigo del reloj ya pertenece a otra regional, el nuevo trabajador se

@@ -28,18 +28,22 @@ Route::middleware('guest')->group(function () {
 Route::get('/consulta-carnet', ConsultaCarnetPage::class)->name('consulta-carnet');
 
 Route::post('/cerrar-sesion', function () {
+    $personal = Auth::user()?->acceso_personal;
     Auth::logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
 
-    return redirect()->route('login');
+    return redirect()->route($personal ? 'consulta-carnet' : 'login');
 })->middleware('auth')->name('logout');
 
 Route::get('/perfil-horas/{empleado}', PerfilHorasPage::class)
-    ->middleware('signed:relative')
+    ->middleware(['auth', \App\Http\Middleware\AccesoPersonal::class, \App\Http\Middleware\ExigirCambioPassword::class, 'signed:relative'])
     ->name('perfil-horas');
 
-Route::middleware('auth')->group(function () {
+Route::get('/cambiar-contrasena', \App\Livewire\Auth\CambiarPasswordPage::class)
+    ->middleware(['auth', \App\Http\Middleware\AccesoPersonal::class])->name('password.change');
+
+Route::middleware(['auth', \App\Http\Middleware\AccesoPersonal::class, \App\Http\Middleware\ExigirCambioPassword::class])->group(function () {
     Route::get('/inicio', InicioPage::class)->middleware('permission:ver panel')->name('inicio');
     Route::get('/panel', DashboardPage::class)->middleware('permission:ver panel')->name('dashboard');
     Route::get('/importar', ImportarExcelPage::class)->middleware('permission:importar biometria')->name('importar');
