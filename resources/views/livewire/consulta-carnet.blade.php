@@ -5,75 +5,7 @@
       : null;
   @endphp
 
-  {{-- POPUP MODAL: SOLICITAR CORREO SI EL FUNCIONARIO NO TIENE UNO --}}
-  @if ($showPedirEmailModal)
-    <div class="app-modal-backdrop" wire:click="cerrarPedirEmailModal" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); z-index: 100000; position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1rem;">
-      <div class="app-modal-card !max-w-md !w-full !p-6 bg-white rounded-2xl shadow-2xl border border-slate-200" x-on:click.stop>
-        
-        <div class="text-center space-y-3">
-          <div class="mx-auto h-14 w-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs">
-            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect width="20" height="16" x="2" y="4" rx="2"/>
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-            </svg>
-          </div>
-          
-          <div>
-            <h3 class="text-lg font-black text-slate-900 tracking-tight">¿Dónde te llegará el estado de tu boleta?</h3>
-            <p class="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">
-              Estimado/a <span class="font-bold text-slate-800">{{ $boletaNombre }}</span>, detectamos que aún no tienes un correo registrado en el sistema.
-            </p>
-          </div>
-        </div>
 
-        <div class="mt-5 space-y-4">
-          <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 text-xs font-medium text-blue-900 flex items-start gap-2.5">
-            <svg class="h-4 w-4 text-blue-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-            <span>Ingresa tu correo institucional o personal para recibir la respuesta (aprobación/rechazo) de Recursos Humanos.</span>
-          </div>
-
-          <div>
-            <label class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-              Correo Electrónico *
-            </label>
-            <input
-              type="email"
-              wire:model="boletaEmail"
-              wire:keydown.enter="confirmarEmailYDescargar"
-              placeholder="ejemplo@correos.gob.bo o correo@gmail.com"
-              autofocus
-              class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 shadow-xs focus:border-[#1e60c6] focus:ring-2 focus:ring-[#1e60c6]/20 transition"
-            >
-            @error('boletaEmail') <p class="text-xs text-rose-600 font-bold mt-1.5">{{ $message }}</p> @enderror
-            <p class="text-[11px] text-slate-500 mt-1.5 font-medium flex items-center gap-1">
-              <svg class="h-3.5 w-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Se guardará en tu ficha. Por seguridad, luego solo el administrador podrá modificarlo.</span>
-            </p>
-          </div>
-
-          <div class="pt-2 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              wire:click="cerrarPedirEmailModal"
-              class="px-4 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-            >
-              Volver
-            </button>
-            <button
-              type="button"
-              wire:click="confirmarEmailYDescargar"
-              wire:loading.attr="disabled"
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0f67c0] to-indigo-600 hover:from-[#0d59a7] hover:to-indigo-700 text-white font-extrabold text-xs shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
-            >
-              <span wire:loading.remove wire:target="confirmarEmailYDescargar">Guardar correo y Enviar boleta</span>
-              <span wire:loading wire:target="confirmarEmailYDescargar">Enviando boleta...</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  @endif
 
   {{-- MODAL DE GENERACIÓN DE BOLETA / PAPELETA --}}
   @if ($showBoletaModal)
@@ -412,6 +344,7 @@
 
         </div>
 
+        @include('livewire.partials.codigo-boleta')
         @php
           $requisitosCumplidos = filled(trim($boletaNombre))
             && filled(trim($boletaCi))

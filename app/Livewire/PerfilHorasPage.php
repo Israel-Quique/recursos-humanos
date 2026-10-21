@@ -21,6 +21,7 @@ use Livewire\WithFileUploads;
 class PerfilHorasPage extends Component
 {
     use WithFileUploads;
+    use \App\Livewire\Concerns\AutenticaBoletas;
 
     public Empleado $empleado;
     public string $referenceMonth = '';
@@ -497,6 +498,7 @@ class PerfilHorasPage extends Component
 
     public function abrirBoletaModal(?string $fecha = null, ?string $horaInicio = null, ?string $horaFin = null, ?string $motivo = null, ?string $tipo = null): void
     {
+        $this->reset('codigoBoleta', 'estadoCodigoBoleta');
         $this->boletaNombre = $this->empleado->nombre_completo;
         $this->boletaCi = (string) ($this->empleado->codigo_biometrico ?: $this->empleado->id);
         $this->boletaCargo = ''; // El usuario debe escribir su cargo manualmente (no se guarda en BD)
@@ -588,7 +590,9 @@ class PerfilHorasPage extends Component
     {
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
 
-        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
+        abort_unless($incidencia->empleado_id === $this->empleadoParaCodigo()->id, 403);
+
+        return $this->generarBoletaAutenticada($incidencia->empleado, fn () => (new IncidenciasPage)->descargarBoletaPdf($incidencia->id));
     }
 
     public function updatedBoletaDesdeHora(): void
@@ -781,53 +785,19 @@ class PerfilHorasPage extends Component
             ]);
         }
 
-        $empleado = $this->empleado;
+        $empleado = $this->empleadoParaCodigo();
 
-        // Si el empleado no tiene correo registrado en la base de datos:
-        if (blank($empleado->email)) {
-            if (blank(trim($this->boletaEmail))) {
-                $this->showPedirEmailModal = true;
+        return $this->generarBoletaAutenticada($empleado, fn () => $this->procesarEnvioBoleta($empleado));
+    }
 
-                return;
-            }
-
-            $this->validate([
-                'boletaEmail' => ['required', 'email', 'max:191'],
-            ], [
-                'boletaEmail.required' => 'Ingresa el correo electrónico donde recibirás el estado de tu boleta.',
-                'boletaEmail.email' => 'Ingresa un correo válido (ej. tu.nombre@correos.gob.bo o correo@gmail.com).',
-            ]);
-
-            $empleado->email = strtolower(trim($this->boletaEmail));
-            $empleado->save();
-            $this->tieneEmailRegistrado = true;
-        }
-        // Nota: Si ya tiene correo, solo el administrador desde el módulo de personal puede modificarlo.
-
-        return $this->procesarEnvioBoleta($empleado);
+    protected function empleadoParaCodigo(): Empleado
+    {
+        return Empleado::query()->findOrFail($this->empleado->id);
     }
 
     public function confirmarEmailYDescargar()
     {
-        $this->validate([
-            'boletaEmail' => ['required', 'email', 'max:191'],
-        ], [
-            'boletaEmail.required' => 'Ingresa el correo electrónico donde recibirás el estado de tu boleta.',
-            'boletaEmail.email' => 'Ingresa un correo válido (ej. tu.nombre@correos.gob.bo o correo@gmail.com).',
-        ]);
-
-        $empleado = $this->empleado;
-
-        // Solo se guarda si el empleado aún no tenía correo registrado
-        if (blank($empleado->email)) {
-            $empleado->email = strtolower(trim($this->boletaEmail));
-            $empleado->save();
-        }
-
-        $this->tieneEmailRegistrado = true;
-        $this->showPedirEmailModal = false;
-
-        return $this->procesarEnvioBoleta($empleado);
+        return $this->descargarPdf();
     }
 
     public function cerrarPedirEmailModal(): void
@@ -935,6 +905,7 @@ class PerfilHorasPage extends Component
             'boleta' => $boleta,
         ])->setPaper('letter', 'portrait');
 
+        $contenidoPdf = $pdf->output();
         $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.pdf';
 
         $this->showBoletaModal = false;
@@ -948,7 +919,7 @@ class PerfilHorasPage extends Component
 
         session()->flash('status', $notificacionMsg);
 
-        return response()->streamDownload(fn () => print($pdf->output()), $fileName, [
+        return response()->streamDownload(fn () => print($contenidoPdf), $fileName, [
             'Content-Type' => 'application/pdf',
         ]);
     }

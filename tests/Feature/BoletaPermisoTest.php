@@ -15,6 +15,17 @@ class BoletaPermisoTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \Illuminate\Support\Facades\Mail::fake();
+    }
+
+    private function codigoEnviado(): string
+    {
+        return \Illuminate\Support\Facades\Mail::sent(\App\Mail\CodigoBoletaMailable::class)->last()->codigo;
+    }
+
     public function test_abrir_modal_boleta_precarga_datos_del_empleado(): void
     {
         $empleado = Empleado::query()->create([
@@ -64,6 +75,8 @@ class BoletaPermisoTest extends TestCase
             ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion de coordinacion')
             ->set('comprobante', $imagen)
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf');
 
         $component->assertFileDownloaded();
@@ -75,6 +88,7 @@ class BoletaPermisoTest extends TestCase
             'nombre' => 'Marco Antonio',
             'apellido' => 'Espinoza Rojas',
             'codigo_biometrico' => '10909669',
+            'email' => 'marco.espinoza@correos.gob.bo',
             'area' => 'Sistemas',
             'cargo' => 'Encargado del Area de Sistemas',
             'sucursal' => 'La Paz',
@@ -88,6 +102,8 @@ class BoletaPermisoTest extends TestCase
             ->call('abrirBoletaModal')
             ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('boletaMotivo', 'Reunion AGETIC')
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarExcel');
 
         $component->assertFileDownloaded();

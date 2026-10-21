@@ -29,6 +29,64 @@ Script Python de preprocesamiento: `scripts/process_biometrics.py`.
 Notas:
 - Este repositorio es un scaffold independiente. Para integrarlo en producción, ejecutar los pasos de instalación y migraciones.
 
+## Códigos de autenticación para boletas
+
+Al desplegar, ejecutar `php artisan migrate --force` para crear `boleta_codigos`.
+No se requieren nuevas cuentas de usuario ni contraseñas de empleados.
+
+En la consulta por carnet o en el perfil de horas, abrir la boleta y pulsar
+**Enviar / reenviar código a mi correo**. El código aleatorio de seis dígitos
+se envía desde el remitente de RRHH configurado en `MAIL_FROM_ADDRESS`, mediante
+el mismo correo del sistema. Escribirlo en el formulario y generar la boleta.
+Cada código autoriza una sola generación; PDF y Excel requieren autenticación.
+
+El destinatario se obtiene de la ficha del empleado en **Personal** y no puede
+registrarse ni cambiarse desde el portal público. Si falta o es incorrecto,
+RRHH debe corregirlo antes de solicitar el código. Se admite el correo válido
+que RRHH haya registrado, incluido el institucional de Zimbra.
+
+El código vence a los diez minutos, se bloquea tras cinco intentos incorrectos
+y solo funciona para ese empleado y la sesión que lo solicitó. Se puede pedir
+otro después de un minuto; el nuevo invalida el anterior. La base de datos
+guarda el hash, y el código se consume junto con la generación del documento
+en una transacción para impedir su reutilización.
+
+Configurar `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`,
+`MAIL_PASSWORD`, `MAIL_ENCRYPTION` y el remitente de RRHH con credenciales
+vigentes de Zimbra, y ejecutar `php artisan config:clear` después de cambiarlas.
+Los modos `log` y `array` no envían mensajes y no permiten solicitar códigos
+fuera de las pruebas. Ante un fallo SMTP se muestra un error y no se habilita
+la generación. No se necesita activar las notificaciones de aprobación/rechazo
+de boletas para enviar estos códigos.
+
+### Protección del correo del sistema
+
+SMTP exige TLS y un certificado válido, con 15 segundos de tiempo de espera.
+Si PHP no reconoce la autoridad del certificado de Zimbra, configurar
+`openssl.cafile` en el `php.ini` del servidor con un almacén de autoridades
+confiables actualizado. No desactivar la verificación del certificado.
+Después de modificar `php.ini`, reiniciar Apache o el proceso PHP que atiende
+la aplicación. La cuenta SMTP y `MAIL_FROM_ADDRESS` deben corresponder al
+remitente autorizado.
+
+Si SMTP funciona desde consola pero falla en la página, comprobar el proceso
+web: puede seguir usando el `openssl.cafile` anterior hasta reiniciarse.
+Los fallos de certificado se registran como `motivo=certificado_tls`, junto con
+el tipo de proceso PHP y su archivo de autoridades; no se registran códigos
+ni credenciales. Un código cuyo envío falló no se guarda y no puede verificarse.
+
+El archivo `.env` se conserva solo en el servidor y queda fuera del seguimiento
+de Git. Retirarlo de Git no elimina versiones anteriores del historial:
+revocar o cambiar cualquier contraseña que haya quedado publicada, incluidas
+las de la cuenta anterior. La plantilla `.env.example` no incluye contraseña
+SMTP; para el sistema usar una cuenta dedicada y, si el administrador de Zimbra
+lo permite, una contraseña de aplicación revocable junto con 2FA en el webmail.
+
+Una cuenta comprometida requiere que TI revoque sesiones y accesos de aplicación,
+revise reglas de reenvío y dispositivos, y actualice Zimbra. Revisar y limpiar
+el equipo afectado antes de introducir las nuevas credenciales. Estos cambios
+de código no limpian malware ni recuperan por sí solos el buzón comprometido.
+
 ## Biometricos en el servidor de la empresa
 
 Los equipos se agregan desde **Importar > Agregar biometrico** en el sistema

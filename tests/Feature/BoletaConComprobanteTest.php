@@ -24,6 +24,7 @@ class BoletaConComprobanteTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Illuminate\Support\Facades\Mail::fake();
         ConfiguracionBoleta::query()->create(['comprobantes_habilitados' => true]);
     }
 
@@ -65,6 +66,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaMotivo', 'Consulta medica en la CNS')
             ->assertDontSee('Foto del Comprobante / Respaldo')
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')
             ->assertHasNoErrors()
             ->assertFileDownloaded();
@@ -83,6 +86,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaMotivo', 'Consulta medica')
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
             ->assertDontSee('Arrastra y suelta aquí la foto del comprobante')
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')->assertHasNoErrors()->assertFileDownloaded();
 
         $this->assertDatabaseCount('permisos_laborales', 1);
@@ -104,7 +109,7 @@ class BoletaConComprobanteTest extends TestCase
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => false]);
         $component = Livewire::test(PerfilHorasPage::class, ['empleado' => $this->crearEmpleado(null)])
             ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')->set('boletaMotivo', 'Consulta medica')
-            ->call('descargarPdf')->assertSet('showPedirEmailModal', true);
+            ->call('descargarPdf')->assertHasErrors('codigoBoleta');
         ConfiguracionBoleta::query()->whereKey(1)->update(['comprobantes_habilitados' => true]);
         $component->set('boletaEmail', 'correo@example.test')->call('confirmarEmailYDescargar')
             ->assertHasErrors(['comprobante' => 'required']);
@@ -192,6 +197,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaHastaHora', '16:30')
             ->set('comprobante', $imagenFalsa)
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf');
 
         $response->assertHasNoErrors();
@@ -321,6 +328,8 @@ class BoletaConComprobanteTest extends TestCase
             ->assertSet('boletaCiudad', mb_strtoupper($empleado->sucursal))
             ->set('boletaCargo', 'Encargado de Sistemas')
             ->set('comprobante', $imagenFalsa)
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf');
 
         \Carbon\Carbon::setTestNow();
@@ -339,34 +348,27 @@ class BoletaConComprobanteTest extends TestCase
         $this->assertSame('08:30:00', $permisoCreado->hora_inicio);
     }
 
-    public function test_solicitud_boleta_abre_popup_si_empleado_no_tiene_correo(): void
+    public function test_solicitud_boleta_sin_correo_requiere_registro_por_rrhh(): void
     {
         Storage::fake('public');
         $empleado = $this->crearEmpleado(email: null);
         $imagenFalsa = UploadedFile::fake()->image('justificativo.png', 600, 400);
 
-        // 1. Al intentar descargar sin correo en BD ni en formulario, se abre el popup modal
         $component = Livewire::test(ConsultaCarnetPage::class)
-            ->set('carnet', '1234567')
-            ->call('abrirBoletaModal')->set('boletaCargo', 'Encargado de Sistemas')
-            ->set('boletaMotivo', 'Comision de servicio')
-            ->set('boletaTipo', 'comision')
-            ->set('comprobante', $imagenFalsa)
-            ->call('descargarPdf')
-            ->assertSet('showPedirEmailModal', true)
-            ->assertSee('¿Dónde te llegará el estado de tu boleta?');
+            ->set('carnet', '1234567')->call('abrirBoletaModal')
+            ->set('boletaCargo', 'Encargado de Sistemas')->set('boletaMotivo', 'Comision de servicio')
+            ->set('comprobante', $imagenFalsa)->call('enviarCodigoBoleta')->assertHasErrors('codigoBoleta');
+        $component->set('boletaEmail', 'pepito@correos.gob.bo')->call('confirmarEmailYDescargar')
+            ->assertHasErrors('codigoBoleta');
 
-        $this->assertSame(0, PermisoLaboral::query()->count());
+        $this->assertNull($empleado->fresh()->email);
+        $this->assertDatabaseCount('permisos_laborales', 0);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
 
-        // 2. Pepito completa su correo en el popup y confirma
-        $component->set('boletaEmail', 'pepito@correos.gob.bo')
-            ->call('confirmarEmailYDescargar')
-            ->assertHasNoErrors()
-            ->assertSet('showPedirEmailModal', false);
-
-        // El empleado ahora tiene el correo guardado permanentemente en la base de datos
-        $this->assertSame('pepito@correos.gob.bo', $empleado->fresh()->email);
-        $this->assertSame(1, PermisoLaboral::query()->count());
+    private function codigoEnviado(): string
+    {
+        return \Illuminate\Support\Facades\Mail::sent(\App\Mail\CodigoBoletaMailable::class)->last()->codigo;
     }
 
     public function test_usuario_no_puede_cambiar_correo_ya_establecido(): void
@@ -382,6 +384,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaTipo', 'comision')
             ->set('boletaEmail', 'intento_cambio@correos.gob.bo')
             ->set('comprobante', $imagenFalsa)
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')
             ->assertHasNoErrors();
 
@@ -426,6 +430,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaMotivo', 'Comisión departamental en Oruro')
             ->set('boletaTipo', 'comision')
             ->set('comprobante', $imagenFalsa)
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')
             ->assertHasNoErrors()
             ->assertFileDownloaded();
@@ -458,6 +464,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('boletaMotivo', 'Permiso particular día completo')
             ->set('boletaTipo', 'particular')
             ->set('comprobante', $imagenFalsa)
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')
             ->assertHasNoErrors()
             ->assertFileDownloaded();
@@ -549,6 +557,8 @@ class BoletaConComprobanteTest extends TestCase
             ->set('comprobante', $imagenFalsa)
             ->assertSee('Regla de 48 Horas')
             ->assertSee('Enviar a RR.HH. y Descargar Boleta PDF')
+            ->call('enviarCodigoBoleta')->assertHasNoErrors()
+            ->set('codigoBoleta', $this->codigoEnviado())
             ->call('descargarPdf')
             ->assertHasNoErrors()
             ->assertFileDownloaded();

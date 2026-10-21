@@ -23,6 +23,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ConsultaCarnetPage extends Component
 {
     use WithFileUploads;
+    use \App\Livewire\Concerns\AutenticaBoletas;
 
     public string $carnet = '';
 
@@ -34,6 +35,7 @@ class ConsultaCarnetPage extends Component
     public bool $showBoletaModal = false;
     public bool $showPedirEmailModal = false;
     public bool $tieneEmailRegistrado = false;
+    #[\Livewire\Attributes\Locked]
     public ?int $empleadoId = null;
     public string $boletaNombre = '';
     public string $boletaCi = '';
@@ -457,6 +459,7 @@ class ConsultaCarnetPage extends Component
             return;
         }
 
+        $this->reset('codigoBoleta', 'estadoCodigoBoleta');
         $this->empleadoId = $empleado->id;
         $this->boletaNombre = $empleado->nombre_completo;
         $this->boletaCi = (string) ($empleado->codigo_biometrico ?: $carnet);
@@ -622,7 +625,9 @@ class ConsultaCarnetPage extends Component
     {
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
 
-        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
+        abort_unless($incidencia->empleado_id === $this->empleadoParaCodigo()->id, 403);
+
+        return $this->generarBoletaAutenticada($incidencia->empleado, fn () => (new IncidenciasPage)->descargarBoletaPdf($incidencia->id));
     }
 
     public function quitarComprobante(): void
@@ -705,67 +710,26 @@ class ConsultaCarnetPage extends Component
         ];
     }
 
+    protected function empleadoParaCodigo(): Empleado
+    {
+        return Empleado::query()->findOrFail((int) $this->empleadoId);
+    }
+
     public function descargarPdf()
     {
         $boleta = $this->payloadBoleta();
-        $empleado = Empleado::query()->findOrFail((int) $this->empleadoId);
+        $empleado = $this->empleadoParaCodigo();
+        // La identidad impresa también procede de la ficha, nunca de campos manipulables.
+        $boleta['nombre'] = $empleado->nombre_completo;
+        $boleta['ci'] = (string) $empleado->codigo_biometrico;
 
-        // Si el empleado no tiene correo registrado en la base de datos:
-        if (blank($empleado->email)) {
-            // Si tampoco lo ingresó en el popup emergente:
-            if (blank(trim($this->boletaEmail))) {
-                $this->showPedirEmailModal = true;
-
-                return;
-            }
-
-            // Validar y registrar por primera y única vez
-            $this->validate([
-                'boletaEmail' => ['required', 'email', 'max:191'],
-            ], [
-                'boletaEmail.required' => 'Ingresa el correo electrónico donde recibirás el estado de tu boleta.',
-                'boletaEmail.email' => 'Ingresa un correo válido (ej. tu.nombre@correos.gob.bo o correo@gmail.com).',
-            ]);
-
-            $empleado->email = strtolower(trim($this->boletaEmail));
-            $empleado->save();
-            $this->tieneEmailRegistrado = true;
-            if ($this->empleadoEncontrado && $this->empleadoEncontrado->id === $empleado->id) {
-                $this->empleadoEncontrado->email = $empleado->email;
-            }
-        }
-        // Nota de seguridad: Si el empleado YA tiene correo registrado, NO se permite modificarlo
-        // desde la boleta para evitar peticiones y cambios continuos. Solo el administrador puede modificarlo.
-
-        return $this->procesarEnvioBoleta($boleta, $empleado);
+        return $this->generarBoletaAutenticada($empleado, fn () => $this->procesarEnvioBoleta($boleta, $empleado));
     }
 
     public function confirmarEmailYDescargar()
     {
-        $this->validate([
-            'boletaEmail' => ['required', 'email', 'max:191'],
-        ], [
-            'boletaEmail.required' => 'Ingresa el correo electrónico donde recibirás el estado de tu boleta.',
-            'boletaEmail.email' => 'Ingresa un correo válido (ej. tu.nombre@correos.gob.bo o correo@gmail.com).',
-        ]);
-
-        $empleado = Empleado::query()->findOrFail((int) $this->empleadoId);
-
-        // Solo se guarda si el empleado aún no tenía correo registrado
-        if (blank($empleado->email)) {
-            $empleado->email = strtolower(trim($this->boletaEmail));
-            $empleado->save();
-            if ($this->empleadoEncontrado && $this->empleadoEncontrado->id === $empleado->id) {
-                $this->empleadoEncontrado->email = $empleado->email;
-            }
-        }
-
-        $this->tieneEmailRegistrado = true;
-        $this->showPedirEmailModal = false;
-
-        $boleta = $this->payloadBoleta();
-
-        return $this->procesarEnvioBoleta($boleta, $empleado);
+        // El correo de autenticación solo se administra desde RRHH.
+        return $this->descargarPdf();
     }
 
     public function cerrarPedirEmailModal(): void
@@ -855,6 +819,7 @@ class ConsultaCarnetPage extends Component
             'boleta' => $boleta,
         ])->setPaper('letter', 'portrait');
 
+        $contenidoPdf = $pdf->output();
         $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.pdf';
 
         // 5. Cerrar modal y limpiar
@@ -872,7 +837,7 @@ class ConsultaCarnetPage extends Component
 
         session()->flash('status', $notificacionMsg);
 
-        return response()->streamDownload(fn () => print($pdf->output()), $fileName, [
+        return response()->streamDownload(fn () => print($contenidoPdf), $fileName, [
             'Content-Type' => 'application/pdf',
         ]);
     }
@@ -880,18 +845,26 @@ class ConsultaCarnetPage extends Component
     public function descargarExcel()
     {
         $boleta = $this->payloadBoleta();
+        $empleado = $this->empleadoParaCodigo();
+        $boleta['nombre'] = $empleado->nombre_completo;
+        $boleta['ci'] = (string) $empleado->codigo_biometrico;
 
-        $excelService = app(BoletaExcelService::class);
-        $spreadsheet = $excelService->generarSpreadsheet($boleta);
-        $writer = new Xlsx($spreadsheet);
+        return $this->generarBoletaAutenticada($empleado, function () use ($boleta) {
+            $spreadsheet = app(BoletaExcelService::class)->generarSpreadsheet($boleta);
+            $writer = new Xlsx($spreadsheet);
+            ob_start();
+            try {
+                $writer->save('php://output');
+                $contenido = ob_get_contents();
+            } finally {
+                ob_end_clean();
+            }
+            $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.xlsx';
 
-        $fileName = 'Boleta_' . Str::slug($boleta['nombre']) . '_' . now()->format('Ymd_His') . '.xlsx';
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ]);
+            return response()->streamDownload(fn () => print($contenido), $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ]);
+        });
     }
 
     public function render()
