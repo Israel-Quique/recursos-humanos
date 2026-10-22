@@ -110,9 +110,9 @@ class ReporteReglamentoTest extends TestCase
             ->assertSee('Riesgo Crítico')
             ->assertSee('Concurrencia de Leyes')
             ->assertSee('Días Totales a Deducir')
-            ->assertSee('Control de Cumplimiento del Reglamento Interno')
-            ->assertSee('Detalle de Atrasos y Días a Descontar')
-            ->assertSee('Detalle de Omisiones de Marcación')
+            ->assertSee('Faltas, alertas y seguimiento del personal')
+            ->assertSee('Sanciones mensuales por atrasos')
+            ->assertSee('Sanciones mensuales por omisiones')
             ->assertSee('Reporte de Reincidentes')
             ->call('descargarPdfReporteReglamento')
             ->assertFileDownloaded();
@@ -387,8 +387,13 @@ class ReporteReglamentoTest extends TestCase
         Livewire::test(ReportesPage::class)
             ->set('referenceMonth', '2026-08')
             ->assertStatus(200)
-            ->assertSee('Detalle Atrasos')
-            ->assertSee('Detalle Omisiones')
+            ->assertSee('Atrasos: marcaciones y sanciones')
+            ->assertSee('Sanciones mensuales por atrasos (Art. 45.I)')
+            ->assertDontSee('Detalle Atrasos')
+            ->assertSee('Omisiones: marcaciones y sanciones')
+            ->assertSee('Sanciones mensuales por omisiones (Art. 45.III y Art. 48.IV)')
+            ->assertSee('Faltas y seguimiento')
+            ->assertDontSee('Detalle Omisiones')
             ->assertSee('Detalle Faltas')
             ->assertSee('Zona de Peligro')
             ->assertSee('Descargar PDF Atrasos (Art. 45.I)')
@@ -396,6 +401,63 @@ class ReporteReglamentoTest extends TestCase
             ->assertSee('Descargar PDF Faltas (Art. 45.II / 48)')
             ->assertSee('Descargar PDF Zona de Peligro (Alertas)')
             ->assertSee('3. Detalle de Faltas e Inasistencias (Art. 45.II y Art. 48.II/III)');
+    }
+
+    public function test_sanciones_se_muestran_una_sola_vez_dentro_de_su_reporte(): void
+    {
+        $this->actingAs(User::query()->create([
+            'name' => 'Gestora reportes unificados',
+            'email' => 'reportes.unificados@correos.gob.bo',
+            'password' => bcrypt('secret123'),
+        ]));
+        $html = Livewire::test(ReportesPage::class)->html();
+
+        foreach (['atrasos' => 'omisiones', 'omisiones' => 'refrigerio'] as $categoria => $siguiente) {
+            $inicio = strpos($html, "x-show=\"tab === '$categoria'\"");
+            $fin = strpos($html, "x-show=\"tab === '$siguiente'\"");
+            $this->assertNotFalse($inicio);
+            $this->assertNotFalse($fin);
+            $panel = substr($html, $inicio, $fin - $inicio);
+            $titulo = "Sanciones mensuales por $categoria";
+            $this->assertStringContainsString($titulo, $panel);
+            $this->assertSame(1, substr_count($html, $titulo));
+        }
+    }
+
+    public function test_busqueda_filtra_sanciones_en_ambos_reportes_unificados(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-20 12:00:00'));
+        $this->actingAs(User::query()->create([
+            'name' => 'Gestora filtros',
+            'email' => 'filtros.reportes@correos.gob.bo',
+            'password' => bcrypt('secret123'),
+        ]));
+        foreach (['Ana' => 'UNI-01', 'Luis' => 'UNI-02'] as $nombre => $codigo) {
+            $empleado = Empleado::query()->create([
+                'nombre' => $nombre, 'apellido' => 'Prueba', 'codigo_biometrico' => $codigo,
+                'sucursal' => 'La Paz', 'area' => 'Operaciones',
+                'hora_entrada_programada' => '08:30:00', 'hora_salida_programada' => '16:30:00',
+                'fecha_contratacion' => '2026-08-01',
+            ]);
+            foreach (['2026-08-05' => '09:20:00', '2026-08-06' => null] as $fecha => $entrada) {
+                RegistroAsistencia::query()->create([
+                    'empleado_id' => $empleado->id, 'fecha' => $fecha,
+                    'hora_entrada' => $entrada, 'hora_salida' => '16:30:00',
+                    'estado_marcacion' => $entrada ? 'Completo' : 'Salida',
+                    'evento_biometrico' => 'Verificado',
+                ]);
+            }
+        }
+        $componente = Livewire::test(ReportesPage::class)->set('referenceMonth', '2026-08');
+        foreach (['Ana', 'UNI-02'] as $busqueda) {
+            $componente->set('search', $busqueda)->assertViewHas('reporteReglamento', function ($reporte) use ($busqueda) {
+                foreach (['detalle_atrasos', 'detalle_omisiones'] as $categoria) {
+                    $this->assertCount(1, $reporte[$categoria]);
+                    $this->assertSame($busqueda === 'Ana' ? 'UNI-01' : 'UNI-02', $reporte[$categoria][0]['codigo']);
+                }
+                return true;
+            });
+        }
     }
 
     public function test_empleados_en_tolerancia_no_aparecen_en_detalle_atrasos_ni_reincidentes(): void

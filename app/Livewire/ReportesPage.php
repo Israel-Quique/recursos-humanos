@@ -415,6 +415,18 @@ class ReportesPage extends Component
             }
         }
 
+        $reporteReglamento = $this->obtenerReporteReglamento($reporteAtrasoOmision);
+        if (filled($this->search)) {
+            $term = Str::ascii(Str::lower(trim($this->search)));
+            foreach (['detalle_atrasos', 'detalle_omisiones'] as $categoria) {
+                $reporteReglamento[$categoria] = array_values(array_filter(
+                    $reporteReglamento[$categoria] ?? [],
+                    fn (array $item) => str_contains(Str::ascii(Str::lower($item['nombre'] ?? '')), $term)
+                        || str_contains(Str::ascii(Str::lower((string) ($item['codigo'] ?? ''))), $term)
+                ));
+            }
+        }
+
         return view('livewire.reportes', [
             'metrics'              => Cache::remember("{$cacheKeyBase}_metrics", 1800, fn() => $analysis->metricasReportePorRango($rangeStart, $rangeEnd, $this->selectedBranch)),
             'frequency'            => Cache::remember("{$cacheKeyBase}_freq", 1800, fn() => $analysis->frecuenciaAsistencia($referenceMonth, $this->selectedBranch)),
@@ -437,7 +449,7 @@ class ReportesPage extends Component
             'reportePersonal'      => $reportePersonal,
             'reporteSucursales'    => $reporteSucursales,
             'reporteRefrigerio'    => $reporteRefrigerio,
-            'reporteReglamento'    => $this->obtenerReporteReglamento($reporteAtrasoOmision),
+            'reporteReglamento'    => $reporteReglamento,
             'funcionarioReglamentoConsultado' => $funcionarioReglamentoConsultado,
             'authEmpleadoNombre'   => $authUser?->empleado?->nombre_completo ?? null,
         ])->layout('layouts.app', ['title' => 'Reportes de asistencia']);
