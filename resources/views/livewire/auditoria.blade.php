@@ -59,7 +59,12 @@
           @forelse ($auditorias as $auditoria)
             <tr>
               <td>{{ $auditoria->created_at?->format('d/m/Y H:i') ?? 'Sin fecha' }}</td>
-              <td>{{ $auditoria->actor?->name ?? 'Sistema' }}</td>
+              <td>
+                {{ $auditoria->actor_nombre ?? $auditoria->actor?->name ?? 'Responsable no disponible' }}
+                @if ($auditoria->actor_email)
+                  <span class="block text-xs text-slate-500">{{ $auditoria->actor_email }}</span>
+                @endif
+              </td>
               <td>{{ $auditoria->modulo }}</td>
               <td>
                 <span class="status-badge {{ $auditoria->accion === 'eliminar' ? 'status-danger' : ($auditoria->accion === 'editar' || $auditoria->accion === 'cambiar_rol' ? 'status-warning' : 'status-info') }}">

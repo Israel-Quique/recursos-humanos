@@ -12,6 +12,7 @@ use App\Services\AuditoriaService;
 use App\Services\ProgramacionLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -216,6 +217,8 @@ class IncidenciasPage extends Component
 
     public function openDeleteModal(int $incidenciaId): void
     {
+        abort_unless(auth()->user()?->hasRole('administrador'), 403);
+
         $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($incidenciaId);
 
         $this->pendingDeleteIncidenciaId = $incidencia->id;
@@ -337,33 +340,35 @@ class IncidenciasPage extends Component
             $data['horaFin'] ?? ''
         );
 
-        $incidencia = PermisoLaboral::query()->create([
-            'empleado_id' => $empleado->id,
-            'tipo' => $data['tipo'],
-            'tipo_permiso_clave' => ($data['tipo'] === 'permiso' && filled($this->tipoPermiso)) ? $this->tipoPermiso : null,
-            'alcance' => $data['alcance'],
-            'estado' => $data['estado'],
-            'fecha_inicio' => $data['fechaInicio'],
-            'fecha_fin' => $data['fechaFin'],
-            'hora_inicio' => $this->normalizarHora($data['alcance'], $data['horaInicio'] ?? ''),
-            'hora_fin' => $this->normalizarHora($data['alcance'], $data['horaFin'] ?? ''),
-            'minutos_contabilizados' => $minutos,
-            'motivo' => $data['motivo'] ?: null,
-            'created_by' => auth()->id(),
-        ]);
+        DB::transaction(function () use ($data, $empleado, $minutos) {
+            $incidencia = PermisoLaboral::query()->create([
+                'empleado_id' => $empleado->id,
+                'tipo' => $data['tipo'],
+                'tipo_permiso_clave' => ($data['tipo'] === 'permiso' && filled($this->tipoPermiso)) ? $this->tipoPermiso : null,
+                'alcance' => $data['alcance'],
+                'estado' => $data['estado'],
+                'fecha_inicio' => $data['fechaInicio'],
+                'fecha_fin' => $data['fechaFin'],
+                'hora_inicio' => $this->normalizarHora($data['alcance'], $data['horaInicio'] ?? ''),
+                'hora_fin' => $this->normalizarHora($data['alcance'], $data['horaFin'] ?? ''),
+                'minutos_contabilizados' => $minutos,
+                'motivo' => $data['motivo'] ?: null,
+                'created_by' => auth()->id(),
+            ]);
 
-        if ($this->comprobante) {
-            $this->guardarComprobanteAdjunto($this->comprobante, $incidencia->id);
-        }
+            if ($this->comprobante) {
+                $this->guardarComprobanteAdjunto($this->comprobante, $incidencia->id);
+            }
 
-        app(AuditoriaService::class)->registrar(
-            'Incidencias',
-            'crear',
-            'Se registro una nueva incidencia laboral con respaldos/comprobante.',
-            $incidencia,
-            null,
-            $this->snapshotIncidencia($incidencia->fresh('empleado'))
-        );
+            app(AuditoriaService::class)->registrar(
+                'Incidencias',
+                'crear',
+                'Se registro una nueva incidencia laboral con respaldos/comprobante.',
+                $incidencia,
+                null,
+                $this->snapshotIncidencia($incidencia->fresh('empleado'))
+            );
+        });
 
         $this->closeCreateModal();
         $this->resetCreateForm();
@@ -385,35 +390,37 @@ class IncidenciasPage extends Component
             $data['editHoraFin'] ?? ''
         );
 
-        $incidencia = PermisoLaboral::query()->findOrFail((int) $data['editingIncidenciaId']);
-        $antes = $this->snapshotIncidencia($incidencia->load('empleado'));
-        $incidencia->update([
-            'empleado_id' => $empleado->id,
-            'tipo' => $data['editTipo'],
-            'tipo_permiso_clave' => ($data['editTipo'] === 'permiso' && filled($this->editTipoPermiso)) ? $this->editTipoPermiso : null,
-            'alcance' => $data['editAlcance'],
-            'estado' => $data['editEstado'],
-            'fecha_inicio' => $data['editFechaInicio'],
-            'fecha_fin' => $data['editFechaFin'],
-            'hora_inicio' => $this->normalizarHora($data['editAlcance'], $data['editHoraInicio'] ?? ''),
-            'hora_fin' => $this->normalizarHora($data['editAlcance'], $data['editHoraFin'] ?? ''),
-            'minutos_contabilizados' => $minutos,
-            'motivo' => $data['editMotivo'] ?: null,
-            'motivo_rechazo' => $data['editEstado'] === 'rechazado' ? (trim($this->editMotivoRechazo) ?: null) : null,
-        ]);
+        DB::transaction(function () use ($data, $empleado, $minutos) {
+            $incidencia = PermisoLaboral::query()->lockForUpdate()->findOrFail((int) $data['editingIncidenciaId']);
+            $antes = $this->snapshotIncidencia($incidencia->load('empleado'));
+            $incidencia->update([
+                'empleado_id' => $empleado->id,
+                'tipo' => $data['editTipo'],
+                'tipo_permiso_clave' => ($data['editTipo'] === 'permiso' && filled($this->editTipoPermiso)) ? $this->editTipoPermiso : null,
+                'alcance' => $data['editAlcance'],
+                'estado' => $data['editEstado'],
+                'fecha_inicio' => $data['editFechaInicio'],
+                'fecha_fin' => $data['editFechaFin'],
+                'hora_inicio' => $this->normalizarHora($data['editAlcance'], $data['editHoraInicio'] ?? ''),
+                'hora_fin' => $this->normalizarHora($data['editAlcance'], $data['editHoraFin'] ?? ''),
+                'minutos_contabilizados' => $minutos,
+                'motivo' => $data['editMotivo'] ?: null,
+                'motivo_rechazo' => $data['editEstado'] === 'rechazado' ? (trim($this->editMotivoRechazo) ?: null) : null,
+            ]);
 
-        if ($this->editComprobante) {
-            $this->guardarComprobanteAdjunto($this->editComprobante, $incidencia->id);
-        }
+            if ($this->editComprobante) {
+                $this->guardarComprobanteAdjunto($this->editComprobante, $incidencia->id);
+            }
 
-        app(AuditoriaService::class)->registrar(
-            'Incidencias',
-            'editar',
-            'Se actualizo una incidencia laboral.',
-            $incidencia->fresh('empleado'),
-            $antes,
-            $this->snapshotIncidencia($incidencia->fresh('empleado'))
-        );
+            app(AuditoriaService::class)->registrar(
+                'Incidencias',
+                'editar',
+                'Se actualizo una incidencia laboral.',
+                $incidencia->fresh('empleado'),
+                $antes,
+                $this->snapshotIncidencia($incidencia->fresh('empleado'))
+            );
+        });
 
         $this->closeEditModal();
         $this->resetPage();
@@ -455,26 +462,31 @@ class IncidenciasPage extends Component
 
     public function deleteIncidencia(): void
     {
+        abort_unless(auth()->user()?->hasRole('administrador'), 403);
+
         if (! $this->pendingDeleteIncidenciaId) {
             return;
         }
 
-        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($this->pendingDeleteIncidenciaId);
-        $antes = $this->snapshotIncidencia($incidencia);
-        $incidencia->delete();
+        DB::transaction(function () {
+            $incidencia = PermisoLaboral::query()->with(['empleado', 'comprobantes'])
+                ->lockForUpdate()->findOrFail($this->pendingDeleteIncidenciaId);
+            $antes = $this->snapshotIncidencia($incidencia);
+            $respaldoId = app(\App\Services\BoletaEliminacionService::class)->eliminar($incidencia);
 
-        app(AuditoriaService::class)->registrar(
-            'Incidencias',
-            'eliminar',
-            'Se elimino una incidencia laboral.',
-            $incidencia,
-            $antes,
-            ['eliminado' => true]
-        );
+            app(AuditoriaService::class)->registrar(
+                'Incidencias',
+                'eliminar',
+                'Se elimino una incidencia laboral y se conservo su respaldo para auditoria.',
+                $incidencia,
+                $antes,
+                ['eliminado' => true, 'boleta_eliminada_id' => $respaldoId]
+            );
+        });
 
         $this->closeDeleteModal();
         $this->resetPage();
-        session()->flash('status', 'Incidencia eliminada correctamente.');
+        session()->flash('status', 'Boleta eliminada correctamente. Se conservó un respaldo para auditoría.');
     }
 
     public function verComprobante(int $incidenciaId): void
@@ -562,31 +574,38 @@ class IncidenciasPage extends Component
 
     public function cambiarEstado(int $incidenciaId, string $nuevoEstado, ?string $motivoRechazo = null): void
     {
-        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($incidenciaId);
+        $incidencia = DB::transaction(function () use ($incidenciaId, $nuevoEstado, $motivoRechazo) {
+            $incidencia = PermisoLaboral::query()->with('empleado')->lockForUpdate()->findOrFail($incidenciaId);
 
-        // Bloqueo estricto: una vez aprobado o rechazado, ya no se puede modificar
-        if (in_array($incidencia->estado, ['aprobado', 'rechazado'], true)) {
-            session()->flash('warning', 'Esta solicitud ya está ' . $incidencia->estado . ' y no se puede volver a modificar.');
+            // Bloqueo estricto: una vez aprobado o rechazado, ya no se puede modificar
+            if (in_array($incidencia->estado, ['aprobado', 'rechazado'], true)) {
+                session()->flash('warning', 'Esta solicitud ya está ' . $incidencia->estado . ' y no se puede volver a modificar.');
+                return;
+            }
+
+            $antes = $this->snapshotIncidencia($incidencia);
+
+            $updateData = ['estado' => $nuevoEstado];
+            if ($nuevoEstado === 'rechazado' && filled($motivoRechazo)) {
+                $updateData['motivo_rechazo'] = $motivoRechazo;
+            }
+
+            $incidencia->update($updateData);
+
+            app(AuditoriaService::class)->registrar(
+                'Incidencias',
+                'cambiar_estado',
+                "Se cambio el estado de la incidencia a {$nuevoEstado}" . (filled($motivoRechazo) ? ". Motivo rechazo: {$motivoRechazo}" : '.'),
+                $incidencia,
+                $antes,
+                $this->snapshotIncidencia($incidencia)
+            );
+
+            return $incidencia;
+        });
+        if (! $incidencia) {
             return;
         }
-
-        $antes = $this->snapshotIncidencia($incidencia);
-        
-        $updateData = ['estado' => $nuevoEstado];
-        if ($nuevoEstado === 'rechazado' && filled($motivoRechazo)) {
-            $updateData['motivo_rechazo'] = $motivoRechazo;
-        }
-
-        $incidencia->update($updateData);
-
-        app(AuditoriaService::class)->registrar(
-            'Incidencias',
-            'cambiar_estado',
-            "Se cambio el estado de la incidencia a {$nuevoEstado}" . (filled($motivoRechazo) ? ". Motivo rechazo: {$motivoRechazo}" : '.'),
-            $incidencia,
-            $antes,
-            $this->snapshotIncidencia($incidencia)
-        );
 
         // Envío de correo electrónico de notificación al funcionario (Desactivado a solicitud)
         $envioCorreoHabilitado = false; // Cambiar a true cuando se requiera reactivar el envío automático

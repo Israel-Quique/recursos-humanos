@@ -11,7 +11,7 @@ use App\Models\User as UserModel;
 use App\Services\AuditoriaService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -51,88 +51,90 @@ class AuditoriaPage extends Component
 
     public function deshacerAccion(int $auditoriaId): void
     {
-        abort_unless(auth()->user()?->can('ver auditoria'), 403);
+        abort_unless(auth()->user()?->can('ver auditoria') && auth()->user()?->can('revertir auditoria'), 403);
 
-        $auditoria = Auditoria::query()->findOrFail($auditoriaId);
+        DB::transaction(function () use ($auditoriaId) {
+            $auditoria = Auditoria::query()->lockForUpdate()->findOrFail($auditoriaId);
 
-        if (! $this->canUndo($auditoria)) {
-            session()->flash('status', 'Esta accion no se puede deshacer.');
+            if (! $this->canUndo($auditoria)) {
+                session()->flash('status', 'Esta accion no se puede deshacer.');
 
-            return;
-        }
+                return;
+            }
 
-        $modelo = match ($auditoria->accion) {
-            'crear' => $this->eliminarSegunAuditoria($auditoria),
-            'editar', 'cambiar_rol' => $this->restaurarSnapshot($auditoria, $auditoria->antes ?? []),
-            'eliminar' => $this->restaurarSnapshot($auditoria, $auditoria->antes ?? []),
-            default => null,
-        };
+            $modelo = match ($auditoria->accion) {
+                'crear' => $this->eliminarSegunAuditoria($auditoria),
+                'editar', 'cambiar_rol' => $this->restaurarSnapshot($auditoria, $auditoria->antes ?? []),
+                'eliminar' => $this->restaurarSnapshot($auditoria, $auditoria->antes ?? []),
+                default => null,
+            };
 
-        app(AuditoriaService::class)->registrar(
-            'Auditoria',
-            'deshacer',
-            'Se deshizo una accion registrada en auditoria.',
-            $modelo,
-            null,
-            null,
-            [
-                'auditoria_origen_id' => $auditoria->id,
-                'modulo_origen' => $auditoria->modulo,
-                'accion_origen' => $auditoria->accion,
-            ]
-        );
+            app(AuditoriaService::class)->registrar(
+                'Auditoria',
+                'deshacer',
+                'Se deshizo una accion registrada en auditoria.',
+                $modelo,
+                null,
+                null,
+                [
+                    'auditoria_origen_id' => $auditoria->id,
+                    'modulo_origen' => $auditoria->modulo,
+                    'accion_origen' => $auditoria->accion,
+                ]
+            );
 
-        $meta = $auditoria->meta ?? [];
-        $meta['estado_reversion'] = 'deshecha';
-        $meta['deshecha_en'] = now()->format('Y-m-d H:i:s');
-        $meta['deshecha_por'] = auth()->id();
-        $auditoria->meta = $meta;
-        $auditoria->save();
-
-        session()->flash('status', 'Accion deshecha correctamente.');
+            $meta = $auditoria->meta ?? [];
+            $meta['estado_reversion'] = 'deshecha';
+            $meta['deshecha_en'] = now()->format('Y-m-d H:i:s');
+            $meta['deshecha_por'] = auth()->id();
+            $auditoria->meta = $meta;
+            $auditoria->save();
+            session()->flash('status', 'Accion deshecha correctamente.');
+        });
     }
 
     public function rehacerAccion(int $auditoriaId): void
     {
-        abort_unless(auth()->user()?->can('ver auditoria'), 403);
+        abort_unless(auth()->user()?->can('ver auditoria') && auth()->user()?->can('revertir auditoria'), 403);
 
-        $auditoria = Auditoria::query()->findOrFail($auditoriaId);
+        DB::transaction(function () use ($auditoriaId) {
+            $auditoria = Auditoria::query()->lockForUpdate()->findOrFail($auditoriaId);
 
-        if (! $this->canRedo($auditoria)) {
-            session()->flash('status', 'Esta accion no se puede rehacer.');
+            if (! $this->canRedo($auditoria)) {
+                session()->flash('status', 'Esta accion no se puede rehacer.');
 
-            return;
-        }
+                return;
+            }
 
-        $modelo = match ($auditoria->accion) {
-            'crear' => $this->restaurarSnapshot($auditoria, $auditoria->despues ?? []),
-            'editar', 'cambiar_rol' => $this->restaurarSnapshot($auditoria, $auditoria->despues ?? []),
-            'eliminar' => $this->eliminarSegunAuditoria($auditoria),
-            default => null,
-        };
+            $modelo = match ($auditoria->accion) {
+                'crear' => $this->restaurarSnapshot($auditoria, $auditoria->despues ?? []),
+                'editar', 'cambiar_rol' => $this->restaurarSnapshot($auditoria, $auditoria->despues ?? []),
+                'eliminar' => $this->eliminarSegunAuditoria($auditoria),
+                default => null,
+            };
 
-        app(AuditoriaService::class)->registrar(
-            'Auditoria',
-            'rehacer',
-            'Se rehizo una accion registrada en auditoria.',
-            $modelo,
-            null,
-            null,
-            [
-                'auditoria_origen_id' => $auditoria->id,
-                'modulo_origen' => $auditoria->modulo,
-                'accion_origen' => $auditoria->accion,
-            ]
-        );
+            app(AuditoriaService::class)->registrar(
+                'Auditoria',
+                'rehacer',
+                'Se rehizo una accion registrada en auditoria.',
+                $modelo,
+                null,
+                null,
+                [
+                    'auditoria_origen_id' => $auditoria->id,
+                    'modulo_origen' => $auditoria->modulo,
+                    'accion_origen' => $auditoria->accion,
+                ]
+            );
 
-        $meta = $auditoria->meta ?? [];
-        $meta['estado_reversion'] = 'activa';
-        $meta['rehacer_en'] = now()->format('Y-m-d H:i:s');
-        $meta['rehacer_por'] = auth()->id();
-        $auditoria->meta = $meta;
-        $auditoria->save();
-
-        session()->flash('status', 'Accion rehecha correctamente.');
+            $meta = $auditoria->meta ?? [];
+            $meta['estado_reversion'] = 'activa';
+            $meta['rehacer_en'] = now()->format('Y-m-d H:i:s');
+            $meta['rehacer_por'] = auth()->id();
+            $auditoria->meta = $meta;
+            $auditoria->save();
+            session()->flash('status', 'Accion rehecha correctamente.');
+        });
     }
 
     public function render()
@@ -145,6 +147,8 @@ class AuditoriaPage extends Component
                     $inner->where('descripcion', 'like', $term)
                         ->orWhere('modulo', 'like', $term)
                         ->orWhere('accion', 'like', $term)
+                        ->orWhere('actor_nombre', 'like', $term)
+                        ->orWhere('actor_email', 'like', $term)
                         ->orWhereHas('actor', function ($actorQuery) use ($term) {
                             $actorQuery->where('name', 'like', $term)
                                 ->orWhere('email', 'like', $term);
@@ -153,20 +157,29 @@ class AuditoriaPage extends Component
             })
             ->when(filled($this->moduloFiltro), fn ($query) => $query->where('modulo', $this->moduloFiltro))
             ->when(filled($this->accionFiltro), fn ($query) => $query->where('accion', $this->accionFiltro))
-            ->when(filled($this->actorFiltro), fn ($query) => $query->where('actor_id', $this->actorFiltro))
+            ->when(filled($this->actorFiltro), fn ($query) => $query->where('actor_id_original', $this->actorFiltro))
             ->latest()
             ->paginate(12);
 
         return view('livewire.auditoria', [
             'auditorias' => $auditorias,
             'modulos' => Auditoria::query()->select('modulo')->distinct()->orderBy('modulo')->pluck('modulo'),
-            'acciones' => ['crear', 'editar', 'eliminar', 'cambiar_rol', 'deshacer', 'rehacer'],
-            'actores' => User::query()->orderBy('name')->get(['id', 'name', 'email']),
+            'acciones' => Auditoria::query()->select('accion')->distinct()->orderBy('accion')->pluck('accion'),
+            'actores' => Auditoria::query()->whereNotNull('actor_id_original')->latest('id')
+                ->get(['actor_id_original as id', 'actor_nombre as name', 'actor_email as email'])
+                ->unique('id')->sortBy('name'),
         ])->layout('layouts.app', ['title' => 'Auditoria del sistema']);
     }
 
     public function canUndo(Auditoria $auditoria): bool
     {
+        if (! auth()->user()?->can('revertir auditoria')) {
+            return false;
+        }
+        if ($auditoria->auditable_type === PermisoLaboral::class && ! auth()->user()?->hasRole('administrador')) {
+            return false;
+        }
+
         if (in_array($auditoria->accion, ['deshacer', 'rehacer'], true)) {
             return false;
         }
@@ -180,6 +193,13 @@ class AuditoriaPage extends Component
 
     public function canRedo(Auditoria $auditoria): bool
     {
+        if (! auth()->user()?->can('revertir auditoria')) {
+            return false;
+        }
+        if ($auditoria->auditable_type === PermisoLaboral::class && ! auth()->user()?->hasRole('administrador')) {
+            return false;
+        }
+
         if (in_array($auditoria->accion, ['deshacer', 'rehacer'], true)) {
             return false;
         }
@@ -220,6 +240,12 @@ class AuditoriaPage extends Component
         }
 
         $model = $this->resolverModeloParaEscritura($class, $snapshot['id'] ?? null);
+        $respaldo = null;
+        if ($class === PermisoLaboral::class && ! $model) {
+            $respaldo = DB::table('boletas_eliminadas')
+                ->where('permiso_laboral_id', $snapshot['id'] ?? $auditoria->auditable_id)
+                ->latest('id')->first();
+        }
         $payload = $this->payloadDesdeSnapshot($class, $snapshot);
 
         if ($payload === []) {
@@ -234,7 +260,22 @@ class AuditoriaPage extends Component
         }
 
         $model->fill($payload);
+        if ($respaldo) {
+            $model->forceFill(json_decode($respaldo->datos_boleta, true, 512, JSON_THROW_ON_ERROR));
+        }
         $model->save();
+
+        if ($respaldo) {
+            foreach (json_decode($respaldo->comprobantes, true, 512, JSON_THROW_ON_ERROR) as $datos) {
+                unset($datos['id']);
+                $datos['permiso_laboral_id'] = $model->id;
+                // La cuenta que adjuntó el comprobante puede haber sido eliminada.
+                if (! UserModel::query()->whereKey($datos['created_by'] ?? null)->exists()) {
+                    $datos['created_by'] = null;
+                }
+                $model->comprobantes()->make()->forceFill($datos)->save();
+            }
+        }
 
         if ($this->usaSoftDeletes($class) && method_exists($model, 'trashed') && $model->trashed()) {
             $model->restore();
@@ -260,7 +301,11 @@ class AuditoriaPage extends Component
             return null;
         }
 
-        $model->delete();
+        if ($model instanceof PermisoLaboral) {
+            app(\App\Services\BoletaEliminacionService::class)->eliminar($model);
+        } else {
+            $model->delete();
+        }
 
         return $model;
     }
@@ -277,7 +322,7 @@ class AuditoriaPage extends Component
             $query = $query->withTrashed();
         }
 
-        return $query->find($id);
+        return $query->lockForUpdate()->find($id);
     }
 
     private function usaSoftDeletes(string $class): bool

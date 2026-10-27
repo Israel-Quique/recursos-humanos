@@ -587,6 +587,20 @@
                       </svg>
                     </button>
                   @endif
+                  @role('administrador')
+                    <button
+                      type="button"
+                      wire:click="openDeleteModal({{ $item->id }})"
+                      wire:loading.attr="disabled"
+                      class="h-8 w-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition shadow-2xs cursor-pointer border border-rose-200 disabled:opacity-60"
+                      title="Eliminar boleta"
+                      aria-label="Eliminar boleta de {{ $item->empleado?->nombre_completo ?? 'Sin personal' }}"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/>
+                      </svg>
+                    </button>
+                  @endrole
                 </div>
               </td>
             </tr>
@@ -620,6 +634,28 @@
       </div>
     @endif
   </section>
+
+  @role('administrador')
+    @if ($showDeleteModal)
+      <div class="app-modal-backdrop" wire:click="closeDeleteModal">
+        <div class="app-modal-card max-w-lg" x-on:click.stop role="dialog" aria-modal="true" aria-labelledby="eliminar-boleta-titulo">
+          <button type="button" wire:click="closeDeleteModal" class="app-modal-close app-modal-close-corner" aria-label="Cerrar">X</button>
+          <div class="app-modal-head">
+            <h3 id="eliminar-boleta-titulo" class="section-title app-modal-title">Eliminar boleta</h3>
+          </div>
+          <p class="mt-5 text-sm font-bold text-slate-900">{{ $pendingDeleteIncidenciaLabel }}</p>
+          <p class="mt-3 text-sm text-rose-700">La boleta dejará de aparecer en incidencias. Se conservará una copia de sus datos y comprobantes para auditoría, junto con la fecha y el administrador que la eliminó.</p>
+          <div class="mt-6 app-modal-actions">
+            <button type="button" wire:click="closeDeleteModal" class="app-modal-secondary">Cancelar</button>
+            <button type="button" wire:click="deleteIncidencia" wire:loading.attr="disabled" wire:target="deleteIncidencia" class="login-submit app-modal-submit !bg-rose-600 hover:!bg-rose-700">
+              <span wire:loading.remove wire:target="deleteIncidencia">Sí, eliminar boleta</span>
+              <span wire:loading wire:target="deleteIncidencia">Eliminando...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    @endif
+  @endrole
 
   {{-- MODAL DE CONFIRMACIÓN APROBAR --}}
   @if ($showConfirmModal)

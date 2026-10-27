@@ -22,6 +22,7 @@ class RolePermissionSeeder extends Seeder
             'gestionar personal',
             'gestionar accesos',
             'ver auditoria',
+            'revertir auditoria',
         ];
 
         foreach ($permissions as $permission) {
@@ -43,7 +44,7 @@ class RolePermissionSeeder extends Seeder
         // Asegurar que usuarios con rol gestor no tengan permisos directos administrativos
         $gestorUsers = User::query()->role('gestor')->get();
         foreach ($gestorUsers as $user) {
-            $user->revokePermissionTo(['gestionar accesos', 'ver auditoria']);
+            $user->revokePermissionTo(['gestionar accesos', 'ver auditoria', 'revertir auditoria']);
         }
 
         $legacyRoleMap = [
