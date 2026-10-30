@@ -25,6 +25,7 @@ class PermisoLaboral extends Model
         'motivo',
         'motivo_rechazo',
         'created_by',
+        'boleta_cargo',
     ];
 
     protected function casts(): array
@@ -39,6 +40,47 @@ class PermisoLaboral extends Model
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
+    }
+
+    public function editablePorTitular(): bool
+    {
+        return $this->tipo === 'permiso' && $this->created_at
+            && now()->greaterThanOrEqualTo($this->created_at)
+            && now()->lessThan($this->created_at->copy()->addHours(24));
+    }
+
+    public function getTipoBoletaAttribute(): string
+    {
+        if (! str_contains((string) $this->motivo, ':')) {
+            return 'particular';
+        }
+
+        $prefijo = mb_strtolower(trim(explode(':', $this->motivo ?? '', 2)[0]));
+
+        return match ($prefijo) {
+            'comision', 'comisión' => 'comision',
+            'medico', 'médico' => 'medico',
+            'omision', 'omisión' => 'omision',
+            'retraso' => 'retraso',
+            'rip' => 'rip',
+            'particular' => 'particular',
+            default => str_contains($prefijo, 'comision') || str_contains($prefijo, 'comisión')
+                ? 'comision'
+                : ((str_contains($prefijo, 'medico') || str_contains($prefijo, 'médico'))
+                    ? 'medico'
+                    : ((str_contains($prefijo, 'rip') || str_contains($prefijo, 'art')) ? 'rip' : 'particular')),
+        };
+    }
+
+    public function getMotivoSinPrefijoAttribute(): string
+    {
+        $texto = trim((string) ($this->motivo ?? ''));
+
+        while (preg_match('/^(?:particular|comisi[oó]n|m[eé]dico|rip|art\.?\s*45(?:\s*,?\s*par[aá]g\.?\s*iii)?(?:\s*del)?\s*r\.?i\.?p\.?|omisi[oó]n|retraso)\s*:\s*(.*)$/iu', $texto, $matches)) {
+            $texto = trim($matches[1]);
+        }
+
+        return $texto;
     }
 
     public function comprobantes(): HasMany

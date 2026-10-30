@@ -620,6 +620,244 @@
 .ph-table tfoot tr { background: #f8fafc; border-top: 2px solid #e2e8f0; }
 .ph-table tfoot td { padding: .75rem 1rem; font-size: .75rem; font-weight: 700; color: #374151; }
 
+/* ─── BOLETAS CARDS SECTION ──────────────────────────── */
+.ph-boletas-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px rgba(15,23,42,.06);
+  padding: 1.5rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ph-boletas-head {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+@media(min-width: 768px) {
+  .ph-boletas-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.ph-boletas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 1.15rem;
+}
+@media(max-width: 640px) {
+  .ph-boletas-section {
+    padding: 1.1rem 1rem;
+    border-radius: 1.1rem;
+  }
+  .ph-boletas-grid {
+    grid-template-columns: 1fr;
+    gap: .85rem;
+  }
+}
+
+.ph-boleta-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: .95rem;
+  box-shadow: 0 2px 12px rgba(15,23,42,.04);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  overflow: hidden;
+}
+.ph-boleta-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(15,23,42,.09);
+  border-color: #cbd5e1;
+}
+.ph-boleta-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+.ph-boleta-card-aprobado::before  { background: linear-gradient(90deg, #059669, #34d399); }
+.ph-boleta-card-rechazado::before { background: linear-gradient(90deg, #e11d48, #fb7185); }
+.ph-boleta-card-pendiente::before { background: linear-gradient(90deg, #0f67c0, #f59e0b); }
+
+.ph-boleta-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.ph-boleta-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .65rem;
+  border-radius: .55rem;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.ph-btype-comision   { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.ph-btype-medico     { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.ph-btype-rip        { background: #faf5ff; color: #6d28d9; border-color: #ddd6fe; }
+.ph-btype-omision    { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.ph-btype-retraso    { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.ph-btype-particular { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+
+.ph-boleta-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .7rem;
+  border-radius: 9999px;
+  font-size: .7rem;
+  font-weight: 800;
+  border: 1px solid;
+}
+.ph-bstatus-aprobado  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+.ph-bstatus-rechazado { background: #fff1f2; color: #9f1239; border-color: #fecdd3; }
+.ph-bstatus-pendiente { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+
+.ph-boleta-schedule-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: .9rem;
+  padding: .75rem .9rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+}
+@media(max-width: 420px) {
+  .ph-boleta-schedule-box {
+    grid-template-columns: 1fr;
+    gap: .5rem;
+  }
+}
+
+.ph-boleta-field-label {
+  font-size: .63rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #64748b;
+  margin-bottom: .2rem;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+.ph-boleta-field-value {
+  font-size: .8rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.ph-boleta-motivo-box {
+  background: #fff;
+  border-left: 3px solid #cbd5e1;
+  padding: .35rem 0 .35rem .75rem;
+}
+.ph-boleta-motivo-text {
+  font-size: .82rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.ph-boleta-edit-banner {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .7rem;
+  border-radius: .65rem;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.ph-boleta-edit-ok {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.ph-boleta-edit-locked {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.ph-boleta-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+  padding-top: .75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ph-boleta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .38rem;
+  padding: .45rem .85rem;
+  border-radius: .65rem;
+  font-size: .73rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s ease;
+  text-decoration: none;
+  flex: 1;
+  white-space: nowrap;
+}
+.ph-boleta-btn-pdf {
+  background: #0f67c0;
+  color: #ffffff;
+  border: 1px solid #0f67c0;
+  box-shadow: 0 2px 6px rgba(15,103,192,.2);
+}
+.ph-boleta-btn-pdf:hover {
+  background: #0d58a4;
+  border-color: #0d58a4;
+}
+.ph-boleta-btn-edit {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+.ph-boleta-btn-edit:hover {
+  background: #eff6ff;
+  color: #0f67c0;
+  border-color: #93c5fd;
+}
+
+.ph-boletas-empty {
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 1.15rem;
+  background: #f8fafc;
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+}
+
 /* PRINT */
 @media print {
   .ph-topbar, .ph-filter-bar, .ph-sort-btn, .no-print { display: none !important; }
@@ -1260,12 +1498,12 @@
                 {{-- Acción Boleta / Justificación --}}
                 <td class="center" style="vertical-align:middle;padding:.5rem .75rem;">
                   @if(!empty($row['permiso_aprobado']))
-                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta aprobada por RRHH: {{ $row['permiso_aprobado']->motivo ?? 'Permiso autorizado' }}">
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta aprobada por RRHH: {{ $row['permiso_aprobado']->motivo_sin_prefijo ?: 'Permiso autorizado' }}">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                       <span>Boleta Aprobada</span>
                     </span>
                   @elseif(!empty($row['permiso_pendiente']))
-                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta en revisión por RRHH: {{ $row['permiso_pendiente']->motivo ?? 'Pendiente' }}">
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:.6rem;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-size:.72rem;font-weight:800;white-space:nowrap;" title="Boleta en revisión por RRHH: {{ $row['permiso_pendiente']->motivo_sin_prefijo ?: 'Pendiente' }}">
                       <span>⏳ Boleta Pendiente</span>
                     </span>
                   @elseif($esOmision || $filterState === 'omisiones')
@@ -1338,13 +1576,241 @@
       </div>
     </div>
 
+    {{-- ── MIS BOLETAS GUARDADAS DEL MES (CARDS) ─────────────────── --}}
+    @php
+      $boletasMes = $this->solicitudesRecientes;
+      $totalBoletasMes = $boletasMes->count();
+      $aprobadasMes = $boletasMes->where('estado', 'aprobado')->count();
+      $pendientesMes = $boletasMes->where('estado', 'pendiente')->count();
+    @endphp
+    <section class="ph-boletas-section no-print" aria-labelledby="mis-boletas-titulo">
+      <div class="ph-boletas-head">
+        <div>
+          <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+            <span class="ph-table-kicker">Permisos y papeletas del mes</span>
+            <span class="ph-tag ph-tag-blue" style="font-size:.68rem;padding:.15rem .6rem;">📅 {{ $monthLabel }}</span>
+          </div>
+          <h2 id="mis-boletas-titulo" class="ph-table-title" style="margin:.2rem 0 .35rem 0;">Mis boletas guardadas</h2>
+          <p style="font-size:.78rem;color:#64748b;margin:0;line-height:1.5;max-width:52rem;">
+            Mostrando tus boletas correspondientes a <strong style="color:#0f172a;">{{ $monthLabel }}</strong>. Puedes corregir las horas, el motivo y el tipo de permiso hasta 24 horas después de generar tu boleta. Las fechas y los comprobantes se conservan y cada cambio vuelve a revisión de RRHH.
+          </p>
+        </div>
 
+        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;align-self:flex-start;">
+          <span class="ph-count-pill">
+            📄 {{ $totalBoletasMes }} {{ $totalBoletasMes === 1 ? 'boleta' : 'boletas' }} en {{ $monthLabel }}
+          </span>
+          @if($aprobadasMes > 0)
+            <span class="ph-tag ph-tag-green" style="font-size:.7rem;">✓ {{ $aprobadasMes }} aprobada(s)</span>
+          @endif
+          @if($pendientesMes > 0)
+            <span class="ph-tag" style="background:#fffbeb;color:#92400e;border-color:#fde68a;font-size:.7rem;">⏳ {{ $pendientesMes }} pendiente(s)</span>
+          @endif
+          <button wire:click="abrirBoletaModal" type="button" class="ph-btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Nueva boleta</span>
+          </button>
+        </div>
+      </div>
+
+      @if($totalBoletasMes > 0)
+        <div class="ph-boletas-grid">
+          @foreach ($boletasMes as $solicitud)
+            @php
+              $estadoKey = strtolower($solicitud->estado ?? 'pendiente');
+              $cardAccentClass = match($estadoKey) {
+                'aprobado'  => 'ph-boleta-card-aprobado',
+                'rechazado' => 'ph-boleta-card-rechazado',
+                default     => 'ph-boleta-card-pendiente',
+              };
+              $statusPillClass = match($estadoKey) {
+                'aprobado'  => 'ph-bstatus-aprobado',
+                'rechazado' => 'ph-bstatus-rechazado',
+                default     => 'ph-bstatus-pendiente',
+              };
+              $statusIcon = match($estadoKey) {
+                'aprobado'  => '✓',
+                'rechazado' => '✕',
+                default     => '⏳',
+              };
+              $tipoKey = $solicitud->tipo_boleta;
+              $typeBadgeClass = match($tipoKey) {
+                'comision' => 'ph-btype-comision',
+                'medico'   => 'ph-btype-medico',
+                'rip', 'omision', 'retraso' => 'ph-btype-rip',
+                default    => 'ph-btype-particular',
+              };
+              $typeBadgeLabel = match($tipoKey) {
+                'comision' => '🏛️ Comisión',
+                'medico'   => '🩺 Médico',
+                'rip', 'omision', 'retraso' => '⚖️ Art. 45 R.I.P.',
+                default    => '👤 Particular',
+              };
+              $esEditable = $solicitud->editablePorTitular();
+            @endphp
+
+            <article wire:key="boleta-guardada-{{ $solicitud->id }}" class="ph-boleta-card {{ $cardAccentClass }}">
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                {{-- Top row: Tipo + Folio | Estado --}}
+                <div class="ph-boleta-card-top">
+                  <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">
+                    <span class="ph-boleta-type-badge {{ $typeBadgeClass }}">{{ $typeBadgeLabel }}</span>
+                    <span style="font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;color:#94a3b8;">
+                      #{{ str_pad((string) $solicitud->id, 4, '0', STR_PAD_LEFT) }}
+                    </span>
+                  </div>
+                  <span class="ph-boleta-status-pill {{ $statusPillClass }}">
+                    <span>{{ $statusIcon }}</span>
+                    <span>{{ ucfirst($solicitud->estado) }}</span>
+                  </span>
+                </div>
+
+                {{-- Fecha y Horario --}}
+                <div class="ph-boleta-schedule-box">
+                  <div>
+                    <div class="ph-boleta-field-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      <span>Fecha solicitada</span>
+                    </div>
+                    <div class="ph-boleta-field-value">
+                      {{ $solicitud->fecha_inicio?->format('d/m/Y') }} — {{ $solicitud->fecha_fin?->format('d/m/Y') }}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="ph-boleta-field-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>Horario</span>
+                    </div>
+                    <div class="ph-boleta-field-value">
+                      {{ $solicitud->hora_inicio ? substr($solicitud->hora_inicio, 0, 5) : 'Día completo' }} {{ $solicitud->hora_fin ? '— '.substr($solicitud->hora_fin, 0, 5) : '' }}
+                    </div>
+                  </div>
+                </div>
+
+                {{-- Motivo --}}
+                <div class="ph-boleta-motivo-box">
+                  <div class="ph-boleta-field-label" style="margin-bottom:.15rem;">Motivo / Justificación</div>
+                  <div class="ph-boleta-motivo-text">{{ $solicitud->motivo_sin_prefijo }}</div>
+                  @if(!empty($solicitud->boleta_cargo))
+                    <div style="font-size:.7rem;color:#64748b;font-weight:600;margin-top:.3rem;">
+                      💼 Cargo registrado: <strong style="color:#334155;">{{ $solicitud->boleta_cargo }}</strong>
+                    </div>
+                  @endif
+                </div>
+
+                {{-- Plazo de edición --}}
+                @if ($esEditable)
+                  <div class="ph-boleta-edit-banner ph-boleta-edit-ok">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Editable hasta {{ $solicitud->created_at->copy()->addHours(24)->format('d/m/Y H:i') }}</span>
+                  </div>
+                @else
+                  <div class="ph-boleta-edit-banner ph-boleta-edit-locked">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>Edición no disponible</span>
+                  </div>
+                @endif
+              </div>
+
+              {{-- Acciones de la card --}}
+              <div class="ph-boleta-card-footer">
+                <button
+                  type="button"
+                  wire:click="descargarBoletaPdf({{ $solicitud->id }})"
+                  wire:loading.attr="disabled"
+                  class="ph-boleta-btn ph-boleta-btn-pdf"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Descargar PDF</span>
+                </button>
+
+                @if ($esEditable)
+                  <button
+                    type="button"
+                    wire:click="abrirEdicionBoleta({{ $solicitud->id }})"
+                    class="ph-boleta-btn ph-boleta-btn-edit"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <span>Editar boleta</span>
+                  </button>
+                @endif
+              </div>
+            </article>
+          @endforeach
+        </div>
+      @else
+        <div class="ph-boletas-empty">
+          <div style="width:3rem;height:3rem;border-radius:1rem;background:#eff6ff;color:#0f67c0;display:flex;align-items:center;justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <p style="font-size:.92rem;font-weight:800;color:#0f172a;margin:0;">Todavía no tienes boletas guardadas en {{ $monthLabel }}.</p>
+          <p style="font-size:.78rem;color:#64748b;margin:0;max-width:30rem;">Cuando generes una papeleta de permiso, comisión o justificación para este mes, aparecerá aquí en formato tarjeta para que puedas descargarla o editarla.</p>
+        </div>
+      @endif
+    </section>
 
   </div>{{-- .ph-wrapper --}}
 
+  {{-- MODAL DE EDICIÓN DE BOLETA --}}
+  @if ($editandoBoletaId && ($boletaGuardada = $this->boletaEnEdicion))
+    <div class="app-modal-backdrop no-print" wire:click="cerrarEdicionBoleta" style="position:fixed;inset:0;background:rgba(15,23,42,0.75);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;">
+      <form wire:submit="guardarEdicionBoleta" class="app-modal-card max-w-lg" x-on:click.stop role="dialog" aria-modal="true" aria-labelledby="editar-boleta-titulo" style="background:#fff;border-radius:1.25rem;max-width:34rem;width:100%;padding:1.6rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:.9rem;border-bottom:1px solid #f1f5f9;">
+          <div>
+            <span style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#0f67c0;">Actualización dentro de 24h</span>
+            <h2 id="editar-boleta-titulo" style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:.15rem 0 0 0;">Editar mi boleta</h2>
+          </div>
+          <button type="button" wire:click="cerrarEdicionBoleta" style="background:transparent;border:none;color:#94a3b8;font-size:1.15rem;font-weight:800;cursor:pointer;">✕</button>
+        </div>
 
+        <div style="margin-top:.9rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:.85rem;padding:.75rem .9rem;font-size:.78rem;color:#475569;">
+          📅 <strong>Fecha:</strong> {{ $boletaGuardada->fecha_inicio->format('d/m/Y') }} — {{ $boletaGuardada->fecha_fin->format('d/m/Y') }}
+          <span style="display:block;margin-top:.25rem;color:#0f67c0;font-weight:700;">
+            ⏱ Editable hasta {{ $boletaGuardada->created_at->copy()->addHours(24)->format('d/m/Y H:i') }}.
+          </span>
+        </div>
 
-  {{-- MODAL DE GENERACIÓN DE BOLETA / PAPELETA EN PERFIL DE HORAS --}}
+        @if ($boletaGuardada->alcance === 'horas')
+          <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
+            <div>
+              <label for="editar-boleta-inicio" style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.3rem;">Hora de inicio</label>
+              <input id="editar-boleta-inicio" type="time" wire:model="editarHoraInicio" required style="width:100%;border-radius:.7rem;border:1.5px solid #cbd5e1;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#0f172a;">
+              @error('editarHoraInicio') <p style="font-size:.72rem;color:#be123c;font-weight:700;margin:.25rem 0 0 0;">{{ $message }}</p> @enderror
+            </div>
+            <div>
+              <label for="editar-boleta-fin" style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.3rem;">Hora de fin</label>
+              <input id="editar-boleta-fin" type="time" wire:model="editarHoraFin" required style="width:100%;border-radius:.7rem;border:1.5px solid #cbd5e1;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#0f172a;">
+              @error('editarHoraFin') <p style="font-size:.72rem;color:#be123c;font-weight:700;margin:.25rem 0 0 0;">{{ $message }}</p> @enderror
+            </div>
+          </div>
+        @endif
+
+        <div style="margin-top:1rem;">
+          <label for="editar-boleta-tipo" style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.3rem;">Tipo de permiso</label>
+          <select id="editar-boleta-tipo" wire:model="editarTipoBoleta" style="width:100%;border-radius:.7rem;border:1.5px solid #cbd5e1;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#0f172a;background:#fff;">
+            <option value="particular">Particular</option>
+            <option value="comision">Comisión</option>
+            <option value="rip">Art. 45 R.I.P.</option>
+            <option value="medico">Médico</option>
+          </select>
+          @error('editarTipoBoleta') <p style="font-size:.72rem;color:#be123c;font-weight:700;margin:.25rem 0 0 0;">{{ $message }}</p> @enderror
+        </div>
+
+        <div style="margin-top:1rem;">
+          <label for="editar-boleta-motivo" style="display:block;font-size:.75rem;font-weight:700;color:#334155;margin-bottom:.3rem;">Motivo / Justificación</label>
+          <input id="editar-boleta-motivo" type="text" wire:model="editarMotivo" maxlength="255" required style="width:100%;border-radius:.7rem;border:1.5px solid #cbd5e1;padding:.5rem .75rem;font-size:.85rem;font-weight:600;color:#0f172a;">
+          @error('editarMotivo') <p style="font-size:.72rem;color:#be123c;font-weight:700;margin:.25rem 0 0 0;">{{ $message }}</p> @enderror
+        </div>
+
+        <div class="ph-modal-actions" style="margin-top:1.35rem;display:flex;align-items:center;justify-content:flex-end;gap:.65rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
+          <button type="button" wire:click="cerrarEdicionBoleta" class="ph-btn-ghost" style="padding:.55rem 1.1rem;">Cancelar</button>
+          <button type="submit" wire:loading.attr="disabled" wire:target="guardarEdicionBoleta" class="ph-btn-primary" style="padding:.55rem 1.2rem;">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  @endif
+
   @if ($showBoletaModal)
     <div class="app-modal-backdrop no-print" wire:click="cerrarBoletaModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;">
       <div class="app-modal-card ph-modal-card" x-on:click.stop style="background:#fff;border-radius:1.25rem;max-width:56rem;width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;">
@@ -1360,7 +1826,7 @@
               </svg>
             </div>
             <div>
-              <p style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:0;">Agencia Boliviana de Correos</p>
+              <p style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:0;">CORREOS DE BOLIVIA</p>
               <h2 style="font-size:1.2rem;font-weight:900;color:#0f172a;margin:0;letter-spacing:-.02em;">Papeleta de Comisión - Permiso Particular</h2>
             </div>
           </div>

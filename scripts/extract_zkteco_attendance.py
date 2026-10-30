@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from zk import ZK
@@ -70,7 +71,6 @@ def main():
     output_path = Path(args.output)
     password = int(str(args.password).strip() or "0")
     attempts = [
-        {"force_udp": False, "ommit_ping": False},
         {"force_udp": False, "ommit_ping": True},
         {"force_udp": True, "ommit_ping": True},
     ]
@@ -79,22 +79,31 @@ def main():
 
     for attempt in attempts:
         conn = None
+        transport = "udp" if attempt["force_udp"] else "tcp"
         try:
+            print(f"ZKTeco: conectando por {transport.upper()}", file=sys.stderr, flush=True)
             zk = ZK(
                 args.ip,
                 port=args.port,
-                timeout=args.timeout,
+                # Es una espera por paquete; PHP controla el plazo total de extracción.
+                # Reservar tiempo para UDP cuando el puerto TCP acepta pero no responde.
+                timeout=min(10, max(1, args.timeout // 3)),
                 password=password,
                 force_udp=attempt["force_udp"],
                 ommit_ping=attempt["ommit_ping"],
             )
             conn = zk.connect()
+            print(f"ZKTeco: sesión {transport.upper()} abierta", file=sys.stderr, flush=True)
+            if not args.probe_only:
+                print("ZKTeco: leyendo usuarios", file=sys.stderr, flush=True)
             users = [] if args.probe_only else (conn.get_users() or [])
             users_by_code = {
                 user["codigo"]: user
                 for user in (serialize_user(item) for item in users)
                 if user.get("codigo")
             }
+            if not args.probe_only:
+                print("ZKTeco: leyendo marcaciones", file=sys.stderr, flush=True)
             attendance = [] if args.probe_only else (conn.get_attendance() or [])
             rows = [] if args.probe_only else [serialize_attendance(item, users_by_code) for item in attendance]
             output_path.write_text(

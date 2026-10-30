@@ -199,7 +199,7 @@
           @endif
         </td>
         <td class="header-titles">
-          <div class="title-main">AGENCIA BOLIVIANA DE CORREOS</div>
+        <div class="title-main">CORREOS DE BOLIVIA</div>
           <div class="title-sub">DIRECCIÓN ADMINISTRATIVA FINANCIERA</div>
           <div class="title-dept">RECURSOS HUMANOS</div>
           <div class="title-doc">PAPELETA DE COMISIÓN - PERMISO PARTICULAR</div>

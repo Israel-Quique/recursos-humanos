@@ -761,6 +761,7 @@ class ConsultaCarnetPage extends Component
             'minutos_contabilizados' => $minutosContabilizados,
             'motivo' => mb_strtoupper($this->boletaTipo) . ': ' . $this->boletaMotivo,
             'created_by' => null, // Solicitado directamente por el empleado
+            'boleta_cargo' => trim($this->boletaCargo),
         ]);
 
         // 2. Almacenar la foto del comprobante en disco seguro (si se proporcionó)
@@ -810,6 +811,7 @@ class ConsultaCarnetPage extends Component
                 'email' => $empleado->email,
                 'comprobante' => $comprobanteRegistro?->nombre_original,
                 'ruta' => $rutaArchivo,
+                'boleta' => $permiso->getAttributes(),
             ]
         );
 

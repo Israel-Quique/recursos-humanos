@@ -60,7 +60,7 @@ class BoletaExcelService
 
         // 1. Encabezado
         $sheet->mergeCells("A{$r}:X{$r}");
-        $sheet->setCellValue("A{$r}", 'AGENCIA BOLIVIANA DE CORREOS');
+        $sheet->setCellValue("A{$r}", 'CORREOS DE BOLIVIA');
         $sheet->getStyle("A{$r}")->getFont()->setBold(true)->setSize(11);
         $sheet->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 

@@ -125,8 +125,16 @@ class ExtraccionBiometricoZkService
                 $process->run();
             } catch (ProcessTimedOutException) {
                 @unlink($outputPath);
+                $detalle = trim($process->getErrorOutput());
+                Log::warning('Tiempo de espera agotado al extraer biometrico', [
+                    'device_ip' => $device['ip'] ?? null,
+                    'probe_only' => $probeOnly,
+                    'timeout' => $timeout,
+                    'detalle' => $detalle,
+                ]);
                 throw new \RuntimeException(
-                    'El puerto del biometrico responde, pero la sesion ZKTeco no se abrio dentro del tiempo limite. Puede estar ocupado por otra sincronizacion o requerir reinicio/liberacion de sesion.'
+                    'La comunicacion con el biometrico supero el tiempo limite de ' . $timeout . ' segundos.'
+                    . ($detalle !== '' ? ' Ultimo progreso: ' . $detalle : ' No se recibio progreso del extractor Python.')
                 );
             }
 

@@ -640,24 +640,20 @@ class IncidenciasPage extends Component
             ->findOrFail($incidenciaId);
 
         $empleado = $incidencia->empleado;
-        $motivoCompleto = $incidencia->motivo ?: $incidencia->tipo_label;
+        $motivoCompleto = $incidencia->motivo_sin_prefijo ?: $incidencia->tipo_label;
 
-        // Determinar tipo de boleta (comision, particular, medico)
-        $tipoBoleta = 'particular';
-        $motivoLower = mb_strtolower($motivoCompleto);
-        if (str_contains($motivoLower, 'medico') || str_contains($motivoLower, 'médico')) {
-            $tipoBoleta = 'medico';
-        } elseif (str_contains($motivoLower, 'comision') || str_contains($motivoLower, 'comisión')) {
-            $tipoBoleta = 'comision';
-        }
+        $tipoBoleta = $incidencia->tipo_boleta;
 
         $desdeFecha = $incidencia->fecha_inicio?->format('d/m/Y') ?? now()->format('d/m/Y');
         $hastaFecha = $incidencia->fecha_fin?->format('d/m/Y') ?? $desdeFecha;
-        $desdeHora = $incidencia->hora_inicio ? substr($incidencia->hora_inicio, 0, 5) : '08:30';
-        $hastaHora = $incidencia->hora_fin ? substr($incidencia->hora_fin, 0, 5) : '16:30';
+        $desdeHora = $incidencia->hora_inicio ? substr($incidencia->hora_inicio, 0, 5) : '--:--';
+        $hastaHora = $incidencia->hora_fin ? substr($incidencia->hora_fin, 0, 5) : '--:--';
 
         $minutos = (int) ($incidencia->minutos_contabilizados ?? 0);
-        if ($minutos > 0) {
+        if ($incidencia->alcance === 'dias') {
+            $dias = (int) $incidencia->fecha_inicio->diffInDays($incidencia->fecha_fin) + 1;
+            $tiempoSolicitado = $dias === 1 ? '1 DÍA' : $dias.' DÍAS';
+        } elseif ($minutos > 0) {
             $horas = intdiv($minutos, 60);
             $mins = $minutos % 60;
             $tiempoSolicitado = $horas > 0 ? "{$horas} H {$mins} MIN" : "{$mins} MIN";
@@ -666,12 +662,12 @@ class IncidenciasPage extends Component
         }
 
         $ciudad = !empty($empleado?->sucursal) ? mb_strtoupper($empleado->sucursal) : 'LA PAZ';
-        $fechaTexto = ($incidencia->fecha_inicio ?? now())->locale('es')->translatedFormat('d \de F \de Y');
+        $fechaTexto = ($incidencia->created_at ?? now())->locale('es')->translatedFormat('d \de F \de Y');
 
         $boleta = [
             'nombre' => $empleado?->nombre_completo ?? 'PERSONAL',
             'ci' => (string) ($empleado?->codigo_biometrico ?: $empleado?->id ?: 'S/D'),
-            'cargo' => '', // El cargo no se guarda en el sistema; queda en blanco
+            'cargo' => $incidencia->boleta_cargo ?? '',
             'motivo' => $motivoCompleto,
             'tipo' => $tipoBoleta,
             'desde_fecha' => $desdeFecha,

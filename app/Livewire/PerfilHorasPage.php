@@ -52,6 +52,87 @@ class PerfilHorasPage extends Component
     public string $boletaTiempoSolicitado = '1 HORA';
     public string $boletaCiudad = '';
     public string $boletaFechaTexto = '';
+    public ?int $editandoBoletaId = null;
+    public string $editarHoraInicio = '';
+    public string $editarHoraFin = '';
+    public string $editarMotivo = '';
+    public string $editarTipoBoleta = 'particular';
+
+    private function boletaPropia(int $id): PermisoLaboral
+    {
+        $boleta = PermisoLaboral::query()->where('empleado_id', $this->empleadoAutorizado()->id)
+            ->where('tipo', 'permiso')->lockForUpdate()->find($id);
+        abort_unless($boleta, 404);
+
+        return $boleta;
+    }
+
+    public function getBoletaEnEdicionProperty(): ?PermisoLaboral
+    {
+        return $this->editandoBoletaId
+            ? PermisoLaboral::query()->where('empleado_id', $this->empleadoAutorizado()->id)
+                ->where('tipo', 'permiso')->find($this->editandoBoletaId)
+            : null;
+    }
+
+    public function abrirEdicionBoleta(int $id): void
+    {
+        $boleta = $this->boletaPropia($id);
+        abort_unless($boleta->editablePorTitular(), 403, 'El plazo de 24 horas para editar esta boleta ha vencido.');
+        $this->resetValidation();
+        $this->editandoBoletaId = $boleta->id;
+        $this->editarHoraInicio = substr($boleta->hora_inicio ?? '', 0, 5);
+        $this->editarHoraFin = substr($boleta->hora_fin ?? '', 0, 5);
+        $this->editarTipoBoleta = in_array($boleta->tipo_boleta, ['omision', 'retraso'], true)
+            ? 'rip'
+            : $boleta->tipo_boleta;
+        $this->editarMotivo = $boleta->motivo_sin_prefijo;
+    }
+
+    public function cerrarEdicionBoleta(): void
+    {
+        $this->editandoBoletaId = null;
+        $this->resetValidation();
+    }
+
+    public function guardarEdicionBoleta(): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            $boleta = $this->boletaPropia((int) $this->editandoBoletaId);
+            abort_unless($boleta->editablePorTitular(), 403, 'El plazo de 24 horas para editar esta boleta ha vencido.');
+            $porHoras = $boleta->alcance === 'horas';
+            $datos = $this->validate([
+                'editarMotivo' => ['required', 'string', 'max:255'],
+                'editarTipoBoleta' => ['required', 'in:comision,particular,medico,rip'],
+                'editarHoraInicio' => $porHoras ? ['required', 'date_format:H:i'] : ['nullable'],
+                'editarHoraFin' => $porHoras ? ['required', 'date_format:H:i', 'after:editarHoraInicio'] : ['nullable'],
+            ]);
+            $motivoLimpio = (new PermisoLaboral(['motivo' => $datos['editarMotivo']]))->motivo_sin_prefijo;
+            $antes = $boleta->getAttributes();
+            $cambios = [
+                'motivo' => mb_strtoupper($datos['editarTipoBoleta']).': '.$motivoLimpio,
+                'estado' => 'pendiente',
+                'motivo_rechazo' => null,
+            ];
+            if ($porHoras) {
+                $inicio = Carbon::parse($boleta->fecha_inicio->toDateString().' '.$datos['editarHoraInicio']);
+                $fin = Carbon::parse($boleta->fecha_fin->toDateString().' '.$datos['editarHoraFin']);
+                $cambios += [
+                    'hora_inicio' => $datos['editarHoraInicio'].':00',
+                    'hora_fin' => $datos['editarHoraFin'].':00',
+                    'minutos_contabilizados' => (int) $inicio->diffInMinutes($fin),
+                ];
+            }
+            $boleta->update($cambios);
+            app(AuditoriaService::class)->registrar(
+                'Incidencias', 'editar_boleta_empleado',
+                'El titular corrigió las horas o el motivo de su boleta dentro de las 24 horas de creación.',
+                $boleta, $antes, $boleta->fresh()->getAttributes()
+            );
+        });
+        $this->cerrarEdicionBoleta();
+        session()->flash('status', 'Boleta actualizada y pendiente de revisión. Ya puedes descargarla nuevamente.');
+    }
 
     public function toggleModalNormativa(): void
     {
@@ -320,11 +401,27 @@ class PerfilHorasPage extends Component
 
     public function getSolicitudesRecientesProperty()
     {
+        $monthStr = preg_match('/^\d{4}-\d{2}$/', $this->referenceMonth)
+            ? $this->referenceMonth
+            : $this->resolveInitialMonth();
+
+        $month = Carbon::createFromFormat('Y-m', $monthStr)->startOfMonth();
+        $rangeStart = $month->copy()->startOfMonth()->toDateString();
+        $rangeEnd = $month->copy()->endOfMonth()->toDateString();
+
         return PermisoLaboral::query()
-            ->with(['comprobantePrincipal'])
+            ->with('comprobantePrincipal')
             ->where('empleado_id', $this->empleado->id)
+            ->where('tipo', 'permiso')
+            ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                $query->whereBetween('fecha_inicio', [$rangeStart, $rangeEnd])
+                    ->orWhereBetween('fecha_fin', [$rangeStart, $rangeEnd])
+                    ->orWhere(function ($sub) use ($rangeStart, $rangeEnd) {
+                        $sub->whereDate('fecha_inicio', '<=', $rangeStart)
+                            ->whereDate('fecha_fin', '>=', $rangeEnd);
+                    });
+            })
             ->latest('id')
-            ->take(15)
             ->get();
     }
     public $comprobante = null;
@@ -408,8 +505,14 @@ class PerfilHorasPage extends Component
     {
         $monthOptions = $this->monthOptions();
 
-        if (! collect($monthOptions)->pluck('value')->contains($this->referenceMonth)) {
-            $this->referenceMonth = $monthOptions[0]['value'] ?? now()->format('Y-m');
+        if (! preg_match('/^\d{4}-\d{2}$/', $this->referenceMonth)) {
+            $this->referenceMonth = $this->resolveInitialMonth();
+        } elseif (! collect($monthOptions)->pluck('value')->contains($this->referenceMonth)) {
+            $customMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
+            array_unshift($monthOptions, [
+                'value' => $customMonth->format('Y-m'),
+                'label' => ucfirst($customMonth->locale('es')->translatedFormat('F Y')),
+            ]);
         }
 
         $referenceMonth = Carbon::createFromFormat('Y-m', $this->referenceMonth)->startOfMonth();
@@ -471,13 +574,26 @@ class PerfilHorasPage extends Component
 
     private function monthOptions(): array
     {
-        $months = RegistroAsistencia::query()
+        $attendanceMonths = RegistroAsistencia::query()
             ->where('empleado_id', $this->empleado->id)
             ->whereNotNull('fecha')
             ->orderByDesc('fecha')
             ->get(['fecha'])
             ->map(fn (RegistroAsistencia $registro) => $registro->fecha?->copy()->startOfMonth())
-            ->filter()
+            ->filter();
+
+        $boletaMonths = PermisoLaboral::query()
+            ->where('empleado_id', $this->empleado->id)
+            ->where('tipo', 'permiso')
+            ->whereNotNull('fecha_inicio')
+            ->orderByDesc('fecha_inicio')
+            ->get(['fecha_inicio'])
+            ->map(fn (PermisoLaboral $permiso) => $permiso->fecha_inicio?->copy()->startOfMonth())
+            ->filter();
+
+        $months = $attendanceMonths
+            ->concat($boletaMonths)
+            ->sortByDesc(fn (Carbon $month) => $month->format('Y-m'))
             ->unique(fn (Carbon $month) => $month->format('Y-m'))
             ->values();
 
@@ -500,6 +616,16 @@ class PerfilHorasPage extends Component
 
     private function resolveInitialMonth(): string
     {
+        $latestAttendance = RegistroAsistencia::query()
+            ->where('empleado_id', $this->empleado->id)
+            ->whereNotNull('fecha')
+            ->orderByDesc('fecha')
+            ->value('fecha');
+
+        if ($latestAttendance) {
+            return Carbon::parse($latestAttendance)->format('Y-m');
+        }
+
         return $this->monthOptions()[0]['value'] ?? now()->format('Y-m');
     }
 
@@ -838,6 +964,7 @@ class PerfilHorasPage extends Component
             'minutos_contabilizados' => $minutosContabilizados,
             'motivo' => mb_strtoupper($this->boletaTipo) . ': ' . $this->boletaMotivo,
             'created_by' => null,
+            'boleta_cargo' => trim($this->boletaCargo),
         ]);
 
         // 2. Guardar comprobante cuando la configuracion lo habilita.
@@ -886,6 +1013,7 @@ class PerfilHorasPage extends Component
                 'email' => $empleado->email,
                 'comprobante' => $comprobanteRegistro?->nombre_original,
                 'ruta' => $rutaArchivo,
+                'boleta' => $permiso->getAttributes(),
             ]
         );
 

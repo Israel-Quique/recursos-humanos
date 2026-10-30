@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\PermisoLaboral;
 use App\Services\AnalisisAsistenciaService;
 use Carbon\Carbon;
 use Livewire\Component;
@@ -18,6 +19,17 @@ class MisHorasPage extends Component
         $this->referenceMonth = now()->format('Y-m');
     }
 
+    public function descargarBoletaPdf(int $id)
+    {
+        $empleado = auth()->user()?->empleado;
+        abort_unless($empleado, 403);
+
+        $incidencia = PermisoLaboral::query()->with('empleado')->findOrFail($id);
+        abort_unless((int) $incidencia->empleado_id === (int) $empleado->id, 403);
+
+        return (new IncidenciasPage)->descargarBoletaPdf($incidencia->id);
+    }
+
     public function render()
     {
         $user = auth()->user()?->loadMissing('empleado');
@@ -31,6 +43,25 @@ class MisHorasPage extends Component
         $rangeEnd = $referenceMonth->copy()->endOfMonth();
         $analysis = app(AnalisisAsistenciaService::class);
 
+        $boletasMes = $empleado
+            ? PermisoLaboral::query()
+                ->with('comprobantePrincipal')
+                ->where('empleado_id', $empleado->id)
+                ->where('tipo', 'permiso')
+                ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                    $startDate = $rangeStart->toDateString();
+                    $endDate = $rangeEnd->toDateString();
+                    $query->whereBetween('fecha_inicio', [$startDate, $endDate])
+                        ->orWhereBetween('fecha_fin', [$startDate, $endDate])
+                        ->orWhere(function ($sub) use ($startDate, $endDate) {
+                            $sub->whereDate('fecha_inicio', '<=', $startDate)
+                                ->whereDate('fecha_fin', '>=', $endDate);
+                        });
+                })
+                ->latest('id')
+                ->get()
+            : collect();
+
         return view('livewire.mis-horas', [
             'empleado' => $empleado,
             'monthOptions' => $this->monthOptions($empleado),
@@ -38,6 +69,7 @@ class MisHorasPage extends Component
             'personalReport' => $empleado
                 ? $analysis->reportePersonalizado($empleado->id, $rangeStart, $rangeEnd)
                 : null,
+            'boletasMes' => $boletasMes,
         ])->layout('layouts.app', ['title' => 'Mis horas marcadas']);
     }
 
