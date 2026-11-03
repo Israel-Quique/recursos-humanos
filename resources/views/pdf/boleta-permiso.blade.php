@@ -182,7 +182,7 @@
   <div class="papeleta-container">
     <table class="header-table">
       <tr>
-        <td class="header-logo" style="width: 175px; text-align: left; vertical-align: middle;">
+        <td class="header-logo" style="width: 185px; text-align: left; vertical-align: middle;">
           @php
             $logoObrasPath = public_path('images/logo-mopsv-boleta.png');
             $logoObrasBase64 = file_exists($logoObrasPath)
@@ -190,7 +190,7 @@
               : null;
           @endphp
           @if ($logoObrasBase64)
-            <img src="{{ $logoObrasBase64 }}" height="42" style="height: 42px; width: auto; max-width: 170px;" alt="Ministerio de Obras Públicas, Servicios y Vivienda">
+            <img src="{{ $logoObrasBase64 }}" height="54" style="height: 54px; width: auto; max-width: 180px;" alt="Ministerio de Obras Públicas, Servicios y Vivienda">
           @else
             <div style="font-size: 8pt; font-weight: bold; color: #334155; line-height: 1.15;">
               ESTADO PLURINACIONAL DE BOLIVIA<br>
@@ -212,7 +212,7 @@
               : null;
           @endphp
           @if ($logoCorreosBase64)
-            <img src="{{ $logoCorreosBase64 }}" height="40" style="height: 40px; width: auto; max-width: 135px;" alt="Correos de Bolivia">
+            <img src="{{ $logoCorreosBase64 }}" height="52" style="height: 52px; width: auto; max-width: 140px;" alt="Correos de Bolivia">
           @else
             <strong style="font-size: 13pt; color: #1e60c6;">CORREOS DE BOLIVIA</strong>
           @endif

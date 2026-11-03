@@ -228,14 +228,12 @@ class BoletaExcelService
 
         // Fila 25 / 53: Lugar y fecha
         $r += 3;
-        $sheet->mergeCells("G{$r}:H{$r}");
-        $sheet->setCellValue("G{$r}", mb_strtoupper($boleta['ciudad'] ?? 'LA PAZ') . ',');
+        $sheet->mergeCells("G{$r}:X{$r}");
+        $sheet->setCellValue("G{$r}", $boleta['lugar_fecha']
+            ?? mb_strtoupper(($boleta['ciudad'] ?? 'LA PAZ').', '.($boleta['fecha_texto'] ?? '')));
         $sheet->getStyle("G{$r}")->getFont()->setBold(true)->setSize(8);
         $sheet->getStyle("G{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-        $sheet->mergeCells("I{$r}:P{$r}");
-        $sheet->setCellValue("I{$r}", mb_strtoupper($boleta['fecha_texto'] ?? ''));
-        $sheet->getStyle("I{$r}")->getFont()->setBold(true)->setSize(8);
+        $sheet->getStyle("G{$r}")->getAlignment()->setShrinkToFit(true);
 
         // Fila 27 / 55: Nota
         $r += 2;

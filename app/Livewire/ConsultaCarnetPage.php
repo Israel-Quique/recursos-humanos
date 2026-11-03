@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use App\Support\EmisionBoleta;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -474,7 +475,7 @@ class ConsultaCarnetPage extends Component
         $this->boletaDesdeHora = '08:30';
         $this->boletaHastaHora = '09:00';
         $this->boletaCiudad = !empty($empleado->sucursal) ? mb_strtoupper($empleado->sucursal) : 'LA PAZ';
-        $this->boletaFechaTexto = $hoy->locale('es')->translatedFormat('d \de F \de Y');
+        $this->boletaFechaTexto = EmisionBoleta::fechaHora();
 
         $this->recalcularTiempoSolicitado();
 
@@ -701,9 +702,6 @@ class ConsultaCarnetPage extends Component
             'hasta_fecha' => $hastaCarbon->format('d/m/Y'),
             'hasta_hora' => $esRangoDias ? '--:--' : $this->boletaHastaHora,
             'tiempo_solicitado' => $this->boletaTiempoSolicitado,
-            'ciudad' => $this->boletaCiudad,
-            'fecha_texto' => $this->boletaFechaTexto,
-            'lugar_fecha' => mb_strtoupper($this->boletaCiudad) . ', ' . mb_strtoupper($this->boletaFechaTexto),
         ];
     }
 
@@ -721,6 +719,7 @@ class ConsultaCarnetPage extends Component
         // La identidad impresa también procede de la ficha, nunca de campos manipulables.
         $boleta['nombre'] = $empleado->nombre_completo;
         $boleta['ci'] = (string) $empleado->codigo_biometrico;
+        $boleta = array_merge($boleta, EmisionBoleta::datos($empleado));
 
         return \Illuminate\Support\Facades\DB::transaction(fn () => $this->procesarEnvioBoleta($boleta, $empleado));
     }
@@ -849,6 +848,7 @@ class ConsultaCarnetPage extends Component
         $empleado = $this->empleadoAutorizado();
         $boleta['nombre'] = $empleado->nombre_completo;
         $boleta['ci'] = (string) $empleado->codigo_biometrico;
+        $boleta = array_merge($boleta, EmisionBoleta::datos($empleado));
 
         $spreadsheet = app(BoletaExcelService::class)->generarSpreadsheet($boleta);
         $writer = new Xlsx($spreadsheet);

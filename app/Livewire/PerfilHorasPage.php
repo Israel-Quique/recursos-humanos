@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use App\Support\EmisionBoleta;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -647,7 +648,7 @@ class PerfilHorasPage extends Component
         $this->boletaHastaHora = $horaFin ?: '16:30';
         $this->boletaMotivo = $motivo ?: '';
         $this->boletaTipo = $tipo ?: 'particular';
-        $this->boletaFechaTexto = $hoy->locale('es')->translatedFormat('d \de F \de Y');
+        $this->boletaFechaTexto = EmisionBoleta::fechaHora();
         // Reset tipo incidencia para boleta genérica
         $this->boletaTipoIncidencia = '';
 
@@ -1019,7 +1020,6 @@ class PerfilHorasPage extends Component
 
         $desdeCarbon = $this->parsearFechaCarbon($this->boletaDesdeFecha);
         $hastaCarbon = $this->parsearFechaCarbon($this->boletaHastaFecha);
-        $ciudad = !empty($empleado->sucursal) ? mb_strtoupper($empleado->sucursal) : 'LA PAZ';
         $boleta = [
             'nombre' => $empleado->nombre_completo,
             'ci' => (string) ($empleado->codigo_biometrico ?: $empleado->id),
@@ -1031,9 +1031,7 @@ class PerfilHorasPage extends Component
             'hasta_fecha' => $hastaCarbon->format('d/m/Y'),
             'hasta_hora' => $this->esRangoDias ? '--:--' : $this->boletaHastaHora,
             'tiempo_solicitado' => $this->boletaTiempoSolicitado,
-            'ciudad' => $ciudad,
-            'fecha_texto' => $this->boletaFechaTexto,
-            'lugar_fecha' => mb_strtoupper($ciudad) . ', ' . mb_strtoupper($this->boletaFechaTexto),
+            ...EmisionBoleta::datos($empleado),
         ];
 
         // 4. Generar PDF oficial (1 sola boleta para impresión limpia)

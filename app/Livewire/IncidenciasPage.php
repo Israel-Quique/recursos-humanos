@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\EmisionBoleta;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -661,8 +662,6 @@ class IncidenciasPage extends Component
             $tiempoSolicitado = $incidencia->alcance_label;
         }
 
-        $ciudad = !empty($empleado?->sucursal) ? mb_strtoupper($empleado->sucursal) : 'LA PAZ';
-        $fechaTexto = ($incidencia->created_at ?? now())->locale('es')->translatedFormat('d \de F \de Y');
 
         $boleta = [
             'nombre' => $empleado?->nombre_completo ?? 'PERSONAL',
@@ -675,9 +674,7 @@ class IncidenciasPage extends Component
             'hasta_fecha' => $hastaFecha,
             'hasta_hora' => $hastaHora,
             'tiempo_solicitado' => $tiempoSolicitado,
-            'ciudad' => $ciudad,
-            'fecha_texto' => $fechaTexto,
-            'lugar_fecha' => mb_strtoupper($ciudad) . ', ' . mb_strtoupper($fechaTexto),
+            ...EmisionBoleta::datos($empleado),
         ];
 
         $pdf = Pdf::loadView('pdf.boleta-permiso', [
