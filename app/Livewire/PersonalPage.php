@@ -6,6 +6,7 @@ use App\Mail\ComunicadoPersonalMailable;
 use App\Models\Empleado;
 use App\Models\RegistroAsistencia;
 use App\Services\AuditoriaService;
+use App\Services\AnalisisAsistenciaService;
 use App\Services\ProgramacionLaboralService;
 use App\Services\ReglamentoSancionService;
 use App\Support\SucursalNormalizer;
@@ -32,6 +33,8 @@ class PersonalPage extends Component
 {
     use WithFileUploads;
     use WithPagination;
+
+    private ?ProgramacionLaboralService $programacionLaboralCache = null;
 
     #[Url(as: 'vista')]
     public string $vista = 'personal';
@@ -1306,12 +1309,22 @@ class PersonalPage extends Component
             $statEnd = Carbon::parse($this->appliedMarcacionesFechaFin)->endOfDay();
             $statStart = $statEnd->copy()->startOfMonth();
             $periodoLabel = 'Hasta ' . $statEnd->format('d/m/Y');
+        } elseif ($this->selectedMarcacionesEmpleadoId) {
+            $registros = RegistroAsistencia::query()
+                ->where('empleado_id', $this->selectedMarcacionesEmpleadoId)
+                ->where($this->excludeSaturdayRecords());
+            $primeraFecha = (clone $registros)->min('fecha');
+            $ultimaFecha = (clone $registros)->max('fecha');
+            if ($primeraFecha && $ultimaFecha) {
+                $statStart = Carbon::parse($primeraFecha)->startOfDay();
+                $statEnd = Carbon::parse($ultimaFecha)->endOfDay();
+            }
         }
 
         return [$statStart, $statEnd, $periodoLabel];
     }
 
-    private function obtenerColeccionMarcacionesReporte(): array
+    private function obtenerColeccionMarcacionesReporte(bool $incluirDiasSinRegistro = true): array
     {
         $searchOperator = $this->caseInsensitiveLikeOperator();
 
@@ -1323,15 +1336,11 @@ class PersonalPage extends Component
         [$statStart, $statEnd, $periodoLabel] = $this->resolverRangoFechasMarcaciones();
 
         if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
-            $registrosQuery->whereBetween('fecha', [
-                $statStart->toDateString(),
-                $statEnd->toDateString(),
-            ]);
+            $registrosQuery->whereDate('fecha', '>=', $statStart->toDateString())
+                ->whereDate('fecha', '<=', $statEnd->toDateString());
         } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
-            $registrosQuery->whereBetween('fecha', [
-                $statStart->toDateString(),
-                $statEnd->toDateString(),
-            ]);
+            $registrosQuery->whereDate('fecha', '>=', $statStart->toDateString())
+                ->whereDate('fecha', '<=', $statEnd->toDateString());
         } elseif (filled($this->appliedMarcacionesFechaInicio)) {
             $registrosQuery->whereDate('fecha', '>=', $statStart->toDateString());
         } elseif (filled($this->appliedMarcacionesFechaFin)) {
@@ -1355,24 +1364,6 @@ class PersonalPage extends Component
         if (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
             $registrosQuery->whereHas('empleado', function ($empleadoQuery) {
                 SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->appliedMarcacionesSucursal);
-            });
-        }
-
-        if ($this->filterEstadoMarcaciones === 'completo') {
-            $registrosQuery->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
-                ->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
-        } elseif ($this->filterEstadoMarcaciones === 'faltante') {
-            $registrosQuery->where(function ($q) {
-                $q->where(function ($sub) {
-                    $sub->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
-                        ->where(function ($sub2) {
-                            $sub2->whereNull('hora_salida')->orWhere('hora_salida', '');
-                        });
-                })->orWhere(function ($sub) {
-                    $sub->where(function ($sub2) {
-                        $sub2->whereNull('hora_entrada')->orWhere('hora_entrada', '');
-                    })->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
-                });
             });
         }
 
@@ -1400,6 +1391,7 @@ class PersonalPage extends Component
             $empleado = $registro->empleado;
             $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
             $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+            $salidaAnticipada = $progService->esSalidaAnticipada($salidaVal, $horario ?? []);
             $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
 
             $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
@@ -1436,7 +1428,7 @@ class PersonalPage extends Component
                         $minutosRetraso = 0; // No contar en el reporte
                     }
                 }
-                if (!$tieneEntrada || !$tieneSalida) {
+                if (!$tieneEntrada || !$tieneSalida || $salidaAnticipada) {
                     $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
                     $perm = $permisosEmp->first(fn($p) =>
                         $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
@@ -1458,6 +1450,9 @@ class PersonalPage extends Component
             } elseif ($permisoAutorizado) {
                 $estado = 'Permiso Autorizado';
                 $tipoEstado = 'completo';
+            } elseif ($salidaAnticipada) {
+                $estado = 'Omisión (Salida anticipada)';
+                $tipoEstado = 'faltante';
             } elseif ($tieneEntrada && $tieneSalida) {
                 $estado = 'Completo';
                 $tipoEstado = 'completo';
@@ -1487,6 +1482,7 @@ class PersonalPage extends Component
                 'estado_marcacion' => $estado,
                 'tipo_estado' => $tipoEstado,
                 'es_falta' => $esFalta,
+                'es_salida_anticipada' => $salidaAnticipada,
                 'es_feriado' => $esFeriado,
                 'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
                 'observacion' => $registro->observacion ?: ($esFeriado ? $nombreFeriado : null),
@@ -1495,7 +1491,13 @@ class PersonalPage extends Component
             ];
         });
 
-        if ($this->filterEstadoMarcaciones !== 'completo') {
+        if ($this->filterEstadoMarcaciones === 'completo') {
+            $rows = $rows->where('tipo_estado', 'completo')->values();
+        } elseif ($this->filterEstadoMarcaciones === 'faltante') {
+            $rows = $rows->where('tipo_estado', 'faltante')->values();
+        }
+
+        if ($incluirDiasSinRegistro && $this->filterEstadoMarcaciones !== 'completo') {
             $empleadosAProcesar = collect();
             if ($this->selectedMarcacionesEmpleadoId) {
                 $emp = Empleado::find($this->selectedMarcacionesEmpleadoId);
@@ -1733,7 +1735,8 @@ class PersonalPage extends Component
         $todasAsistencias = RegistroAsistencia::query()
             ->with('empleado')
             ->whereIn('empleado_id', $empleadoIds)
-            ->whereBetween('fecha', [$statStart->toDateString(), $statEnd->toDateString()])
+            ->whereDate('fecha', '>=', $statStart->toDateString())
+            ->whereDate('fecha', '<=', $statEnd->toDateString())
             ->where($this->excludeSaturdayRecords())
             ->orderBy('fecha')
             ->get()
@@ -1753,12 +1756,6 @@ class PersonalPage extends Component
             $registrosEmp = $todasAsistencias->get($empleado->id, collect([]));
             $permisosEmp = $permisosGrupo->get($empleado->id, collect());
 
-            if ($this->filterEstadoMarcaciones === 'completo') {
-                $registrosEmp = $registrosEmp->filter(fn($r) => filled($r->hora_entrada) && filled($r->hora_salida));
-            } elseif ($this->filterEstadoMarcaciones === 'faltante') {
-                $registrosEmp = $registrosEmp->filter(fn($r) => (filled($r->hora_entrada) xor filled($r->hora_salida)));
-            }
-
             $rowsEmp = $registrosEmp->map(function (RegistroAsistencia $registro) use ($progService, $empleado, $permisosEmp) {
                 $marcacion = $this->normalizarMarcacionAsistencia($registro);
                 $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
@@ -1768,6 +1765,7 @@ class PersonalPage extends Component
 
                 $horario = $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
                 $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+                $salidaAnticipada = $progService->esSalidaAnticipada($salidaVal, $horario ?? []);
                 $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
 
                 $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
@@ -1804,7 +1802,7 @@ class PersonalPage extends Component
                             $minutosRetraso = 0;
                         }
                     }
-                    if (!$tieneEntrada || !$tieneSalida) {
+                    if (!$tieneEntrada || !$tieneSalida || $salidaAnticipada) {
                         $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
                         $perm = $permisosEmp->first(fn($p) =>
                             $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
@@ -1826,6 +1824,9 @@ class PersonalPage extends Component
                 } elseif ($permisoAutorizado) {
                     $estadoMarcacion = 'Permiso Autorizado';
                     $retrasoFormateado = 'Permiso';
+                } elseif ($salidaAnticipada) {
+                    $estadoMarcacion = 'Omisión (Salida anticipada)';
+                    $retrasoFormateado = $minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual';
                 } elseif ($tieneEntrada && $tieneSalida) {
                     $estadoMarcacion = 'Completo';
                     $retrasoFormateado = $minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual';
@@ -1851,6 +1852,7 @@ class PersonalPage extends Component
                     'retraso_formateado' => $retrasoFormateado,
                     'estado_marcacion' => $estadoMarcacion,
                     'es_falta' => $esFalta,
+                    'es_salida_anticipada' => $salidaAnticipada,
                     'es_feriado' => $esFeriado,
                     'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
                     'observacion' => $registro->observacion ?: ($esFeriado ? $nombreFeriado : null),
@@ -1859,6 +1861,12 @@ class PersonalPage extends Component
                     'tipo_permiso_label' => $permisoAutorizado ? 'Permiso Autorizado' : null,
                 ];
             });
+
+            if ($this->filterEstadoMarcaciones === 'completo') {
+                $rowsEmp = $rowsEmp->whereIn('estado_marcacion', ['Completo', 'Permiso Autorizado'])->values();
+            } elseif ($this->filterEstadoMarcaciones === 'faltante') {
+                $rowsEmp = $rowsEmp->whereIn('estado_marcacion', ['Sin completar', 'Omisión (Salida anticipada)'])->values();
+            }
 
             $statsEmp = ($this->selectedMarcacionesEmpleadoId === $empleado->id && !empty($this->marcacionesStats))
                 ? $this->marcacionesStats
@@ -2482,6 +2490,7 @@ class PersonalPage extends Component
             $empleado = $registro->empleado;
             $horario = $empleado && $registro->fecha ? $progService->resolverHorario($empleado, $registro->fecha) : null;
             $esFeriado = (bool) ($horario['es_feriado'] ?? false);
+            $salidaAnticipada = $progService->esSalidaAnticipada($salidaVal, $horario ?? []);
             $nombreFeriado = $horario['fecha_especial']?->nombre ?? 'Feriado';
 
             $horaEntradaProg = $horario['hora_entrada'] ?? config('asistencia.hora_entrada', '08:30:00');
@@ -2523,7 +2532,7 @@ class PersonalPage extends Component
                         $minutosRetraso = 0;
                     }
                 }
-                if (!$tieneEntrada || !$tieneSalida) {
+                if (!$tieneEntrada || !$tieneSalida || $salidaAnticipada) {
                     $alcancesOmision = !$tieneEntrada ? ['llegada_tarde', 'horas'] : ['salida_temprana', 'horas'];
                     $perm = $permisosEmp->first(fn($p) =>
                         $fechaReg->betweenIncluded($p->fecha_inicio, $p->fecha_fin)
@@ -2546,6 +2555,9 @@ class PersonalPage extends Component
             } elseif (! $tieneEntrada && $tieneSalida) {
                 $omision = 'Sin entrada';
                 $tipoOmision = 'sin_entrada';
+            } elseif ($salidaAnticipada) {
+                $omision = 'Salida anticipada';
+                $tipoOmision = 'salida_anticipada';
             } else {
                 $omision = '--';
                 $tipoOmision = 'ninguna';
@@ -2557,6 +2569,9 @@ class PersonalPage extends Component
             } elseif ($permisoAutorizado) {
                 $estado = 'Permiso Autorizado';
                 $tipoEstado = 'puntual'; // No penalizar en filtros
+            } elseif ($salidaAnticipada) {
+                $estado = 'Omisión (Salida anticipada)';
+                $tipoEstado = 'incompleto';
             } elseif ($tieneEntrada && $tieneSalida) {
                 if ($minutosRetraso > 0) {
                     $estado = "Retraso (+{$minutosRetraso} min)";
@@ -2602,6 +2617,7 @@ class PersonalPage extends Component
                 'omision' => $omision,
                 'tipo_omision' => $tipoOmision,
                 'es_falta' => $esFalta,
+                'es_salida_anticipada' => $salidaAnticipada,
                 'es_feriado' => $esFeriado,
                 'nombre_feriado' => $esFeriado ? $nombreFeriado : null,
                 'falta' => $faltaTexto,
@@ -2910,6 +2926,11 @@ class PersonalPage extends Component
 
     public function render()
     {
+        if ($this->vista === 'marcaciones' && $this->marcacionesSearchPerformed && $this->selectedMarcacionesEmpleadoId) {
+            [$statStart, $statEnd] = $this->resolverRangoFechasMarcaciones();
+            $this->marcacionesStats = $this->calcularEstadisticasMarcacionesEmpleado($this->selectedMarcacionesEmpleadoId, $statStart, $statEnd);
+        }
+
         $referenceMonth = $this->referenceMonth();
         $monthStart = $referenceMonth->copy()->startOfMonth()->toDateString();
         $monthEnd = $referenceMonth->copy()->endOfMonth()->toDateString();
@@ -3129,113 +3150,8 @@ class PersonalPage extends Component
                     'pageName' => 'registrosPage',
                 ]);
             } else {
-                $registrosQuery = RegistroAsistencia::query()
-                    ->with('empleado')
-                    ->whereHas('empleado')
-                    ->where($this->excludeSaturdayRecords());
-
-                if ($this->appliedMarcacionesTipoFecha === 'mes' && filled($this->appliedMarcacionesMes)) {
-                    try {
-                        $carbonMes = Carbon::parse($this->appliedMarcacionesMes . '-01');
-                        $registrosQuery->whereBetween('fecha', [
-                            $carbonMes->copy()->startOfMonth()->toDateString(),
-                            $carbonMes->copy()->endOfMonth()->toDateString(),
-                        ]);
-                    } catch (\Exception $e) {
-                        // ignorar formato inválido
-                    }
-                } elseif (filled($this->appliedMarcacionesFechaInicio) && filled($this->appliedMarcacionesFechaFin)) {
-                    $registrosQuery->whereBetween('fecha', [
-                        min($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin),
-                        max($this->appliedMarcacionesFechaInicio, $this->appliedMarcacionesFechaFin),
-                    ]);
-                } elseif (filled($this->appliedMarcacionesFechaInicio)) {
-                    $registrosQuery->whereDate('fecha', '>=', $this->appliedMarcacionesFechaInicio);
-                } elseif (filled($this->appliedMarcacionesFechaFin)) {
-                    $registrosQuery->whereDate('fecha', '<=', $this->appliedMarcacionesFechaFin);
-                }
-
-                if ($this->selectedMarcacionesEmpleadoId) {
-                    $registrosQuery->where('empleado_id', $this->selectedMarcacionesEmpleadoId);
-                } elseif (filled($this->appliedMarcacionesSearch)) {
-                    $term = "%{$this->appliedMarcacionesSearch}%";
-                    $registrosQuery->whereHas('empleado', function ($empleadoQuery) use ($searchOperator, $term) {
-                        $empleadoQuery->where(function ($nestedQuery) use ($searchOperator, $term) {
-                            $nestedQuery->where('codigo_biometrico', $searchOperator, $term)
-                                ->orWhere('nombre', $searchOperator, $term)
-                                ->orWhere('apellido', $searchOperator, $term)
-                                ->orWhereRaw("nombre || ' ' || apellido " . ($searchOperator === 'ilike' ? 'ILIKE' : 'LIKE') . " ?", [$term]);
-                        });
-                    });
-                }
-
-                if (filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas') {
-                    $registrosQuery->whereHas('empleado', function ($empleadoQuery) {
-                        SucursalNormalizer::applyFilter($empleadoQuery, 'sucursal', $this->appliedMarcacionesSucursal);
-                    });
-                }
-
-                if ($this->filterEstadoMarcaciones === 'completo') {
-                    $registrosQuery->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
-                        ->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
-                } elseif ($this->filterEstadoMarcaciones === 'faltante') {
-                    $registrosQuery->where(function ($q) {
-                        $q->where(function ($sub) {
-                            $sub->whereNotNull('hora_entrada')->where('hora_entrada', '!=', '')
-                                ->where(function ($sub2) {
-                                    $sub2->whereNull('hora_salida')->orWhere('hora_salida', '');
-                                });
-                        })->orWhere(function ($sub) {
-                            $sub->where(function ($sub2) {
-                                $sub2->whereNull('hora_entrada')->orWhere('hora_entrada', '');
-                            })->whereNotNull('hora_salida')->where('hora_salida', '!=', '');
-                        });
-                    });
-                }
-
-                $registros = $registrosQuery
-                    ->tap(fn($query) => $this->aplicarOrdenMarcaciones($query))
-                    ->paginate(10, ['*'], 'registrosPage');
-
-                $registros->getCollection()->transform(function (RegistroAsistencia $registro) {
-                    $marcacion = $this->normalizarMarcacionAsistencia($registro);
-                    $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
-                    $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
-                    $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
-                    $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
-
-                    $esFalta = (! $tieneEntrada && ! $tieneSalida) || str_contains(strtolower((string) ($registro->estado_marcacion ?? '')), 'falta');
-
-                    if ($esFalta) {
-                        $estado = 'Falta';
-                        $tipoEstado = 'falta';
-                    } elseif ($tieneEntrada && $tieneSalida) {
-                        $estado = 'Completo';
-                        $tipoEstado = 'completo';
-                    } elseif ($tieneEntrada || $tieneSalida) {
-                        $estado = 'Sin completar';
-                        $tipoEstado = 'faltante';
-                    } else {
-                        $estado = 'Sin marcación';
-                        $tipoEstado = 'sin_marcacion';
-                    }
-
-                    $codigoBio = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
-
-                    return (object) [
-                        'id' => $registro->id,
-                        'empleado' => $registro->empleado,
-                        'codigo' => $codigoBio,
-                        'fecha' => $registro->fecha,
-                        'fecha_formateada' => $registro->fecha?->format('d/m/Y'),
-                        'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
-                        'hora_entrada' => $entradaVal ?: '--:--',
-                        'hora_salida' => $salidaVal ?: '--:--',
-                        'estado_marcacion' => $estado,
-                        'tipo_estado' => $tipoEstado,
-                        'es_falta' => $esFalta,
-                    ];
-                });
+                $reporte = $this->obtenerColeccionMarcacionesReporte(false);
+                $registros = $this->paginarColeccionConNombre($reporte['rows'], 10, 'registrosPage');
             }
         } else {
             $registros = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10, 1, [
@@ -3617,7 +3533,10 @@ class PersonalPage extends Component
         $tieneSalida = filled($marcacion['salida']);
 
         if ($tieneEntrada && $tieneSalida) {
-            return false;
+            return $this->programacionLaboral()->esSalidaAnticipada(
+                $marcacion['salida'],
+                $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha)
+            );
         }
 
         if (!$tieneEntrada && !$tieneSalida) {
@@ -3659,45 +3578,9 @@ class PersonalPage extends Component
         return now()->lessThanOrEqualTo($salidaProgramada);
     }
 
-    private function normalizarHoraComparable(?string $hora): ?string
-    {
-        if (blank($hora)) {
-            return null;
-        }
-
-        $parsed = $this->parseTimeToCarbon($hora);
-
-        return $parsed?->format('H:i:s') ?: trim((string) $hora);
-    }
-
     private function normalizarMarcacionAsistencia(RegistroAsistencia $registro): array
     {
-        $entrada = $this->normalizarHoraComparable($registro->hora_entrada);
-        $salida = $this->normalizarHoraComparable($registro->hora_salida);
-        $estado = $this->normalizarTextoPerfil((string) ($registro->estado_marcacion ?? ''));
-        $evento = $this->normalizarTextoPerfil((string) ($registro->evento_biometrico ?? ''));
-
-        $entradaExplicita = $this->marcacionEsEntradaExplicita($estado, $evento);
-        $salidaExplicita = $this->marcacionEsSalidaExplicita($estado, $evento);
-
-        if ($salidaExplicita && !$entradaExplicita && filled($entrada) && blank($salida)) {
-            $salida = $entrada;
-            $entrada = null;
-        }
-
-        if (filled($entrada) xor filled($salida)) {
-            [$entrada, $salida] = $this->inferirMarcacionPorHorario($registro, $entrada, $salida);
-        }
-
-        if (filled($entrada) && filled($salida) && $entrada === $salida) {
-            $salida = null;
-        }
-
-        return [
-            'entrada' => $entrada,
-            'salida' => $salida,
-            'solo_entrada' => filled($entrada) && blank($salida),
-        ];
+        return (new AnalisisAsistenciaService($this->programacionLaboral()))->normalizarMarcacionAsistencia($registro);
     }
 
     private function marcacionEsEntradaExplicita(string $estado, string $evento): bool
@@ -3714,53 +3597,15 @@ class PersonalPage extends Component
             || str_contains($evento, 'boton de salida');
     }
 
-    private function inferirMarcacionPorHorario(RegistroAsistencia $registro, ?string $entrada, ?string $salida): array
-    {
-        $empleado = $registro->empleado;
-
-        if (!$empleado || !$registro->fecha) {
-            return [$entrada, $salida];
-        }
-
-        $horario = $this->programacionLaboral()->resolverHorario($empleado, $registro->fecha);
-
-        if (($horario['laborable'] ?? true) === false) {
-            return [$entrada, $salida];
-        }
-
-        $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
-        $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
-
-        if (!$horaEntrada || !$horaSalida) {
-            return [$entrada, $salida];
-        }
-
-        $entradaReferencia = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
-        $salidaReferencia = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
-        $puntoMedio = (int) floor(($entradaReferencia + $salidaReferencia) / 2);
-
-        if (filled($entrada) && blank($salida)) {
-            $marca = $this->parseTimeToCarbon($entrada);
-
-            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) >= $puntoMedio) {
-                return [null, $entrada];
-            }
-        }
-
-        if (blank($entrada) && filled($salida)) {
-            $marca = $this->parseTimeToCarbon($salida);
-
-            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) < $puntoMedio) {
-                return [$salida, null];
-            }
-        }
-
-        return [$entrada, $salida];
-    }
-
     private function resolverEstadoMarcacionVisible(RegistroAsistencia $registro, ?array $marcacion = null): string
     {
         $marcacion ??= $this->normalizarMarcacionAsistencia($registro);
+        if (blank($marcacion['entrada']) && filled($marcacion['salida'])) {
+            return 'Salida';
+        }
+        if ($marcacion['solo_entrada'] ?? false) {
+            return 'Entrada';
+        }
         $estado = $this->normalizarTextoPerfil((string) ($registro->estado_marcacion ?? ''));
         $evento = $this->normalizarTextoPerfil((string) ($registro->evento_biometrico ?? ''));
 
@@ -3769,10 +3614,6 @@ class PersonalPage extends Component
         }
 
         if ($this->marcacionEsEntradaExplicita($estado, $evento) && !$this->marcacionEsSalidaExplicita($estado, $evento)) {
-            return 'Entrada';
-        }
-
-        if ($marcacion['solo_entrada'] ?? false) {
             return 'Entrada';
         }
 
@@ -3927,7 +3768,7 @@ class PersonalPage extends Component
 
     private function programacionLaboral(): ProgramacionLaboralService
     {
-        return app(ProgramacionLaboralService::class);
+        return $this->programacionLaboralCache ??= app(ProgramacionLaboralService::class);
     }
 
     private function referenceMonth(): Carbon
@@ -4165,6 +4006,11 @@ class PersonalPage extends Component
 
             if ($horario['laborable']) {
                 $tieneAsistencia = isset($asistenciaPorFecha[$dateStr]);
+                if ($tieneAsistencia) {
+                    $marcacion = $this->normalizarMarcacionAsistencia($asistenciaPorFecha[$dateStr]);
+                    $tieneAsistencia = (filled($marcacion['entrada']) && $marcacion['entrada'] !== '--:--')
+                        || (filled($marcacion['salida']) && $marcacion['salida'] !== '--:--');
+                }
 
                 if ($tieneAsistencia) {
                     $reg = $asistenciaPorFecha[$dateStr];
@@ -4208,9 +4054,10 @@ class PersonalPage extends Component
                     // Omisiones: solo contar si NO hay permiso aplicable
                     $olvidoEntrada = ($entrada === '--:--');
                     $olvidoSalida = ($salida === '--:--');
-                    if ($olvidoEntrada || $olvidoSalida) {
-                        $tipoOmision = ($olvidoEntrada && $olvidoSalida) ? 'Sin entrada ni salida' : ($olvidoEntrada ? 'Falta marcar entrada' : 'Falta marcar salida');
-                        $permisoOmision = ($olvidoEntrada ? $permisoRetraso : null) ?? ($olvidoSalida ? $permisoSalida : null);
+                    $salidaAnticipada = $progService->esSalidaAnticipada($norm['salida'], $horario);
+                    if ($olvidoEntrada || $olvidoSalida || $salidaAnticipada) {
+                        $tipoOmision = $olvidoEntrada ? 'Falta marcar entrada' : ($salidaAnticipada ? 'Salida anticipada' : 'Falta marcar salida');
+                        $permisoOmision = ($olvidoEntrada ? $permisoRetraso : null) ?? (($olvidoSalida || $salidaAnticipada) ? $permisoSalida : null);
                         if (!$permisoOmision) {
                             $listaOmisiones[] = [
                                 'fecha' => $fechaFmt,
@@ -4227,11 +4074,13 @@ class PersonalPage extends Component
 
                     // Determinar si el día tiene algún permiso autorizado que aplique
                     $tienePermisoAplicado = ($minutosRetraso > 0 && $permisoRetraso)
-                        || (($olvidoEntrada || $olvidoSalida) && isset($permisoOmision) && $permisoOmision);
+                        || (($olvidoEntrada || $olvidoSalida || $salidaAnticipada) && isset($permisoOmision) && $permisoOmision);
 
                     $estadoDia = 'Completo';
                     if ($tienePermisoAplicado) {
                         $estadoDia = 'Permiso Autorizado';
+                    } elseif ($salidaAnticipada) {
+                        $estadoDia = 'Omisión (Salida anticipada)';
                     } elseif ($entrada === '--:--' || $salida === '--:--') {
                         $estadoDia = 'Sin completar';
                     }

@@ -232,6 +232,8 @@ class ImportacionBiometricaService
     private function persistirMarcas(Importacion $importacion, Collection $marks, ?User $usuario = null): array
     {
         $this->asegurarMemoriaImportacion();
+        $programacion = app(ProgramacionLaboralService::class);
+        $analisis = new AnalisisAsistenciaService($programacion);
 
         // Pre-cargar todos los empleados en mapas de memoria para evitar N+1 queries
         $empleadosByCodigo = [];
@@ -336,12 +338,9 @@ class ImportacionBiometricaService
                         continue;
                     }
 
-                    [$entrada, $salida] = $this->resolverHorasJornada($empleado, $horas);
+                    $horario = $programacion->resolverHorario($empleado, $horas->first()['fecha_hora']);
+                    [$entrada, $salida] = $this->resolverHorasJornada($horas, $horario);
                     $ultimaMarca = $horas->last();
-
-                    if (! $salida) {
-                        $olvidosMarcacion++;
-                    }
 
                     $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
                     $cacheKey = $empleado->id.'_'.$fechaOperativa->toDateString();
@@ -366,8 +365,10 @@ class ImportacionBiometricaService
 
                     // Fusionar con registro existente: no sobreescribir con nulos y
                     // elegir la entrada más temprana y la salida más tardía.
-                    $existingEntrada = $registro->hora_entrada ?? null;
-                    $existingSalida = $registro->hora_salida ?? null;
+                    $registro->setRelation('empleado', $empleado);
+                    $normalizadasExistentes = $analisis->normalizarMarcacionAsistencia($registro);
+                    $existingEntrada = $normalizadasExistentes['entrada'];
+                    $existingSalida = $normalizadasExistentes['salida'];
 
                     if ($existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
                         $cEntrada = $this->parseTimeStringToCarbon($entrada);
@@ -391,13 +392,20 @@ class ImportacionBiometricaService
                         }
                     }
 
+                    [$mergedEntrada, $mergedSalida] = $programacion->normalizarHorasMarcadas(
+                        $mergedEntrada, $mergedSalida, $horario
+                    );
+                    if (!$mergedEntrada || !$mergedSalida) {
+                        $olvidosMarcacion++;
+                    }
+
                     $registro->fill([
                         'empleado_id' => $empleado->id,
                         'importacion_id' => $importacion->id,
                         'hora_entrada' => $mergedEntrada,
                         'hora_salida' => $mergedSalida,
                         'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
-                        'estado_marcacion' => $this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null),
+                        'estado_marcacion' => !$mergedEntrada && $mergedSalida ? 'Salida' : ($this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null)),
                         'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
                         'observacion' => $this->observacionDesdeFila($primeraMarca) ?: $registro->observacion,
                         'created_by' => $registro->exists ? $registro->created_by : $usuario?->id,
@@ -932,6 +940,10 @@ class ImportacionBiometricaService
 
     private function leerSpreadsheet(string $rutaArchivo): array
     {
+        if (strtolower(pathinfo($rutaArchivo, PATHINFO_EXTENSION)) === 'xlsx' && !class_exists(\ZipArchive::class)) {
+            throw new \RuntimeException('No se pueden leer archivos Excel (.xlsx) porque la extensión ZIP de PHP está deshabilitada. Habilítala y reinicia el servidor local, o importa un archivo CSV.');
+        }
+
         try {
             $reader = IOFactory::createReaderForFile($rutaArchivo);
             $reader->setReadDataOnly(true);
@@ -1333,24 +1345,26 @@ class ImportacionBiometricaService
         return now()->toDateString();
     }
 
-    private function resolverHorasJornada(Empleado $empleado, Collection $horas): array
+    private function resolverHorasJornada(Collection $horas, array $horario): array
     {
         if ($horas->isEmpty()) {
             return [null, null];
         }
 
-        if ($horas->count() === 1) {
-            $unica = $horas->first();
-            return $this->resolverMarcacionUnicaPorHorario($empleado, $unica['fecha_hora']);
-        }
-
-        // Si hay 2 o más marcas en la jornada:
-        // Ordenamos estrictamente por timestamp
+        // Ordenar también las marcas repetidas para conservar la última salida.
         $sorted = $horas->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)->values();
         $primera = $sorted->first();
         $ultima = $sorted->last();
         $primeraHora = $primera['fecha_hora']->format('H:i:s');
         $ultimaHora = $ultima['fecha_hora']->format('H:i:s');
+
+        $programacion = app(ProgramacionLaboralService::class);
+        $normalizadas = $programacion->normalizarHorasMarcadas(
+            $primeraHora, $ultimaHora, $horario
+        );
+        if (blank($normalizadas[0]) || blank($normalizadas[1])) {
+            return $normalizadas;
+        }
 
         // Si la última marca es posterior por al menos 5 minutos, se considera salida válida
         if ($this->esPosterior($ultimaHora, $primeraHora) && abs($ultima['fecha_hora']->diffInMinutes($primera['fecha_hora'])) >= 5) {
@@ -1381,38 +1395,6 @@ class ImportacionBiometricaService
         return str_contains($estado, 'salida')
             || str_contains($evento, 'boton de salida')
             || str_contains($evento, 'salida');
-    }
-
-    private function resolverMarcacionUnicaPorHorario(Empleado $empleado, Carbon $fechaHora): array
-    {
-        $horario = app(ProgramacionLaboralService::class)->resolverHorario($empleado, $fechaHora);
-
-        if (($horario['laborable'] ?? true) === false) {
-            return [$fechaHora->format('H:i:s'), null];
-        }
-
-        $horaEntrada = $this->parseTimeStringToCarbon((string) ($horario['hora_entrada'] ?? ''));
-        $horaSalida = $this->parseTimeStringToCarbon((string) ($horario['hora_salida'] ?? ''));
-
-        $marcaMinutos = ((int) $fechaHora->format('H')) * 60 + (int) $fechaHora->format('i');
-
-        if (! $horaEntrada || ! $horaSalida) {
-            // Si no hay horario configurado, usar 13:00 (1:00 PM) como punto medio estimado
-            if ($marcaMinutos >= 13 * 60) {
-                return [null, $fechaHora->format('H:i:s')];
-            }
-            return [$fechaHora->format('H:i:s'), null];
-        }
-
-        $entradaMinutos = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
-        $salidaMinutos = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
-        $puntoMedio = (int) floor(($entradaMinutos + $salidaMinutos) / 2);
-
-        if ($marcaMinutos >= $puntoMedio) {
-            return [null, $fechaHora->format('H:i:s')];
-        }
-
-        return [$fechaHora->format('H:i:s'), null];
     }
 
     private function resolverEstadoMarcacionHumano(array $mark): string

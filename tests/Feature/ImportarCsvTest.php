@@ -62,6 +62,49 @@ class ImportarCsvTest extends TestCase
         return $user;
     }
 
+    public function test_excel_extraido_por_el_sistema_se_puede_importar_en_santa_cruz(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            $this->markTestSkipped('La importación XLSX requiere ZIP habilitado en PHP.');
+        }
+        Storage::fake('local');
+        $user = $this->crearAdmin();
+        $exportador = \Mockery::mock(\App\Services\ExtraccionBiometricoZkService::class)->makePartial();
+        $exportador->shouldReceive('extraerMarcaciones')->once()->andReturn([
+            ['codigo' => '0008237795', 'nombre' => 'JOELDANIEL', 'apellido' => 'LEIGUEZ VILLA', 'fecha_hora' => '2026-10-29T08:52:00', 'punch' => '0'],
+            ['codigo' => '0008237795', 'nombre' => 'JOELDANIEL', 'apellido' => 'LEIGUEZ VILLA', 'fecha_hora' => '2026-10-29T18:00:00', 'punch' => '1'],
+        ]);
+        $path = $exportador->exportarExcel(['department' => 'Santa Cruz', 'branch' => 'Sucursal Santa Cruz'], 2026, 10);
+        try {
+            $importacion = app(ImportacionBiometricaService::class)->importarArchivo($path, 'marcaciones_Santa_Cruz.xlsx', $user);
+            $this->assertSame(2, $importacion->registros_total);
+            $this->assertSame('completado', $importacion->estado);
+            $empleado = Empleado::query()->where('codigo_biometrico', '0008237795')->firstOrFail();
+            $this->assertSame('Santa Cruz', $empleado->sucursal);
+            $asistencia = $empleado->asistencias()->firstOrFail();
+            $this->assertSame('2026-10-29', $asistencia->fecha->toDateString());
+            $this->assertSame('08:52:00', $asistencia->hora_entrada);
+            $this->assertSame('18:00:00', $asistencia->hora_salida);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_error_de_importacion_muestra_la_causa_real(): void
+    {
+        Storage::fake('local');
+        $user = $this->crearAdmin();
+        $mensaje = 'No se pueden leer archivos Excel: falta habilitar ZIP.';
+        $this->mock(ImportacionBiometricaService::class, function ($mock) use ($mensaje) {
+            $mock->shouldReceive('importarArchivo')->once()->andThrow(new \RuntimeException($mensaje));
+        });
+        $file = UploadedFile::fake()->createWithContent('marcaciones.csv', "Tiempo,Codigo\n29/10/2026 08:52,123\n");
+        Livewire::actingAs($user)->test(ImportarExcelPage::class)
+            ->set('archivos', [$file])->call('importFiles')
+            ->assertHasErrors(['archivos'])->assertSee('No se pudo completar la importación: ' . $mensaje)
+            ->assertSet('uploadBatchStatus.0.status', 'error');
+    }
+
     public function test_importar_csv_con_cabeceras_estandar(): void
     {
         $user = $this->crearAdmin();

@@ -63,10 +63,14 @@ def main():
     parser.add_argument("--ip", required=True)
     parser.add_argument("--port", type=int, default=4370)
     parser.add_argument("--password", default="0")
-    parser.add_argument("--timeout", type=int, default=10)
+    parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--socket-timeout", type=int, default=30)
     parser.add_argument("--output", required=True)
     parser.add_argument("--probe-only", action="store_true")
     args = parser.parse_args()
+    socket_timeout = max(1, min(args.socket_timeout, args.timeout))
+    if args.probe_only:
+        socket_timeout = min(5, socket_timeout)
 
     output_path = Path(args.output)
     password = int(str(args.password).strip() or "0")
@@ -80,14 +84,14 @@ def main():
     for attempt in attempts:
         conn = None
         transport = "udp" if attempt["force_udp"] else "tcp"
+        stage = "conexion"
         try:
             print(f"ZKTeco: conectando por {transport.upper()}", file=sys.stderr, flush=True)
             zk = ZK(
                 args.ip,
                 port=args.port,
-                # Es una espera por paquete; PHP controla el plazo total de extracción.
-                # Reservar tiempo para UDP cuando el puerto TCP acepta pero no responde.
-                timeout=min(10, max(1, args.timeout // 3)),
+                # La espera de red es independiente del plazo total controlado por PHP.
+                timeout=socket_timeout,
                 password=password,
                 force_udp=attempt["force_udp"],
                 ommit_ping=attempt["ommit_ping"],
@@ -95,6 +99,7 @@ def main():
             conn = zk.connect()
             print(f"ZKTeco: sesión {transport.upper()} abierta", file=sys.stderr, flush=True)
             if not args.probe_only:
+                stage = "usuarios"
                 print("ZKTeco: leyendo usuarios", file=sys.stderr, flush=True)
             users = [] if args.probe_only else (conn.get_users() or [])
             users_by_code = {
@@ -103,6 +108,7 @@ def main():
                 if user.get("codigo")
             }
             if not args.probe_only:
+                stage = "marcaciones"
                 print("ZKTeco: leyendo marcaciones", file=sys.stderr, flush=True)
             attendance = [] if args.probe_only else (conn.get_attendance() or [])
             rows = [] if args.probe_only else [serialize_attendance(item, users_by_code) for item in attendance]
@@ -129,6 +135,7 @@ def main():
                     "transport": "udp" if attempt["force_udp"] else "tcp",
                     "ommit_ping": attempt["ommit_ping"],
                     "error": str(exc),
+                    "stage": stage,
                 }
             )
         finally:
@@ -138,11 +145,18 @@ def main():
                 except Exception:
                     pass
 
+    failed_read = next((error for error in reversed(errors) if error["stage"] != "conexion"), None)
+    message = (
+        "La sesion ZKTeco se abrio, pero no se pudo completar la lectura de "
+        + failed_read["stage"]
+        + ". Revisa el tiempo de espera de lectura y si otro programa esta consultando el reloj."
+        if failed_read else "No se pudo abrir una sesion ZKTeco con el equipo."
+    )
     output_path.write_text(
         json.dumps(
             {
                 "ok": False,
-                "message": "No se pudo abrir una sesion ZKTeco con el equipo.",
+                "message": message,
                 "attempts": errors,
             },
             ensure_ascii=False,

@@ -342,6 +342,8 @@
                     <span class="badge badge-warning">Sin Salida</span>
                   @elseif($row->tipo_omision === 'sin_entrada')
                     <span class="badge badge-warning">Sin Entrada</span>
+                  @elseif($row->tipo_omision === 'salida_anticipada')
+                    <span class="badge badge-warning">Salida anticipada</span>
                   @else
                     <span style="color: #6b7280;">--</span>
                   @endif

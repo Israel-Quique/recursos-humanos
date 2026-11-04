@@ -423,7 +423,8 @@ class ImportarExcelPage extends Component
             return;
         }
 
-        $this->addError('archivos', 'No se pudo procesar ninguno de los archivos seleccionados o no contenían marcas legibles.');
+        $primerError = collect($this->uploadBatchStatus)->firstWhere('status', 'error');
+        $this->addError('archivos', 'No se pudo completar la importación: ' . ($primerError['message'] ?? 'no se encontraron marcas legibles.'));
     }
 
     private function extendImportRuntime(): void

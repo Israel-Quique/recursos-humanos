@@ -93,6 +93,24 @@ de código no limpian malware ni recuperan por sí solos el buzón comprometido.
 
 ## Biometricos en el servidor de la empresa
 
+Para desplegar las correcciones de omisiones, salidas e importación de Excel,
+seguir la [guía de actualización del 4 de noviembre de 2026](docs/DESPLIEGUE_ASISTENCIA_2026-11-04.md).
+
+Si el reloj abre sesion pero falla al leer usuarios o marcaciones, revisar los
+tiempos del `.env` del servidor y ejecutar `php artisan config:cache` despues:
+
+```dotenv
+BIOMETRICO_SYNC_TIMEOUT=120
+BIOMETRICO_SOCKET_TIMEOUT=30
+BIOMETRICO_EXPORT_TIMEOUT=180
+```
+
+`SYNC_TIMEOUT` limita la extraccion automatica completa; `SOCKET_TIMEOUT` es la
+espera por respuesta de red. La lectura obtiene el historial completo del reloj
+antes de filtrar marcas recientes. Un fallo de lectura no demuestra que el
+equipo este desconectado. Si persiste con estos tiempos, comprobar perdida de
+paquetes y otros programas consultando el mismo reloj.
+
 Los equipos se agregan desde **Importar > Agregar biometrico** en el sistema
 desplegado. Los registros se guardan en su base de datos; Git despliega el codigo,
 no copia la base de datos local ni el archivo `.env`. Mantener la base de datos

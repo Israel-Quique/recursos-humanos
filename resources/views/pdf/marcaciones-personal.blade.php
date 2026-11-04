@@ -614,7 +614,8 @@
               $salidaStr = $row->hora_salida ?? '--:--';
               $tieneEntrada = filled($entradaStr) && $entradaStr !== '--:--';
               $tieneSalida = filled($salidaStr) && $salidaStr !== '--:--';
-              $esOmision = !$esFeriado && !$esFalta && !$esPermisoAutorizado && ($tieneEntrada xor $tieneSalida);
+              $salidaAnticipada = !empty($row->es_salida_anticipada);
+              $esOmision = !$esFeriado && !$esFalta && !$esPermisoAutorizado && (($tieneEntrada xor $tieneSalida) || $salidaAnticipada);
               $faltaEntrada = !$esFeriado && !$esFalta && !$esPermisoAutorizado && !$tieneEntrada && $tieneSalida;
               $faltaSalida = !$esFeriado && !$esFalta && !$esPermisoAutorizado && $tieneEntrada && !$tieneSalida;
               $sinMarcacion = !$esFeriado && !$esFalta && !$esPermisoAutorizado && !$tieneEntrada && !$tieneSalida;
@@ -686,6 +687,8 @@
                   @if(($row->minutos_retraso ?? 0) > 0)
                     <span class="badge-late">+{{ $row->minutos_retraso }}m</span>
                   @endif
+                @elseif($salidaAnticipada)
+                  <span class="badge-omision-alert">Salida anticipada</span>
                 @elseif($sinMarcacion)
                   <span class="badge-absent">Sin marcación</span>
                 @elseif(($row->minutos_retraso ?? 0) > 0)

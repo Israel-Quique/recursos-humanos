@@ -115,6 +115,8 @@ class ExtraccionBiometricoZkService
                 $outputPath,
                 '--timeout',
                 (string) $timeout,
+                '--socket-timeout',
+                (string) ($probeOnly ? 5 : max(1, (int) config('biometrico.socket_timeout', 30))),
                 '--password',
                 $password !== '' ? $password : '0',
                 ...($probeOnly ? ['--probe-only'] : []),
@@ -150,9 +152,16 @@ class ExtraccionBiometricoZkService
             ]);
 
             if (!$process->isSuccessful()) {
+                $failurePayload = file_exists($outputPath)
+                    ? json_decode((string) file_get_contents($outputPath), true)
+                    : null;
                 $error = trim($process->getErrorOutput() . ' ' . $process->getOutput());
                 @unlink($outputPath);
-                throw new \RuntimeException($error !== '' ? $error : 'No se pudo extraer marcaciones desde el biometrico.');
+                throw new \RuntimeException(
+                    is_array($failurePayload) && is_string($failurePayload['message'] ?? null)
+                        ? $failurePayload['message']
+                        : ($error !== '' ? $error : 'No se pudo extraer marcaciones desde el biometrico.')
+                );
             }
 
             if (!file_exists($outputPath)) {

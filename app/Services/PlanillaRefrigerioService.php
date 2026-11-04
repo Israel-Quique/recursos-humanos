@@ -224,10 +224,16 @@ class PlanillaRefrigerioService
                     $norm = $this->analisisAsistencia->normalizarMarcacionAsistencia($asist);
                     $tieneEntrada = filled($norm['entrada']);
                     $tieneSalida = filled($norm['salida']);
-                    $marcacionCompleta = $tieneEntrada && $tieneSalida;
+                    $salidaAnticipada = $this->programacionLaboral->esSalidaAnticipada(
+                        $norm['salida'],
+                        $this->programacionLaboral->resolverHorario($empleado, $carbonDia)
+                    );
+                    $marcacionCompleta = $tieneEntrada && $tieneSalida && !$salidaAnticipada;
 
                     if ($marcacionCompleta) {
                         $estado = 'a';
+                    } elseif ($salidaAnticipada) {
+                        $estado = $tieneEntrada ? 'os' : 'oe';
                     } elseif ($carbonDia->isToday()) {
                         $estado = '';
                     } else {

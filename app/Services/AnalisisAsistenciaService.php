@@ -354,6 +354,8 @@ class AnalisisAsistenciaService
                     $detalle = 'Olvido / Falta de marcación de entrada';
                 } elseif ($olvidoSalida) {
                     $detalle = 'Olvido / Falta de marcación de salida';
+                } else {
+                    $detalle = 'Omisión por salida anticipada';
                 }
 
                 return [
@@ -380,7 +382,11 @@ class AnalisisAsistenciaService
             $tieneEntrada = filled($entradaVal) && $entradaVal !== '--:--';
             $tieneSalida = filled($salidaVal) && $salidaVal !== '--:--';
 
-            if ($tieneEntrada && $tieneSalida) {
+            $horario = $this->programacionLaboral->resolverHorario($registro->empleado, $registro->fecha);
+            if ($this->programacionLaboral->esSalidaAnticipada($salidaVal, $horario)) {
+                $estado = 'Omisión (Salida anticipada)';
+                $tipoEstado = 'faltante';
+            } elseif ($tieneEntrada && $tieneSalida) {
                 $estado = 'Completo';
                 $tipoEstado = 'completo';
             } elseif ($tieneEntrada || $tieneSalida) {
@@ -889,6 +895,14 @@ class AnalisisAsistenciaService
                     'estado' => 'Omisión (Falta entrada)',
                     'detalle' => 'Omisión (Falta entrada)',
                 ];
+            } elseif ($this->programacionLaboral->esSalidaAnticipada($horaSalidaReal, $horario)) {
+                $forgotRows[] = [
+                    'fecha' => $registro->fecha?->format('d/m/Y') ?? 'Sin fecha',
+                    'entrada' => substr($marcacion['entrada'], 0, 5),
+                    'salida' => substr($horaSalidaReal, 0, 5),
+                    'estado' => 'Omisión (Salida anticipada)',
+                    'detalle' => 'Omisión (Salida anticipada)',
+                ];
             }
         }
 
@@ -1061,7 +1075,7 @@ class AnalisisAsistenciaService
                 $horaSalidaReal = $this->horaSalidaReal($registro);
                 $detalleOmision = blank($marcacion['entrada'])
                     ? 'Omisión (Falta entrada)'
-                    : 'Omisión (Falta salida)';
+                    : (filled($horaSalidaReal) ? 'Omisión (Salida anticipada)' : 'Omisión (Falta salida)');
 
                 return [
                     'empleado_id' => (int) $registro->empleado_id,
@@ -1454,7 +1468,8 @@ class AnalisisAsistenciaService
             $salidaPendienteHoy = $tieneEntrada && ! $tieneSalida && $this->salidaSiguePendienteDentroDeJornada($registro, $empleado);
 
             $esFalta = ! $tieneEntrada && ! $tieneSalida;
-            $esOmision = ! $salidaPendienteHoy && (($tieneEntrada && ! $tieneSalida) || (! $tieneEntrada && $tieneSalida));
+            $salidaAnticipada = $this->programacionLaboral->esSalidaAnticipada($horaSalidaReal, $horario);
+            $esOmision = $salidaAnticipada || (! $salidaPendienteHoy && (($tieneEntrada && ! $tieneSalida) || (! $tieneEntrada && $tieneSalida)));
             $esRetraso = $delay > 0;
 
             $retrasoJustificado = false;
@@ -1497,7 +1512,7 @@ class AnalisisAsistenciaService
                 $estadoCalculado = 'En su puesto';
             } elseif ($esOmision) {
                 $rowTone = 'warning';
-                $estadoCalculado = ! $tieneEntrada ? 'Omisión (Falta entrada)' : 'Omisión (Falta salida)';
+                $estadoCalculado = ! $tieneEntrada ? 'Omisión (Falta entrada)' : ($salidaAnticipada ? 'Omisión (Salida anticipada)' : 'Omisión (Falta salida)');
             } elseif ($retrasoJustificado) {
                 $rowTone = 'ok';
                 $estadoCalculado = 'Atraso Justificado (' . ($permisoAprobado->tipo_label ?: 'Boleta Aprobada') . ')';
@@ -2394,7 +2409,12 @@ class AnalisisAsistenciaService
         // Omisión según la definición: no haya marcado o bien la entrada pero sí la salida,
         // o si marcó la entrada pero no la salida.
         if ($tieneEntrada && $tieneSalida) {
-            return false;
+            $empleado = $registro->empleado;
+
+            return $empleado && $this->programacionLaboral->esSalidaAnticipada(
+                $marcacion['salida'],
+                $this->programacionLaboral->resolverHorario($empleado, $registro->fecha)
+            );
         }
 
         if (!$tieneEntrada && !$tieneSalida) {
@@ -2607,11 +2627,11 @@ class AnalisisAsistenciaService
             $entrada = null;
         }
 
-        if (filled($entrada) xor filled($salida)) {
-            [$entrada, $salida] = $this->inferirMarcacionPorHorario($registro, $entrada, $salida);
-        }
-
-        if (filled($entrada) && filled($salida) && $entrada === $salida) {
+        if ($registro->empleado && $registro->fecha) {
+            [$entrada, $salida] = $this->programacionLaboral->normalizarHorasMarcadas(
+                $entrada, $salida, $this->programacionLaboral->resolverHorario($registro->empleado, $registro->fecha)
+            );
+        } elseif (filled($entrada) && $entrada === $salida) {
             $salida = null;
         }
 
@@ -2634,50 +2654,6 @@ class AnalisisAsistenciaService
     {
         return str_contains($estado, 'salida')
             || str_contains($evento, 'boton de salida');
-    }
-
-    private function inferirMarcacionPorHorario(RegistroAsistencia $registro, ?string $entrada, ?string $salida): array
-    {
-        $empleado = $registro->empleado;
-
-        if (!$empleado || !$registro->fecha) {
-            return [$entrada, $salida];
-        }
-
-        $horario = $this->programacionLaboral->resolverHorario($empleado, $registro->fecha);
-
-        if (($horario['laborable'] ?? true) === false) {
-            return [$entrada, $salida];
-        }
-
-        $horaEntrada = $this->parseTimeToCarbon((string) ($horario['hora_entrada'] ?? ''));
-        $horaSalida = $this->parseTimeToCarbon((string) ($horario['hora_salida'] ?? ''));
-
-        if (!$horaEntrada || !$horaSalida) {
-            return [$entrada, $salida];
-        }
-
-        $entradaReferencia = ((int) $horaEntrada->format('H')) * 60 + (int) $horaEntrada->format('i');
-        $salidaReferencia = ((int) $horaSalida->format('H')) * 60 + (int) $horaSalida->format('i');
-        $puntoMedio = (int) floor(($entradaReferencia + $salidaReferencia) / 2);
-
-        if (filled($entrada) && blank($salida)) {
-            $marca = $this->parseTimeToCarbon($entrada);
-
-            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) >= $puntoMedio) {
-                return [null, $entrada];
-            }
-        }
-
-        if (blank($entrada) && filled($salida)) {
-            $marca = $this->parseTimeToCarbon($salida);
-
-            if ($marca && (((int) $marca->format('H')) * 60 + (int) $marca->format('i')) < $puntoMedio) {
-                return [$salida, null];
-            }
-        }
-
-        return [$entrada, $salida];
     }
 
     private function resolverEstadoMarcacionVisible(RegistroAsistencia $registro, ?array $marcacion = null): string

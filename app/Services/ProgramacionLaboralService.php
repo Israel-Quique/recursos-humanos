@@ -117,6 +117,57 @@ class ProgramacionLaboralService
         ];
     }
 
+    public function normalizarHorasMarcadas(?string $entrada, ?string $salida, array $horario): array
+    {
+        if (filled($entrada) && $entrada === $salida) {
+            $salida = null;
+        }
+        if (!($horario['laborable'] ?? false)) {
+            return [$entrada, $salida];
+        }
+
+        $inicio = $horario['hora_entrada'] ?? null;
+        $fin = $horario['hora_salida'] ?? null;
+        if (blank($inicio) || blank($fin)) {
+            return [$entrada, $salida];
+        }
+
+        $inicio = Carbon::createFromTimeString($inicio);
+        $fin = Carbon::createFromTimeString($fin);
+        if (filled($entrada) && filled($salida)) {
+            // Dos marcas al terminar la jornada no acreditan una entrada.
+            if (Carbon::createFromTimeString($entrada)->greaterThanOrEqualTo($fin)) {
+                return [null, Carbon::createFromTimeString($entrada)->max(Carbon::createFromTimeString($salida))->format('H:i:s')];
+            }
+
+            return [$entrada, $salida];
+        }
+
+        $unica = filled($entrada) ? $entrada : $salida;
+        if (blank($unica)) {
+            return [$entrada, $salida];
+        }
+
+        $puntoMedio = (int) floor(($inicio->hour * 60 + $inicio->minute + $fin->hour * 60 + $fin->minute) / 2);
+        $marca = Carbon::createFromTimeString($unica);
+
+        return $marca->hour * 60 + $marca->minute >= $puntoMedio ? [null, $unica] : [$unica, null];
+    }
+
+    public function esSalidaAnticipada(?string $horaSalida, array $horario): bool
+    {
+        if (!($horario['laborable'] ?? false) || blank($horaSalida) || blank($horario['hora_salida'] ?? null)) {
+            return false;
+        }
+
+        try {
+            return Carbon::createFromTimeString($horaSalida)
+                ->lessThan(Carbon::createFromTimeString($horario['hora_salida']));
+        } catch (\Exception) {
+            return false;
+        }
+    }
+
     public function resolverToleranciaMensual(?string $sucursal = null): int
     {
         $horario = $this->obtenerHorarioRegional($sucursal);

@@ -56,7 +56,7 @@ class SincronizacionBiometricoService
         try {
             $rows = $this->extraccionBiometricoZkService->extraerMarcaciones(
                 $device,
-                max(5, (int) config('biometrico.sync_timeout', 15))
+                max(5, (int) config('biometrico.sync_timeout', 120))
             );
             $newRows = $this->filterRowsAfter($rows, $syncCutoff);
             $today = now()->toDateString();
