@@ -1476,6 +1476,8 @@ class PersonalPage extends Component
                 'dia' => $registro->fecha?->locale('es')->isoFormat('dddd'),
                 'hora_entrada' => $entradaVal ?: '--:--',
                 'hora_salida' => $salidaVal ?: '--:--',
+                'sede_entrada' => $registro->sedes_biometricas[$marcacion['entrada']] ?? null,
+                'sede_salida' => $registro->sedes_biometricas[$marcacion['salida']] ?? null,
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
                 'retraso_formateado' => $esFeriado ? (($tieneEntrada && $minutosRetraso > 0) ? "+{$minutosRetraso} min" : '—') : ($tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : ($esFalta ? 'Falta' : '--')),

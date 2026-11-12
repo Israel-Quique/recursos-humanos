@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 class SucursalNormalizer
 {
     private const ALIASES = [
-        'la-paz' => ['La Paz', 'LaPaz', 'Oficina Central La Paz', 'Regional La Paz', 'Sucursal La Paz', 'El Alto', 'Regional El Alto'],
+        'la-paz' => ['La Paz', 'LaPaz', 'Oficina Central La Paz', 'Regional La Paz', 'Sucursal La Paz', 'El Alto', 'Regional El Alto', 'Sucursal El Alto'],
         'santa-cruz' => ['Santa Cruz', 'SantaCruz', 'Regional Santa Cruz', 'Sucursal Santa Cruz'],
         'cochabamba' => ['Cochabamba', 'Regional Cochabamba', 'Sucursal Cochabamba'],
         'chuquisaca' => ['Chuquisaca', 'Sucre', 'Sucursal Sucre', 'Sucursal Chuquisaca', 'Regional Sucre', 'Regional Chuquisaca'],
@@ -41,6 +41,15 @@ class SucursalNormalizer
     public static function normalize(?string $value): string
     {
         return self::canonicalLabel($value);
+    }
+
+    public static function sedeLaPaz(?string $value): ?string
+    {
+        if (self::canonicalKey($value) !== 'la-paz') {
+            return null;
+        }
+
+        return str_ends_with(self::normalizeText($value), 'elalto') ? 'El Alto' : 'La Paz';
     }
 
     public static function canonicalLabel(?string $value): string

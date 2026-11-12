@@ -82,7 +82,7 @@ class ImportacionBiometricaService
             'registros_actualizados' => 0,
             'empleados_detectados_ids' => [],
             'empleados_creados_ids' => [],
-            'olvidos_marcacion' => 0,
+            'omisiones_por_jornada' => [],
             'marcas_omitidas' => 0,
             'empleados_no_registrados' => [],
         ];
@@ -132,7 +132,7 @@ class ImportacionBiometricaService
             'registros_actualizados' => $resumenGlobal['registros_actualizados'],
             'empleados_detectados' => count($resumenGlobal['empleados_detectados_ids']),
             'empleados_creados' => count($resumenGlobal['empleados_creados_ids']),
-            'olvidos_marcacion' => $resumenGlobal['olvidos_marcacion'],
+            'olvidos_marcacion' => count($resumenGlobal['omisiones_por_jornada']),
             'marcas_omitidas' => $resumenGlobal['marcas_omitidas'],
             'empleados_no_registrados' => array_slice($resumenGlobal['empleados_no_registrados'], 0, 10),
             'sync_device_ip' => $device['ip'] ?? null,
@@ -171,7 +171,7 @@ class ImportacionBiometricaService
         DB::beginTransaction();
 
         try {
-            $resumenChunk = $this->persistirMarcas($importacion, $marks, $usuario);
+            $resumenChunk = $this->persistirMarcas($importacion, $marks, $usuario, $resumenGlobal['omisiones_por_jornada']);
             DB::commit();
         } catch (\Throwable $exception) {
             DB::rollBack();
@@ -181,7 +181,6 @@ class ImportacionBiometricaService
         $procesadosChunk = $marks->count();
         $resumenGlobal['registros_generados'] += (int) ($resumenChunk['registros_generados'] ?? 0);
         $resumenGlobal['registros_actualizados'] += (int) ($resumenChunk['registros_actualizados'] ?? 0);
-        $resumenGlobal['olvidos_marcacion'] += (int) ($resumenChunk['olvidos_marcacion'] ?? 0);
         $resumenGlobal['marcas_omitidas'] += (int) ($resumenChunk['marcas_omitidas'] ?? 0);
         $resumenGlobal['empleados_detectados_ids'] = array_values(array_unique([
             ...$resumenGlobal['empleados_detectados_ids'],
@@ -209,7 +208,7 @@ class ImportacionBiometricaService
                 'registros_actualizados' => $resumenGlobal['registros_actualizados'],
                 'empleados_detectados' => count($resumenGlobal['empleados_detectados_ids']),
                 'empleados_creados' => count($resumenGlobal['empleados_creados_ids']),
-                'olvidos_marcacion' => $resumenGlobal['olvidos_marcacion'],
+                'olvidos_marcacion' => count($resumenGlobal['omisiones_por_jornada']),
                 'marcas_omitidas' => $resumenGlobal['marcas_omitidas'],
                 'empleados_no_registrados' => array_slice($resumenGlobal['empleados_no_registrados'], 0, 10),
                 'sync_device_ip' => $device['ip'] ?? null,
@@ -229,7 +228,7 @@ class ImportacionBiometricaService
         return $this->procesarArchivoBiometrico($rutaArchivo);
     }
 
-    private function persistirMarcas(Importacion $importacion, Collection $marks, ?User $usuario = null): array
+    private function persistirMarcas(Importacion $importacion, Collection $marks, ?User $usuario = null, ?array &$omisionesPorJornada = null): array
     {
         $this->asegurarMemoriaImportacion();
         $programacion = app(ProgramacionLaboralService::class);
@@ -256,8 +255,9 @@ class ImportacionBiometricaService
                 $fecha = substr((string) $mark['fecha_hora'], 0, 10);
                 $codigo = trim((string) ($mark['codigo'] ?? ''));
                 $nombre = $this->nombrePlanoDesdeFila($mark);
+                $sede = SucursalNormalizer::sedeLaPaz($this->resolverSucursal($mark['datos_originales'] ?? []));
 
-                return md5($fecha.'|'.$codigo.'|'.$nombre);
+                return md5($fecha.'|'.$codigo.'|'.$nombre.'|'.$sede);
             });
 
         // Pre-cargar registros de asistencia existentes para las fechas del lote
@@ -286,7 +286,7 @@ class ImportacionBiometricaService
 
         $registrosGenerados = 0;
         $empleadosDetectados = collect();
-        $olvidosMarcacion = 0;
+        $omisionesPorJornada ??= [];
         $registrosActualizados = 0;
         $marcasOmitidas = 0;
         $empleadosNoRegistrados = collect();
@@ -329,6 +329,7 @@ class ImportacionBiometricaService
                                 'estado_original' => $orig['Estado'] ?? $orig['estado'] ?? 'Sin estado',
                                 'verificacion' => $orig['Verificacion'] ?? $orig['Verificación'] ?? $orig['verificacion'] ?? 'Sin verificacion',
                                 'evento' => $orig['Evento'] ?? $orig['evento'] ?? 'Sin evento',
+                                'sede' => SucursalNormalizer::sedeLaPaz($this->resolverSucursal($orig)),
                             ];
                         })
                         ->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)
@@ -341,15 +342,24 @@ class ImportacionBiometricaService
                     $horario = $programacion->resolverHorario($empleado, $horas->first()['fecha_hora']);
                     [$entrada, $salida] = $this->resolverHorasJornada($horas, $horario);
                     $ultimaMarca = $horas->last();
+                    $sedeOrigen = $ultimaMarca['sede'];
 
                     $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
                     $cacheKey = $empleado->id.'_'.$fechaOperativa->toDateString();
 
                     $registro = $registrosExistentes[$cacheKey] ?? null;
+                    if ($sedeOrigen) {
+                        // Serializar la fusión si los dos relojes se sincronizan a la vez.
+                        Empleado::query()->whereKey($empleado->id)->lockForUpdate()->firstOrFail(['id']);
+                        $registro = RegistroAsistencia::query()->withTrashed()
+                            ->where('empleado_id', $empleado->id)
+                            ->whereDate('fecha', $fechaOperativa->toDateString())
+                            ->lockForUpdate()->first();
+                    }
 
                     // Si el empleado tiene régimen especial o la marcación fue registrada/editada como Especial,
                     // no se actualizan sus datos desde el biométrico para preservar las asignaciones de RRHH.
-                    if ($registro && ($empleado->es_especial || $registro->tipo_verificacion === 'Especial')) {
+                    if ($registro && ($registro->trashed() || $empleado->es_especial || $registro->tipo_verificacion === 'Especial')) {
                         $marcasOmitidas += $grupo->count();
                         continue;
                     }
@@ -370,7 +380,14 @@ class ImportacionBiometricaService
                     $existingEntrada = $normalizadasExistentes['entrada'];
                     $existingSalida = $normalizadasExistentes['salida'];
 
-                    if ($existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
+                    if ($sedeOrigen && $entrada && $existingEntrada && !$existingSalida
+                        && $registro->estado_marcacion === 'Salida' && $this->esPosterior($existingEntrada, $entrada)) {
+                        $existingSalida = $existingEntrada;
+                        $existingEntrada = null;
+                    }
+
+                    $puedeSerSalida = !$sedeOrigen || !($horario['laborable'] ?? false) || $this->marcaEsSalida($ultimaMarca);
+                    if ($puedeSerSalida && $existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
                         $cEntrada = $this->parseTimeStringToCarbon($entrada);
                         $cExisting = $this->parseTimeStringToCarbon($existingEntrada);
                         if ($cEntrada && $cExisting && abs($cEntrada->diffInMinutes($cExisting)) >= 5) {
@@ -396,14 +413,25 @@ class ImportacionBiometricaService
                         $mergedEntrada, $mergedSalida, $horario
                     );
                     if (!$mergedEntrada || !$mergedSalida) {
-                        $olvidosMarcacion++;
+                        $omisionesPorJornada[$cacheKey] = true;
+                    } else {
+                        unset($omisionesPorJornada[$cacheKey]);
                     }
+
+                    $sedes = $registro->sedes_biometricas ?? [];
+                    foreach ($horas as $marca) {
+                        if ($marca['sede']) {
+                            $sedes[$marca['fecha_hora']->format('H:i:s')] ??= $marca['sede'];
+                        }
+                    }
+                    $sedes = array_intersect_key($sedes, array_flip(array_filter([$mergedEntrada, $mergedSalida])));
 
                     $registro->fill([
                         'empleado_id' => $empleado->id,
                         'importacion_id' => $importacion->id,
                         'hora_entrada' => $mergedEntrada,
                         'hora_salida' => $mergedSalida,
+                        'sedes_biometricas' => $sedes ?: null,
                         'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
                         'estado_marcacion' => !$mergedEntrada && $mergedSalida ? 'Salida' : ($this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null)),
                         'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
@@ -415,7 +443,7 @@ class ImportacionBiometricaService
                     $registro->save();
                     $registrosExistentes[$cacheKey] = $registro;
 
-                    if ($registro->wasRecentlyCreated || $esNuevo) {
+                    if ($esNuevo) {
                         $registrosGenerados++;
                     } else {
                         $registrosActualizados++;
@@ -442,7 +470,7 @@ class ImportacionBiometricaService
             'empleados_creados' => $empleadosCreados->unique()->count(),
             'empleados_detectados_ids' => $empleadosDetectados->unique()->values()->all(),
             'empleados_creados_ids' => $empleadosCreados->unique()->values()->all(),
-            'olvidos_marcacion' => $olvidosMarcacion,
+            'olvidos_marcacion' => count($omisionesPorJornada),
             'marcas_omitidas' => $marcasOmitidas,
             'empleados_no_registrados' => $empleadosNoRegistrados->filter()->unique()->values()->take(10)->all(),
         ];
@@ -531,22 +559,29 @@ class ImportacionBiometricaService
         $nombreOriginal = $this->nombreCompletoDesdeFila($datosOriginales);
         $normNombre = $this->normalizarTexto($nombreOriginal);
         $sucursalMarca = $this->resolverSucursal($datosOriginales);
-        $sucursalConocida = SucursalNormalizer::canonicalKey($sucursalMarca) !== null;
+        $regional = SucursalNormalizer::canonicalKey($sucursalMarca);
+        $sucursalConocida = $regional !== null;
+        $sedeLaPaz = SucursalNormalizer::sedeLaPaz($sucursalMarca);
         $codigoRegional = $sucursalConocida && $codigo !== ''
-            ? SucursalNormalizer::canonicalKey($sucursalMarca).':'.$codigo
+            ? $regional.':'.$codigo
             : $codigo;
+        $codigoSede = $sedeLaPaz === 'El Alto' && $codigo !== '' ? 'el-alto:'.$codigo : $codigoRegional;
 
         $empleado = null;
 
         if ($codigo !== '') {
-            $empleado = $empleadosByCodigo[$codigoRegional] ?? $empleadosByCodigo[$codigo] ?? null;
+            $empleado = $empleadosByCodigo[$codigoSede] ?? $empleadosByCodigo[$codigoRegional] ?? $empleadosByCodigo[$codigo] ?? null;
         }
 
         $codigoDeOtraSucursal = $empleado && $sucursalConocida
                 && SucursalNormalizer::canonicalKey($empleado->sucursal) !== null
                 && !SucursalNormalizer::matches($sucursalMarca, $empleado->sucursal);
 
-        if (!$empleado || $codigoDeOtraSucursal) {
+        // En la regional compartida, un mismo código local puede pertenecer a dos personas.
+        $codigoConOtroNombre = $sedeLaPaz && $empleado && $normNombre !== ''
+            && $this->normalizarTexto($empleado->nombre_completo) !== $normNombre;
+
+        if (!$empleado || $codigoDeOtraSucursal || $codigoConOtroNombre) {
             $candidatos = collect($empleadosByNombre[$normNombre] ?? [])
                 ->filter(fn (Empleado $candidate) => !$sucursalConocida || SucursalNormalizer::matches($sucursalMarca, $candidate->sucursal));
             $empleado = $candidatos->count() === 1 ? $candidatos->first() : null;
@@ -561,7 +596,11 @@ class ImportacionBiometricaService
             $empleado = $this->actualizarEmpleadoDesdeMarca($empleado, $mark);
 
             if ($codigo !== '') {
-                $empleadosByCodigo[$codigoRegional] = $empleado;
+                if ($sedeLaPaz) {
+                    $empleadosByCodigo[$codigoSede] ??= $empleado;
+                } else {
+                    $empleadosByCodigo[$codigoSede] = $empleado;
+                }
             }
             if ($normNombre !== '') {
                 $empleadosByNombre[$normNombre][$empleado->id] = $empleado;
@@ -571,15 +610,19 @@ class ImportacionBiometricaService
         }
 
         // La tabla usa codigos unicos globales; los relojes usan codigos locales.
-        // Solo el codigo repetido necesita el prefijo de su regional.
-        if ($codigoDeOtraSucursal) {
-            $mark['codigo'] = $codigoRegional;
+        // El código repetido usa un prefijo de la regional o sede del reloj.
+        if ($codigoDeOtraSucursal || $codigoConOtroNombre) {
+            if ($sedeLaPaz && isset($empleadosByCodigo[$codigoSede])) {
+                return ['empleado' => null, 'created' => false];
+            }
+            $mark['codigo'] = $codigoSede;
         }
         $empleadoCreado = $this->crearEmpleadoDesdeMarca($mark, $usuario);
 
         if ($empleadoCreado) {
             if ($codigo !== '') {
-                $empleadosByCodigo[$codigoRegional] = $empleadoCreado;
+                $empleadosByCodigo[$codigoSede] = $empleadoCreado;
+                $empleadosByCodigo[$empleadoCreado->codigo_biometrico] = $empleadoCreado;
             }
             if ($normNombre !== '') {
                 $empleadosByNombre[$normNombre][$empleadoCreado->id] = $empleadoCreado;
@@ -623,6 +666,11 @@ class ImportacionBiometricaService
 
     private function resolverSucursal(array $fila): string
     {
+        $punto = $this->valorFilaFlexible($fila, ['Punto del evento', 'Punto de evento']);
+        if ($sede = SucursalNormalizer::sedeLaPaz($punto)) {
+            return $sede;
+        }
+
         $sucursal = $this->valorFilaFlexible($fila, [
             'Sucursal',
             'sucursal',

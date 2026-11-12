@@ -1450,6 +1450,9 @@
                 <td class="center">
                   @if($row['entrada'] !== '--:--')
                     <span class="ph-time {{ $inClass }}">{{ $row['entrada'] }}</span>
+                    @if(!empty($row['sede_entrada']))
+                      <span class="block text-[11px] text-slate-600">{{ $row['sede_entrada'] }}</span>
+                    @endif
                   @else
                     <span class="ph-time-none" style="font-family:ui-monospace,monospace;font-weight:700;">--:--</span>
                   @endif
@@ -1459,6 +1462,9 @@
                 <td class="center">
                   @if($row['salida'] !== '--:--')
                     <span class="ph-time ph-time-out">{{ $row['salida'] }}</span>
+                    @if(!empty($row['sede_salida']))
+                      <span class="block text-[11px] text-slate-600">{{ $row['sede_salida'] }}</span>
+                    @endif
                   @else
                     <span class="ph-time-none" style="font-family:ui-monospace,monospace;font-weight:700;">--:--</span>
                   @endif

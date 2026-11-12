@@ -1536,6 +1536,8 @@ class AnalisisAsistenciaService
                 'dia_semana' => $diaSemana,
                 'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                 'salida' => $horaSalidaReal ? substr($horaSalidaReal, 0, 5) : '--:--',
+                'sede_entrada' => $registro->sedes_biometricas[$marcacion['entrada']] ?? null,
+                'sede_salida' => $registro->sedes_biometricas[$horaSalidaReal] ?? null,
                 'horario_programado' => ($horario['hora_entrada'] ? substr($horario['hora_entrada'], 0, 5) : '--:--')
                     . ' - ' . ($horario['hora_salida'] ? substr($horario['hora_salida'], 0, 5) : '--:--'),
                 'horas' => $this->formatearMinutos($worked),

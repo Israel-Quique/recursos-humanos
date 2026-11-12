@@ -19,6 +19,66 @@ class ImportarCsvTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_los_relojes_de_la_paz_y_el_alto_completan_la_misma_jornada_en_ambos_ordenes(): void
+    {
+        $service = app(ImportacionBiometricaService::class);
+        $laPaz = ['department' => 'La Paz', 'branch' => 'Oficina Central La Paz'];
+        $elAlto = ['department' => 'La Paz', 'branch' => 'Sucursal El Alto'];
+        $empleado = Empleado::query()->create([
+            'nombre' => 'Ana',
+            'apellido' => 'Flores',
+            'codigo_biometrico' => '10',
+            'sucursal' => 'El Alto',
+            'area' => 'Operaciones',
+            'hora_entrada_programada' => '08:30:00',
+            'fecha_contratacion' => '2026-01-01',
+        ]);
+
+        foreach (['2026-10-01' => '16:30:00', '2026-10-02' => '16:30:00', '2026-10-05' => '11:30:00'] as $fecha => $horaSalida) {
+            $entrada = ['codigo' => '10', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => $fecha.'T08:30:00', 'punch' => '0'];
+            $salida = ['codigo' => '20', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => $fecha.'T'.$horaSalida, 'punch' => '1'];
+            $importaciones = [[$laPaz, $entrada], [$elAlto, $salida]];
+            if ($fecha !== '2026-10-01') {
+                $importaciones = array_reverse($importaciones);
+            }
+
+            foreach ($importaciones as [$device, $marca]) {
+                $importacion = $service->importarMarcacionesBiometrico($device, [$marca]);
+            }
+            $this->assertSame(0, $importacion->resumen_json['olvidos_marcacion']);
+            $service->importarMarcacionesBiometrico($elAlto, [$salida]);
+
+            $registro = $empleado->asistencias()->whereDate('fecha', $fecha)->sole();
+            $this->assertSame('08:30:00', $registro->hora_entrada);
+            $this->assertSame($horaSalida, $registro->hora_salida);
+            $this->assertEquals(['08:30:00' => 'La Paz', $horaSalida => 'El Alto'], $registro->sedes_biometricas);
+        }
+
+        $this->assertSame(1, Empleado::query()->count());
+        $this->assertSame('El Alto', $empleado->fresh()->sucursal);
+    }
+
+    public function test_un_codigo_repetido_en_el_alto_no_completa_la_jornada_de_otra_persona(): void
+    {
+        $service = app(ImportacionBiometricaService::class);
+        $laPaz = ['department' => 'La Paz', 'branch' => 'Oficina Central La Paz'];
+        $elAlto = ['department' => 'La Paz', 'branch' => 'El Alto'];
+        $service->importarMarcacionesBiometrico($laPaz, [
+            ['codigo' => '10', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => '2026-10-01T08:30:00', 'punch' => '0'],
+        ]);
+        $service->importarMarcacionesBiometrico($elAlto, [
+            ['codigo' => '10', 'nombre' => 'Juan', 'apellido' => 'Paz', 'fecha_hora' => '2026-10-01T16:30:00', 'punch' => '1'],
+            ['codigo' => '20', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => '2026-10-01T09:00:00', 'punch' => '0'],
+        ]);
+
+        $ana = Empleado::query()->where('codigo_biometrico', '10')->sole();
+        $juan = Empleado::query()->where('codigo_biometrico', 'el-alto:10')->sole();
+        $this->assertSame('La Paz', $ana->sucursal);
+        $this->assertSame('El Alto', $juan->sucursal);
+        $this->assertNull($ana->asistencias()->sole()->hora_salida);
+        $this->assertNull($juan->asistencias()->sole()->hora_entrada);
+    }
+
     public function test_importar_pando_no_asigna_marcaciones_al_empleado_de_oruro_con_el_mismo_codigo(): void
     {
         $empleado = Empleado::query()->create([
@@ -112,7 +172,7 @@ class ImportarCsvTest extends TestCase
         $csvContent = implode("\n", [
             'Tiempo,"ID de Usuario",Nombre,Apellido,"Numero de tarjeta",Dispositivo,"Punto del evento",Verificacion,Estado,Evento,Notas',
             '"01/09/2026 08:00",1001,CARLOS,MAMANI,,"La Paz","Oficina Central La Paz",Huella,Entrada,"Check-in",',
-            '"01/09/2026 17:00",1001,CARLOS,MAMANI,,"La Paz","Oficina Central La Paz",Huella,Salida,"Check-out",',
+            '"01/09/2026 17:00",1001,CARLOS,MAMANI,,"La Paz","El Alto",Huella,Salida,"Check-out",',
             '"01/09/2026 08:15",1002,MARIA,QUISPE,,"La Paz","Oficina Central La Paz",Tarjeta,Entrada,"Check-in",',
             '"01/09/2026 16:45",1002,MARIA,QUISPE,,"La Paz","Oficina Central La Paz",Tarjeta,Salida,"Check-out",',
         ]);
@@ -129,6 +189,7 @@ class ImportarCsvTest extends TestCase
         $this->assertEquals(4, $importacion->registros_total);
         $this->assertEquals(2, $importacion->registros_generados);
         $this->assertEquals(2, $importacion->empleados_detectados);
+        $this->assertSame(0, $importacion->resumen_json['olvidos_marcacion']);
 
         $this->assertDatabaseHas('empleados', [
             'codigo_biometrico' => '1001',
@@ -148,6 +209,18 @@ class ImportarCsvTest extends TestCase
         $this->assertNotNull($registroCarlos);
         $this->assertEquals('08:00:00', $registroCarlos->hora_entrada);
         $this->assertEquals('17:00:00', $registroCarlos->hora_salida);
+        $this->assertSame(['08:00:00' => 'La Paz', '17:00:00' => 'El Alto'], $registroCarlos->sedes_biometricas);
+
+        Livewire::actingAs($user)->test('personal-page', ['vista' => 'marcaciones'])
+            ->set('inputMarcacionesSearch', '1001')
+            ->set('inputMarcacionesTipoFecha', 'rango')
+            ->set('inputMarcacionesFechaInicio', '2026-09-01')
+            ->set('inputMarcacionesFechaFin', '2026-09-01')
+            ->call('aplicarBusquedaMarcaciones')
+            ->assertSet('marcacionesStats.total_omisiones', 0)
+            ->assertViewHas('registros', fn ($registros) =>
+                $registros->first()?->sede_entrada === 'La Paz'
+                && $registros->first()?->sede_salida === 'El Alto');
     }
 
     public function test_importar_csv_sin_cabeceras_detecta_columnas_sinteticas(): void

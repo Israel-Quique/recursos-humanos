@@ -23,6 +23,7 @@ class RegistroAsistencia extends Model
         'tipo_verificacion',
         'estado_marcacion',
         'evento_biometrico',
+        'sedes_biometricas',
         'observacion',
         'created_by',
         'updated_by',
@@ -33,6 +34,7 @@ class RegistroAsistencia extends Model
     {
         return [
             'fecha' => 'date',
+            'sedes_biometricas' => 'array',
         ];
     }
 

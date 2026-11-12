@@ -3408,6 +3408,9 @@
                       <span class="inline-block rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-800">
                         {{ $registro->hora_entrada }}
                       </span>
+                      @if($registro->sede_entrada ?? null)
+                        <span class="block text-[11px] text-slate-600">{{ $registro->sede_entrada }}</span>
+                      @endif
                     @else
                       <span class="inline-block rounded-md bg-slate-100 text-slate-400 px-2 py-0.5 font-mono text-[11px]">
                         --:--
@@ -3419,6 +3422,9 @@
                       <span class="inline-block rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700">
                         {{ $registro->hora_salida }}
                       </span>
+                      @if($registro->sede_salida ?? null)
+                        <span class="block text-[11px] text-slate-600">{{ $registro->sede_salida }}</span>
+                      @endif
                     @else
                       <span class="inline-block rounded-md bg-slate-100 text-slate-400 px-2 py-0.5 font-mono text-[11px]">
                         --:--
