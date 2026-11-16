@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Importacion;
 use App\Models\User;
+use App\Support\SucursalNormalizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -41,6 +42,13 @@ class RegistroAsistencia extends Model
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
+    }
+
+    public function sucursalesDeMarcacion(): array
+    {
+        $sedes = SucursalNormalizer::optionsFromValues($this->sedes_biometricas ?? []);
+
+        return $sedes ?: SucursalNormalizer::optionsFromValues([$this->empleado?->sucursal]);
     }
 
     public function creador(): BelongsTo

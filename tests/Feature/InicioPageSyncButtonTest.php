@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Livewire\InicioPage;
+use App\Models\BiometricoDispositivo;
 use App\Models\User;
-use App\Services\BiometricoAutoSyncService;
+use App\Services\ExtraccionBiometricoZkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -18,9 +20,11 @@ class InicioPageSyncButtonTest extends TestCase
     {
         $user = $this->crearUsuarioConPermisos();
         $this->actingAs($user);
+        $this->registrarReloj();
 
         Livewire::test(InicioPage::class)
-            ->assertSee('Sincronizar biométrico');
+            ->assertSee('Ajustar hora de Oficina Central La Paz')
+            ->assertSee('Sincronizar marcaciones');
     }
 
     public function test_manual_sync_action_triggers_synchronization_and_renders_summary(): void
@@ -29,7 +33,7 @@ class InicioPageSyncButtonTest extends TestCase
         $this->actingAs($user);
 
         $service = \Mockery::mock(\App\Services\SincronizacionBiometricoService::class);
-        $service->shouldReceive('sincronizarTodos')->once()->andReturn([
+        $service->shouldReceive('sincronizarTodos')->once()->with(false)->andReturn([
             [
                 'device' => 'Oficina Central',
                 'status' => 'sincronizado',
@@ -46,6 +50,50 @@ class InicioPageSyncButtonTest extends TestCase
             ->call('sincronizarBiometrico')
             ->assertSee('Sincronización completada')
             ->assertSee('Oficina Central');
+    }
+
+    public function test_el_panel_muestra_la_ultima_hora_y_sincroniza_el_equipo_registrado(): void
+    {
+        $this->actingAs($this->crearUsuarioConPermisos());
+        $device = $this->registrarReloj();
+        $equipo = hash('sha256', $device->ip.':4370');
+        Cache::forever('biometrico:hora:'.$equipo, [
+            'device_time' => '2026-11-16T12:30:00',
+            'checked_at' => '2026-11-16T12:30:01-04:00',
+            'status' => 'adjusted',
+        ]);
+        $this->partialMock(ExtraccionBiometricoZkService::class, function ($mock) use ($device) {
+            $mock->shouldReceive('sincronizarReloj')
+                ->withArgs(fn ($d) => $d['ip'] === $device->ip)
+                ->once();
+        });
+
+        Livewire::test(InicioPage::class)
+            ->assertSee('Relojes biométricos')
+            ->assertSee('16/11/2026')->assertSee('12:30:00')
+            ->assertSee('Hora sincronizada')
+            ->call('sincronizarHoraTrasReinicio', $equipo)
+            ->assertSee('Hora sincronizada');
+    }
+
+    public function test_usuario_sin_permiso_puede_ver_relojes_pero_no_ajustarlos(): void
+    {
+        $user = $this->crearUsuarioConPermisos();
+        $user->revokePermissionTo('importar biometria');
+        $device = $this->registrarReloj();
+
+        Livewire::actingAs($user)->test(InicioPage::class)
+            ->assertSee('Relojes biométricos')
+            ->assertDontSee('Ajustar hora de Oficina Central La Paz')
+            ->call('sincronizarHoraTrasReinicio', hash('sha256', $device->ip.':4370'))
+            ->assertForbidden();
+    }
+
+    private function registrarReloj(): BiometricoDispositivo
+    {
+        return BiometricoDispositivo::query()->create([
+            'department' => 'La Paz', 'branch' => 'Oficina Central La Paz', 'ip' => '192.0.2.10', 'is_active' => true,
+        ])->refresh();
     }
 
     public function test_home_page_displays_active_staff_and_daily_attendance_metrics(): void

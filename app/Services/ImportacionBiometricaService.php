@@ -255,7 +255,7 @@ class ImportacionBiometricaService
                 $fecha = substr((string) $mark['fecha_hora'], 0, 10);
                 $codigo = trim((string) ($mark['codigo'] ?? ''));
                 $nombre = $this->nombrePlanoDesdeFila($mark);
-                $sede = SucursalNormalizer::sedeLaPaz($this->resolverSucursal($mark['datos_originales'] ?? []));
+                $sede = $this->sedeDeMarcacion($mark['datos_originales'] ?? []);
 
                 return md5($fecha.'|'.$codigo.'|'.$nombre.'|'.$sede);
             });
@@ -323,13 +323,15 @@ class ImportacionBiometricaService
                         ->map(function (array $mark) {
                             $fh = Carbon::parse($mark['fecha_hora']);
                             $orig = $mark['datos_originales'] ?? [];
+                            $estado = $orig['Estado'] ?? $orig['estado']
+                                ?? $this->valorFilaFlexible($orig, ['Estado', 'Punch', 'Tipo', 'State']) ?? 'Sin estado';
                             return [
                                 'fecha_hora' => $fh,
-                                'estado' => $this->normalizarTexto((string) ($orig['Estado'] ?? $orig['estado'] ?? '')),
-                                'estado_original' => $orig['Estado'] ?? $orig['estado'] ?? 'Sin estado',
+                                'estado' => $this->normalizarTexto((string) $estado),
+                                'estado_original' => $estado,
                                 'verificacion' => $orig['Verificacion'] ?? $orig['Verificación'] ?? $orig['verificacion'] ?? 'Sin verificacion',
                                 'evento' => $orig['Evento'] ?? $orig['evento'] ?? 'Sin evento',
-                                'sede' => SucursalNormalizer::sedeLaPaz($this->resolverSucursal($orig)),
+                                'sede' => $this->sedeDeMarcacion($orig),
                             ];
                         })
                         ->sortBy(fn (array $mark) => $mark['fecha_hora']->timestamp)
@@ -339,12 +341,16 @@ class ImportacionBiometricaService
                         continue;
                     }
 
-                    $horario = $programacion->resolverHorario($empleado, $horas->first()['fecha_hora']);
+                    $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
+                    $horario = $programacion->resolverHorario($empleado, $fechaOperativa);
+                    $sedeOrigen = SucursalNormalizer::sedeLaPaz($horas->last()['sede']);
+                    $descansos = collect();
+                    if ($sedeOrigen === 'El Alto') {
+                        [$descansos, $horas] = $horas->partition(fn (array $marca) => $this->esDescansoElAlto($marca, $horario));
+                    }
                     [$entrada, $salida] = $this->resolverHorasJornada($horas, $horario);
                     $ultimaMarca = $horas->last();
-                    $sedeOrigen = $ultimaMarca['sede'];
 
-                    $fechaOperativa = $horas->first()['fecha_hora']->copy()->startOfDay();
                     $cacheKey = $empleado->id.'_'.$fechaOperativa->toDateString();
 
                     $registro = $registrosExistentes[$cacheKey] ?? null;
@@ -366,6 +372,9 @@ class ImportacionBiometricaService
 
                     $esNuevo = false;
                     if (! $registro) {
+                        if (!$ultimaMarca) {
+                            continue;
+                        }
                         $registro = new RegistroAsistencia([
                             'empleado_id' => $empleado->id,
                             'fecha' => $fechaOperativa,
@@ -380,13 +389,38 @@ class ImportacionBiometricaService
                     $existingEntrada = $normalizadasExistentes['entrada'];
                     $existingSalida = $normalizadasExistentes['salida'];
 
+                    if ($descansos->isNotEmpty() && $registro->importacion_id) {
+                        $horasDescanso = $descansos->map(fn (array $marca) => $marca['fecha_hora']->format('H:i:s'));
+                        foreach ([$existingEntrada, $existingSalida] as $hora) {
+                            if (!$hora) {
+                                continue;
+                            }
+
+                            $sedeGuardada = $registro->sedes_biometricas[$hora] ?? null;
+                            $coincide = $horasDescanso->containsStrict($hora)
+                                || ($sedeGuardada === 'El Alto' && $horasDescanso->contains(fn (string $descanso) =>
+                                    substr($descanso, 0, 5) === substr($hora, 0, 5)));
+                            if (!$coincide || ($sedeGuardada && $sedeGuardada !== 'El Alto')) {
+                                continue;
+                            }
+
+                            $existingEntrada = $existingEntrada === $hora ? null : $existingEntrada;
+                            $existingSalida = $existingSalida === $hora ? null : $existingSalida;
+                        }
+                    }
+
+                    if (!$ultimaMarca && $existingEntrada === $normalizadasExistentes['entrada']
+                        && $existingSalida === $normalizadasExistentes['salida']) {
+                        continue;
+                    }
+
                     if ($sedeOrigen && $entrada && $existingEntrada && !$existingSalida
                         && $registro->estado_marcacion === 'Salida' && $this->esPosterior($existingEntrada, $entrada)) {
                         $existingSalida = $existingEntrada;
                         $existingEntrada = null;
                     }
 
-                    $puedeSerSalida = !$sedeOrigen || !($horario['laborable'] ?? false) || $this->marcaEsSalida($ultimaMarca);
+                    $puedeSerSalida = $ultimaMarca && (!$sedeOrigen || !($horario['laborable'] ?? false) || $this->marcaEsSalida($ultimaMarca));
                     if ($puedeSerSalida && $existingEntrada && ! $salida && $entrada && $this->esPosterior($entrada, $existingEntrada)) {
                         $cEntrada = $this->parseTimeStringToCarbon($entrada);
                         $cExisting = $this->parseTimeStringToCarbon($existingEntrada);
@@ -426,6 +460,13 @@ class ImportacionBiometricaService
                     }
                     $sedes = array_intersect_key($sedes, array_flip(array_filter([$mergedEntrada, $mergedSalida])));
 
+                    $estado = match (true) {
+                        !$mergedEntrada && (bool) $mergedSalida => 'Salida',
+                        !$mergedSalida && (bool) $mergedEntrada && $descansos->isNotEmpty() => 'Entrada',
+                        $ultimaMarca !== null => $this->resolverEstadoMarcacionHumano($ultimaMarca),
+                        default => 'Sin estado',
+                    };
+
                     $registro->fill([
                         'empleado_id' => $empleado->id,
                         'importacion_id' => $importacion->id,
@@ -433,8 +474,8 @@ class ImportacionBiometricaService
                         'hora_salida' => $mergedSalida,
                         'sedes_biometricas' => $sedes ?: null,
                         'tipo_verificacion' => $ultimaMarca['verificacion'] ?? $registro->tipo_verificacion ?? null,
-                        'estado_marcacion' => !$mergedEntrada && $mergedSalida ? 'Salida' : ($this->resolverEstadoMarcacionHumano($ultimaMarca) ?: ($registro->estado_marcacion ?? null)),
-                        'evento_biometrico' => $ultimaMarca['evento'] ?? $registro->evento_biometrico ?? null,
+                        'estado_marcacion' => $estado,
+                        'evento_biometrico' => $ultimaMarca['evento'] ?? null,
                         'observacion' => $this->observacionDesdeFila($primeraMarca) ?: $registro->observacion,
                         'created_by' => $registro->exists ? $registro->created_by : $usuario?->id,
                         'updated_by' => $registro->exists ? $usuario?->id : null,
@@ -559,13 +600,12 @@ class ImportacionBiometricaService
         $nombreOriginal = $this->nombreCompletoDesdeFila($datosOriginales);
         $normNombre = $this->normalizarTexto($nombreOriginal);
         $sucursalMarca = $this->resolverSucursal($datosOriginales);
-        $regional = SucursalNormalizer::canonicalKey($sucursalMarca);
-        $sucursalConocida = $regional !== null;
+        $sucursalConocida = $sucursalMarca !== 'Sin sucursal asignada';
         $sedeLaPaz = SucursalNormalizer::sedeLaPaz($sucursalMarca);
-        $codigoRegional = $sucursalConocida && $codigo !== ''
-            ? $regional.':'.$codigo
-            : $codigo;
-        $codigoSede = $sedeLaPaz === 'El Alto' && $codigo !== '' ? 'el-alto:'.$codigo : $codigoRegional;
+        $esElAlto = $sedeLaPaz === 'El Alto';
+        $claveSucursal = SucursalNormalizer::canonicalKey($sucursalMarca) ?? Str::slug($sucursalMarca);
+        $codigoSede = $sucursalConocida && $codigo !== '' && $claveSucursal !== '' ? $claveSucursal.':'.$codigo : $codigo;
+        $codigoRegional = $esElAlto && $codigo !== '' ? 'la-paz:'.$codigo : $codigoSede;
 
         $empleado = null;
 
@@ -573,21 +613,41 @@ class ImportacionBiometricaService
             $empleado = $empleadosByCodigo[$codigoSede] ?? $empleadosByCodigo[$codigoRegional] ?? $empleadosByCodigo[$codigo] ?? null;
         }
 
+        if ($esElAlto && $normNombre === '' && $empleado
+            && $empleado->codigo_biometrico !== $codigoSede
+            && SucursalNormalizer::sedeLaPaz($empleado->sucursal) !== 'El Alto') {
+            return ['empleado' => null, 'created' => false];
+        }
+
+        // Las dos sedes de La Paz pueden completar la jornada de la misma persona.
+        $mismaRegional = fn (Empleado $candidate) => SucursalNormalizer::matches($sucursalMarca, $candidate->sucursal)
+            || ($sedeLaPaz && SucursalNormalizer::sedeLaPaz($candidate->sucursal));
         $codigoDeOtraSucursal = $empleado && $sucursalConocida
-                && SucursalNormalizer::canonicalKey($empleado->sucursal) !== null
-                && !SucursalNormalizer::matches($sucursalMarca, $empleado->sucursal);
+            && filled($empleado->sucursal) && $empleado->sucursal !== 'Sin sucursal asignada'
+            && !$mismaRegional($empleado);
 
         // En la regional compartida, un mismo código local puede pertenecer a dos personas.
         $codigoConOtroNombre = $sedeLaPaz && $empleado && $normNombre !== ''
             && $this->normalizarTexto($empleado->nombre_completo) !== $normNombre;
 
         if (!$empleado || $codigoDeOtraSucursal || $codigoConOtroNombre) {
+            $empleadoPorCodigo = $empleado;
             $candidatos = collect($empleadosByNombre[$normNombre] ?? [])
-                ->filter(fn (Empleado $candidate) => !$sucursalConocida || SucursalNormalizer::matches($sucursalMarca, $candidate->sucursal));
+                ->filter(fn (Empleado $candidate) => !$sucursalConocida || $mismaRegional($candidate));
             $empleado = $candidatos->count() === 1 ? $candidatos->first() : null;
 
             if (!$empleado && $candidatos->count() > 1) {
                 return ['empleado' => null, 'created' => false];
+            }
+
+            // Este reloj también guarda nombres abreviados en un solo campo.
+            if (!$empleado && $esElAlto && $empleadoPorCodigo && $normNombre !== ''
+                && !str_contains($normNombre, ' ')) {
+                if ($codigoDeOtraSucursal || !$this->coincideNombreAbreviado($normNombre, $empleadoPorCodigo)) {
+                    return ['empleado' => null, 'created' => false];
+                }
+
+                $empleado = $empleadoPorCodigo;
             }
         }
 
@@ -635,6 +695,32 @@ class ImportacionBiometricaService
         ];
     }
 
+    private function coincideNombreAbreviado(string $alias, Empleado $empleado): bool
+    {
+        $partes = explode(' ', $this->normalizarTexto($empleado->nombre_completo));
+        if (strlen($partes[0]) >= 4 && str_starts_with($alias, $partes[0])
+            && str_starts_with(implode('', $partes), $alias)) {
+            return true;
+        }
+
+        // El padrón también puede registrar los apellidos antes de los nombres.
+        foreach ($partes as $indice => $parte) {
+            if (strlen($parte) < 4 || !str_starts_with($alias, $parte)) {
+                continue;
+            }
+
+            $resto = substr($alias, strlen($parte));
+            foreach ($partes as $otroIndice => $otraParte) {
+                if ($otroIndice !== $indice && $otraParte !== ''
+                    && ($resto === $otraParte || $resto === $otraParte[0])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function resolverEmpleado(array $mark, ?User $usuario = null): array
     {
         $dummyCodigo = [];
@@ -676,20 +762,22 @@ class ImportacionBiometricaService
             'sucursal',
             'Regional',
             'regional',
-            'Dispositivo',
-            'dispositivo',
-            'Punto del evento',
-            'Punto de evento',
-            'punto del evento',
         ]);
 
-        if ($sucursal) {
-            return $sucursal;
+        if ($sucursal || $punto) {
+            return SucursalNormalizer::canonicalLabel($sucursal ?: $punto);
         }
 
-        $departamento = $this->valorFilaFlexible($fila, ['Departamento', 'departamento', 'Ciudad', 'ciudad']);
+        $departamento = $this->valorFilaFlexible($fila, ['Dispositivo', 'Departamento', 'Ciudad']);
 
-        return $departamento ?: 'Sin sucursal asignada';
+        return SucursalNormalizer::canonicalLabel($departamento) ?: 'Sin sucursal asignada';
+    }
+
+    private function sedeDeMarcacion(array $fila): ?string
+    {
+        $sucursal = $this->resolverSucursal($fila);
+
+        return $sucursal === 'Sin sucursal asignada' ? null : $sucursal;
     }
 
     private function normalizarTexto(string $texto): string
@@ -1423,6 +1511,32 @@ class ImportacionBiometricaService
         return [$primeraHora, null];
     }
 
+    private function esDescansoElAlto(array $marca, array $horario): bool
+    {
+        if (in_array($marca['estado'], ['2', '3'], true)) {
+            return true;
+        }
+
+        $tipo = $marca['estado'].' '.$this->normalizarTexto($marca['evento']);
+        foreach (['descanso', 'almuerzo', 'receso'] as $descanso) {
+            if (str_contains($tipo, $descanso)) {
+                return true;
+            }
+        }
+
+        $desde = $this->parseTimeStringToCarbon(config('asistencia.almuerzo_el_alto.desde'));
+        $hasta = $this->parseTimeStringToCarbon(config('asistencia.almuerzo_el_alto.hasta'));
+        $entrada = $this->parseTimeStringToCarbon($horario['hora_entrada'] ?? null);
+        $salida = $this->parseTimeStringToCarbon($horario['hora_salida'] ?? null);
+        if (!$desde || !$hasta || !$entrada || !$salida || $desde >= $hasta || $entrada >= $desde || $salida <= $hasta) {
+            return false;
+        }
+
+        $hora = $marca['fecha_hora']->format('H:i:s');
+
+        return $hora >= $desde->format('H:i:s') && $hora < $hasta->format('H:i:s');
+    }
+
     private function marcaEsEntrada(array $mark): bool
     {
         $estado = $mark['estado'] ?? '';
@@ -1483,9 +1597,9 @@ class ImportacionBiometricaService
         // En ZKTeco/pyzk:
         // punch: 0 = Entrada, 1 = Salida, 2 = Descanso salida, 3 = Descanso entrada, 4 = Extra entrada, 5 = Extra salida, 255 = Marcacion
         // status/verificacion: 0 = Contraseña, 1 = Huella, 2 = Tarjeta, 15 = Rostro
-        $punchToUse = ($punchRaw !== '' && $punchRaw !== '255') 
-            ? $punchRaw 
-            : ($estadoRaw !== '' && in_array($estadoRaw, ['0', '1', '2', '3', '4', '5'], true) ? $estadoRaw : '');
+        $punchToUse = $punchRaw !== ''
+            ? $punchRaw
+            : (in_array($estadoRaw, ['0', '1', '2', '3', '4', '5'], true) ? $estadoRaw : '');
         
         $verifToUse = $verifRaw !== '' 
             ? $verifRaw 
@@ -1527,6 +1641,7 @@ class ImportacionBiometricaService
             '3' => 'Retorno de descanso',
             '4' => 'Entrada extra',
             '5' => 'Salida extra',
+            '255' => 'Marcacion general',
             default => $status !== '' ? 'Estado '.$status : 'Marcacion general',
         };
     }

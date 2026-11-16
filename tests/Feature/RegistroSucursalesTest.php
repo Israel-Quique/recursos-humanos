@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\BiometricoDispositivo;
 use App\Models\Empleado;
 use App\Models\RegistroAsistencia;
 use App\Models\User;
+use App\Services\AnalisisAsistenciaService;
+use App\Services\ImportacionBiometricaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -139,6 +142,70 @@ class RegistroSucursalesTest extends TestCase
             ->set('sucursalesFechaDia', now()->toDateString())
             ->call('aplicarFiltroSucursales')
             ->assertDontSee('Ana Flores');
+    }
+
+    public function test_el_alto_y_las_sucursales_de_nuevos_relojes_aparecen_en_filtros_y_reportes(): void
+    {
+        $this->actingAs($this->crearUsuarioConPermisoPersonal());
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-02 18:00:00'));
+        config(['biometrico.devices' => []]);
+
+        foreach (['Oficina Central La Paz', 'Sucursal El Alto', 'Agencia Viacha', 'Agencia Viacha'] as $i => $sucursal) {
+            BiometricoDispositivo::query()->create([
+                'department' => 'La Paz',
+                'branch' => $sucursal,
+                'ip' => '192.0.2.'.($i + 1),
+                'is_active' => true,
+            ]);
+        }
+
+        $analisis = app(AnalisisAsistenciaService::class);
+        $this->assertSame(['Agencia Viacha', 'El Alto', 'La Paz'], $analisis->sucursalesParaReportes());
+
+        $campos = [
+            'apellido' => 'Flores',
+            'area' => 'Operaciones',
+            'hora_entrada_programada' => '08:30:00',
+            'fecha_contratacion' => '2026-01-01',
+        ];
+        $ana = Empleado::query()->create(['nombre' => 'Ana', 'sucursal' => 'La Paz', 'codigo_biometrico' => '10'] + $campos);
+        $nora = Empleado::query()->create(['nombre' => 'Nora', 'sucursal' => 'Regional El Alto', 'codigo_biometrico' => '30'] + $campos);
+        $nora->asistencias()->create(['fecha' => '2026-10-01', 'hora_entrada' => '08:30:00']);
+        $importador = app(ImportacionBiometricaService::class);
+
+        foreach ([
+            ['Oficina Central La Paz', 'Ana', '08:30:00', '0'],
+            ['Sucursal El Alto', 'Ana', '16:30:00', '1'],
+            ['Agencia Viacha', 'Rosa', '08:30:00', '0'],
+        ] as [$sucursal, $nombre, $hora, $punch]) {
+            $importador->importarMarcacionesBiometrico(['department' => 'La Paz', 'branch' => $sucursal], [[
+                'codigo' => '10', 'nombre' => $nombre, 'apellido' => 'Flores',
+                'fecha_hora' => '2026-10-02T'.$hora, 'punch' => $punch,
+            ]]);
+        }
+
+        $viacha = Empleado::query()->where('codigo_biometrico', 'agencia-viacha:10')->sole();
+        $this->assertSame('Agencia Viacha', $viacha->sucursal);
+        $this->assertSame(['08:30:00' => 'Agencia Viacha'], $viacha->asistencias()->sole()->sedes_biometricas);
+        $this->assertEquals(['08:30:00' => 'La Paz', '16:30:00' => 'El Alto'], $ana->asistencias()->sole()->sedes_biometricas);
+
+        $this->assertSame(
+            ['Nora Flores'],
+            array_column($analisis->empleadosParaReportes('El Alto'), 'nombre')
+        );
+
+        Livewire::test('personal-page', ['vista' => 'sucursales'])
+            ->call('setSucursalesPeriodoTipo', 'dia')->set('sucursalesFechaDia', '2026-10-02')
+            ->set('sucursalesSucursal', 'El Alto')->call('aplicarFiltroSucursales')
+            ->assertSee('Ana Flores')->assertDontSee('Rosa Flores')
+            ->call('descargarExcelSucursales')->assertFileDownloaded()
+            ->call('descargarPdfSucursales')->assertFileDownloaded()
+            ->set('sucursalesSucursal', 'Agencia Viacha')->call('aplicarFiltroSucursales')
+            ->assertSee('Rosa Flores')->assertDontSee('Ana Flores');
+
+        Livewire::test('calendario-page')
+            ->set('inputSucursal', 'El Alto')->call('aplicarBusqueda')
+            ->assertViewHas('selectedDay', fn (array $dia) => array_column($dia['marcaciones'], 'nombre') === ['Ana Flores']);
     }
 
     public function test_sucursales_descarga_excel_y_pdf(): void

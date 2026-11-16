@@ -53,9 +53,6 @@ class PandoVinculacionReportesTest extends TestCase
             'department' => 'Pando', 'branch' => 'Sucursal Pando',
             'ip' => '172.65.26.43', 'port' => 4370, 'is_active' => true,
         ]);
-        $this->mock(ConexionBiometricoService::class, function ($mock) {
-            $mock->shouldReceive('verificarConexion')->once()->andReturn(['connected' => true]);
-        });
         $this->partialMock(ExtraccionBiometricoZkService::class, function ($mock) {
             $mock->shouldReceive('extraerMarcaciones')->once()->andReturn($this->marcas());
         });

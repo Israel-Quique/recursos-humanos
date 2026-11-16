@@ -6,6 +6,10 @@ return [
     'hora_entrada_tolerancia_extendida' => env('ASISTENCIA_HORA_TOLERANCIA_EXTENDIDA', '09:00:00'),
     'dias_tolerancia_extendida' => [1, 2, 3, 4],
     'horas_jornada' => env('ASISTENCIA_HORAS_JORNADA', 8),
+    'almuerzo_el_alto' => [
+        'desde' => env('ASISTENCIA_EL_ALTO_ALMUERZO_DESDE', '12:00:00'),
+        'hasta' => env('ASISTENCIA_EL_ALTO_ALMUERZO_HASTA', '14:00:00'),
+    ],
     'password_inicial' => env('ASISTENCIA_PASSWORD_INICIAL', 'changeme123'),
 
     // Requerir que los modelos usen created_by en auditoría

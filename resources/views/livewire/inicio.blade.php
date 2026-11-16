@@ -231,6 +231,132 @@
   </section>
 
   {{-- 3. SECCIÓN: MONITOREO DIARIO DE MARCACIONES POR SUCURSAL --}}
+  <section class="surface-card mt-6 !p-4" aria-labelledby="relojes-title">
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div>
+        <h2 id="relojes-title" class="text-base font-bold text-slate-900">Relojes biométricos</h2>
+        <p class="mt-0.5 text-xs text-slate-600">Última hora del equipo · Ajuste programado cada hora</p>
+      </div>
+      @can('importar biometria')
+        @if($relojes->isNotEmpty())
+          <button type="button" wire:click="sincronizarBiometrico" wire:loading.attr="disabled" wire:target="sincronizarBiometrico"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-60">
+            <span wire:loading.remove wire:target="sincronizarBiometrico">Sincronizar marcaciones</span>
+            <span wire:loading wire:target="sincronizarBiometrico">Descargando marcaciones…</span>
+          </button>
+        @endif
+      @endcan
+    </div>
+
+    <ul class="mt-3 grid gap-x-4 border-t border-slate-200 sm:grid-cols-2 xl:grid-cols-3">
+      @forelse($relojes as $id => $reloj)
+        @php
+          $lectura = $reloj['hora'];
+          $horaEquipo = isset($lectura['device_time']) ? \Carbon\Carbon::parse($lectura['device_time']) : null;
+          $horaConsulta = isset($lectura['checked_at']) ? \Carbon\Carbon::parse($lectura['checked_at'])->timezone(config('app.timezone')) : null;
+          [$estado, $colorEstado] = match ($lectura['status'] ?? null) {
+            'adjusted' => ['Hora sincronizada', 'text-emerald-800'],
+            'in_sync' => ['En hora', 'text-emerald-800'],
+            'unverified' => ['Ajuste sin confirmar', 'text-amber-800'],
+            'unavailable' => ['Lectura no disponible', 'text-rose-800'],
+            default => ['Pendiente de lectura', 'text-slate-600'],
+          };
+        @endphp
+        <li wire:key="reloj-{{ $id }}" class="flex min-w-0 items-center justify-between gap-2 border-b border-slate-200 py-2">
+          <div class="min-w-0">
+            <p class="break-words text-sm font-semibold leading-tight text-slate-900">{{ $reloj['sucursal'] }}</p>
+            <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs leading-tight">
+              @if($horaEquipo)
+                <time datetime="{{ $horaEquipo->toIso8601String() }}" class="whitespace-nowrap tabular-nums text-slate-700">
+                  {{ $horaEquipo->format('d/m/Y H:i:s') }}
+                </time>
+              @endif
+              <span class="font-medium {{ $colorEstado }}" @if($horaConsulta) title="Leído el {{ $horaConsulta->format('d/m/Y H:i:s') }}" @endif>{{ $estado }}</span>
+            </div>
+          </div>
+          @can('importar biometria')
+            <button type="button" wire:click="sincronizarHoraTrasReinicio('{{ $id }}')"
+              wire:loading.attr="disabled" wire:target="sincronizarHoraTrasReinicio"
+              aria-label="Ajustar hora de {{ $reloj['sucursal'] }}" title="Ajustar hora de {{ $reloj['sucursal'] }}"
+              class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-60">
+              <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+              </svg>
+            </button>
+          @endcan
+        </li>
+      @empty
+        <li class="py-3 text-sm text-slate-600 sm:col-span-2">Registra un equipo en Importación biométrica para ver su hora aquí.</li>
+      @endforelse
+    </ul>
+
+      @if ($syncResult)
+        <div class="mt-4 pt-4 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              @if ($syncResult['complete'] ?? false)
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  Sincronización completada
+                </span>
+              @elseif ($syncResult['success'] ?? false)
+                <span class="text-xs font-semibold text-amber-800">Sincronización con incidencias</span>
+              @else
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                  Error de sincronización
+                </span>
+              @endif
+              <span class="text-xs text-slate-400">• {{ $syncResult['timestamp'] ?? '' }}</span>
+            </div>
+
+            <button type="button" wire:click="cerrarResumenSync" class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
+              Cerrar
+            </button>
+          </div>
+
+          @if ($syncResult['success'] ?? false)
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-slate-800">{{ $syncResult['sincronizados'] }}/{{ $syncResult['total_devices'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Equipos conectados</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-amber-600">{{ $syncResult['total_importados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Marcaciones leídas</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-emerald-600">{{ $syncResult['total_actualizados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Salidas/Entradas actualizadas</div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+                <div class="text-lg font-black text-blue-600">{{ $syncResult['total_generados'] }}</div>
+                <div class="text-[11px] font-medium text-slate-500">Registros nuevos</div>
+              </div>
+            </div>
+
+            @if (!empty($syncResult['detalles']))
+              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                @foreach ($syncResult['detalles'] as $detalle)
+                  <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-1.5 rounded-lg text-xs {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : ($detalle['status'] === 'sin-cambios' ? 'bg-slate-50 text-slate-700 border border-slate-100' : 'bg-slate-50 text-rose-800 border border-slate-100') }}">
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 rounded-full {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-500' : ($detalle['status'] === 'sin-cambios' ? 'bg-blue-400' : 'bg-slate-300') }}"></span>
+                      <span class="font-bold">{{ $detalle['device'] }}</span>
+                    </div>
+                    <span class="min-w-0 break-words text-xs">{{ $detalle['message'] }}</span>
+                  </div>
+                @endforeach
+              </div>
+            @endif
+          @else
+            <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800">
+              {{ $syncResult['error'] ?? 'Ocurrió un error inesperado.' }}
+            </div>
+          @endif
+        </div>
+      @endif
+  </section>
+
   <section class="mt-6">
     <article class="surface-card !p-6">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
@@ -319,7 +445,7 @@
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h4 class="text-sm font-bold text-slate-800">Otras herramientas operativas</h4>
-          <p class="text-xs text-slate-500">Accede rápidamente a la configuración general o sincroniza con el biométrico físico</p>
+          <p class="text-xs text-slate-500">Calendario, horarios e incidencias</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
@@ -333,38 +459,6 @@
             </svg>
             <span>Calendario laboral</span>
           </a>
-
-          @can('importar biometria')
-            <div class="inline-flex items-center gap-2">
-              <button type="button" wire:click="sincronizarBiometrico(true)" wire:loading.attr="disabled"
-                wire:target="sincronizarBiometrico"
-                title="Conecta con los relojes biométricos, extrae todas las marcaciones recientes y actualiza las entradas y salidas sin perder fidelidad"
-                class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-900 hover:bg-amber-500/20 hover:border-amber-400 transition shadow-xs disabled:opacity-60 cursor-pointer">
-                <svg wire:loading.remove wire:target="sincronizarBiometrico" class="h-4 w-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                  <path d="M21 3v6h-6" />
-                </svg>
-                <svg wire:loading wire:target="sincronizarBiometrico" class="h-4 w-4 text-amber-700 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="2" x2="12" y2="6" />
-                  <line x1="12" y1="18" x2="12" y2="22" />
-                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-                  <line x1="2" y1="12" x2="6" y2="12" />
-                  <line x1="18" y1="12" x2="22" y2="12" />
-                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-                </svg>
-                <span wire:loading.remove wire:target="sincronizarBiometrico">Sincronizar biométrico</span>
-                <span wire:loading wire:target="sincronizarBiometrico">Conectando y sincronizando…</span>
-              </button>
-
-              @if ($lastSyncTime)
-                <span class="hidden md:inline-block text-[11px] text-slate-400 font-medium">
-                  Sincronizado: {{ $lastSyncTime }}
-                </span>
-              @endif
-            </div>
-          @endcan
 
           @can('gestionar personal')
             <a wire:navigate href="{{ route('horarios') }}"
@@ -388,70 +482,6 @@
         </div>
       </div>
 
-      {{-- DETALLES DE SINCRONIZACIÓN BAJO DEMANDA --}}
-      @if ($syncResult)
-        <div class="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              @if ($syncResult['success'] ?? false)
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  Sincronización completada
-                </span>
-              @else
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                  <span class="h-2 w-2 rounded-full bg-rose-500"></span>
-                  Error de sincronización
-                </span>
-              @endif
-              <span class="text-xs text-slate-400">• {{ $syncResult['timestamp'] ?? '' }}</span>
-            </div>
-
-            <button type="button" wire:click="cerrarResumenSync" class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
-              Cerrar
-            </button>
-          </div>
-
-          @if ($syncResult['success'] ?? false)
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
-                <div class="text-lg font-black text-slate-800">{{ $syncResult['sincronizados'] }}/{{ $syncResult['total_devices'] }}</div>
-                <div class="text-[11px] font-medium text-slate-500">Equipos conectados</div>
-              </div>
-              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
-                <div class="text-lg font-black text-amber-600">{{ $syncResult['total_importados'] }}</div>
-                <div class="text-[11px] font-medium text-slate-500">Marcaciones leídas</div>
-              </div>
-              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
-                <div class="text-lg font-black text-emerald-600">{{ $syncResult['total_actualizados'] }}</div>
-                <div class="text-[11px] font-medium text-slate-500">Salidas/Entradas actualizadas</div>
-              </div>
-              <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
-                <div class="text-lg font-black text-blue-600">{{ $syncResult['total_generados'] }}</div>
-                <div class="text-[11px] font-medium text-slate-500">Registros nuevos</div>
-              </div>
-            </div>
-
-            @if (!empty($syncResult['detalles']))
-              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                @foreach ($syncResult['detalles'] as $detalle)
-                  <div class="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : ($detalle['status'] === 'sin-cambios' ? 'bg-slate-50 text-slate-700 border border-slate-100' : 'bg-slate-50 text-slate-400 border border-slate-100') }}">
-                    <div class="flex items-center gap-2">
-                      <span class="h-2 w-2 rounded-full {{ $detalle['status'] === 'sincronizado' ? 'bg-emerald-500' : ($detalle['status'] === 'sin-cambios' ? 'bg-blue-400' : 'bg-slate-300') }}"></span>
-                      <span class="font-bold">{{ $detalle['device'] }}</span>
-                    </div>
-                    <span class="text-[11px] truncate max-w-xs">{{ $detalle['message'] }}</span>
-                  </div>
-                @endforeach
-              </div>
-            @endif
-          @else
-            <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800">
-              {{ $syncResult['error'] ?? 'Ocurrió un error inesperado.' }}
-            </div>
-          @endif
-        </div>
-      @endif
     </div>
   </section>
 

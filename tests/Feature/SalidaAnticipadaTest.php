@@ -10,6 +10,8 @@ use App\Models\PermisoLaboral;
 use App\Models\RegistroAsistencia;
 use App\Models\User;
 use App\Services\AnalisisAsistenciaService;
+use App\Services\ExtraccionBiometricoZkService;
+use App\Services\ImportacionBiometricaService;
 use App\Services\PlanillaRefrigerioService;
 use App\Services\ProgramacionLaboralService;
 use Carbon\Carbon;
@@ -102,6 +104,69 @@ class SalidaAnticipadaTest extends TestCase
         $this->registrar('18:00:00', '07:30:00');
         $this->buscar()->assertSet('marcacionesStats.total_omisiones', 0)->assertSee('Completo');
         $this->assertSame('a', $this->planilla()['dias']['2026-10-29']);
+    }
+
+    public function test_el_alto_trata_almuerzo_como_descanso_en_archivo_y_sincronizacion(): void
+    {
+        $this->empleado->update(['sucursal' => 'El Alto']);
+        HorarioRegional::query()->create(['sucursal' => 'El Alto', 'hora_entrada' => '08:30:00', 'hora_salida' => '16:30:00']);
+        $equipo = ['department' => 'La Paz', 'branch' => 'Sucursal El Alto'];
+        $importador = app(ImportacionBiometricaService::class);
+        $marca = fn (string $hora, string $punch, string $estado = '') => [
+            'codigo' => $this->empleado->codigo_biometrico,
+            'nombre' => 'Ana',
+            'apellido' => 'Perez',
+            'fecha_hora' => '2026-10-29T'.$hora,
+            'punch' => $punch,
+            'estado' => $estado,
+        ];
+
+        $importador->importarMarcacionesBiometrico($equipo, [$marca('12:17:30', '1'), $marca('13:22:00', '0')]);
+        $this->assertSame(0, $this->empleado->asistencias()->count());
+        $importador->importarMarcacionesBiometrico($equipo, [$marca('08:30:00', '0')]);
+        $registro = $this->empleado->asistencias()->sole();
+        $registro->update([
+            'hora_salida' => '12:17:30',
+            'estado_marcacion' => 'Salida',
+            'sedes_biometricas' => ['08:30:00' => 'El Alto', '12:17:30' => 'El Alto'],
+        ]);
+
+        $archivo = app(ExtraccionBiometricoZkService::class)->exportarMarcacionesComoCsv($equipo, [
+            $marca('08:30:00', '0'), $marca('12:17:30', '1'), $marca('13:22:00', '0'),
+        ]);
+        try {
+            $importador->importarArchivo($archivo, basename($archivo));
+        } finally {
+            unlink($archivo);
+        }
+        $this->assertSame('08:30:00', $registro->fresh()->hora_entrada);
+        $this->assertNull($registro->fresh()->hora_salida);
+        $this->buscar()->assertSet('marcacionesStats.lista_omisiones.0.tipo_omision', 'Falta marcar salida');
+
+        // La verificación 2 de una marca general no identifica un descanso.
+        $importador->importarMarcacionesBiometrico($equipo, [$marca('15:45:00', '255', '2')]);
+        $this->assertSame('15:45:00', $registro->fresh()->hora_salida);
+        $this->buscar()->assertSet('marcacionesStats.lista_omisiones.0.tipo_omision', 'Salida anticipada');
+
+        $importador->importarMarcacionesBiometrico($equipo, [$marca('16:30:00', '1'), $marca('17:00:00', '3')]);
+        $this->assertSame('16:30:00', $registro->fresh()->hora_salida);
+        $this->buscar()->assertSet('marcacionesStats.total_omisiones', 0);
+    }
+
+    public function test_el_alto_conserva_salida_de_una_jornada_especial_al_mediodia(): void
+    {
+        $this->empleado->update(['sucursal' => 'El Alto']);
+        FechaEspecialLaboral::query()->create([
+            'fecha' => '2026-10-29', 'sucursal' => 'El Alto', 'nombre' => 'Jornada reducida',
+            'tipo' => 'horario_especial', 'hora_salida' => '13:00:00',
+        ]);
+        app(ImportacionBiometricaService::class)->importarMarcacionesBiometrico(['branch' => 'El Alto'], [
+            ['codigo' => $this->empleado->codigo_biometrico, 'fecha_hora' => '2026-10-29T08:30:00', 'punch' => '0'],
+            ['codigo' => $this->empleado->codigo_biometrico, 'fecha_hora' => '2026-10-29T13:00:00', 'punch' => '1'],
+        ]);
+
+        $this->assertSame('13:00:00', $this->empleado->asistencias()->sole()->hora_salida);
+        $this->buscar()->assertSet('marcacionesStats.total_omisiones', 0);
     }
 
     public function test_horario_especial_de_sucursal_tiene_prioridad_y_no_penaliza_salida_autorizada(): void

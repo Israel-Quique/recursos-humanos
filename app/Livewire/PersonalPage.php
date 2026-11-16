@@ -2400,15 +2400,7 @@ class PersonalPage extends Component
         $searchOperator = $this->caseInsensitiveLikeOperator();
 
         // Opciones de sucursales
-        $sucursalesLista = SucursalNormalizer::optionsFromValues(
-            Empleado::query()
-                ->select('sucursal')
-                ->whereNotNull('sucursal')
-                ->where('sucursal', '!=', '')
-                ->distinct()
-                ->orderBy('sucursal')
-                ->pluck('sucursal')
-        );
+        $sucursalesLista = app(AnalisisAsistenciaService::class)->sucursalesParaReportes();
 
         $query = RegistroAsistencia::query()
             ->with(['empleado'])
@@ -2437,14 +2429,8 @@ class PersonalPage extends Component
         }
 
         // Filtro por sucursal
-        if (filled($this->appliedSucursalesSucursal) && $this->appliedSucursalesSucursal !== 'todas') {
-            $query->whereHas('empleado', function ($q) {
-                SucursalNormalizer::applyFilter($q, 'sucursal', $this->appliedSucursalesSucursal);
-            });
-            $sucursalLabel = SucursalNormalizer::canonicalLabel($this->appliedSucursalesSucursal);
-        } else {
-            $sucursalLabel = 'Todas las sucursales';
-        }
+        $sucursalFiltro = $this->appliedSucursalesSucursal !== 'todas' ? trim($this->appliedSucursalesSucursal) : '';
+        $sucursalLabel = SucursalNormalizer::canonicalLabel($sucursalFiltro) ?: 'Todas las sucursales';
 
         // Filtro por texto (código, nombre, apellido)
         if (filled($this->appliedSucursalesSearch)) {
@@ -2475,6 +2461,7 @@ class PersonalPage extends Component
             return [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()];
         })();
         $permisosSucursales = \App\Models\PermisoLaboral::query()
+            ->with('empleado')
             ->where('estado', 'aprobado')
             ->whereDate('fecha_inicio', '<=', $sucPeriodoEnd->toDateString())
             ->whereDate('fecha_fin', '>=', $sucPeriodoStart->toDateString())
@@ -2482,7 +2469,10 @@ class PersonalPage extends Component
             ->groupBy('empleado_id');
 
         // Transformación y cálculo
-        $rows = $todosLosRegistros->map(function (RegistroAsistencia $registro) use ($progService, $permisosSucursales) {
+        $registrosFiltrados = $todosLosRegistros->when(filled($sucursalFiltro), fn ($registros) =>
+            $registros->filter(fn (RegistroAsistencia $registro) =>
+                collect($registro->sucursalesDeMarcacion())->contains(fn ($sede) => SucursalNormalizer::matches($sede, $sucursalFiltro))));
+        $rows = $registrosFiltrados->map(function (RegistroAsistencia $registro) use ($progService, $permisosSucursales) {
             $marcacion = $this->normalizarMarcacionAsistencia($registro);
             $entradaVal = filled($marcacion['entrada']) ? substr($marcacion['entrada'], 0, 5) : null;
             $salidaVal = filled($marcacion['salida']) ? substr($marcacion['salida'], 0, 5) : null;
@@ -2599,7 +2589,7 @@ class PersonalPage extends Component
             }
 
             $horarioProgLabel = substr((string) $horaEntradaProg, 0, 5) . ' - ' . substr((string) $horaSalidaProg, 0, 5);
-            $sucursalNombre = $empleado?->sucursal ? SucursalNormalizer::canonicalLabel($empleado->sucursal) : 'Sin Sucursal Asignada';
+            $sucursalNombre = implode(' / ', $registro->sucursalesDeMarcacion()) ?: 'Sin Sucursal Asignada';
 
             return (object) [
                 'id' => $registro->id,
@@ -2613,6 +2603,8 @@ class PersonalPage extends Component
                 'horario_programado' => $horarioProgLabel,
                 'hora_entrada' => $entradaVal ?: '--:--',
                 'hora_salida' => $salidaVal ?: '--:--',
+                'sede_entrada' => $registro->sedes_biometricas[$marcacion['entrada']] ?? null,
+                'sede_salida' => $registro->sedes_biometricas[$marcacion['salida']] ?? null,
                 'horas_trabajadas' => $horasTrabajadas,
                 'minutos_retraso' => $minutosRetraso,
                 'retraso_formateado' => $esFeriado ? '—' : ($permisoAutorizado ? 'Permiso' : ($tieneEntrada ? ($minutosRetraso > 0 ? "+{$minutosRetraso} min" : 'Puntual') : '--')),
@@ -2635,18 +2627,16 @@ class PersonalPage extends Component
         // Integrar permisos aprobados sin marcación (Baja médica, etc.) en el reporte de sucursales
         if ($this->appliedSucursalesEstadoFiltro !== 'puntual') {
             $fechasExistentesPorEmpSuc = [];
-            foreach ($rows as $r) {
-                $eId = $r->empleado_id ?? null;
-                $fStr = $r->fecha instanceof Carbon ? $r->fecha->toDateString() : Carbon::parse($r->fecha)->toDateString();
-                if ($eId) {
-                    $fechasExistentesPorEmpSuc[$eId][$fStr] = true;
-                }
+            foreach ($todosLosRegistros as $registro) {
+                $fechasExistentesPorEmpSuc[$registro->empleado_id][$registro->fecha->toDateString()] = true;
             }
 
             $extraSucRows = collect();
             foreach ($permisosSucursales as $empId => $listaPerms) {
-                $emp = Empleado::find($empId);
-                if (!$emp) continue;
+                $emp = $listaPerms->first()->empleado;
+                if (!$emp || (filled($sucursalFiltro) && !SucursalNormalizer::matches($emp->sucursal, $sucursalFiltro))) continue;
+                if (filled($this->appliedSucursalesSearch) &&
+                    !str_contains(mb_strtolower($emp->nombre_completo.' '.$emp->codigo_biometrico), mb_strtolower($this->appliedSucursalesSearch))) continue;
                 $sucursalNombre = $emp->sucursal ? SucursalNormalizer::canonicalLabel($emp->sucursal) : 'Sin Sucursal Asignada';
                 $codigoBio = $emp->codigo_biometrico ?: (string) $emp->id;
 
@@ -2865,8 +2855,8 @@ class PersonalPage extends Component
 
                 $sheet->setCellValue("A{$currentRow}", $row->fecha_formateada);
                 $sheet->setCellValue("B{$currentRow}", $personalTexto);
-                $sheet->setCellValue("C{$currentRow}", $row->hora_entrada);
-                $sheet->setCellValue("D{$currentRow}", $row->hora_salida);
+                $sheet->setCellValue("C{$currentRow}", $row->hora_entrada . (isset($row->sede_entrada) ? "\n" . $row->sede_entrada : ''));
+                $sheet->setCellValue("D{$currentRow}", $row->hora_salida . (isset($row->sede_salida) ? "\n" . $row->sede_salida : ''));
                 $sheet->setCellValue("E{$currentRow}", $row->horas_trabajadas);
                 $sheet->setCellValue("F{$currentRow}", $row->retraso_formateado);
                 $sheet->setCellValue("G{$currentRow}", $row->omision);
@@ -2876,6 +2866,7 @@ class PersonalPage extends Component
                 $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
                 $sheet->getStyle("B{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true)->setIndent(1);
                 $sheet->getStyle("C{$currentRow}:H{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle("C{$currentRow}:D{$currentRow}")->getAlignment()->setWrapText(true);
 
                 // Resaltado de Falta (Notorio)
                 if ($row->es_falta) {
@@ -2910,8 +2901,8 @@ class PersonalPage extends Component
         // Anchos de columna optimizados
         $sheet->getColumnDimension('A')->setWidth(14);
         $sheet->getColumnDimension('B')->setWidth(34);
-        $sheet->getColumnDimension('C')->setWidth(14);
-        $sheet->getColumnDimension('D')->setWidth(14);
+        $sheet->getColumnDimension('C')->setWidth(24);
+        $sheet->getColumnDimension('D')->setWidth(24);
         $sheet->getColumnDimension('E')->setWidth(14);
         $sheet->getColumnDimension('F')->setWidth(18);
         $sheet->getColumnDimension('G')->setWidth(16);
@@ -2969,9 +2960,7 @@ class PersonalPage extends Component
 
         // ─── Vista Control / Marcaciones por Sucursal ───
         if ($this->vista === 'control') {
-            $sucursales = SucursalNormalizer::optionsFromValues(Empleado::query()
-                ->select('sucursal')->whereNotNull('sucursal')->where('sucursal', '!=', '')
-                ->distinct()->orderBy('sucursal')->pluck('sucursal'));
+            $sucursales = app(AnalisisAsistenciaService::class)->sucursalesParaReportes();
 
             $resumenSucursalesConteo = Empleado::query()
                 ->activosLaboralmente()
@@ -3116,13 +3105,7 @@ class PersonalPage extends Component
             SucursalNormalizer::applyFilter($empleadosBaseQuery, 'sucursal', $this->sucursalFiltro);
         }
 
-        $sucursales = SucursalNormalizer::optionsFromValues(Empleado::query()
-            ->select('sucursal')
-            ->whereNotNull('sucursal')
-            ->where('sucursal', '!=', '')
-            ->distinct()
-            ->orderBy('sucursal')
-            ->pluck('sucursal'));
+        $sucursales = app(AnalisisAsistenciaService::class)->sucursalesParaReportes();
 
         if ($this->vista === 'inactivos') {
             $empleadosBaseQuery->inactivosLaboralmente();

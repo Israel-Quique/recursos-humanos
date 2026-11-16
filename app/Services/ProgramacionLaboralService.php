@@ -40,6 +40,10 @@ class ProgramacionLaboralService
             return $this->cacheFechas[$key] = $branchMatch;
         }
 
+        if ($scope === 'El Alto') {
+            return $this->cacheFechas[$key] = $this->obtenerFechaEspecial($normalizedDate, 'La Paz');
+        }
+
         return $this->cacheFechas[$key] = $fechaEspeciales->first(function (FechaEspecialLaboral $fechaEspecial) {
             return $this->normalizarSucursal($fechaEspecial->sucursal) === 'TODAS';
         });
@@ -202,11 +206,14 @@ class ProgramacionLaboralService
             return $this->cacheHorarios[$cacheKey];
         }
 
-        return $this->cacheHorarios[$cacheKey] = HorarioRegional::query()
+        $horario = HorarioRegional::query()
             ->where(function ($query) use ($key) {
                 SucursalNormalizer::applyFilter($query, 'sucursal', $key);
             })
             ->first();
+
+        return $this->cacheHorarios[$cacheKey] = $horario
+            ?? ($cacheKey === 'El Alto' ? $this->obtenerHorarioRegional('La Paz') : null);
     }
 
     public function horarioRegionalFormateado(?string $sucursal): string

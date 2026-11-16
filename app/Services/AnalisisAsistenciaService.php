@@ -358,12 +358,15 @@ class AnalisisAsistenciaService
                     $detalle = 'Omisión por salida anticipada';
                 }
 
+                $sedes = $registro->sucursalesDeMarcacion();
+
                 return [
                     'empleado_id' => $registro->empleado_id,
                     'nombre' => $registro->empleado?->nombre_completo,
                     'carnet' => $registro->empleado?->numero_documento,
                     'cargo' => $registro->empleado?->cargo ?: 'Personal',
-                    'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                    'sucursal' => implode(' / ', $sedes) ?: 'Sin sucursal',
+                    'sucursales' => $sedes,
                     'entrada' => $marcacion['entrada'] ? substr($marcacion['entrada'], 0, 5) : '--:--',
                     'salida' => $marcacion['salida'] ? substr($marcacion['salida'], 0, 5) : '--:--',
                     'detalle' => $detalle,
@@ -402,6 +405,7 @@ class AnalisisAsistenciaService
             }
 
             $codigoBiometrico = $registro->empleado?->codigo_biometrico ?: (string) $registro->empleado?->id;
+            $sedes = $registro->sucursalesDeMarcacion();
 
             return [
                 'empleado_id' => $registro->empleado_id,
@@ -413,7 +417,8 @@ class AnalisisAsistenciaService
                 'salida' => $salidaVal ?: '--:--',
                 'estado' => $estado,
                 'tipo_estado' => $tipoEstado,
-                'sucursal' => $registro->empleado?->sucursal ?: 'Sin sucursal',
+                'sucursal' => implode(' / ', $sedes) ?: 'Sin sucursal',
+                'sucursales' => $sedes,
                 'minutos_retraso' => $tienePermiso ? 0 : ($event['minutes_late'] ?? 0),
                 'es_tardanza' => $tienePermiso ? false : (($event['minutes_late'] ?? 0) > 0),
                 'tone' => $tienePermiso ? null : ($event['tone'] ?? null),
@@ -1233,7 +1238,7 @@ class AnalisisAsistenciaService
 
         $empleados = $empleadosQuery->orderBy('sucursal')->orderBy('apellido')->orderBy('nombre')->get();
 
-        $ordenRegionales = ['La Paz', 'Cochabamba', 'Santa Cruz', 'Oruro', 'Potosi', 'Potosí', 'Chuquisaca', 'Tarija', 'Beni', 'Pando'];
+        $ordenRegionales = ['La Paz', 'El Alto', 'Cochabamba', 'Santa Cruz', 'Oruro', 'Potosi', 'Potosí', 'Chuquisaca', 'Tarija', 'Beni', 'Pando'];
 
         $sucursalesAgrupadas = $empleados->groupBy(function (Empleado $e) {
             return SucursalNormalizer::normalize($e->sucursal) ?: 'Oficina Central';
@@ -1717,13 +1722,19 @@ class AnalisisAsistenciaService
 
     public function sucursalesParaReportes(): array
     {
-        return SucursalNormalizer::optionsFromValues(Empleado::query()
+        $sucursales = Empleado::query()
             ->whereNotNull('sucursal')
             ->where('sucursal', '!=', '')
-            ->orderBy('sucursal')
             ->distinct()
-            ->pluck('sucursal')
-            ->all());
+            ->pluck('sucursal');
+        $sucursalesDeRelojes = collect(app(ConexionBiometricoService::class)->dispositivosConfigurados())
+            ->pluck('branch')
+            ->reject(fn ($sucursal) => in_array($sucursal, ['Sin sucursal', 'Biometrico principal'], true));
+
+        return collect(SucursalNormalizer::optionsFromValues($sucursalesDeRelojes->merge($sucursales)))
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
     }
 
     public function reportesAntiguedad(?string $branch = null, int $limit = 10): array
@@ -2707,6 +2718,10 @@ class AnalisisAsistenciaService
 
     private function departamentoDesdeTexto(?string $texto): ?string
     {
+        if (SucursalNormalizer::canonicalKey($texto) === 'el-alto') {
+            return 'la-paz';
+        }
+
         $normalized = str($texto)
             ->ascii()
             ->lower()
@@ -2817,8 +2832,6 @@ class AnalisisAsistenciaService
 
     private function esSucursalElAlto(?string $texto): bool
     {
-        $normalized = $this->normalizarTextoDepartamento((string) $texto);
-
-        return str_contains($normalized, 'el alto');
+        return SucursalNormalizer::canonicalKey($texto) === 'el-alto';
     }
 }

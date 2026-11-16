@@ -7,6 +7,7 @@ use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -75,14 +76,44 @@ class ExtraccionBiometricoZkService
         return $this->exportarFilasComoCsv($device, $rows);
     }
 
-    public function extraerMarcaciones(array $device, ?int $timeout = null): array
+    public function extraerMarcaciones(array $device, ?int $timeout = null, bool $revisarHoraProgramada = false): array
     {
-        $payload = $this->ejecutarExtraccion($device, false, $timeout);
+        $payload = $this->ejecutarExtraccion($device, false, $timeout, revisarHoraProgramada: $revisarHoraProgramada);
 
         return array_values(array_filter($payload['rows'] ?? [], fn($row) => is_array($row)));
     }
 
-    private function ejecutarExtraccion(array $device, bool $probeOnly, ?int $requestedTimeout = null): array
+    public function sincronizarReloj(array $device): void
+    {
+        $this->ejecutarExtraccion($device, true, null, true);
+    }
+
+    public function estadoReloj(array $device): array
+    {
+        return Cache::get($this->claveEstadoReloj($device), []);
+    }
+
+    private function claveEstadoReloj(array $device): string
+    {
+        return 'biometrico:hora:'.hash('sha256', ($device['ip'] ?? '').':'.($device['port'] ?? 4370));
+    }
+
+    private function guardarEstadoReloj(array $device, array $state): void
+    {
+        try {
+            Cache::forever($this->claveEstadoReloj($device), array_replace($this->estadoReloj($device), $state));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function ejecutarExtraccion(
+        array $device,
+        bool $probeOnly,
+        ?int $requestedTimeout = null,
+        bool $sincronizarHora = false,
+        bool $revisarHoraProgramada = false,
+    ): array
     {
         $script = base_path('scripts/extract_zkteco_attendance.py');
 
@@ -91,6 +122,7 @@ class ExtraccionBiometricoZkService
         }
 
         $outputPath = storage_path('app/biometrico_extract_' . uniqid() . '.json');
+        $clockPath = substr($outputPath, 0, -5).'.clock.json';
         $password = trim((string) ($device['communication_password'] ?? config('biometrico.password', '')));
         $timeout = $probeOnly
             ? 20
@@ -104,6 +136,8 @@ class ExtraccionBiometricoZkService
         }
 
         try {
+            $sincronizarHora = $sincronizarHora || ($revisarHoraProgramada
+                && (int) ($this->estadoReloj($device)['attempted_at'] ?? 0) <= now()->subHour()->timestamp);
             $process = new Process([
                 $this->pythonBinary(),
                 $script,
@@ -120,13 +154,28 @@ class ExtraccionBiometricoZkService
                 '--password',
                 $password !== '' ? $password : '0',
                 ...($probeOnly ? ['--probe-only'] : []),
+                ...($sincronizarHora ? ['--clock-offset', (string) now()->offset] : []),
             ], base_path(), $this->pythonProcessEnvironment());
 
             $process->setTimeout($timeout + 15);
+            $payload = null;
+            $descargaLista = false;
+            $salidaProceso = '';
+            $limitarAjuste = function (string $tipo, string $fragmento) use ($process, &$descargaLista, &$salidaProceso): void {
+                if ($tipo !== Process::OUT || $descargaLista) {
+                    return;
+                }
+
+                $salidaProceso .= $fragmento;
+                if (str_contains($salidaProceso, "MARCACIONES_LISTAS")) {
+                    $descargaLista = true;
+                    $process->setTimeout(min($process->getTimeout(), microtime(true) - $process->getStartTime() + 7));
+                }
+            };
+
             try {
-                $process->run();
+                $process->run($sincronizarHora && !$probeOnly ? $limitarAjuste : null);
             } catch (ProcessTimedOutException) {
-                @unlink($outputPath);
                 $detalle = trim($process->getErrorOutput());
                 Log::warning('Tiempo de espera agotado al extraer biometrico', [
                     'device_ip' => $device['ip'] ?? null,
@@ -134,10 +183,16 @@ class ExtraccionBiometricoZkService
                     'timeout' => $timeout,
                     'detalle' => $detalle,
                 ]);
-                throw new \RuntimeException(
-                    'La comunicacion con el biometrico supero el tiempo limite de ' . $timeout . ' segundos.'
-                    . ($detalle !== '' ? ' Ultimo progreso: ' . $detalle : ' No se recibio progreso del extractor Python.')
-                );
+                if ($sincronizarHora && !$probeOnly && is_file($outputPath)) {
+                    $payload = json_decode((string) file_get_contents($outputPath), true);
+                    $descargaLista = ($payload['ok'] ?? false) === true;
+                }
+                if (!$descargaLista) {
+                    throw new \RuntimeException(
+                        'La comunicacion con el biometrico supero el tiempo limite de ' . $timeout . ' segundos.'
+                        . ($detalle !== '' ? ' Ultimo progreso: ' . $detalle : ' No se recibio progreso del extractor Python.')
+                    );
+                }
             }
 
             Log::info('Extraccion biometrico Python process ejecutado', [
@@ -151,7 +206,7 @@ class ExtraccionBiometricoZkService
                 'error_output' => trim($process->getErrorOutput()),
             ]);
 
-            if (!$process->isSuccessful()) {
+            if (!$process->isSuccessful() && !$descargaLista) {
                 $failurePayload = file_exists($outputPath)
                     ? json_decode((string) file_get_contents($outputPath), true)
                     : null;
@@ -168,8 +223,7 @@ class ExtraccionBiometricoZkService
                 throw new \RuntimeException('La extraccion no genero un archivo temporal con marcaciones.');
             }
 
-            $payload = json_decode((string) file_get_contents($outputPath), true);
-            @unlink($outputPath);
+            $payload ??= json_decode((string) file_get_contents($outputPath), true);
 
             if (!is_array($payload)) {
                 throw new \RuntimeException('La respuesta del extractor ZKTeco no es valida.');
@@ -179,10 +233,23 @@ class ExtraccionBiometricoZkService
                 throw new \RuntimeException((string) ($payload['message'] ?? 'El biometrico rechazo la extraccion.'));
             }
 
+            if ($sincronizarHora) {
+                $clock = is_file($clockPath) ? json_decode((string) file_get_contents($clockPath), true) : null;
+                $this->guardarEstadoReloj($device, (is_array($clock) ? $clock : ['status' => 'unavailable']) + [
+                    'attempted_at' => now()->timestamp,
+                ]);
+            }
+
             return $payload;
+        } catch (\Throwable $exception) {
+            if ($sincronizarHora) {
+                $this->guardarEstadoReloj($device, ['status' => 'unavailable']);
+            }
+            throw $exception;
         } finally {
             optional($lock)->release();
             @unlink($outputPath);
+            @unlink($clockPath);
         }
     }
 
@@ -234,7 +301,8 @@ class ExtraccionBiometricoZkService
 
     private function traducirEstadoHumano(array $row): string
     {
-        $status = (string) ($row['estado'] ?? '');
+        $punch = trim((string) ($row['punch'] ?? ''));
+        $status = $punch !== '' ? $punch : (string) ($row['estado'] ?? '');
 
         return match ($status) {
             '0' => 'Entrada',
@@ -243,6 +311,7 @@ class ExtraccionBiometricoZkService
             '3' => 'Retorno de descanso',
             '4' => 'Entrada extra',
             '5' => 'Salida extra',
+            '255' => 'Marcacion general',
             default => $status !== '' ? 'Estado ' . $status : 'Sin estado',
         };
     }
@@ -322,14 +391,22 @@ class ExtraccionBiometricoZkService
             throw new \RuntimeException('No se pudo crear la carpeta de exportaciones del biometrico.');
         }
 
-        $timestamp = now()->format('Ymd_His');
+        $timestamp = now()->format('Ymd_His').'_'.bin2hex(random_bytes(4));
         $safeBranch = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($device['branch'] ?? 'biometrico')) ?: 'biometrico';
         $filePath = $directory . DIRECTORY_SEPARATOR . "marcaciones_{$safeBranch}_{$timestamp}.csv";
         $handle = fopen($filePath, 'wb');
+        $sucursal = $device['branch'] ?? $device['department'] ?? '';
+        $regional = SucursalNormalizer::canonicalKey($sucursal) ?? Str::slug($sucursal);
+        $esElAlto = SucursalNormalizer::sedeLaPaz($sucursal) === 'El Alto';
         $employeesByCode = Empleado::query()
             ->whereNotNull('codigo_biometrico')
-            ->when(filled($device['branch'] ?? $device['department'] ?? null), fn($query) =>
-                SucursalNormalizer::applyFilter($query, 'sucursal', $device['branch'] ?? $device['department']))
+            ->when(filled($sucursal), fn($query) =>
+                $query->where(function ($query) use ($sucursal, $esElAlto) {
+                    SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
+                    if ($esElAlto) {
+                        $query->orWhere('codigo_biometrico', 'like', 'el-alto:%');
+                    }
+                }))
             ->get()
             ->keyBy(fn(Empleado $empleado) => trim((string) $empleado->codigo_biometrico));
 
@@ -343,8 +420,13 @@ class ExtraccionBiometricoZkService
         foreach ($rows as $row) {
             $fechaHora = Carbon::parse((string) ($row['fecha_hora'] ?? now()->toIso8601String()));
             $codigo = trim((string) ($row['codigo'] ?? ''));
-            $regional = SucursalNormalizer::canonicalKey($device['branch'] ?? $device['department'] ?? '');
-            $empleado = $employeesByCode->get($regional.':'.$codigo) ?? $employeesByCode->get($codigo);
+            $empleado = $employeesByCode->get($codigo);
+            if ($esElAlto) {
+                $empleado = $employeesByCode->get('el-alto:'.$codigo)
+                    ?? (SucursalNormalizer::sedeLaPaz($empleado?->sucursal) === 'El Alto' ? $empleado : null);
+            } else {
+                $empleado = $employeesByCode->get($regional.':'.$codigo) ?? $empleado;
+            }
             $nombreBiometrico = trim((string) ($row['nombre'] ?? ''));
             $apellidoBiometrico = trim((string) ($row['apellido'] ?? ''));
             $nombreCompletoBiometrico = trim((string) ($row['nombre_completo'] ?? ''));

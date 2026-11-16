@@ -2,11 +2,13 @@
 
 namespace App\Livewire;
 
-use App\Models\BiometricoDispositivo;
 use App\Models\Empleado;
+use App\Services\ConexionBiometricoService;
+use App\Services\ExtraccionBiometricoZkService;
 use App\Services\SincronizacionBiometricoService;
 use App\Support\SucursalNormalizer;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -14,33 +16,16 @@ use Livewire\Component;
 class InicioPage extends Component
 {
     public ?array $syncResult = null;
-    public ?string $lastSyncTime = null;
 
-    public function mount(): void
+    public function sincronizarBiometrico(bool $force = false): void
     {
-        $lastDeviceSync = BiometricoDispositivo::query()
-            ->whereNotNull('last_seen_at')
-            ->orderByDesc('last_seen_at')
-            ->value('last_seen_at');
-
-        if ($lastDeviceSync) {
-            $this->lastSyncTime = Carbon::parse($lastDeviceSync)->locale('es')->diffForHumans();
-        }
-    }
-
-    public function sincronizarBiometrico(bool $force = true): void
-    {
-        if (auth()->check() && !auth()->user()->can('importar biometria')) {
-            session()->flash('status_error', 'No cuentas con los permisos necesarios para sincronizar el biométrico.');
-            return;
-        }
+        abort_unless(auth()->user()?->can('importar biometria'), 403);
 
         @ini_set('max_execution_time', '300');
         @set_time_limit(300);
 
         try {
-            $service = app(SincronizacionBiometricoService::class);
-            $results = $service->sincronizarTodos($force);
+            $results = app(SincronizacionBiometricoService::class)->sincronizarTodos($force);
 
             $sincronizados = 0;
             $totalImportados = 0;
@@ -75,6 +60,7 @@ class InicioPage extends Component
 
             $this->syncResult = [
                 'success' => true,
+                'complete' => $sincronizados > 0 && $sincronizados === count($results),
                 'sincronizados' => $sincronizados,
                 'total_devices' => count($results),
                 'total_importados' => $totalImportados,
@@ -83,11 +69,6 @@ class InicioPage extends Component
                 'detalles' => $detalles,
                 'timestamp' => now()->format('H:i:s d/m/Y'),
             ];
-
-            $this->lastSyncTime = 'Hace un momento';
-
-            $mensajeExito = "Sincronización completada exitosamente. Se procesaron {$totalImportados} marcaciones ({$totalGenerados} nuevas y {$totalActualizados} registros actualizados con su salida/entrada).";
-            session()->flash('status_success', $mensajeExito);
         } catch (\Throwable $exception) {
             report($exception);
             $this->syncResult = [
@@ -99,9 +80,29 @@ class InicioPage extends Component
         }
     }
 
+    public function sincronizarHoraTrasReinicio(string $equipo): void
+    {
+        abort_unless(auth()->user()?->can('importar biometria'), 403);
+        $device = $this->dispositivosDelPanel()->get($equipo);
+        abort_if($device === null, 404);
+
+        try {
+            app(ExtraccionBiometricoZkService::class)->sincronizarReloj($device);
+        } catch (\Throwable $exception) {
+            report($exception);
+            session()->flash('status_error', 'No se pudo sincronizar la hora de '.$device['branch'].'. '.$exception->getMessage());
+        }
+    }
+
     public function cerrarResumenSync(): void
     {
         $this->syncResult = null;
+    }
+
+    private function dispositivosDelPanel(): Collection
+    {
+        return collect(app(ConexionBiometricoService::class)->dispositivosConfigurados())
+            ->keyBy(fn (array $device) => hash('sha256', $device['ip'].':'.$device['port']));
     }
 
     public function render()
@@ -131,16 +132,13 @@ class InicioPage extends Component
         $totalSucursales = count(SucursalNormalizer::optionsFromValues($sucursales));
         $hoy = Carbon::now()->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY');
 
-        if (!$this->syncResult) {
-            $lastDeviceSync = BiometricoDispositivo::query()
-                ->whereNotNull('last_seen_at')
-                ->orderByDesc('last_seen_at')
-                ->value('last_seen_at');
-
-            if ($lastDeviceSync) {
-                $this->lastSyncTime = Carbon::parse($lastDeviceSync)->locale('es')->diffForHumans();
-            }
-        }
+        $extractor = app(ExtraccionBiometricoZkService::class);
+        $relojes = $this->dispositivosDelPanel()
+            ->map(fn (array $device) => [
+                'sucursal' => $device['branch'],
+                'departamento' => $device['department'],
+                'hora' => $extractor->estadoReloj($device),
+            ]);
 
         return view('livewire.inicio', [
             'user' => $user,
@@ -152,6 +150,7 @@ class InicioPage extends Component
             'departmentStats' => $departmentStats,
             'totalSucursales' => max($totalSucursales, 9),
             'hoy' => ucfirst($hoy),
+            'relojes' => $relojes,
         ]);
     }
 }

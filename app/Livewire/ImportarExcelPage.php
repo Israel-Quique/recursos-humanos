@@ -118,7 +118,7 @@ class ImportarExcelPage extends Component
             'deviceCommunicationPassword' => ['nullable', 'string', 'max:80'],
         ], [
             'deviceDepartment.required' => 'Ingresa el departamento.',
-            'deviceBranch.required' => 'Ingresa la sucursal o nombre del biometrico.',
+            'deviceBranch.required' => 'Ingresa la sucursal del biométrico.',
             'deviceIp.required' => 'Ingresa la IP del biometrico.',
             'deviceIp.ip' => 'La IP del biometrico no tiene un formato valido.',
             'deviceIp.unique' => 'Ya existe un biometrico registrado con esa IP.',
@@ -129,7 +129,7 @@ class ImportarExcelPage extends Component
             'deviceConnectionMode.in' => 'La conexion directa disponible es TCP/IP.',
         ], [
             'deviceDepartment' => 'departamento',
-            'deviceBranch' => 'sucursal o nombre del biometrico',
+            'deviceBranch' => 'sucursal del biométrico',
             'deviceIp' => 'IP',
             'devicePort' => 'puerto',
             'deviceCommunicationPassword' => 'contrasena de comunicacion',

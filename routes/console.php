@@ -10,7 +10,7 @@ Artisan::command('inspire', function () {
 
 Artisan::command('biometrico:sync {--force : Reprocesa todas las marcaciones encontradas}', function () {
     $force = (bool) $this->option('force');
-    $results = app(\App\Services\SincronizacionBiometricoService::class)->sincronizarTodos($force);
+    $results = app(\App\Services\SincronizacionBiometricoService::class)->sincronizarTodos($force, true);
 
     if ($results === []) {
         $this->warn('No existen biometricos configurados para sincronizar.');

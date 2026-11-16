@@ -2,7 +2,9 @@
 import argparse
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import sleep, time
 
 from zk import ZK
 
@@ -58,6 +60,43 @@ def serialize_attendance(record, users_by_code):
     }
 
 
+def read_clock(conn, zone):
+    started = time()
+    clock = conn.get_time()
+    reference = datetime.fromtimestamp((started + time()) / 2, zone)
+    offset = (clock.replace(tzinfo=zone) - reference).total_seconds()
+    return {
+        "device_time": clock.isoformat(timespec="seconds"),
+        "checked_at": reference.isoformat(timespec="seconds"),
+        "offset_seconds": round(offset, 1),
+    }
+
+
+def sync_clock(conn, offset):
+    zone = timezone(timedelta(seconds=offset))
+    try:
+        clock = read_clock(conn, zone)
+    except Exception:
+        return {"status": "unavailable"}
+
+    if abs(clock["offset_seconds"]) <= 3:
+        return {**clock, "status": "in_sync"}
+
+    try:
+        # Algunos equipos aceptan el comando antes de aplicar el cambio.
+        target = datetime.now(zone).replace(tzinfo=None, microsecond=0)
+        if not conn.set_time(target):
+            return {**clock, "status": "unverified"}
+        for pause in (2, 2):
+            sleep(pause)
+            clock = read_clock(conn, zone)
+            if abs(clock["offset_seconds"]) <= 3:
+                return {**clock, "status": "adjusted"}
+    except Exception:
+        pass
+    return {**clock, "status": "unverified"}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Extrae marcaciones desde un ZKTeco y las guarda en JSON")
     parser.add_argument("--ip", required=True)
@@ -67,6 +106,7 @@ def main():
     parser.add_argument("--socket-timeout", type=int, default=30)
     parser.add_argument("--output", required=True)
     parser.add_argument("--probe-only", action="store_true")
+    parser.add_argument("--clock-offset", type=int)
     args = parser.parse_args()
     socket_timeout = max(1, min(args.socket_timeout, args.timeout))
     if args.probe_only:
@@ -127,6 +167,13 @@ def main():
                 ),
                 encoding="utf-8",
             )
+            if args.clock_offset is not None:
+                print("MARCACIONES_LISTAS", flush=True)
+                try:
+                    clock = sync_clock(conn, args.clock_offset)
+                    output_path.with_suffix(".clock.json").write_text(json.dumps(clock), encoding="utf-8")
+                except Exception:
+                    print("ZKTeco: no se pudo registrar el estado del reloj", file=sys.stderr, flush=True)
             print("OK")
             return 0
         except Exception as exc:

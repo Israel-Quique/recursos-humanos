@@ -321,9 +321,11 @@
                 </td>
                 <td>
                   <strong>{{ $row->hora_entrada }}</strong>
+                  @if($row->sede_entrada ?? null)<br>{{ $row->sede_entrada }}@endif
                 </td>
                 <td>
                   <strong>{{ $row->hora_salida }}</strong>
+                  @if($row->sede_salida ?? null)<br>{{ $row->sede_salida }}@endif
                 </td>
                 <td>{{ $row->horas_trabajadas }}</td>
                 <td>

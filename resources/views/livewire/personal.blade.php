@@ -2363,7 +2363,7 @@
               @if(filled($sucursalFiltro))
                 <button
                   type="button"
-                  wire:click="openEmailModal('{{ $sucursalFiltro }}')"
+                  wire:click="openEmailModal(@js($sucursalFiltro))"
                   class="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1 cursor-pointer"
                   title="Enviar correo solo a personal de {{ $sucursalFiltro }}"
                 >
@@ -3564,8 +3564,10 @@
             'TARIJA' => 'Tarija',
             'BENI' => 'Beni',
             'PANDO' => 'Pando',
-            'EL ALTO' => 'El Alto',
           ];
+          foreach ($sucursales as $sucursal) {
+            $deptOptions[mb_strtoupper($sucursal)] ??= $sucursal;
+          }
         @endphp
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -3580,7 +3582,7 @@
             @endphp
             <button
               type="button"
-              wire:click="seleccionarSucursal('{{ $deptKey === 'TODAS' ? '' : $deptLabel }}')"
+              wire:click="seleccionarSucursal(@js($deptKey === 'TODAS' ? '' : $deptLabel))"
               class="group relative flex items-center justify-between rounded-2xl border p-3.5 transition-all duration-200 text-left cursor-pointer {{ $isActive && $controlSearchPerformed ? 'border-[#0f67c0] bg-blue-50/90 text-blue-900 shadow-md ring-2 ring-[#0f67c0]/25' : 'border-slate-200 bg-white hover:border-[#0f67c0]/50 hover:bg-slate-50/90 hover:shadow-sm text-slate-700' }}"
             >
               <div class="flex items-center gap-3 min-w-0">
@@ -4451,7 +4453,7 @@
                   <td class="py-3 px-4 whitespace-nowrap">
                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 border border-slate-200/80 px-2.5 py-1 text-[11px] font-bold text-slate-700">
                       <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                      {{ $row->empleado?->sucursal ?? 'N/D' }}
+                      {{ $row->sucursal }}
                     </span>
                   </td>
 
@@ -4461,6 +4463,9 @@
                       <span class="font-mono font-bold text-slate-800 text-[12px] bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
                         {{ $row->hora_entrada }}
                       </span>
+                      @if($row->sede_entrada ?? null)
+                        <span class="block text-[11px] text-slate-600">{{ $row->sede_entrada }}</span>
+                      @endif
                     @else
                       <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">
                         Sin entrada
@@ -4474,6 +4479,9 @@
                       <span class="font-mono font-bold text-slate-800 text-[12px] bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
                         {{ $row->hora_salida }}
                       </span>
+                      @if($row->sede_salida ?? null)
+                        <span class="block text-[11px] text-slate-600">{{ $row->sede_salida }}</span>
+                      @endif
                     @else
                       <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                         Sin salida

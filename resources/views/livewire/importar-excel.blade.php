@@ -39,8 +39,9 @@
             @error('deviceDepartment') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
-            <label class="form-label">Sucursal o biometrico</label>
-            <input type="text" wire:model="deviceBranch" class="form-input" placeholder="Ej. Oficina Central La Paz">
+            <label class="form-label">Sucursal</label>
+            <input type="text" wire:model="deviceBranch" class="form-input" placeholder="Ej. El Alto">
+            <p class="section-copy-sm">Usa el mismo nombre para todos los equipos de esta sede.</p>
             @error('deviceBranch') <p class="form-error">{{ $message }}</p> @enderror
           </div>
           <div>
@@ -256,7 +257,8 @@
 
       @if(! empty($summary['empleados_no_registrados']))
         <div class="device-alert-box mt-6">
-          <p class="device-alert-title">Filas que no pudieron convertirse en personal automaticamente</p>
+          <p class="device-alert-title">Marcaciones pendientes de vincular con personal</p>
+          <p class="section-copy-sm">Verifica el código y el nombre completo en el padrón del reloj antes de volver a importar estas marcaciones.</p>
           <div class="device-alert-list">
             @foreach($summary['empleados_no_registrados'] as $empleadoNoRegistrado)
               <span class="device-alert-pill">{{ $empleadoNoRegistrado }}</span>

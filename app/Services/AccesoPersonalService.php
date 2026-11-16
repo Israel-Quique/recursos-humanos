@@ -51,7 +51,14 @@ class AccesoPersonalService
 
     public function habilitado(Empleado $empleado): bool
     {
-        foreach ([['persona', (string) $empleado->id], ['sucursal', SucursalNormalizer::canonicalLabel($empleado->sucursal)], ['todos', '*']] as [$tipo, $referencia]) {
+        $sucursal = SucursalNormalizer::canonicalLabel($empleado->sucursal);
+        $alcances = [['persona', (string) $empleado->id], ['sucursal', $sucursal]];
+        if ($sucursal === 'El Alto') {
+            $alcances[] = ['sucursal', 'La Paz'];
+        }
+        $alcances[] = ['todos', '*'];
+
+        foreach ($alcances as [$tipo, $referencia]) {
             $regla = DB::table('acceso_personal_reglas')->where(compact('tipo', 'referencia'))->first();
             if ($regla) {
                 return (bool) $regla->habilitado;

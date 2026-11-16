@@ -16,47 +16,29 @@ class SincronizacionBiometricoService
     ) {
     }
 
-    public function sincronizarTodos(bool $force = false): array
+    public function sincronizarTodos(bool $force = false, bool $revisarHoraProgramada = false): array
     {
         $devices = $this->conexionBiometricoService->dispositivosConfigurados();
         $results = [];
 
         foreach ($devices as $device) {
-            $results[] = $this->sincronizarDispositivo($device, $force);
+            $results[] = $this->sincronizarDispositivo($device, $force, $revisarHoraProgramada);
         }
 
         return $results;
     }
 
-    public function sincronizarDispositivo(array $device, bool $force = false): array
+    public function sincronizarDispositivo(array $device, bool $force = false, bool $revisarHoraProgramada = false): array
     {
         $storedDevice = $this->resolveStoredDevice($device);
-
-        // Pre-verificación rápida TCP para evitar esperas largas si la sucursal está apagada o sin red
-        if (! $this->conexionBiometricoService->verificarConexion($device, 1.2)['connected']) {
-            $msg = 'Dispositivo no alcanzable en la red (' . ($device['ip'] ?? '') . ':' . ($device['port'] ?? 4370) . ').';
-            if ($storedDevice) {
-                $storedDevice->forceFill([
-                    'last_error' => $msg,
-                ])->save();
-            }
-
-            return [
-                'device' => $device['branch'] ?? ($device['ip'] ?? 'Biometrico'),
-                'status' => 'offline',
-                'imported' => 0,
-                'updated' => 0,
-                'created' => 0,
-                'message' => $msg,
-            ];
-        }
 
         $syncCutoff = $force ? null : $this->resolveSyncCutoff($storedDevice);
 
         try {
             $rows = $this->extraccionBiometricoZkService->extraerMarcaciones(
                 $device,
-                max(5, (int) config('biometrico.sync_timeout', 120))
+                max(5, (int) config('biometrico.sync_timeout', 120)),
+                $revisarHoraProgramada
             );
             $newRows = $this->filterRowsAfter($rows, $syncCutoff);
             $today = now()->toDateString();

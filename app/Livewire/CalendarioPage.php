@@ -156,14 +156,9 @@ class CalendarioPage extends Component
             }
 
             if (filled($this->appliedSucursal) && $this->appliedSucursal !== 'todas') {
-                $targetKey = SucursalNormalizer::canonicalKey($this->appliedSucursal);
-                $items = array_values(array_filter($items, function ($item) use ($targetKey) {
-                    $itemBranch = $item['sucursal'] ?? '';
-                    if ($targetKey !== null) {
-                        return SucursalNormalizer::canonicalKey($itemBranch) === $targetKey;
-                    }
-                    return str_contains(strtolower($itemBranch), strtolower($this->appliedSucursal));
-                }));
+                $items = array_values(array_filter($items, fn ($item) =>
+                    collect($item['sucursales'] ?? [$item['sucursal'] ?? ''])
+                        ->contains(fn ($sucursal) => SucursalNormalizer::matches($sucursal, $this->appliedSucursal))));
             }
 
             return $items;
