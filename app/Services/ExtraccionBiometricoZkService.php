@@ -397,14 +397,14 @@ class ExtraccionBiometricoZkService
         $handle = fopen($filePath, 'wb');
         $sucursal = $device['branch'] ?? $device['department'] ?? '';
         $regional = SucursalNormalizer::canonicalKey($sucursal) ?? Str::slug($sucursal);
-        $esElAlto = SucursalNormalizer::sedeLaPaz($sucursal) === 'El Alto';
+        $padronCompartido = SucursalNormalizer::sedeLaPaz($sucursal) !== null;
         $employeesByCode = Empleado::query()
             ->whereNotNull('codigo_biometrico')
             ->when(filled($sucursal), fn($query) =>
-                $query->where(function ($query) use ($sucursal, $esElAlto) {
-                    SucursalNormalizer::applyFilter($query, 'sucursal', $sucursal);
-                    if ($esElAlto) {
-                        $query->orWhere('codigo_biometrico', 'like', 'el-alto:%');
+                $query->where(function ($query) use ($sucursal, $padronCompartido) {
+                    SucursalNormalizer::applyFilter($query, 'sucursal', $padronCompartido ? 'La Paz' : $sucursal);
+                    if ($padronCompartido) {
+                        $query->orWhere(fn ($q) => SucursalNormalizer::applyFilter($q, 'sucursal', 'El Alto'));
                     }
                 }))
             ->get()
@@ -421,9 +421,8 @@ class ExtraccionBiometricoZkService
             $fechaHora = Carbon::parse((string) ($row['fecha_hora'] ?? now()->toIso8601String()));
             $codigo = trim((string) ($row['codigo'] ?? ''));
             $empleado = $employeesByCode->get($codigo);
-            if ($esElAlto) {
-                $empleado = $employeesByCode->get('el-alto:'.$codigo)
-                    ?? (SucursalNormalizer::sedeLaPaz($empleado?->sucursal) === 'El Alto' ? $empleado : null);
+            if ($padronCompartido) {
+                $empleado ??= $employeesByCode->get('la-paz:'.$codigo) ?? $employeesByCode->get('el-alto:'.$codigo);
             } else {
                 $empleado = $employeesByCode->get($regional.':'.$codigo) ?? $empleado;
             }

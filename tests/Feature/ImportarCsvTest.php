@@ -59,28 +59,27 @@ class ImportarCsvTest extends TestCase
         $this->assertSame('El Alto', $empleado->fresh()->sucursal);
     }
 
-    public function test_un_codigo_repetido_en_el_alto_no_completa_la_jornada_de_otra_persona(): void
+    public function test_el_codigo_compartido_identifica_la_misma_persona_aunque_el_reloj_use_otro_nombre(): void
     {
         $service = app(ImportacionBiometricaService::class);
         $laPaz = ['department' => 'La Paz', 'branch' => 'Oficina Central La Paz'];
         $elAlto = ['department' => 'La Paz', 'branch' => 'El Alto'];
         $service->importarMarcacionesBiometrico($laPaz, [
-            ['codigo' => '10', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => '2026-10-01T08:30:00', 'punch' => '0'],
+            ['codigo' => '6033581', 'nombre' => 'GONZALES G.', 'apellido' => 'CRISTIAN', 'fecha_hora' => '2026-10-01T08:30:00', 'punch' => '0'],
         ]);
         $service->importarMarcacionesBiometrico($elAlto, [
-            ['codigo' => '10', 'nombre' => 'Juan', 'apellido' => 'Paz', 'fecha_hora' => '2026-10-01T16:30:00', 'punch' => '1'],
-            ['codigo' => '20', 'nombre' => 'Ana', 'apellido' => 'Flores', 'fecha_hora' => '2026-10-01T09:00:00', 'punch' => '0'],
+            ['codigo' => '6033581', 'nombre' => 'Cristiang', 'fecha_hora' => '2026-10-01T16:30:00', 'punch' => '1'],
         ]);
 
-        $ana = Empleado::query()->where('codigo_biometrico', '10')->sole();
-        $juan = Empleado::query()->where('codigo_biometrico', 'el-alto:10')->sole();
-        $this->assertSame('La Paz', $ana->sucursal);
-        $this->assertSame('El Alto', $juan->sucursal);
-        $this->assertNull($ana->asistencias()->sole()->hora_salida);
-        $this->assertNull($juan->asistencias()->sole()->hora_entrada);
+        $cristian = Empleado::query()->sole();
+        $this->assertSame('6033581', $cristian->codigo_biometrico);
+        $this->assertSame('GONZALES G. CRISTIAN', $cristian->nombre_completo);
+        $this->assertSame('08:30:00', $cristian->asistencias()->sole()->hora_entrada);
+        $this->assertSame('16:30:00', $cristian->asistencias()->sole()->hora_salida);
+        $this->assertEquals(['08:30:00' => 'La Paz', '16:30:00' => 'El Alto'], $cristian->asistencias()->sole()->sedes_biometricas);
     }
 
-    public function test_exportar_e_importar_el_alto_vincula_abreviaturas_y_deja_pendientes_los_codigos_dudosos(): void
+    public function test_exportar_e_importar_el_alto_resuelve_codigos_del_padron_compartido_incluso_sin_nombre(): void
     {
         $campos = ['area' => 'Operaciones', 'hora_entrada_programada' => '08:30:00', 'fecha_contratacion' => '2026-01-01'];
         $adriana = Empleado::query()->create([
@@ -113,11 +112,28 @@ class ImportarCsvTest extends TestCase
         }
 
         $this->assertSame(2, Empleado::query()->count());
-        $this->assertSame('08:30:00', $adriana->asistencias()->sole()->hora_entrada);
-        $this->assertNull($adriana->asistencias()->sole()->hora_salida);
+        $this->assertSame('08:30:00', $adriana->asistencias()->whereDate('fecha', '2026-10-01')->sole()->hora_entrada);
+        $this->assertSame('16:30:00', $adriana->asistencias()->whereDate('fecha', '2026-10-01')->sole()->hora_salida);
+        $this->assertSame('08:30:00', $adriana->asistencias()->whereDate('fecha', '2026-10-02')->sole()->hora_entrada);
         $this->assertSame('16:30:00', $luis->asistencias()->sole()->hora_salida);
-        $this->assertSame(3, $importacion->resumen_json['marcas_omitidas']);
-        $this->assertEqualsCanonicalizing(['OTROALIAS (10)', 'Codigo 10', 'Codigo 99'], $importacion->resumen_json['empleados_no_registrados']);
+        $this->assertSame(1, $importacion->resumen_json['marcas_omitidas']);
+        $this->assertSame(['Codigo 99'], $importacion->resumen_json['empleados_no_registrados']);
+    }
+
+    public function test_un_alias_creado_primero_en_el_alto_se_completa_con_el_nombre_del_reloj_de_la_paz(): void
+    {
+        $service = app(ImportacionBiometricaService::class);
+        $service->importarMarcacionesBiometrico(['branch' => 'El Alto'], [
+            ['codigo' => '6033581', 'nombre' => 'Cristiang', 'fecha_hora' => '2026-10-01T08:30:00', 'punch' => '0'],
+        ]);
+        $service->importarMarcacionesBiometrico(['branch' => 'La Paz'], [
+            ['codigo' => '6033581', 'nombre' => 'GONZALES G.', 'apellido' => 'CRISTIAN', 'fecha_hora' => '2026-10-01T16:30:00', 'punch' => '1'],
+        ]);
+
+        $empleado = Empleado::sole();
+        $this->assertSame('6033581', $empleado->codigo_biometrico);
+        $this->assertSame('GONZALES G. CRISTIAN', $empleado->nombre_completo);
+        $this->assertEquals(['08:30:00' => 'El Alto', '16:30:00' => 'La Paz'], $empleado->asistencias()->sole()->sedes_biometricas);
     }
 
     public function test_importar_pando_no_asigna_marcaciones_al_empleado_de_oruro_con_el_mismo_codigo(): void

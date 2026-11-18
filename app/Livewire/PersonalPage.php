@@ -1041,6 +1041,7 @@ class PersonalPage extends Component
             $matchingCollectionQuery = Empleado::query()
                 ->withUltimaMarcacion()
                 ->withTrashed()
+                ->whereNull('unificado_en_id')
                 ->where(function ($q) use ($searchOperator, $term) {
                     $q->where('codigo_biometrico', $searchOperator, $term)
                         ->orWhere('nombre', $searchOperator, $term)
@@ -1684,7 +1685,7 @@ class PersonalPage extends Component
         $empleadosQuery = Empleado::query()->withUltimaMarcacion();
 
         if ($modo === 'personal' && $this->selectedMarcacionesEmpleadoId) {
-            $empleadosQuery->withTrashed()->where('id', $this->selectedMarcacionesEmpleadoId);
+            $empleadosQuery->withTrashed()->whereNull('unificado_en_id')->where('id', $this->selectedMarcacionesEmpleadoId);
         } elseif ($modo === 'sucursal') {
             $sucursalTarget = filled($this->appliedMarcacionesSucursal) && $this->appliedMarcacionesSucursal !== 'todas'
                 ? $this->appliedMarcacionesSucursal
@@ -1712,7 +1713,7 @@ class PersonalPage extends Component
             }
 
             $empIds = $regEmpQuery->distinct('empleado_id')->pluck('empleado_id');
-            $empleados = Empleado::withTrashed()->whereIn('id', $empIds)->orderBy('sucursal')->orderBy('nombre')->get();
+            $empleados = Empleado::withTrashed()->whereNull('unificado_en_id')->whereIn('id', $empIds)->orderBy('sucursal')->orderBy('nombre')->get();
         }
 
         if ($empleados->isEmpty()) {

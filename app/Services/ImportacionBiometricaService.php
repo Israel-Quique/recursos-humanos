@@ -239,6 +239,9 @@ class ImportacionBiometricaService
         $empleadosByNombre = [];
 
         foreach (Empleado::query()->withTrashed()->get() as $emp) {
+            if ($emp->unificado_en_id) {
+                continue;
+            }
             $c = trim((string) $emp->codigo_biometrico);
             if ($c !== '') {
                 $empleadosByCodigo[$c] = $emp;
@@ -602,21 +605,24 @@ class ImportacionBiometricaService
         $sucursalMarca = $this->resolverSucursal($datosOriginales);
         $sucursalConocida = $sucursalMarca !== 'Sin sucursal asignada';
         $sedeLaPaz = SucursalNormalizer::sedeLaPaz($sucursalMarca);
-        $esElAlto = $sedeLaPaz === 'El Alto';
-        $claveSucursal = SucursalNormalizer::canonicalKey($sucursalMarca) ?? Str::slug($sucursalMarca);
+        if ($sedeLaPaz) {
+            $codigo = preg_replace('/^(?:la-paz|el-alto):/', '', $codigo);
+            $mark['codigo'] = $codigo;
+        }
+        $claveSucursal = $sedeLaPaz ? 'la-paz' : (SucursalNormalizer::canonicalKey($sucursalMarca) ?? Str::slug($sucursalMarca));
         $codigoSede = $sucursalConocida && $codigo !== '' && $claveSucursal !== '' ? $claveSucursal.':'.$codigo : $codigo;
-        $codigoRegional = $esElAlto && $codigo !== '' ? 'la-paz:'.$codigo : $codigoSede;
 
         $empleado = null;
 
         if ($codigo !== '') {
-            $empleado = $empleadosByCodigo[$codigoSede] ?? $empleadosByCodigo[$codigoRegional] ?? $empleadosByCodigo[$codigo] ?? null;
-        }
-
-        if ($esElAlto && $normNombre === '' && $empleado
-            && $empleado->codigo_biometrico !== $codigoSede
-            && SucursalNormalizer::sedeLaPaz($empleado->sucursal) !== 'El Alto') {
-            return ['empleado' => null, 'created' => false];
+            $empleado = $empleadosByCodigo[$codigoSede] ?? $empleadosByCodigo[$codigo] ?? null;
+            if ($sedeLaPaz) {
+                // La Paz y El Alto comparten el padrón. El código identifica a la persona.
+                $empleado = collect([$codigo, 'la-paz:'.$codigo, 'el-alto:'.$codigo])
+                    ->map(fn (string $key) => $empleadosByCodigo[$key] ?? null)
+                    ->first(fn (?Empleado $candidate) => $candidate && SucursalNormalizer::sedeLaPaz($candidate->sucursal))
+                    ?? $empleado;
+            }
         }
 
         // Las dos sedes de La Paz pueden completar la jornada de la misma persona.
@@ -626,28 +632,13 @@ class ImportacionBiometricaService
             && filled($empleado->sucursal) && $empleado->sucursal !== 'Sin sucursal asignada'
             && !$mismaRegional($empleado);
 
-        // En la regional compartida, un mismo código local puede pertenecer a dos personas.
-        $codigoConOtroNombre = $sedeLaPaz && $empleado && $normNombre !== ''
-            && $this->normalizarTexto($empleado->nombre_completo) !== $normNombre;
-
-        if (!$empleado || $codigoDeOtraSucursal || $codigoConOtroNombre) {
-            $empleadoPorCodigo = $empleado;
+        if (!$empleado || $codigoDeOtraSucursal) {
             $candidatos = collect($empleadosByNombre[$normNombre] ?? [])
                 ->filter(fn (Empleado $candidate) => !$sucursalConocida || $mismaRegional($candidate));
             $empleado = $candidatos->count() === 1 ? $candidatos->first() : null;
 
             if (!$empleado && $candidatos->count() > 1) {
                 return ['empleado' => null, 'created' => false];
-            }
-
-            // Este reloj también guarda nombres abreviados en un solo campo.
-            if (!$empleado && $esElAlto && $empleadoPorCodigo && $normNombre !== ''
-                && !str_contains($normNombre, ' ')) {
-                if ($codigoDeOtraSucursal || !$this->coincideNombreAbreviado($normNombre, $empleadoPorCodigo)) {
-                    return ['empleado' => null, 'created' => false];
-                }
-
-                $empleado = $empleadoPorCodigo;
             }
         }
 
@@ -671,7 +662,7 @@ class ImportacionBiometricaService
 
         // La tabla usa codigos unicos globales; los relojes usan codigos locales.
         // El código repetido usa un prefijo de la regional o sede del reloj.
-        if ($codigoDeOtraSucursal || $codigoConOtroNombre) {
+        if ($codigoDeOtraSucursal) {
             if ($sedeLaPaz && isset($empleadosByCodigo[$codigoSede])) {
                 return ['empleado' => null, 'created' => false];
             }
@@ -695,38 +686,15 @@ class ImportacionBiometricaService
         ];
     }
 
-    private function coincideNombreAbreviado(string $alias, Empleado $empleado): bool
-    {
-        $partes = explode(' ', $this->normalizarTexto($empleado->nombre_completo));
-        if (strlen($partes[0]) >= 4 && str_starts_with($alias, $partes[0])
-            && str_starts_with(implode('', $partes), $alias)) {
-            return true;
-        }
-
-        // El padrón también puede registrar los apellidos antes de los nombres.
-        foreach ($partes as $indice => $parte) {
-            if (strlen($parte) < 4 || !str_starts_with($alias, $parte)) {
-                continue;
-            }
-
-            $resto = substr($alias, strlen($parte));
-            foreach ($partes as $otroIndice => $otraParte) {
-                if ($otroIndice !== $indice && $otraParte !== ''
-                    && ($resto === $otraParte || $resto === $otraParte[0])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private function resolverEmpleado(array $mark, ?User $usuario = null): array
     {
         $dummyCodigo = [];
         $dummyNombre = [];
 
         foreach (Empleado::query()->withTrashed()->get() as $emp) {
+            if ($emp->unificado_en_id) {
+                continue;
+            }
             $c = trim((string) $emp->codigo_biometrico);
             if ($c !== '') {
                 $dummyCodigo[$c] = $emp;
@@ -1422,6 +1390,11 @@ class ImportacionBiometricaService
         $payload = [];
         $codigo = trim((string) ($mark['codigo'] ?? ''));
         $sucursal = $this->resolverSucursal($fila);
+        $nombreCompleto = $this->nombreCompletoDesdeFila($fila);
+        if (SucursalNormalizer::sedeLaPaz($sucursal) && $empleado->apellido === 'Sin apellido'
+            && str_contains($nombreCompleto, ' ')) {
+            $payload += $this->separarNombreApellido($nombreCompleto);
+        }
 
         if ($codigo !== '' && blank($empleado->codigo_biometrico)
             && !Empleado::query()->withTrashed()->where('codigo_biometrico', $codigo)->whereKeyNot($empleado->id)->exists()) {
